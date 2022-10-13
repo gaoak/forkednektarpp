@@ -1,10 +1,16 @@
 #include <vector>
 #include <string>
 
+#include "MemRef.hpp"
+
 // Device options
 struct DeviceCPU;
-struct DeviceGPU;
+struct DeviceCUDA;
+#if NEKTAR_USE_CUDA
+using DefaultDevice = DeviceCUDA;
+#else
 using DefaultDevice = DeviceCPU;
+#endif
 
 // State options
 struct StatePhys;
@@ -13,38 +19,30 @@ using DefaultState = StatePhys;
 
 struct CollectionInfo {
     size_t offset;
+    // other polynomial order stuff
 };
 
 struct VariableInfo {
     std::string name;
 };
 
-template<typename TState = DefaultState, typename TType = double>
-class Field {
+template<typename TType = double, typename TState = DefaultState, typename tBackend = DefaultBackend>
+class Field
+{
     public:
         Field();
         Field(const Field&) = default;
         ~Field();
 
-        bool IsOnDevice() {
-            return on_device;
+        MemRef<TType, tBackend> &GetStorage()
+        {
+            return m_storage;
         }
 
     private:
-        TType* data_h = nullptr;  // host
-        TType* data_d = nullptr;  // device
-        bool on_device = false;   // true = data is on the device
+        MemRef<TType, tBackend> m_storage;
 
         std::vector<CollectionInfo> coll_info;
         size_t nvar;
         std::vector<VariableInfo> var_info;
-
-        void HostToDevice() {
-
-        }
-
-        void DeviceToHost() {
-
-        }
-
 };
