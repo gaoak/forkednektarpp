@@ -4,7 +4,7 @@
 #include <typeinfo>
 using namespace std;
 
-#include "Operator.hpp"
+#include "OperatorBwdTrans.hpp"
 
 int main() {
     using DefaultMethod = MethodLocMat;

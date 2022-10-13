@@ -1,6 +1,7 @@
 #include <memory>
 #include <iostream>
 
+#include "NekFactory.hpp"
 #include "Field.hpp"
 
 typedef double NekDouble;
@@ -12,7 +13,7 @@ struct OpPhysDeriv;
 struct MethodLocMat;
 struct MethodSumFac;
 struct MethodMatFree;
-using DefaultMethod = MethodSumFac;
+using DefaultMethod = MethodLocMat;
 
 // Base class
 template<typename TData>
@@ -22,6 +23,14 @@ class OperatorBase
         virtual void apply(TData in, TData out) = 0;
 };
 
+using namespace Nektar::LibUtilities;
+
+template<typename TData>
+using OperatorFactory = NekFactory<std::string, OperatorBase<TData>>;
+
+template<typename TData>
+OperatorFactory<TData> &GetOperatorFactory();
+
 // Templated Operator
 template<typename TData,
          typename TOp,
@@ -29,40 +38,4 @@ template<typename TData,
          typename TDevice = DefaultDevice>
 class Operator;
 
-
-template<typename TData>
-class Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU> 
-    : public OperatorBase<TData>
-{
-public:
-    using ClassType = Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>;
-
-    static std::unique_ptr<ClassType> create()
-    {
-        return std::unique_ptr<ClassType>(new ClassType());
-    }
-
-    void apply(TData in, TData out) override
-    {
-        std::cout << "Perform BwdTrans op with LocMat" << std::endl;
-    }
-};
-
-template<typename TData>
-class Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU> 
-    : public OperatorBase<TData>
-{
-public:
-    using ClassType = Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>;
-
-    static std::unique_ptr<ClassType> create()
-    {
-        return std::unique_ptr<ClassType>(new ClassType());
-    }
-
-    void apply(TData in, TData out)
-    {
-        std::cout << "Perform BwdTrans op with MatFree" << std::endl;
-    }
-};
 
