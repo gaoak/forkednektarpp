@@ -7,14 +7,18 @@ class MemoryRegion<tData, BackendCPU>
 public:
     MemoryRegion() = default;
     MemoryRegion(const MemoryRegion &rhs) = delete;
-    MemoryRegion(MemoryRegion &&rhs) {
+
+    MemoryRegion(MemoryRegion &&rhs)
+    {
         m_host = rhs.m_host;
         rhs.m_host = nullptr;
     }
+
     MemoryRegion(size_t n)
     {
         m_host = new tData[n];
     }
+
     ~MemoryRegion()
     {
         if (m_host != nullptr)
@@ -24,7 +28,8 @@ public:
         }
     }
 
-    void operator=(MemoryRegion &&rhs) {
+    void operator=(MemoryRegion &&rhs)
+    {
         m_host = rhs.m_host;
         rhs.m_host = nullptr;
     }

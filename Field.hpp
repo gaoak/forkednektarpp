@@ -4,15 +4,9 @@
 #include "MemoryRegion.hpp"
 #include "MemoryRegionCPU.hpp"
 
-// Device options
-struct DeviceCPU;
-struct DeviceCUDA;
-
 #if NEKTAR_USE_CUDA
-using DefaultDevice = DeviceCUDA;
 #include "MemoryRegionCUDA.hpp"
 #else
-using DefaultDevice = DeviceCPU;
 #endif
 
 // State options
@@ -35,7 +29,7 @@ template<typename TType = double, typename TState = DefaultState, typename TBack
 class Field
 {
     public:
-        Field(std::vector<BlockAttributes> &blocks) : block_attributes(blocks)
+        Field(std::vector<BlockAttributes> &blocks, int num_components = 1) : block_attributes(blocks)
         {
             size_t storage_size = 0;
             for (int i = 0; i < blocks.size(); ++i)
@@ -45,7 +39,7 @@ class Field
                 storage_size += blockSize;
             }
 
-            m_storage = std::move(MemoryRegion<TType, TBackend>(storage_size));
+            m_storage = MemoryRegion<TType, TBackend>(storage_size * num_components);
         }
         Field(const Field&) = delete;
         ~Field() = default;

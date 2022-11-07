@@ -1,14 +1,16 @@
+#pragma once
+
 // Specialisations for CPU-based BwdTrans implementations
 
 #include "Operator.hpp"
 
 // BwdTrans local matrix operator
 template<typename TData>
-class Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>
-    : public OperatorBase<Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>, TData, StateCoeff, StatePhys>
+class Operator<TData, OpBwdTrans, MethodLocMat, BackendCPU>
+    : public OperatorBase<Operator<TData, OpBwdTrans, MethodLocMat, BackendCPU>, TData, StateCoeff, StatePhys>
 {
 public:
-    using ClassType = Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>;
+    using ClassType = Operator<TData, OpBwdTrans, MethodLocMat, BackendCPU>;
 
 /*
     static std::unique_ptr<ClassType> create()
@@ -17,7 +19,7 @@ public:
     }
 */
 
-    void apply_impl(Field<TData, StateCoeff> &in, Field<TData, StatePhys> &out)
+    void apply_impl(Field<TData, StateCoeff, BackendCPU> &in, Field<TData, StatePhys, BackendCPU> &out)
     {
         std::cout << "Perform BwdTrans op with LocMat" << std::endl;
     }
@@ -25,11 +27,11 @@ public:
 
 // BwdTrans mat-free operator
 template<typename TData>
-class Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>
-    : public OperatorBase<Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>, TData, StateCoeff, StatePhys>
+class Operator<TData, OpBwdTrans, MethodMatFree, BackendCPU>
+    : public OperatorBase<Operator<TData, OpBwdTrans, MethodMatFree, BackendCPU>, TData, StateCoeff, StatePhys>
 {
 public:
-    using ClassType = Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>;
+    using ClassType = Operator<TData, OpBwdTrans, MethodMatFree, BackendCPU>;
 
 /*
     static std::unique_ptr<ClassType> create()
@@ -38,7 +40,7 @@ public:
     }
 */
 
-    void apply_impl(Field<TData, StateCoeff> &in, Field<TData, StatePhys> &out)
+    void apply_impl(Field<TData, StateCoeff, BackendCPU> &in, Field<TData, StatePhys, BackendCPU> &out)
     {
         std::cout << "Perform BwdTrans op with MatFree" << std::endl;
 
@@ -46,7 +48,7 @@ public:
         // size_t nElmt = 1000;
         // size_t nVW   = 4;
         // size_t nGrpsQ = nElmt / nVW;
-        // auto o = OpKernel<TData, OpBwdTrans, MethodLocMat, DeviceCPU, NQ0, NQ1, NP0, NP1>
+        // auto o = OpKernel<TData, OpBwdTrans, MethodLocMat, BackendCPU, NQ0, NQ1, NP0, NP1>
         // for (int i = 0; i < nGrpsQ; ++i) {
             
         // }

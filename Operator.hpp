@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <iostream>
 
@@ -7,7 +9,7 @@
 typedef double NekDouble;
 
 struct OpBwdTrans;
-struct OpIProductWRTBase;
+struct OpIProduct;
 struct OpPhysDeriv;
 
 struct MethodLocMat;
@@ -50,5 +52,5 @@ OperatorFactory<TData> &GetOperatorFactory();
 template<typename TData,
          typename TOp,
          typename TMethod = DefaultMethod,
-         typename TDevice = DefaultDevice>
+         typename TBackend = DefaultBackend>
 class Operator;
