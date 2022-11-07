@@ -1,14 +1,10 @@
+#pragma once
 #include "MemRef.hpp"
-#include <cuda.h>
 
 template<typename tData>
-class MemRef<tData, BackendCUDA>;
+class MemRef<tData, BackendCUDA>
 {
-    MemRef(size_t n)
-    {
-        m_host = new tData[n];
-        m_device = cudaMalloc(sizeof(tData) * n);
-    }
+    MemRef(size_t n);
 
     double *m_host = nullptr;
     double *m_device = nullptr;

@@ -1,11 +1,10 @@
+#pragma once
 #include "MemRef.hpp"
 
-template<typename tData, typename tBackend = DefaultMemRef>
-class MemRef;
-
 template<typename tData>
-class MemRef<tData, BackendCPU>;
+class MemRef<tData, BackendCPU>
 {
+public:
     MemRef(size_t n)
     {
         m_host = new tData[n];

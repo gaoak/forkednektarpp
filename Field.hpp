@@ -2,12 +2,15 @@
 #include <string>
 
 #include "MemRef.hpp"
+#include "MemRefCPU.hpp"
 
 // Device options
 struct DeviceCPU;
 struct DeviceCUDA;
+
 #if NEKTAR_USE_CUDA
 using DefaultDevice = DeviceCUDA;
+#include "MemRefCUDA.hpp"
 #else
 using DefaultDevice = DeviceCPU;
 #endif
@@ -30,9 +33,11 @@ template<typename TType = double, typename TState = DefaultState, typename tBack
 class Field
 {
     public:
-        Field();
+        Field() : m_storage(10)
+        {
+        }
         Field(const Field&) = default;
-        ~Field();
+        ~Field() = default;
 
         MemRef<TType, tBackend> &GetStorage()
         {

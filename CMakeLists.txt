@@ -7,6 +7,7 @@ set(SRC main.cpp Operator.cpp)
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
+    add_definitions(-DNEKTAR_USE_CUDA)
     set(SRC ${SRC} Operator.cu)
 endif()
 

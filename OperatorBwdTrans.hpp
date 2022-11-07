@@ -4,18 +4,20 @@
 
 // BwdTrans local matrix operator
 template<typename TData>
-class Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU> 
-    : public OperatorBase<TData>
+class Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>
+    : public OperatorBase<Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>, TData, StateCoeff, StatePhys>
 {
 public:
     using ClassType = Operator<TData, OpBwdTrans, MethodLocMat, DeviceCPU>;
 
+/*
     static std::unique_ptr<ClassType> create()
     {
         return std::unique_ptr<ClassType>(new ClassType());
     }
+*/
 
-    void apply(TData in, TData out) override
+    void apply_impl(Field<TData, StateCoeff> &in, Field<TData, StatePhys> &out)
     {
         std::cout << "Perform BwdTrans op with LocMat" << std::endl;
     }
@@ -23,18 +25,20 @@ public:
 
 // BwdTrans mat-free operator
 template<typename TData>
-class Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU> 
-    : public OperatorBase<TData>
+class Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>
+    : public OperatorBase<Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>, TData, StateCoeff, StatePhys>
 {
 public:
     using ClassType = Operator<TData, OpBwdTrans, MethodMatFree, DeviceCPU>;
 
+/*
     static std::unique_ptr<ClassType> create()
     {
         return std::unique_ptr<ClassType>(new ClassType());
     }
+*/
 
-    void apply(TData in, TData out)
+    void apply_impl(Field<TData, StateCoeff> &in, Field<TData, StatePhys> &out)
     {
         std::cout << "Perform BwdTrans op with MatFree" << std::endl;
 
