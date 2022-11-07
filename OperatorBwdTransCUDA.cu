@@ -21,8 +21,11 @@ inline void cudaAssert(cudaError_t cErr, const char *file, int line)
 __global__
 void dodouble(int n, double *x, double *y)
 {
-  //if (i < n) y[i] = 2.0*x[i];
-  for (int i = 0; i < n; ++i) y[i] = 2.0;
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i < n)
+    {
+        y[i] = 2.0*x[i];
+    }
 }
 
 template<typename TData>
@@ -37,11 +40,12 @@ void Operator<TData, OpBwdTrans, MethodLocMat, BackendCUDA>::apply_impl(
 
     if (!storage_in.GetOnDevice())
     {
-        std::cout << "doing host to device" << std::endl;
         storage_in.HostToDevice();
     }
 
-    dodouble<<<1,1>>>(storage_in.m_size, in_ptr, out_ptr);
+    int N = storage_in.m_size;
+
+    dodouble<<<(N + 255) / 256, 256>>>(N, in_ptr, out_ptr);
     cudaErrChk(cudaPeekAtLastError());
 
     cudaDeviceSynchronize();

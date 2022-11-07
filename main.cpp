@@ -30,9 +30,8 @@ int main() {
     auto &inptr = in.GetStorage();
     for (int i = 0; i < inptr.m_size; ++i)
     {
-        inptr.m_host[i] = 1.0;
+        inptr.m_host[i] = 2.0;
     }
-    std::cout << inptr.m_host[0] << std::endl;
 
     auto test2 = std::make_shared<Operator<double, OpBwdTrans, MethodLocMat, BackendCUDA>>();
     auto test = std::dynamic_pointer_cast<OperatorBase<Operator<double, OpBwdTrans, MethodLocMat, BackendCUDA>, double, StateCoeff, StatePhys>>(test2);
@@ -40,7 +39,18 @@ int main() {
 
     auto &outptr = out.GetStorage();
     outptr.DeviceToHost();
-    std::cout << outptr.m_host[0] << std::endl;
+
+    bool isClose = true;
+    for (int i = 0; i < inptr.m_size; ++i)
+    {
+        if (abs(2.0*inptr.m_host[i] - outptr.m_host[i]) > 1e-10)
+        {
+            std::cout << 2.0*inptr.m_host[i] << " " << outptr.m_host[i] << std::endl;
+            isClose = false;
+            break;
+        }
+    }
+    std::cout << "Vectors are close: " << (isClose ? "yes" : "no") << std::endl;
 
 /*
     auto test3 = std::make_shared<Operator<double, OpIProduct>>();
