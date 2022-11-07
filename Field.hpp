@@ -20,34 +20,45 @@ struct StatePhys;
 struct StateCoeff;
 using DefaultState = StatePhys;
 
-struct CollectionInfo {
-    size_t offset;
-    // other polynomial order stuff
+enum ShapeType {
+    eQuadrilateral,
+    eTriangle
 };
 
-struct VariableInfo {
-    std::string name;
+struct BlockAttributes {
+    ShapeType shape;
+    std::array<int, 3> dofs;
+    size_t num_elements;
 };
 
 template<typename TType = double, typename TState = DefaultState, typename tBackend = DefaultBackend>
 class Field
 {
     public:
-        Field() : m_storage(10)
+        Field(std::vector<BlockAttributes> &blocks) : block_attributes(blocks), m_storage(blocks.size())
         {
+            for (int i = 0; i < blocks.size(); ++i)
+            {
+                auto &block = blocks[i];
+                size_t blockSize = block.num_elements * block.dofs[0] * block.dofs[1] * block.dofs[2]; // wasteful but an upper bound
+                m_storage[i] = MemRef<TType, tBackend>(blockSize);
+            }
         }
         Field(const Field&) = default;
         ~Field() = default;
 
-        MemRef<TType, tBackend> &GetStorage()
+        MemRef<TType, tBackend> &GetStorage(size_t i)
         {
-            return m_storage;
+            return m_storage[i];
+        }
+
+        size_t GetNumComponents()
+        {
+            return component_names.size();
         }
 
     private:
-        MemRef<TType, tBackend> m_storage;
-
-        std::vector<CollectionInfo> coll_info;
-        size_t nvar;
-        std::vector<VariableInfo> var_info;
+        std::vector<MemRef<TType, tBackend>> m_storage;
+        std::vector<BlockAttributes> block_attributes;
+        std::vector<std::string> component_names;
 };

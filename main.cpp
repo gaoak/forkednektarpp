@@ -1,3 +1,4 @@
+
 #include <boost/core/demangle.hpp>
 
 #include <iostream>
@@ -10,8 +11,10 @@ int main() {
     using DefaultMethod = MethodLocMat;
     using TData = double;
 
-    Field<double, StateCoeff> in;
-    Field<double, StatePhys> out;
+    std::vector<BlockAttributes> blocks = { {eQuadrilateral, {4, 4, 4}, 100} };
+
+    Field<double, StateCoeff> in(blocks);
+    Field<double, StatePhys> out(blocks);
 
     auto test2 = std::make_shared<Operator<double, OpBwdTrans>>();
     auto test = std::dynamic_pointer_cast<OperatorBase<Operator<double, OpBwdTrans>, double, StateCoeff, StatePhys>>(test2);

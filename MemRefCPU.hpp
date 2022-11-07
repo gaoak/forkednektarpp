@@ -5,6 +5,7 @@ template<typename tData>
 class MemRef<tData, BackendCPU>
 {
 public:
+    MemRef() {}
     MemRef(size_t n)
     {
         m_host = new tData[n];
