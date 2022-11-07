@@ -10,4 +10,4 @@ using DefaultBackend = BackendCPU;
 #endif
 
 template<typename tData, typename tBackend = DefaultBackend>
-class MemRef;
+class MemoryRegion;

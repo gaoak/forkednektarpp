@@ -1,8 +1,8 @@
 #include <vector>
 #include <string>
 
-#include "MemRef.hpp"
-#include "MemRefCPU.hpp"
+#include "MemoryRegion.hpp"
+#include "MemoryRegionCPU.hpp"
 
 // Device options
 struct DeviceCPU;
@@ -10,7 +10,7 @@ struct DeviceCUDA;
 
 #if NEKTAR_USE_CUDA
 using DefaultDevice = DeviceCUDA;
-#include "MemRefCUDA.hpp"
+#include "MemoryRegionCUDA.hpp"
 #else
 using DefaultDevice = DeviceCPU;
 #endif
@@ -31,26 +31,31 @@ struct BlockAttributes {
     size_t num_elements;
 };
 
-template<typename TType = double, typename TState = DefaultState, typename tBackend = DefaultBackend>
+template<typename TType = double, typename TState = DefaultState, typename TBackend = DefaultBackend>
 class Field
 {
     public:
-        Field(std::vector<BlockAttributes> &blocks) : block_attributes(blocks), m_storage(blocks.size())
+        Field(std::vector<BlockAttributes> &blocks) : block_attributes(blocks)
         {
+            size_t storage_size = 0;
             for (int i = 0; i < blocks.size(); ++i)
             {
                 auto &block = blocks[i];
                 size_t blockSize = block.num_elements * block.dofs[0] * block.dofs[1] * block.dofs[2]; // wasteful but an upper bound
-                m_storage[i] = MemRef<TType, tBackend>(blockSize);
+                storage_size += blockSize;
             }
+
+            m_storage = std::move(MemoryRegion<TType, TBackend>(storage_size));
         }
-        Field(const Field&) = default;
+        Field(const Field&) = delete;
         ~Field() = default;
 
-        MemRef<TType, tBackend> &GetStorage(size_t i)
+/*
+        MemoryRegion<TType, tBackend> &GetStorage(size_t i)
         {
             return m_storage[i];
         }
+*/
 
         size_t GetNumComponents()
         {
@@ -58,7 +63,8 @@ class Field
         }
 
     private:
-        std::vector<MemRef<TType, tBackend>> m_storage;
+        MemoryRegion<TType, TBackend> m_storage;
+        //std::vector<MemoryView<TType>> m_views;
         std::vector<BlockAttributes> block_attributes;
         std::vector<std::string> component_names;
 };
