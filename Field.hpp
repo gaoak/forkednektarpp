@@ -44,12 +44,10 @@ class Field
         Field(const Field&) = delete;
         ~Field() = default;
 
-/*
-        MemoryRegion<TType, tBackend> &GetStorage(size_t i)
+        MemoryRegion<TType, TBackend> &GetStorage()
         {
-            return m_storage[i];
+            return m_storage;
         }
-*/
 
         size_t GetNumComponents()
         {
