@@ -10,4 +10,6 @@ OperatorFactory<TData> &GetOperatorFactory()
     return instance;
 }
 
+template OperatorFactory<double> &GetOperatorFactory();
+
 }

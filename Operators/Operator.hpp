@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "NekFactory.hpp"
+#include "LibUtilities/NekFactory.hpp"
 
 namespace Nektar::Operators
 {
@@ -16,14 +16,15 @@ struct ImplLocMat;
 struct ImplSumFac;
 struct ImplMatFree;
 
-// Operators
-
+// Forward-declare the Operator base class so we can define the factory
 template< typename TData> class Operator;
 
+// Typename alias for the factory
 template< typename TData>
 using OperatorFactory =
     Nektar::LibUtilities::NekFactory<std::string, Operator<TData>>;
 
+// Operator factory singleton
 template< typename TData>
 OperatorFactory<TData> &GetOperatorFactory();
 

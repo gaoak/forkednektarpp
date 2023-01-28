@@ -3,7 +3,7 @@ project(Redesign CXX)
 
 option(NEKTAR_USE_CUDA "Enable CUDA support" FALSE)
 
-set(SRC Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
+set(SRC LibUtilities/ErrorUtil.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
