@@ -2,17 +2,12 @@
 #include <memory>
 
 #include "Field.hpp"
-#include "NekFactory.hpp"
-#include "OperatorBwdTrans.hpp"
+#include "Operators/OperatorBwdTrans.hpp"
 
-template <OpMethod T> using OpBwdTransd = OperatorBwdTrans<double, T>;
+using namespace Nektar::Operators;
 
 int main()
 {
-
-    auto baseMatFree =
-        GetOpBwdTransFactory().CreateInstance("OperatorBwdTransDoubleMatFree");
-
     std::vector<BlockAttributes> blocks = {
         {ShapeType::eQuadrilateral, {4, 4, 1}, 100},
         {ShapeType::eTriangle, {4, 4, 1}, 200}};
@@ -20,12 +15,10 @@ int main()
     Field<double, FieldState::Coeff> in(blocks);
     Field<double, FieldState::Phys> out(blocks);
 
-    baseMatFree->apply(in, out);
+    GetOperatorFactory<double>().PrintAvailableClasses();
 
-    auto baseSumFac =
-        GetOpBwdTransFactory().CreateInstance("OperatorBwdTransDoubleSumFac");
-
-    baseSumFac->apply(in, out);
+    BwdTrans<>::create()->apply(in, out);
+    BwdTrans<>::create("SumFac")->apply(in, out);
 
     return 0;
 }
