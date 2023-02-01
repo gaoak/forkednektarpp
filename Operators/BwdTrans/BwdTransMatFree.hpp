@@ -1,6 +1,6 @@
 #include "Operators/OperatorBwdTrans.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
 // Matrix-free implementation

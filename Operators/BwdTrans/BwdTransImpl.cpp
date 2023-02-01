@@ -1,9 +1,10 @@
 #include "BwdTransSumFac.hpp"
 #include "BwdTransMatFree.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
+// Add different BwdTrans implementations to the factory.
 template <>
 std::string OperatorBwdTransImpl<double, ImplMatFree>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
