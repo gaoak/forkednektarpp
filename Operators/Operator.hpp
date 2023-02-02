@@ -15,6 +15,7 @@ using default_fp_type = double;
 struct ImplLocMat;
 struct ImplSumFac;
 struct ImplMatFree;
+struct ImplCUDA;
 
 // Forward-declare the Operator base class so we can define the factory
 template< typename TData> class Operator;

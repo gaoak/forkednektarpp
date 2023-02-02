@@ -10,15 +10,17 @@ public:
     MemoryRegion(MemoryRegion &&rhs)
     {
         m_host     = rhs.m_host;
+        m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
     MemoryRegion(size_t n)
     {
         m_host = new tData[n];
+        m_size = n;
     }
 
-    ~MemoryRegion()
+    virtual ~MemoryRegion()
     {
         if (m_host != nullptr)
         {
@@ -30,13 +32,20 @@ public:
     void operator=(MemoryRegion &&rhs)
     {
         m_host     = rhs.m_host;
+        m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
-    double *m_host = nullptr;
-
-    double *GetPtr()
+    virtual double *GetPtr()
     {
         return m_host;
     }
+
+    size_t size() {
+        return m_size;
+    }
+
+protected:
+    double *m_host = nullptr;
+    size_t m_size  = 0;
 };

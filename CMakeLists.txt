@@ -8,7 +8,7 @@ set(SRC LibUtilities/ErrorUtil.cpp Operators/Operator.cpp Operators/OperatorBwdT
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu OperatorBwdTransCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu)
 endif()
 
 add_library(Operators SHARED ${SRC})

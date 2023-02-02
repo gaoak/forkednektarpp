@@ -7,6 +7,10 @@
 #include "MemoryRegion.hpp"
 #include "MemoryRegionCPU.hpp"
 
+#ifdef NEKTAR_USE_CUDA
+#include "MemoryRegionCUDA.hpp"
+#endif
+
 enum class ShapeType
 {
     eQuadrilateral,
