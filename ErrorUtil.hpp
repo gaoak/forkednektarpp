@@ -40,7 +40,7 @@
 
 #include <boost/core/ignore_unused.hpp>
 
-//#include <LibUtilities/LibUtilitiesDeclspec.h>
+// #include <LibUtilities/LibUtilitiesDeclspec.h>
 #define LIB_UTILITIES_EXPORT
 
 #if defined(NEKTAR_USE_MPI)
@@ -60,7 +60,7 @@ public:
     class NekError : public std::runtime_error
     {
     public:
-        NekError(const std::string& message) : std::runtime_error(message)
+        NekError(const std::string &message) : std::runtime_error(message)
         {
         }
     };
@@ -71,7 +71,7 @@ public:
         ewarning
     };
 
-    inline static void SetErrorStream(std::ostream& o)
+    inline static void SetErrorStream(std::ostream &o)
     {
         m_outStream = &o;
     }
@@ -86,12 +86,9 @@ public:
         return m_outStream != &std::cerr;
     }
 
-    inline static void Error(ErrType       type,
-                             const char   *routine,
-                             int           lineNumber,
-                             const char   *msg,
-                             unsigned int  level,
-                             bool          DoComm = false)
+    inline static void Error(ErrType type, const char *routine, int lineNumber,
+                             const char *msg, unsigned int level,
+                             bool DoComm = false)
     {
         boost::ignore_unused(DoComm);
 
@@ -100,11 +97,11 @@ public:
         // flagged appropriately.  Printing the error messages to cerr made the
         // unit test output hard to parse.
 
-        std::string baseMsg = "Level " + std::to_string(level) +
-            " assertion violation\n";
+        std::string baseMsg =
+            "Level " + std::to_string(level) + " assertion violation\n";
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
         baseMsg += "Where   : " + std::string(routine) + "[" +
-            std::to_string(lineNumber) + "]\nMessage : ";
+                   std::to_string(lineNumber) + "]\nMessage : ";
 #else
         boost::ignore_unused(routine, lineNumber);
 #endif
@@ -115,12 +112,12 @@ public:
         int rank = 0;
 #if defined(NEKTAR_USE_MPI) && !defined(NEKTAR_USE_CWIPI)
         int flag = 0;
-        if(DoComm)
+        if (DoComm)
         {
             MPI_Initialized(&flag);
-            if(flag)
+            if (flag)
             {
-                MPI_Comm_rank(MPI_COMM_WORLD,&rank);
+                MPI_Comm_rank(MPI_COMM_WORLD, &rank);
             }
         }
 #else
@@ -136,12 +133,12 @@ public:
             int btSize;
             char **btStrings;
 
-            btSize = backtrace(btArray, 40);
+            btSize    = backtrace(btArray, 40);
             btStrings = backtrace_symbols(btArray, btSize);
 
-            for (int i = 0 ; i < btSize ; ++i)
+            for (int i = 0; i < btSize; ++i)
             {
-                btMessage +=  std::string(btStrings[i]) + "\n";
+                btMessage += std::string(btStrings[i]) + "\n";
             }
             free(btStrings);
         }
@@ -150,55 +147,58 @@ public:
 
         switch (type)
         {
-        case efatal:
-            if (!rank)
-            {
-                if (m_printBacktrace)
+            case efatal:
+                if (!rank)
                 {
-                    (*m_outStream) << btMessage;
+                    if (m_printBacktrace)
+                    {
+                        (*m_outStream) << btMessage;
+                    }
+                    (*m_outStream) << "Fatal   : " << baseMsg << std::endl;
                 }
-                (*m_outStream) << "Fatal   : " << baseMsg << std::endl;
-            }
 
 #if defined(NEKTAR_USE_MPI) && !defined(NEKTAR_USE_CWIPI)
-            if(DoComm)
-            {
-                if (flag)
+                if (DoComm)
                 {
-                    MPI_Barrier(MPI_COMM_WORLD);
+                    if (flag)
+                    {
+                        MPI_Barrier(MPI_COMM_WORLD);
+                    }
                 }
-            }
 #endif
-            throw NekError(baseMsg);
-            break;
-        case ewarning:
-            if (!rank)
-            {
-                if (m_printBacktrace)
+                throw NekError(baseMsg);
+                break;
+            case ewarning:
+                if (!rank)
                 {
-                    (*m_outStream) << btMessage;
+                    if (m_printBacktrace)
+                    {
+                        (*m_outStream) << btMessage;
+                    }
+                    (*m_outStream) << "Warning : " << baseMsg << std::endl;
                 }
-                (*m_outStream) << "Warning : " << baseMsg << std::endl;
-            }
-            break;
-        default:
-            (*m_outStream) << "Unknown warning type: " << baseMsg << std::endl;
+                break;
+            default:
+                (*m_outStream)
+                    << "Unknown warning type: " << baseMsg << std::endl;
         }
     }
 
-    inline static void Error(ErrType type, const char *routine, int lineNumber, const std::string& msg, unsigned int level)
+    inline static void Error(ErrType type, const char *routine, int lineNumber,
+                             const std::string &msg, unsigned int level)
     {
         Error(type, routine, lineNumber, msg.c_str(), level);
     }
 
-    inline static void Error(ErrType type, const char *routine, int lineNumber, const char *msg)
+    inline static void Error(ErrType type, const char *routine, int lineNumber,
+                             const char *msg)
     {
         Error(type, routine, lineNumber, msg, 0);
     }
 
 private:
     LIB_UTILITIES_EXPORT static std::ostream *m_outStream;
-    LIB_UTILITIES_EXPORT static bool          m_printBacktrace;
+    LIB_UTILITIES_EXPORT static bool m_printBacktrace;
 };
 
 /// Assert Level 0 -- Fundamental assert which
@@ -207,25 +207,24 @@ private:
 /// considered code critical, even under
 /// optimized compilation.
 
-#define NEKERROR(type, msg)                                     \
+#define NEKERROR(type, msg)                                                    \
     Nektar::ErrorUtil::Error(type, __FILE__, __LINE__, msg, 0);
 
-
-#define ROOTONLY_NEKERROR(type, msg)                                    \
+#define ROOTONLY_NEKERROR(type, msg)                                           \
     Nektar::ErrorUtil::Error(type, __FILE__, __LINE__, msg, 0, true);
 
-#define ASSERTL0(condition,msg)                                         \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::efatal, __FILE__, __LINE__, msg, 0);     \
+#define ASSERTL0(condition, msg)                                               \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::efatal, __FILE__,          \
+                                 __LINE__, msg, 0);                            \
     }
 
-#define WARNINGL0(condition,msg)                                        \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::ewarning, __FILE__, __LINE__, msg, 0);   \
+#define WARNINGL0(condition, msg)                                              \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::ewarning, __FILE__,        \
+                                 __LINE__, msg, 0);                            \
     }
 
 /// Assert Level 1 -- Debugging which is used whether in FULLDEBUG or
@@ -233,50 +232,48 @@ private:
 /// in standard debug (-g) mode
 #if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
 
-#define ASSERTL1(condition,msg)                                         \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::efatal, __FILE__, __LINE__, msg, 1);     \
+#define ASSERTL1(condition, msg)                                               \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::efatal, __FILE__,          \
+                                 __LINE__, msg, 1);                            \
     }
 
-#define WARNINGL1(condition,msg)                                        \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::ewarning, __FILE__, __LINE__, msg, 1);   \
+#define WARNINGL1(condition, msg)                                              \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::ewarning, __FILE__,        \
+                                 __LINE__, msg, 1);                            \
     }
 
-#else //defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
-#define ASSERTL1(condition,msg)
-#define WARNINGL1(condition,msg)
-#endif //defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
-
+#else // defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
+#define ASSERTL1(condition, msg)
+#define WARNINGL1(condition, msg)
+#endif // defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG)
 
 /// Assert Level 2 -- Debugging which is used FULLDEBUG compilation
 /// mode.  This level assert is designed to provide addition safety
 /// checks within the code (such as bounds checking, etc.).
 #ifdef NEKTAR_FULLDEBUG
 
-#define ASSERTL2(condition,msg)                                         \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::efatal, __FILE__, __LINE__, msg, 2);     \
+#define ASSERTL2(condition, msg)                                               \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::efatal, __FILE__,          \
+                                 __LINE__, msg, 2);                            \
     }
-#define WARNINGL2(condition,msg)                                        \
-    if(!(condition))                                                    \
-    {                                                                   \
-        Nektar::ErrorUtil::Error(                                       \
-            Nektar::ErrorUtil::ewarning, __FILE__, __LINE__, msg, 2);   \
+#define WARNINGL2(condition, msg)                                              \
+    if (!(condition))                                                          \
+    {                                                                          \
+        Nektar::ErrorUtil::Error(Nektar::ErrorUtil::ewarning, __FILE__,        \
+                                 __LINE__, msg, 2);                            \
     }
 
-#else //NEKTAR_FULLDEBUG
-#define ASSERTL2(condition,msg)
-#define WARNINGL2(condition,msg)
-#endif //NEKTAR_FULLDEBUG
+#else // NEKTAR_FULLDEBUG
+#define ASSERTL2(condition, msg)
+#define WARNINGL2(condition, msg)
+#endif // NEKTAR_FULLDEBUG
 
-}
+} // namespace Nektar
 
-#endif //ERRORUTIL_HPP
-
+#endif // ERRORUTIL_HPP

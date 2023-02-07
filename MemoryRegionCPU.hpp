@@ -1,16 +1,15 @@
 #pragma once
 #include "MemoryRegion.hpp"
 
-template<typename tData>
-class MemoryRegion<tData, BackendCPU>
+template <typename tData> class MemoryRegion<tData, BackendCPU>
 {
 public:
-    MemoryRegion() = default;
+    MemoryRegion()                        = default;
     MemoryRegion(const MemoryRegion &rhs) = delete;
 
     MemoryRegion(MemoryRegion &&rhs)
     {
-        m_host = rhs.m_host;
+        m_host     = rhs.m_host;
         rhs.m_host = nullptr;
     }
 
@@ -23,14 +22,14 @@ public:
     {
         if (m_host != nullptr)
         {
-            delete [] m_host;
+            delete[] m_host;
             m_host = nullptr;
         }
     }
 
     void operator=(MemoryRegion &&rhs)
     {
-        m_host = rhs.m_host;
+        m_host     = rhs.m_host;
         rhs.m_host = nullptr;
     }
 
