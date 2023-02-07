@@ -1,26 +1,27 @@
 #pragma once
-#include "MemoryRegion.hpp"
 
-template <typename tData> class MemoryRegion<tData, BackendCPU>
+#include <cstdio>
+
+template <typename TData> class MemoryRegionCPU
 {
 public:
-    MemoryRegion()                        = default;
-    MemoryRegion(const MemoryRegion &rhs) = delete;
+    MemoryRegionCPU()                           = delete;
+    MemoryRegionCPU(const MemoryRegionCPU &rhs) = delete;
 
-    MemoryRegion(MemoryRegion &&rhs)
+    MemoryRegionCPU(MemoryRegionCPU &&rhs)
     {
         m_host     = rhs.m_host;
         m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
-    MemoryRegion(size_t n)
+    MemoryRegionCPU(size_t n)
     {
-        m_host = new tData[n];
+        m_host = new TData[n];
         m_size = n;
     }
 
-    virtual ~MemoryRegion()
+    virtual ~MemoryRegionCPU()
     {
         if (m_host != nullptr)
         {
@@ -29,23 +30,24 @@ public:
         }
     }
 
-    void operator=(MemoryRegion &&rhs)
+    void operator=(MemoryRegionCPU &&rhs)
     {
         m_host     = rhs.m_host;
         m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
-    virtual double *GetPtr()
+    virtual TData *GetCPUPtr()
     {
         return m_host;
     }
 
-    size_t size() {
+    size_t size()
+    {
         return m_size;
     }
 
 protected:
-    double *m_host = nullptr;
-    size_t m_size  = 0;
+    TData *m_host = nullptr;
+    size_t m_size = 0;
 };

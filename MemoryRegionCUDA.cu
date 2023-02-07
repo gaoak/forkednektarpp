@@ -3,40 +3,40 @@
 
 #include "MemoryRegionCUDA.hpp"
 
-template<typename tData>
-MemoryRegion<tData, BackendCUDA>::MemoryRegion(size_t n)
-    : MemoryRegion<tData, BackendCPU>(n)
+template <typename TData>
+MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n) : MemoryRegionCPU<TData>(n)
 {
-    //m_host = new tData[n];
-    cudaMalloc((void **)&m_device, sizeof(tData) * n);
+    // m_host = new TData[n];
+    cudaMalloc((void **)&m_device, sizeof(TData) * n);
     m_size = n;
-    std::cout << "HEllo" << std::endl;
 }
 
-template<typename tData>
-MemoryRegion<tData, BackendCUDA>::~MemoryRegion() {
-    if (m_device != nullptr) {
+template <typename TData> MemoryRegionCUDA<TData>::~MemoryRegionCUDA()
+{
+    if (m_device != nullptr)
+    {
         cudaFree(m_device);
         m_device = nullptr; // lol
     }
 }
 
-template<typename tData>
-void MemoryRegion<tData, BackendCUDA>::HostToDevice()
+template <typename TData> void MemoryRegionCUDA<TData>::HostToDevice()
 {
-    cudaMemcpy(m_device, this->m_host, m_size*sizeof(tData), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_device, this->m_host, m_size * sizeof(TData),
+               cudaMemcpyHostToDevice);
     m_ondevice = true;
 }
 
-template<typename tData>
-void MemoryRegion<tData, BackendCUDA>::DeviceToHost()
+template <typename TData> void MemoryRegionCUDA<TData>::DeviceToHost()
 {
-    cudaMemcpy(this->m_host, m_device, m_size*sizeof(tData), cudaMemcpyDeviceToHost);
+    cudaMemcpy(this->m_host, m_device, m_size * sizeof(TData),
+               cudaMemcpyDeviceToHost);
     m_ondevice = false;
 }
 
-template MemoryRegion<double, BackendCUDA>::MemoryRegion(size_t n);
-template MemoryRegion<double, BackendCUDA>::~MemoryRegion();
-template void MemoryRegion<double, BackendCUDA>::HostToDevice();
-template void MemoryRegion<double, BackendCUDA>::DeviceToHost();
-
+template class MemoryRegionCUDA<double>;
+//
+// template MemoryRegionCUDA<double>::MemoryRegionCUDA(size_t n);
+// template MemoryRegionCUDA<double>::~MemoryRegionCUDA();
+// template void MemoryRegionCUDA<double>::HostToDevice();
+// template void MemoryRegionCUDA<double>::DeviceToHost();

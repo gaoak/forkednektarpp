@@ -1,15 +1,12 @@
 #pragma once
 
 #include <array>
+#include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-#include "MemoryRegion.hpp"
 #include "MemoryRegionCPU.hpp"
-
-#ifdef NEKTAR_USE_CUDA
-#include "MemoryRegionCUDA.hpp"
-#endif
 
 enum class ShapeType
 {
@@ -32,14 +29,34 @@ enum class FieldState
 
 static constexpr FieldState DefaultState = FieldState::Phys;
 
-template <typename TType = double, FieldState TState = DefaultState,
-          typename TBackend = DefaultBackend>
-class Field
+template <typename TType = double, FieldState TState = DefaultState> class Field
 {
 public:
-    Field(std::vector<BlockAttributes> &blocks, int num_components = 1)
-        : block_attributes(blocks)
+    Field(const Field &) = delete;
+    virtual ~Field()     = default;
+
+    Field(Field &&rhs)
+        : m_storage(std::move(rhs.m_storage)),
+          block_attributes(std::move(rhs.block_attributes)),
+          component_names(std::move(component_names))
     {
+    }
+
+    Field &operator=(Field &&rhs)
+    {
+        m_storage        = std::move(rhs.m_storage);
+        block_attributes = std::move(rhs.block_attributes);
+        component_names  = std::move(rhs.component_names);
+
+        return *this;
+    }
+
+    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
+    static Field<TType, TState> create(std::vector<BlockAttributes> &blocks,
+                                       int num_components = 1)
+    {
+        auto field = Field(blocks, num_components);
+
         size_t storage_size = 0;
         for (int i = 0; i < blocks.size(); ++i)
         {
@@ -50,15 +67,30 @@ public:
             storage_size += blockSize;
         }
 
-        m_storage =
-            MemoryRegion<TType, TBackend>(storage_size * num_components);
-    }
-    Field(const Field &) = delete;
-    ~Field()             = default;
+        field.m_storage = std::make_unique<TMemoryRegion<TType>>(
+            storage_size * num_components);
 
-    MemoryRegion<TType, TBackend> &GetStorage()
+        return field;
+    }
+
+    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
+    TMemoryRegion<TType> &GetStorage()
     {
-        return m_storage;
+        static_assert(std::is_base_of<MemoryRegionCPU<TType>,
+                                      TMemoryRegion<TType>>::value,
+                      "TMemoryRegion must derive MemoryRegionCPU<TType>");
+
+        try
+        {
+            return dynamic_cast<TMemoryRegion<TType> &>(*m_storage);
+        }
+        catch (const std::bad_cast &e)
+        {
+            throw std::runtime_error(
+                "Failed to cast memory storage from type " +
+                std::string(typeid(*m_storage).name()) + " to type " +
+                std::string(typeid(TMemoryRegion<TType>).name()));
+        }
     }
 
     size_t GetNumComponents()
@@ -67,7 +99,12 @@ public:
     }
 
 private:
-    MemoryRegion<TType, TBackend> m_storage;
+    Field(std::vector<BlockAttributes> &blocks, int num_components = 1)
+        : block_attributes(blocks)
+    {
+    }
+
+    std::unique_ptr<MemoryRegionCPU<TType>> m_storage;
     // std::vector<MemoryView<TType>> m_views;
     std::vector<BlockAttributes> block_attributes;
     std::vector<std::string> component_names;

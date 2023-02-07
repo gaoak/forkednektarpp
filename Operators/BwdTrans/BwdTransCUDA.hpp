@@ -1,3 +1,4 @@
+#include "MemoryRegionCUDA.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 
 namespace Nektar::Operators::detail
@@ -11,15 +12,17 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        TData *x = in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        TData *y = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
         std::cout << "Op bwd trans CUDA\n";
     }
 
     static std::unique_ptr<Operator<TData>> instantiate()
     {
-        return std::make_unique<OperatorBwdTransImpl<TData, ImplMatFree>>();
+        return std::make_unique<OperatorBwdTransImpl<TData, ImplCUDA>>();
     }
 
     static std::string className;
 };
 
-}
+} // namespace Nektar::Operators::detail
