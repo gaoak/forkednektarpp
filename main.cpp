@@ -2,16 +2,16 @@
 #include <memory>
 
 #include "Field.hpp"
+#include "NekFactory.hpp"
 #include "OperatorBwdTrans.hpp"
-// #include "NekFactory.hpp"
 
 template <OpMethod T> using OpBwdTransd = OperatorBwdTrans<double, T>;
 
 int main()
 {
 
-    OpBwdTransd<OpMethod::MatFree> deriv;
-    OpBwdTransd<OpMethod::MatFree>::OpBaseT *base = &deriv;
+    auto baseMatFree =
+        GetOpBwdTransFactory().CreateInstance("OperatorBwdTransDoubleMatFree");
 
     std::vector<BlockAttributes> blocks = {
         {ShapeType::eQuadrilateral, {4, 4, 1}, 100},
@@ -20,10 +20,10 @@ int main()
     Field<double, FieldState::Coeff> in(blocks);
     Field<double, FieldState::Phys> out(blocks);
 
-    base->apply(in, out);
+    baseMatFree->apply(in, out);
 
-    OpBwdTransd<OpMethod::SumFac> derivSumFac;
-    OpBwdTransd<OpMethod::SumFac>::OpBaseT *baseSumFac = &derivSumFac;
+    auto baseSumFac =
+        GetOpBwdTransFactory().CreateInstance("OperatorBwdTransDoubleSumFac");
 
     baseSumFac->apply(in, out);
 

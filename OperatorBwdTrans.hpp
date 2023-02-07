@@ -47,10 +47,23 @@ std::string OperatorBwdTrans<double, OpMethod::MatFree>::className =
 template <typename TData>
 class OperatorBwdTrans<TData, OpMethod::SumFac> : public BwdTransBase<TData>
 {
-
+public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
         std::cout << "Op bwd trans sum fac\n";
     }
+
+    static std::unique_ptr<BwdTransBase<TData>> create()
+    {
+        return std::make_unique<OperatorBwdTrans<TData, OpMethod::SumFac>>();
+    }
+
+    static std::string className;
 };
+
+template <>
+std::string OperatorBwdTrans<double, OpMethod::SumFac>::className =
+    GetOpBwdTransFactory().RegisterCreatorFunction(
+        "OperatorBwdTransDoubleSumFac",
+        OperatorBwdTrans<double, OpMethod::SumFac>::create, "...");

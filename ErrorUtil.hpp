@@ -274,6 +274,9 @@ private:
 #define WARNINGL2(condition, msg)
 #endif // NEKTAR_FULLDEBUG
 
+std::ostream *ErrorUtil::m_outStream = &std::cerr;
+bool ErrorUtil::m_printBacktrace     = true;
+
 } // namespace Nektar
 
 #endif // ERRORUTIL_HPP
