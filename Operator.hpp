@@ -4,12 +4,16 @@
 
 #include "Field.hpp"
 
-struct MethodLocMat;
-struct MethodSumFac;
-struct MethodMatFree;
-using DefaultMethod = MethodSumFac;
+enum class OpMethod
+{
+    LocMat,
+    SumFac,
+    MatFree
+};
 
-template <typename TData, typename TStateIn, typename TStateOut>
+static constexpr OpMethod DefaultMethod = OpMethod::SumFac;
+
+template <typename TData, FieldState TStateIn, FieldState TStateOut>
 class OperatorBase
 {
 

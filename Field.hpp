@@ -7,12 +7,7 @@
 #include "MemoryRegion.hpp"
 #include "MemoryRegionCPU.hpp"
 
-// State options
-struct StatePhys;
-struct StateCoeff;
-using DefaultState = StatePhys;
-
-enum ShapeType
+enum class ShapeType
 {
     eQuadrilateral,
     eTriangle
@@ -25,7 +20,15 @@ struct BlockAttributes
     size_t num_elements;
 };
 
-template <typename TType = double, typename TState = DefaultState,
+enum class FieldState
+{
+    Phys,
+    Coeff
+};
+
+static constexpr FieldState DefaultState = FieldState::Phys;
+
+template <typename TType = double, FieldState TState = DefaultState,
           typename TBackend = DefaultBackend>
 class Field
 {
