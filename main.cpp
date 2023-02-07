@@ -47,6 +47,8 @@ int main()
     // Using a CPU operator with a CUDA mem region should also work
     BwdTrans<>::create("MatFree")->apply(in, out);
 
+    std::cout << std::endl;
+
     try
     {
         // It does not work the other way around though
@@ -56,7 +58,9 @@ int main()
     }
     catch (std::exception const &e)
     {
-        std::cout << e.what() << std::endl;
+        std::cout << "Calling CUDA operator with CPU-backed Field throws an "
+                     "exception of: \n\t"
+                  << e.what() << std::endl;
     }
 #endif
 
