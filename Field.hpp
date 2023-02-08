@@ -77,31 +77,40 @@ public:
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
     TMemoryRegion<TType> &GetStorage()
     {
-        static_assert(std::is_base_of<MemoryRegionCPU<TType>,
-                                      TMemoryRegion<TType>>::value,
-                      "TMemoryRegion must derive MemoryRegionCPU<TType>");
+        using T = TMemoryRegion<TType>;
 
+        static_assert(std::is_base_of<MemoryRegionCPU<TType>, T>::value,
+                      "TMemoryRegion must derive MemoryRegionCPU<TType>");
         try
         {
-            return dynamic_cast<TMemoryRegion<TType> &>(*m_storage);
+            auto &ret = dynamic_cast<T &>(*m_storage);
+
+            if (typeid(*m_storage) != typeid(T))
+            {
+                std::cout << "WARNING: Requested backing storage type "
+                          << typeid(T).name() << " != actual storage type "
+                          << typeid(*m_storage).name() << std::endl;
+            }
+
+            return ret;
         }
         catch (const std::bad_cast &e)
         {
+
+            std::cout << "WARNING: Converting backing storage from "
+                      << typeid(*m_storage).name() << " to " << typeid(T).name()
+                      << std::endl;
+
             // This is just here so that the fromCPU method does
             // not need to be declared for MemoryRegionCPU
-            if constexpr (!std::is_same<TMemoryRegion<TType>,
-                                        MemoryRegionCPU<TType>>::value)
+            if constexpr (!std::is_same<T, MemoryRegionCPU<TType>>::value)
             {
                 m_storage->ToCPU();
-                using T = TMemoryRegion<TType>;
                 m_storage =
                     std::make_unique<T>(T::fromCPU(std::move(*m_storage)));
             }
 
-            std::cout << "WARNING: Converting backing storage to "
-                      << typeid(TMemoryRegion<TType>).name() << std::endl;
-
-            return dynamic_cast<TMemoryRegion<TType> &>(*m_storage);
+            return dynamic_cast<T &>(*m_storage);
         }
     }
 
