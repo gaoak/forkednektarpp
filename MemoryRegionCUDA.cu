@@ -6,7 +6,11 @@
 template <typename TData>
 MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n) : MemoryRegionCPU<TData>(n)
 {
-    // m_host = new TData[n];
+    initFromSize(n);
+}
+
+template <typename TData> void MemoryRegionCUDA<TData>::initFromSize(size_t n)
+{
     cudaMalloc((void **)&m_device, sizeof(TData) * n);
     m_size = n;
 }

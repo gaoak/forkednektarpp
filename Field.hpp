@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -86,10 +87,20 @@ public:
         }
         catch (const std::bad_cast &e)
         {
-            throw std::runtime_error(
-                "Failed to cast memory storage from type " +
-                std::string(typeid(*m_storage).name()) + " to type " +
-                std::string(typeid(TMemoryRegion<TType>).name()));
+            // This is just here so that the fromCPU method does
+            // not need to be declared for MemoryRegionCPU
+            if constexpr (!std::is_same<TMemoryRegion<TType>,
+                                        MemoryRegionCPU<TType>>::value)
+            {
+                using T = TMemoryRegion<TType>;
+                m_storage =
+                    std::make_unique<T>(T::fromCPU(std::move(*m_storage)));
+            }
+
+            std::cout << "WARNING: Converting backing storage to "
+                      << typeid(TMemoryRegion<TType>).name() << std::endl;
+
+            return dynamic_cast<TMemoryRegion<TType> &>(*m_storage);
         }
     }
 

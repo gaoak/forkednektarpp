@@ -44,24 +44,15 @@ int main()
     out = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(blocks);
     BwdTrans<>::create("CUDA")->apply(in, out);
 
-    // Using a CPU operator with a CUDA mem region should also work
+    // Using a CPU operator with a CUDA mem region also works
     BwdTrans<>::create("MatFree")->apply(in, out);
 
     std::cout << std::endl;
-
-    try
-    {
-        // It does not work the other way around though
-        in  = Field<double, FieldState::Coeff>::create(blocks);
-        out = Field<double, FieldState::Phys>::create(blocks);
-        BwdTrans<>::create("CUDA")->apply(in, out);
-    }
-    catch (std::exception const &e)
-    {
-        std::cout << "Calling CUDA operator with CPU-backed Field throws an "
-                     "exception of: \n\t"
-                  << e.what() << std::endl;
-    }
+    // Using a CUDA operator with a MemoryRegionCPU automatically converts the
+    // field and warns the user
+    in  = Field<double, FieldState::Coeff>::create(blocks);
+    out = Field<double, FieldState::Phys>::create(blocks);
+    BwdTrans<>::create("CUDA")->apply(in, out);
 #endif
 
     return 0;

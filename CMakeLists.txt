@@ -3,6 +3,7 @@ project(Redesign CXX)
 
 option(NEKTAR_USE_CUDA "Enable CUDA support" FALSE)
 
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(SRC LibUtilities/ErrorUtil.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)

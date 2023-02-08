@@ -17,8 +17,14 @@ public:
         rhs.m_device = nullptr;
         rhs.m_size   = 0;
     }
+
     MemoryRegionCUDA(size_t n);
     virtual ~MemoryRegionCUDA() override;
+
+    static MemoryRegionCUDA<TData> fromCPU(MemoryRegionCPU<TData> &&cpu)
+    {
+        return MemoryRegionCUDA<TData>(std::move(cpu));
+    }
 
     void operator=(MemoryRegionCUDA &&rhs)
     {
@@ -58,6 +64,15 @@ public:
     }
 
 protected:
+    MemoryRegionCUDA<TData>(MemoryRegionCPU<TData> &&cpu)
+        : MemoryRegionCPU<TData>(std::move(cpu))
+    {
+        initFromSize(cpu.size());
+    }
+
+private:
+    void initFromSize(size_t n);
+
     TData *m_device = nullptr;
     size_t m_size   = 0;
     bool m_ondevice = false;
