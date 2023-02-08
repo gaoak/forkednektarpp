@@ -42,6 +42,10 @@ public:
         return m_host;
     }
 
+    virtual void ToCPU()
+    {
+    }
+
     size_t size()
     {
         return m_size;

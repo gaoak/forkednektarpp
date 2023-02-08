@@ -92,6 +92,7 @@ public:
             if constexpr (!std::is_same<TMemoryRegion<TType>,
                                         MemoryRegionCPU<TType>>::value)
             {
+                m_storage->ToCPU();
                 using T = TMemoryRegion<TType>;
                 m_storage =
                     std::make_unique<T>(T::fromCPU(std::move(*m_storage)));

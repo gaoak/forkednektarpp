@@ -45,6 +45,11 @@ public:
         return this->m_host;
     }
 
+    virtual void ToCPU() override
+    {
+        DeviceToHost();
+    }
+
     TData *GetGPUPtr()
     {
         if (!m_ondevice)
