@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "LibUtilities/ErrorUtil.hpp"
 #include "MemoryRegionCPU.hpp"
 
 enum class ShapeType
@@ -84,22 +85,17 @@ public:
         try
         {
             auto &ret = dynamic_cast<T &>(*m_storage);
-
-            if (typeid(*m_storage) != typeid(T))
-            {
-                std::cout << "WARNING: Requested backing storage type "
-                          << typeid(T).name() << " != actual storage type "
-                          << typeid(*m_storage).name() << std::endl;
-            }
-
+            WARNINGL0(typeid(*m_storage) == typeid(T),
+                      std::string("Requested backing storage of type ") +
+                          typeid(T).name() + " != actual storage type " +
+                          typeid(*m_storage).name());
             return ret;
         }
         catch (const std::bad_cast &e)
         {
-
-            std::cout << "WARNING: Converting backing storage from "
-                      << typeid(*m_storage).name() << " to " << typeid(T).name()
-                      << std::endl;
+            WARNINGL0(false, std::string("Converting backing storage from ") +
+                                 typeid(*m_storage).name() + " to " +
+                                 typeid(T).name())
 
             // This is just here so that the fromCPU method does
             // not need to be declared for MemoryRegionCPU
