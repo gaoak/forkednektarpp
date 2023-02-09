@@ -31,6 +31,11 @@ enum class FieldState
 
 static constexpr FieldState DefaultState = FieldState::Phys;
 
+/**
+ * @brief A Field represents expansion data to be operated on
+ * @tparam TState Either FieldState::Phys or FieldState::Coeff, represents
+ * whether the Field is storing physical values or coefficients
+ */
 template <typename TType = double, FieldState TState = DefaultState> class Field
 {
 public:
@@ -53,6 +58,10 @@ public:
         return *this;
     }
 
+    /**
+     * @brief Static templated creation method. Templated on the actual type of
+     * memory region, e.g. MemoryRegionCUDA.
+     */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
     static Field<TType, TState> create(std::vector<BlockAttributes> &blocks,
                                        int num_components = 1)
@@ -69,12 +78,18 @@ public:
             storage_size += blockSize;
         }
 
+        // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TType>>(
             storage_size * num_components);
 
         return field;
     }
 
+    /**
+     * @brief Get the underlying storage of the field as the requested type.
+     * Perform MemoryRegion conversions if necessary
+     * @return MemoryRegion storage converted to the requested type
+     */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
     TMemoryRegion<TType> &GetStorage()
     {
@@ -84,7 +99,11 @@ public:
                       "TMemoryRegion must derive MemoryRegionCPU<TType>");
         try
         {
+            // This cast fails if e.g. a MemoryRegionCUDA is requested from a
+            // MemoryRegionCPU backed Field
             auto &ret = dynamic_cast<T &>(*m_storage);
+
+            // Debug warning, a (possibly) undesired conversion occured
             WARNINGL0(typeid(*m_storage) == typeid(T),
                       std::string("Requested backing storage of type ") +
                           typeid(T).name() + " != actual storage type " +
@@ -101,9 +120,14 @@ public:
             // not need to be declared for MemoryRegionCPU
             if constexpr (!std::is_same<T, MemoryRegionCPU<TType>>::value)
             {
-                m_storage->ToCPU();
-                m_storage =
-                    std::make_unique<T>(T::fromCPU(std::move(*m_storage)));
+                // Dynamic cast threw an exception, attempt to allocate the
+                // requested TMemoryRegion from old data
+
+                m_storage->ToCPU(); // Make sure memory is on the CPU
+
+                m_storage = std::make_unique<T>(T::fromCPU(
+                    std::move(*m_storage))); // Create new TMemoryRegion from
+                                             // the CPU memory
             }
 
             return dynamic_cast<T &>(*m_storage);

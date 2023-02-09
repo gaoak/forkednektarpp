@@ -20,7 +20,7 @@ template <typename TData> MemoryRegionCUDA<TData>::~MemoryRegionCUDA()
     if (m_device != nullptr)
     {
         cudaFree(m_device);
-        m_device = nullptr; // lol
+        m_device = nullptr;
     }
 }
 
@@ -39,8 +39,3 @@ template <typename TData> void MemoryRegionCUDA<TData>::DeviceToHost()
 }
 
 template class MemoryRegionCUDA<double>;
-//
-// template MemoryRegionCUDA<double>::MemoryRegionCUDA(size_t n);
-// template MemoryRegionCUDA<double>::~MemoryRegionCUDA();
-// template void MemoryRegionCUDA<double>::HostToDevice();
-// template void MemoryRegionCUDA<double>::DeviceToHost();

@@ -4,6 +4,14 @@
 
 #include "MemoryRegionCPU.hpp"
 
+/**
+ * @brief Memory backend for CUDA devices
+ * @tparam TData Floating point datatype
+ *
+ * MemoryRegionCUDA represents and manages the memory stored on a CUDA device.
+ * This class also manages access to the CPU part
+ * of the memory by inheriting from MemoryRegionCPU.
+ */
 template <typename TData> class MemoryRegionCUDA : public MemoryRegionCPU<TData>
 {
 public:
@@ -11,7 +19,6 @@ public:
     MemoryRegionCUDA(MemoryRegionCUDA &&rhs)
         : MemoryRegionCPU<TData>(std::move(rhs))
     {
-        // C++ is less retarded
         m_device     = rhs.m_device;
         m_size       = rhs.m_size;
         rhs.m_device = nullptr;
@@ -21,6 +28,12 @@ public:
     MemoryRegionCUDA(size_t n);
     virtual ~MemoryRegionCUDA() override;
 
+    /**
+     * @brief Create MemoryRegionCUDA from MemoryRegionCPU r-value
+     *
+     * This method allows for a Field to construct a new MemoryRegionCUDA from a
+     * MemoryRegion of any other type, through the MemoryRegionCPU base class
+     */
     static MemoryRegionCUDA<TData> fromCPU(MemoryRegionCPU<TData> &&cpu)
     {
         return MemoryRegionCUDA<TData>(std::move(cpu));
@@ -39,7 +52,7 @@ public:
     {
         if (m_ondevice)
         {
-            DeviceToHost();
+            DeviceToHost(); // Move to CPU if necessary
         }
 
         return this->m_host;

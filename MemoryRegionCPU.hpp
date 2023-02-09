@@ -2,6 +2,9 @@
 
 #include <cstdio>
 
+/**
+ * @brief MemoryRegionCPU stores underlying data for Field on the CPU
+ */
 template <typename TData> class MemoryRegionCPU
 {
 public:
@@ -37,11 +40,18 @@ public:
         rhs.m_host = nullptr;
     }
 
+    /**
+     * @brief Get the pointer to the CPU memory. Virtual so that subclasses can
+     * move memory to CPU from the device
+     */
     virtual TData *GetCPUPtr()
     {
         return m_host;
     }
 
+    /**
+     * @brief Move memory to the CPU. Necessary for subclasses to implement.
+     */
     virtual void ToCPU()
     {
     }
