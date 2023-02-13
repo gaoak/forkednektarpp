@@ -21,3 +21,6 @@ set(TEST_SRC main.cpp)
 add_executable(main ${TEST_SRC})
 target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
+
+find_package(Doxygen)
+add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile)

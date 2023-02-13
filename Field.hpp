@@ -10,12 +10,19 @@
 #include "LibUtilities/ErrorUtil.hpp"
 #include "MemoryRegionCPU.hpp"
 
+/**
+ * @brief Element shape enum used when defining Blocks of elements.
+ */
 enum class ShapeType
 {
     eQuadrilateral,
     eTriangle
 };
 
+/**
+ * @brief Captures the structure of a block of elements of identical shape
+ * and order.
+ */
 struct BlockAttributes
 {
     ShapeType shape;
@@ -23,6 +30,14 @@ struct BlockAttributes
     size_t num_elements;
 };
 
+/**
+ * @brief Possible states for Field data.
+ * 
+ * These identify the mathematical representation of the field data. The two
+ * main states are *Phys*, representing the field at the quadrature points,
+ * and *Coeff*, representing the field in terms of its spectral/hp element
+ * basis coefficients.
+ */
 enum class FieldState
 {
     Phys,
@@ -32,16 +47,23 @@ enum class FieldState
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 /**
- * @brief A Field represents expansion data to be operated on
- * @tparam TState Either FieldState::Phys or FieldState::Coeff, represents
- * whether the Field is storing physical values or coefficients
+ * @brief A Field represents expansion data to be operated on.
+ * @tparam TType  The floating-point representation used by the field.
+ * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TType = double, FieldState TState = DefaultState> class Field
+template <typename TType = double, FieldState TState = DefaultState>
+class Field
 {
 public:
     Field(const Field &) = delete;
     virtual ~Field()     = default;
 
+    /**
+     * @brief Construct a new Field object by moving storage from an existing
+     * Field object.
+     * 
+     * @param rhs 
+     */
     Field(Field &&rhs)
         : m_storage(std::move(rhs.m_storage)),
           block_attributes(std::move(rhs.block_attributes)),
@@ -49,6 +71,12 @@ public:
     {
     }
 
+    /**
+     * @brief Move assignment operator.
+     * 
+     * @param rhs 
+     * @return Field& 
+     */
     Field &operator=(Field &&rhs)
     {
         m_storage        = std::move(rhs.m_storage);
@@ -59,8 +87,12 @@ public:
     }
 
     /**
-     * @brief Static templated creation method. Templated on the actual type of
-     * memory region, e.g. MemoryRegionCUDA.
+     * @brief Static templated creation method.
+     * 
+     * @tparam TMemoryRegion Type of memory region to use
+     * @param blocks         Field data specification.
+     * @param num_components Number of components for a vector field.
+     * @return Field<TType, TState> 
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
     static Field<TType, TState> create(std::vector<BlockAttributes> &blocks,
@@ -87,8 +119,14 @@ public:
 
     /**
      * @brief Get the underlying storage of the field as the requested type.
-     * Perform MemoryRegion conversions if necessary
      * @return MemoryRegion storage converted to the requested type
+     * 
+     * This routine performs MemoryRegion conversions if necessary to enable
+     * casting of, for example a CUDA memory region to a CPU memory region to
+     * support the use of a CPU-only operator if necessary.
+     * 
+     * A runtime warning is provided if a transfer of data from device to host
+     * is required to achieve the conversion.
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
     TMemoryRegion<TType> &GetStorage()
@@ -134,12 +172,23 @@ public:
         }
     }
 
+    /**
+     * @brief Gets the number of components for a vector field.
+     * 
+     * @return size_t 
+     */
     size_t GetNumComponents()
     {
         return component_names.size();
     }
 
 private:
+    /**
+     * @brief Construct a new Field object.
+     * 
+     * @param blocks    Field data layout specification
+     * @param num_components Number of components for a vector field.
+     */
     Field(std::vector<BlockAttributes> &blocks, int num_components = 1)
         : block_attributes(blocks)
     {

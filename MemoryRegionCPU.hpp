@@ -1,9 +1,12 @@
 #pragma once
 
-#include <cstdio>
-
 /**
- * @brief MemoryRegionCPU stores underlying data for Field on the CPU
+ * @brief Stores underlying data for a Field on the CPU.
+ * 
+ * It acts as a holder for a contiguous block of memory, allocated on the
+ * host system. 
+ * 
+ * This class also acts as a base class for device-aware builds.
  */
 template <typename TData> class MemoryRegionCPU
 {
@@ -41,8 +44,10 @@ public:
     }
 
     /**
-     * @brief Get the pointer to the CPU memory. Virtual so that subclasses can
-     * move memory to CPU from the device
+     * @brief Get the pointer to the CPU memory.
+     * 
+     * This is a virtual function so that subclasses can move memory to the
+     * CPU from a device if needed.
      */
     virtual TData *GetCPUPtr()
     {
@@ -50,7 +55,10 @@ public:
     }
 
     /**
-     * @brief Move memory to the CPU. Necessary for subclasses to implement.
+     * @brief Move memory to the CPU.
+     * 
+     * This is a virtual function so that subclasses can move memory to the
+     * CPU from a device if needed.
      */
     virtual void ToCPU()
     {
