@@ -1,30 +1,41 @@
-#include "MemoryRegionCUDA.hpp"
 #include <cuda.h>
 #include <iostream>
 
-template<typename tData>
-MemoryRegion<tData, BackendCUDA>::MemoryRegion(size_t n)
+#include "MemoryRegionCUDA.hpp"
+
+template <typename TData>
+MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n) : MemoryRegionCPU<TData>(n)
 {
-    m_host = new tData[n];
-    cudaMalloc((void **)&m_device, sizeof(tData) * n);
+    initFromSize(n);
+}
+
+template <typename TData> void MemoryRegionCUDA<TData>::initFromSize(size_t n)
+{
+    cudaMalloc((void **)&m_device, sizeof(TData) * n);
     m_size = n;
 }
 
-template<typename tData>
-void MemoryRegion<tData, BackendCUDA>::HostToDevice()
+template <typename TData> MemoryRegionCUDA<TData>::~MemoryRegionCUDA()
 {
-    cudaMemcpy(m_device, m_host, m_size*sizeof(tData), cudaMemcpyHostToDevice);
+    if (m_device != nullptr)
+    {
+        cudaFree(m_device);
+        m_device = nullptr;
+    }
+}
+
+template <typename TData> void MemoryRegionCUDA<TData>::HostToDevice()
+{
+    cudaMemcpy(m_device, this->m_host, m_size * sizeof(TData),
+               cudaMemcpyHostToDevice);
     m_ondevice = true;
 }
 
-template<typename tData>
-void MemoryRegion<tData, BackendCUDA>::DeviceToHost()
+template <typename TData> void MemoryRegionCUDA<TData>::DeviceToHost()
 {
-    cudaMemcpy(m_host, m_device, m_size*sizeof(tData), cudaMemcpyDeviceToHost);
+    cudaMemcpy(this->m_host, m_device, m_size * sizeof(TData),
+               cudaMemcpyDeviceToHost);
     m_ondevice = false;
 }
 
-template MemoryRegion<double, BackendCUDA>::MemoryRegion(size_t n);
-template void MemoryRegion<double, BackendCUDA>::HostToDevice();
-template void MemoryRegion<double, BackendCUDA>::DeviceToHost();
-
+template class MemoryRegionCUDA<double>;

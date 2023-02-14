@@ -1,49 +1,76 @@
 #pragma once
-#include "MemoryRegion.hpp"
 
-template<typename tData>
-class MemoryRegion<tData, BackendCUDA>
+#include <utility>
+
+#include "MemoryRegionCPU.hpp"
+
+/**
+ * @brief Memory backend for CUDA devices
+ * @tparam TData Floating point datatype
+ *
+ * MemoryRegionCUDA represents and manages the memory stored on a CUDA device.
+ * This class also manages access to the CPU part
+ * of the memory by inheriting from MemoryRegionCPU.
+ */
+template <typename TData> class MemoryRegionCUDA : public MemoryRegionCPU<TData>
 {
 public:
-    MemoryRegion() = default;
-    MemoryRegion(const MemoryRegion &rhs) = delete;
-    MemoryRegion(MemoryRegion &&rhs) {
-        m_host = rhs.m_host;
-        m_device = rhs.m_device;
-        m_size = rhs.m_size;
-        rhs.m_host = nullptr;
-        rhs.m_device = nullptr;
-        rhs.m_size = 0;
-    }
-    MemoryRegion(size_t n);
-    ~MemoryRegion()
+    MemoryRegionCUDA(const MemoryRegionCUDA<TData> &rhs) = delete;
+    MemoryRegionCUDA(MemoryRegionCUDA &&rhs)
+        : MemoryRegionCPU<TData>(std::move(rhs))
     {
-/*
-        if (m_host != nullptr)
+        m_device     = rhs.m_device;
+        m_size       = rhs.m_size;
+        rhs.m_device = nullptr;
+        rhs.m_size   = 0;
+    }
+
+    MemoryRegionCUDA(size_t n);
+    virtual ~MemoryRegionCUDA() override;
+
+    /**
+     * @brief Create MemoryRegionCUDA from MemoryRegionCPU r-value
+     *
+     * This method allows for a Field to construct a new MemoryRegionCUDA from a
+     * MemoryRegion of any other type, through the MemoryRegionCPU base class
+     */
+    static MemoryRegionCUDA<TData> fromCPU(MemoryRegionCPU<TData> &&cpu)
+    {
+        return MemoryRegionCUDA<TData>(std::move(cpu));
+    }
+
+    void operator=(MemoryRegionCUDA &&rhs)
+    {
+        MemoryRegionCPU<TData>::operator=(std::move(rhs));
+        m_device     = rhs.m_device;
+        m_size       = rhs.m_size;
+        rhs.m_device = nullptr;
+        rhs.m_size   = 0;
+    }
+
+    virtual TData *GetCPUPtr() override
+    {
+        if (m_ondevice)
         {
-            delete [] m_host;
-            m_host = nullptr;
+            DeviceToHost(); // Move to CPU if necessary
         }
-*/
+
+        return this->m_host;
     }
 
-    void operator=(MemoryRegion &&rhs) {
-        m_host = rhs.m_host;
-        m_device = rhs.m_device;
-        m_size = rhs.m_size;
-        rhs.m_host = nullptr;
-        rhs.m_device = nullptr;
-        rhs.m_size = 0;
-    }
-
-    double *m_host = nullptr;
-    double *m_device = nullptr;
-    size_t m_size = 0;
-    bool m_ondevice = false;
-
-    double *GetPtr()
+    virtual void ToCPU() override
     {
-        return m_ondevice ? m_device : m_host;
+        DeviceToHost();
+    }
+
+    TData *GetGPUPtr()
+    {
+        if (!m_ondevice)
+        {
+            HostToDevice();
+        }
+
+        return m_device;
     }
 
     void HostToDevice();
@@ -53,5 +80,18 @@ public:
     {
         return m_ondevice;
     }
-};
 
+protected:
+    MemoryRegionCUDA<TData>(MemoryRegionCPU<TData> &&cpu)
+        : MemoryRegionCPU<TData>(std::move(cpu))
+    {
+        initFromSize(cpu.size());
+    }
+
+private:
+    void initFromSize(size_t n);
+
+    TData *m_device = nullptr;      ///< Device memory pointer
+    size_t m_size   = 0;            ///< Device storage size
+    bool m_ondevice = false;        ///< Flag indicating if data is on device
+};

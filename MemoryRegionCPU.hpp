@@ -1,43 +1,75 @@
 #pragma once
-#include "MemoryRegion.hpp"
 
-template<typename tData>
-class MemoryRegion<tData, BackendCPU>
+/**
+ * @brief Stores underlying data for a Field on the CPU.
+ * 
+ * It acts as a holder for a contiguous block of memory, allocated on the
+ * host system. 
+ * 
+ * This class also acts as a base class for device-aware builds.
+ */
+template <typename TData> class MemoryRegionCPU
 {
 public:
-    MemoryRegion() = default;
-    MemoryRegion(const MemoryRegion &rhs) = delete;
+    MemoryRegionCPU()                           = delete;
+    MemoryRegionCPU(const MemoryRegionCPU &rhs) = delete;
 
-    MemoryRegion(MemoryRegion &&rhs)
+    MemoryRegionCPU(MemoryRegionCPU &&rhs)
     {
-        m_host = rhs.m_host;
+        m_host     = rhs.m_host;
+        m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
-    MemoryRegion(size_t n)
+    MemoryRegionCPU(size_t n)
     {
-        m_host = new tData[n];
+        m_host = new TData[n];
+        m_size = n;
     }
 
-    ~MemoryRegion()
+    virtual ~MemoryRegionCPU()
     {
         if (m_host != nullptr)
         {
-            delete [] m_host;
+            delete[] m_host;
             m_host = nullptr;
         }
     }
 
-    void operator=(MemoryRegion &&rhs)
+    void operator=(MemoryRegionCPU &&rhs)
     {
-        m_host = rhs.m_host;
+        m_host     = rhs.m_host;
+        m_size     = rhs.m_size;
         rhs.m_host = nullptr;
     }
 
-    double *m_host = nullptr;
-
-    double *GetPtr()
+    /**
+     * @brief Get the pointer to the CPU memory.
+     * 
+     * This is a virtual function so that subclasses can move memory to the
+     * CPU from a device if needed.
+     */
+    virtual TData *GetCPUPtr()
     {
         return m_host;
     }
+
+    /**
+     * @brief Move memory to the CPU.
+     * 
+     * This is a virtual function so that subclasses can move memory to the
+     * CPU from a device if needed.
+     */
+    virtual void ToCPU()
+    {
+    }
+
+    size_t size()
+    {
+        return m_size;
+    }
+
+protected:
+    TData *m_host = nullptr;
+    size_t m_size = 0;
 };
