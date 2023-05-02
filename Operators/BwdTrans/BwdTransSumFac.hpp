@@ -2,24 +2,31 @@
 
 namespace Nektar::Operators::detail
 {
-    
+
 // sum-factorisation implementation
 template <typename TData>
 class OperatorBwdTransImpl<TData, ImplSumFac> : public OperatorBwdTrans<TData>
 {
 public:
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr& expansionList)
+        : OperatorBwdTrans<TData>(std::move(expansionList))
+    {
+    }
+
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
         std::cout << "Op bwd trans sum fac\n";
     }
 
-    static std::unique_ptr<Operator<TData>> instantiate()
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr& expansionList)
     {
-        return std::make_unique<OperatorBwdTransImpl<TData, ImplSumFac>>();
+        return std::make_unique<OperatorBwdTransImpl<TData, ImplSumFac>>(
+            std::move(expansionList));
     }
 
     static std::string className;
 };
 
-}
+} // namespace Nektar::Operators::detail

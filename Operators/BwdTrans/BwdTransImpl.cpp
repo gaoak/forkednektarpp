@@ -1,5 +1,6 @@
-#include "BwdTransSumFac.hpp"
+#include "BwdTransStdMat.hpp"
 #include "BwdTransMatFree.hpp"
+#include "BwdTransSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -14,7 +15,13 @@ std::string OperatorBwdTransImpl<double, ImplMatFree>::className =
 template <>
 std::string OperatorBwdTransImpl<double, ImplSumFac>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "BwdTransSumFac",
-        OperatorBwdTransImpl<double, ImplSumFac>::instantiate, "...");
+        "BwdTransSumFac", OperatorBwdTransImpl<double, ImplSumFac>::instantiate,
+        "...");
 
-}
+template <>
+std::string OperatorBwdTransImpl<double, ImplStdMat>::className =
+    GetOperatorFactory<double>().RegisterCreatorFunction(
+        "BwdTransStdMat", OperatorBwdTransImpl<double, ImplStdMat>::instantiate,
+        "...");
+
+} // namespace Nektar::Operators::detail

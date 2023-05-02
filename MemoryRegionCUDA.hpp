@@ -91,7 +91,7 @@ protected:
 private:
     void initFromSize(size_t n);
 
-    TData *m_device = nullptr;      ///< Device memory pointer
-    size_t m_size   = 0;            ///< Device storage size
-    bool m_ondevice = false;        ///< Flag indicating if data is on device
+    TData *m_device = nullptr; ///< Device memory pointer
+    size_t m_size   = 0;       ///< Device storage size
+    bool m_ondevice = false;   ///< Flag indicating if data is on device
 };

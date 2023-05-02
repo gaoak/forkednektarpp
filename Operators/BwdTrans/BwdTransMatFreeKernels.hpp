@@ -1,5 +1,4 @@
-namespace Nektar::Operators::detail::matfree {
-
-
+namespace Nektar::Operators::detail::matfree
+{
 
 }

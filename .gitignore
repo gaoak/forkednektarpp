@@ -2,3 +2,4 @@ build
 .ccls-cache/
 a.out
 .ccls-cache/
+.cache

@@ -2,9 +2,8 @@
 
 namespace Nektar::Operators
 {
-    
-template< typename TData>
-OperatorFactory<TData> &GetOperatorFactory()
+
+template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 {
     static OperatorFactory<TData> instance;
     return instance;
@@ -12,4 +11,4 @@ OperatorFactory<TData> &GetOperatorFactory()
 
 template OperatorFactory<double> &GetOperatorFactory();
 
-}
+} // namespace Nektar::Operators

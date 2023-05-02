@@ -2,11 +2,25 @@ cmake_minimum_required(VERSION 3.0)
 project(Redesign CXX)
 
 option(NEKTAR_USE_CUDA "Enable CUDA support" FALSE)
+option(NEKTAR_USE_SIMD "Enable SIMD support, if available" TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(SRC LibUtilities/ErrorUtil.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
+# Default install location: build/dist
+IF (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+        SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "" FORCE)
+ENDIF()
+
+find_package(Nektar++ REQUIRED)
+include_directories(SYSTEM ${NEKTAR++_INCLUDE_DIRS} ${NEKTAR++_TP_INCLUDE_DIRS})
+link_directories(${NEKTAR++_LIBRARY_DIRS} ${NEKTAR++_TP_LIBRARY_DIRS})
+message(STATUS "Found Nektar++: version ${NEKTAR++_VERSION}")
+
+set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
+
+set(SRC Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
@@ -14,13 +28,26 @@ if (NEKTAR_USE_CUDA)
     set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu)
 endif()
 
+if (NEKTAR_USE_SIMD)
+    add_compile_definitions(NEKTAR_ENABLE_SIMD_AVX512 NEKTAR_ENABLE_SIMD_AVX2 NEKTAR_ENABLE_SIMD_SSE2)
+    add_compile_options("-march=native")
+endif()
+
+# add_compile_options("-fsanitize=address,undefined")
+# add_link_options("-fsanitize=address,undefined")
+
+add_compile_definitions(NEKTAR_FULLDEBUG) # Test ASSERT/WARNING macros
+
 add_library(Operators SHARED ${SRC})
+target_link_libraries(Operators PUBLIC ${NEKTAR++_LIBRARIES} ${NEKTAR++_TP_LIBRARIES})
 target_include_directories(Operators PRIVATE "${CMAKE_SOURCE_DIR}")
+target_compile_definitions(Operators PUBLIC ${NEKTAR++_DEFINITIONS})
 
 set(TEST_SRC main.cpp)
 add_executable(main ${TEST_SRC})
 target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
+target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
 
 find_package(Doxygen)
 add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile)
