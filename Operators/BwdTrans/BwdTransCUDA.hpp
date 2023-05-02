@@ -9,6 +9,11 @@ template <typename TData>
 class OperatorBwdTransImpl<TData, ImplCUDA> : public OperatorBwdTrans<TData>
 {
 public:
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr& expansionList)
+        : OperatorBwdTrans<TData>(std::move(expansionList))
+    {
+    }
+
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
@@ -17,9 +22,11 @@ public:
         std::cout << "Op bwd trans CUDA\n";
     }
 
-    static std::unique_ptr<Operator<TData>> instantiate()
+    static std::unique_ptr<Operator<TData>> instantiate(
+        MultiRegions::ExpListSharedPtr expansionList)
     {
-        return std::make_unique<OperatorBwdTransImpl<TData, ImplCUDA>>();
+        return std::make_unique<OperatorBwdTransImpl<TData, ImplCUDA>>(
+            std::move(expansionList));
     }
 
     static std::string className;

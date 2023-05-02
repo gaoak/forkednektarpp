@@ -2,7 +2,9 @@
 
 #include <string>
 
-#include "LibUtilities/NekFactory.hpp"
+#include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <MultiRegions/ExpList.h>
+//#include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators
 {
@@ -11,41 +13,56 @@ namespace Nektar::Operators
 // allow extension by users without modifying library
 using default_fp_type = double;
 
-// Implementation types
-struct ImplLocMat;
+// Core implementation types
+struct ImplStdMat;
 struct ImplSumFac;
 struct ImplMatFree;
 struct ImplCUDA;
 
 // Forward-declare the Operator base class so we can define the factory
-template< typename TData> class Operator;
+template <typename TData> class Operator;
 
 // Typename alias for the factory
-template< typename TData>
+template <typename TData>
 using OperatorFactory =
-    Nektar::LibUtilities::NekFactory<std::string, Operator<TData>>;
+    Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
+                                     const MultiRegions::ExpListSharedPtr&>;
 
 // Operator factory singleton
-template< typename TData>
-OperatorFactory<TData> &GetOperatorFactory();
+template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
 
-template <typename TData>
-class Operator
+template <typename TData> class Operator
 {
 public:
-    template< typename TDescriptor>
-    static std::unique_ptr<typename TDescriptor::class_name> create(std::string pKey = "")
+    virtual ~Operator() = default;
+
+    Operator(const MultiRegions::ExpListSharedPtr& expansionList)
+        : m_expansionList(std::move(expansionList))
+    {
+    }
+
+    template <typename TDescriptor>
+    static std::shared_ptr<typename TDescriptor::class_name> create(
+        const MultiRegions::ExpListSharedPtr& expansionList,
+        std::string pKey = "")
     {
         std::string key = TDescriptor::key;
-        if (pKey.empty()) {
+        if (pKey.empty())
+        {
             key += TDescriptor::default_impl;
         }
-        else {
+        else
+        {
             key += pKey;
         }
-        auto x = GetOperatorFactory<TData>().CreateInstance(key);
-        return std::unique_ptr<typename TDescriptor::class_name>(static_cast<typename TDescriptor::class_name*>(x.release()));
+
+        return std::static_pointer_cast<typename TDescriptor::class_name>(
+            GetOperatorFactory<TData>().CreateInstance(
+                key, std::move(expansionList)));
     }
+
+protected:
+    MultiRegions::ExpListSharedPtr m_expansionList;
 };
 
-}
+} // namespace Nektar::Operators
