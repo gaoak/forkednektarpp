@@ -23,7 +23,7 @@ public:
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            auto const expPtr = this->m_expansionList->GetExp(block_idx);
+            auto const expPtr = this->m_expansionList->GetExp(this->m_blkAttr[block_idx].exp_id);
 
             Nektar::StdRegions::StdMatrixKey key(
                 StdRegions::eBwdTrans, expPtr->DetShapeType(), *expPtr);

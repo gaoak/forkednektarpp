@@ -41,25 +41,6 @@ std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
     return stream;
 }
 
-std::vector<BlockAttributes> GetBlockAttributes(
-        FieldState state,
-        const MultiRegions::ExpListSharedPtr explist)
-{
-    const int n = explist->GetNumElmts();
-    std::map<std::tuple<LibUtilities::ShapeType,unsigned int,unsigned int>,size_t> blockList;
-    for (int i = 0; i < explist->GetNumElmts(); ++i)
-    {
-        auto e = explist->GetExp(i);
-        blockList[{e->DetShapeType(),e->GetNcoeffs(),e->GetTotPoints()}]++;
-    }
-    std::vector<BlockAttributes> blockAttr;
-    for (auto &x : blockList)
-    {
-        auto val = state == FieldState::Phys ? std::get<2>(x.first) : std::get<1>(x.first);
-        blockAttr.push_back( { x.second, val } );
-    }
-    return blockAttr;
-}
 
 int main(int argc, char *argv[])
 {

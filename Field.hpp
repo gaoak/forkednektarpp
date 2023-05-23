@@ -15,6 +15,7 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <StdRegions/StdExpansion.h>
+#include <MultiRegions/ExpList.h>
 
 /**
  * @brief Captures the structure of a block of elements of identical shape
@@ -22,15 +23,16 @@
  */
 struct BlockAttributes
 {
-    BlockAttributes(size_t num_elements, size_t num_pts)
+    BlockAttributes(size_t num_elements, size_t num_pts, size_t exp_id)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts)
+          block_size(num_elements * num_pts), exp_id(exp_id)
     {
     }
 
     size_t num_elements;
     size_t num_pts;
     size_t block_size;
+    size_t exp_id;
 };
 
 /**
@@ -48,6 +50,10 @@ enum class FieldState
 };
 
 static constexpr FieldState DefaultState = FieldState::Phys;
+
+std::vector<BlockAttributes> GetBlockAttributes(
+        FieldState state,
+        const Nektar::MultiRegions::ExpListSharedPtr explist);
 
 /**
  * @brief A Field represents expansion data to be operated on.
