@@ -14,8 +14,8 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <StdRegions/StdExpansion.h>
 #include <MultiRegions/ExpList.h>
+#include <StdRegions/StdExpansion.h>
 
 /**
  * @brief Captures the structure of a block of elements of identical shape
@@ -52,8 +52,7 @@ enum class FieldState
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 std::vector<BlockAttributes> GetBlockAttributes(
-        FieldState state,
-        const Nektar::MultiRegions::ExpListSharedPtr explist);
+    FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist);
 
 /**
  * @brief A Field represents expansion data to be operated on.
@@ -114,8 +113,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TType>>(

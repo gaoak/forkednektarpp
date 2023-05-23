@@ -42,7 +42,7 @@ public:
         : m_expansionList(expansionList)
     {
         // FieldState is useless
-        m_blkAttr = GetBlockAttributes(FieldState::Phys, expansionList);        
+        m_blkAttr = GetBlockAttributes(FieldState::Phys, expansionList);
     }
 
     template <typename TDescriptor>
