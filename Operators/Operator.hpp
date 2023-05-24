@@ -4,7 +4,7 @@
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <MultiRegions/ExpList.h>
-//#include <StdRegions/StdExpansion.h>
+// #include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators
 {
@@ -26,7 +26,7 @@ template <typename TData> class Operator;
 template <typename TData>
 using OperatorFactory =
     Nektar::LibUtilities::NekFactory<std::string, Operator<TData>,
-                                     const MultiRegions::ExpListSharedPtr&>;
+                                     const MultiRegions::ExpListSharedPtr &>;
 
 // Operator factory singleton
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory();
@@ -36,14 +36,14 @@ template <typename TData> class Operator
 public:
     virtual ~Operator() = default;
 
-    Operator(const MultiRegions::ExpListSharedPtr& expansionList)
-        : m_expansionList(std::move(expansionList))
+    Operator(const MultiRegions::ExpListSharedPtr &expansionList)
+        : m_expansionList(expansionList)
     {
     }
 
     template <typename TDescriptor>
     static std::shared_ptr<typename TDescriptor::class_name> create(
-        const MultiRegions::ExpListSharedPtr& expansionList,
+        const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
         std::string key = TDescriptor::key;
@@ -57,8 +57,7 @@ public:
         }
 
         return std::static_pointer_cast<typename TDescriptor::class_name>(
-            GetOperatorFactory<TData>().CreateInstance(
-                key, std::move(expansionList)));
+            GetOperatorFactory<TData>().CreateInstance(key, expansionList));
     }
 
 protected:

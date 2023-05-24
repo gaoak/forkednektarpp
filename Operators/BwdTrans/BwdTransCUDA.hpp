@@ -9,8 +9,8 @@ template <typename TData>
 class OperatorBwdTransImpl<TData, ImplCUDA> : public OperatorBwdTrans<TData>
 {
 public:
-    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr& expansionList)
-        : OperatorBwdTrans<TData>(std::move(expansionList))
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorBwdTrans<TData>(expansionList)
     {
     }
 
@@ -26,7 +26,7 @@ public:
         MultiRegions::ExpListSharedPtr expansionList)
     {
         return std::make_unique<OperatorBwdTransImpl<TData, ImplCUDA>>(
-            std::move(expansionList));
+            expansionList);
     }
 
     static std::string className;
