@@ -87,6 +87,7 @@ public:
         m_storage        = std::move(rhs.m_storage);
         block_attributes = std::move(rhs.block_attributes);
         component_names  = std::move(rhs.component_names);
+        m_curVecWidth    = std::move(rhs.m_curVecWidth);
 
         return *this;
     }
