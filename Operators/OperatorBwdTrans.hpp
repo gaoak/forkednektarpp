@@ -13,8 +13,8 @@ template <typename TData> class OperatorBwdTrans : public Operator<TData>
 public:
     virtual ~OperatorBwdTrans() = default;
 
-    OperatorBwdTrans(const MultiRegions::ExpListSharedPtr& expansionList)
-        : Operator<TData>(std::move(expansionList))
+    OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
     {
     }
 
@@ -37,11 +37,10 @@ template <typename TData = default_fp_type> struct BwdTrans
     static const std::string default_impl;
 
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr& expansionList,
+        const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<BwdTrans>(
-            std::move(expansionList), pKey);
+        return Operator<TData>::template create<BwdTrans>(expansionList, pKey);
     }
 };
 

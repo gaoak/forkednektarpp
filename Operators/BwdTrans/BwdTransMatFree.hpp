@@ -8,8 +8,8 @@ template <typename TData>
 class OperatorBwdTransImpl<TData, ImplMatFree> : public OperatorBwdTrans<TData>
 {
 public:
-    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr& expansionList)
-        : OperatorBwdTrans<TData>(std::move(expansionList))
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorBwdTrans<TData>(expansionList)
     {
     }
 
@@ -27,10 +27,10 @@ public:
     }
 
     static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr& expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorBwdTransImpl<TData, ImplMatFree>>(
-            std::move(expansionList));
+            expansionList);
     }
 
     static std::string className;
