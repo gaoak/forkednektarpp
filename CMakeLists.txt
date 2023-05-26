@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(Redesign CXX)
 
+enable_testing()
+
 option(NEKTAR_USE_CUDA "Enable CUDA support" FALSE)
 option(NEKTAR_USE_SIMD "Enable SIMD support, if available" TRUE)
 
@@ -48,6 +50,8 @@ add_executable(main ${TEST_SRC})
 target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
+
+add_subdirectory(tests)
 
 find_package(Doxygen)
 add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile)
