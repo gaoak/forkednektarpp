@@ -17,8 +17,8 @@
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
-#include <SpatialDomains/MeshGraph.h>
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraph.h>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -41,27 +41,26 @@ std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
     return stream;
 }
 
-
 int main(int argc, char *argv[])
 {
     // Initialise a session, graph and create an expansion list
     LibUtilities::SessionReaderSharedPtr session;
-    SpatialDomains::MeshGraphSharedPtr   graph;
-    MultiRegions::ExpListSharedPtr       explist;
+    SpatialDomains::MeshGraphSharedPtr graph;
+    MultiRegions::ExpListSharedPtr explist;
 
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     graph   = SpatialDomains::MeshGraph::Read(session);
-    explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr
-                    (session, graph);
+    explist =
+        MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(session, graph);
 
     // Generate a blocks definition from the expansion list for each state
-    auto blocks_phys  = GetBlockAttributes(FieldState::Phys,  explist);
+    auto blocks_phys  = GetBlockAttributes(FieldState::Phys, explist);
     auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, explist);
 
     // Create two Field objects with a MemoryRegionCPU backend by default
     auto in  = Field<double, FieldState::Coeff>::create(blocks_coeff);
     auto in2 = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto out = Field<double, FieldState::Phys >::create(blocks_phys);
+    auto out = Field<double, FieldState::Phys>::create(blocks_phys);
 
     // Populate the field with some data. In this case, we just grab a pointer
     // to the memory on the CPU and populate the array with values. Operators,
@@ -87,7 +86,8 @@ int main(int argc, char *argv[])
         }
     }
 
-    memset(out.GetStorage().GetCPUPtr(), 0, out.GetStorage().size()*sizeof(double));
+    memset(out.GetStorage().GetCPUPtr(), 0,
+           out.GetStorage().size() * sizeof(double));
 
     std::cout << "Initial shape:\n" << in << std::endl << std::endl;
 
@@ -176,14 +176,15 @@ int main(int argc, char *argv[])
 
     std::cout << out << std::endl;
 
-
 #ifdef NEKTAR_USE_CUDA
 
     // Test CUDA MemoryRegion
 
     // Create two Fields with memory on the GPU
-    in  = Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(blocks_coeff);
-    out = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(blocks_phys);
+    in = Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+        blocks_coeff);
+    out =
+        Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(blocks_phys);
 
     // Perform the BwdTrans on the fields using the CUDA implementation
     // Since this is a CUDA operator, acting on CUDA fields, everything happens

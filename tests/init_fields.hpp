@@ -28,24 +28,24 @@ struct InitFields {
   ~InitFields() {BOOST_TEST_MESSAGE("teardown fixture");}
 
 
-  static std::vector<BlockAttributes>
-  GetBlockAttributes(FieldState state,
-		     const MultiRegions::ExpListSharedPtr explist) {
-        const int n = explist->GetNumElmts();
-    std::map<std::tuple<LibUtilities::ShapeType,unsigned int,unsigned int>,size_t> blockList;
-    for (int i = 0; i < explist->GetNumElmts(); ++i)
-    {
-        auto e = explist->GetExp(i);
-        blockList[{e->DetShapeType(),e->GetNcoeffs(),e->GetTotPoints()}]++;
-    }
-    std::vector<BlockAttributes> blockAttr;
-    for (auto &x : blockList)
-    {
-        auto val = state == FieldState::Phys ? std::get<2>(x.first) : std::get<1>(x.first);
-        blockAttr.push_back( { x.second, val } );
-    }
-    return blockAttr;
-  }
+//   static std::vector<BlockAttributes>
+//   GetBlockAttributes(FieldState state,
+// 		     const MultiRegions::ExpListSharedPtr explist) {
+//         const int n = explist->GetNumElmts();
+//     std::map<std::tuple<LibUtilities::ShapeType,unsigned int,unsigned int>,size_t> blockList;
+//     for (int i = 0; i < explist->GetNumElmts(); ++i)
+//     {
+//         auto e = explist->GetExp(i);
+//         blockList[{e->DetShapeType(),e->GetNcoeffs(),e->GetTotPoints()}]++;
+//     }
+//     std::vector<BlockAttributes> blockAttr;
+//     for (auto &x : blockList)
+//     {
+//         auto val = state == FieldState::Phys ? std::get<2>(x.first) : std::get<1>(x.first);
+//         blockAttr.push_back( { x.second, val } );
+//     }
+//     return blockAttr;
+//   }
 
   InitFields() {
     BOOST_TEST_MESSAGE("Creating input and output fields");
@@ -67,8 +67,8 @@ struct InitFields {
                     (session, graph);
 
     // Generate a blocks definition from the expansion list for each state
-    auto blocks_phys  = InitFields::GetBlockAttributes(FieldState::Phys,  fixt_explist);
-    auto blocks_coeff = InitFields::GetBlockAttributes(FieldState::Coeff, fixt_explist);
+    auto blocks_phys  = GetBlockAttributes(FieldState::Phys,  fixt_explist);
+    auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, fixt_explist);
 
     // Create two Field objects with a MemoryRegionCPU backend by default
     auto f_in  = Field<double, FieldState::Coeff>::create(blocks_coeff);
