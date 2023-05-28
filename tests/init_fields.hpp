@@ -27,7 +27,7 @@ struct InitFields {
   MultiRegions::ExpListSharedPtr fixt_explist {nullptr};
   ~InitFields() {BOOST_TEST_MESSAGE("teardown fixture");}
 
-
+// // This function has been moved to Field.hpp
 //   static std::vector<BlockAttributes>
 //   GetBlockAttributes(FieldState state,
 // 		     const MultiRegions::ExpListSharedPtr explist) {
