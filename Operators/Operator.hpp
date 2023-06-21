@@ -41,8 +41,6 @@ public:
     Operator(const MultiRegions::ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList)
     {
-        // FieldState is useless
-        m_blkAttr = GetBlockAttributes(FieldState::Phys, expansionList);
     }
 
     template <typename TDescriptor>
@@ -66,7 +64,6 @@ public:
 
 protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
-    std::vector<BlockAttributes> m_blkAttr;
 };
 
 } // namespace Nektar::Operators

@@ -20,11 +20,11 @@ public:
         auto const *inptr = in.GetStorage().GetCPUPtr();
         auto *outptr      = out.GetStorage().GetCPUPtr();
 
+        size_t exp_idx = 0;
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            auto const expPtr = this->m_expansionList->GetExp(
-                this->m_blkAttr[block_idx].exp_id);
+            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
 
             Nektar::StdRegions::StdMatrixKey key(
                 StdRegions::eBwdTrans, expPtr->DetShapeType(), *expPtr);
@@ -39,6 +39,7 @@ public:
 
             inptr += block.block_size;
             outptr += expPtr->GetTotPoints() * block.num_elements;
+            exp_idx += block.num_elements;
         }
     }
 

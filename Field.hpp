@@ -23,16 +23,15 @@
  */
 struct BlockAttributes
 {
-    BlockAttributes(size_t num_elements, size_t num_pts, size_t exp_id)
+    BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts), exp_id(exp_id)
+          block_size(num_elements * num_pts)
     {
     }
 
     size_t num_elements;
     size_t num_pts;
     size_t block_size;
-    size_t exp_id;
 };
 
 /**
