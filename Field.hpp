@@ -1,7 +1,5 @@
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-#include <StdRegions/StdRegions.hpp>
 #include <array>
 #include <iostream>
 #include <memory>
@@ -15,7 +13,6 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
-#include <StdRegions/StdExpansion.h>
 
 /**
  * @brief Captures the structure of a block of elements of identical shape

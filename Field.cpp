@@ -1,6 +1,4 @@
 #include "Field.hpp"
-#include <MultiRegions/ExpList.h>
-#include <StdRegions/StdExpansion.h>
 
 using namespace Nektar;
 using namespace LibUtilities;
