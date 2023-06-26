@@ -12,7 +12,16 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <MultiRegions/ExpList.h>
+
+namespace Nektar
+{
+namespace MultiRegions
+{
+    class ExpList;
+    typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+}
+}
+
 
 /**
  * @brief Captures the structure of a block of elements of identical shape
@@ -57,8 +66,6 @@ std::vector<BlockAttributes> GetBlockAttributes(
  */
 template <typename TType = double, FieldState TState = DefaultState> class Field
 {
-    using ExpansionSharedPtr = Nektar::StdRegions::StdExpansionSharedPtr;
-
 public:
     Field(const Field &) = delete;
     virtual ~Field()     = default;

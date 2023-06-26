@@ -1,4 +1,5 @@
 #include "Field.hpp"
+#include <MultiRegions/ExpList.h>
 
 using namespace Nektar;
 using namespace LibUtilities;
