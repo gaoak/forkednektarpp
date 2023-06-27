@@ -22,7 +22,7 @@ message(STATUS "Found Nektar++: version ${NEKTAR++_VERSION}")
 
 set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 
-set(SRC Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
+set(SRC Field.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp)
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)

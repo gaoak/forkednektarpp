@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Field.hpp"
+
 #include <string>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>

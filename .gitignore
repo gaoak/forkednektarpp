@@ -1,5 +1,14 @@
 build
+buildDebug
+builds
 .ccls-cache/
 a.out
 .ccls-cache/
 .cache
+.*
+!.gitignore
+!.gitlab-ci.yml
+!.gitattributes
+!.clang-format
+!.dockerignore
+!.gitlab-ci

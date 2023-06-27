@@ -1,7 +1,5 @@
 #pragma once
 
-#include <StdRegions/StdExpansion.h>
-#include <StdRegions/StdRegions.hpp>
 #include <array>
 #include <iostream>
 #include <memory>
@@ -14,7 +12,16 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <StdRegions/StdExpansion.h>
+
+namespace Nektar
+{
+namespace MultiRegions
+{
+    class ExpList;
+    typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+}
+}
+
 
 /**
  * @brief Captures the structure of a block of elements of identical shape
@@ -49,6 +56,9 @@ enum class FieldState
 
 static constexpr FieldState DefaultState = FieldState::Phys;
 
+std::vector<BlockAttributes> GetBlockAttributes(
+    FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist);
+
 /**
  * @brief A Field represents expansion data to be operated on.
  * @tparam TType  The floating-point representation used by the field.
@@ -56,8 +66,6 @@ static constexpr FieldState DefaultState = FieldState::Phys;
  */
 template <typename TType = double, FieldState TState = DefaultState> class Field
 {
-    using ExpansionSharedPtr = Nektar::StdRegions::StdExpansionSharedPtr;
-
 public:
     Field(const Field &) = delete;
     virtual ~Field()     = default;
@@ -108,8 +116,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TType>>(
