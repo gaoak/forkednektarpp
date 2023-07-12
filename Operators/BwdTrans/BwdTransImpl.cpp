@@ -1,5 +1,5 @@
-#include "BwdTransStdMat.hpp"
 #include "BwdTransMatFree.hpp"
+#include "BwdTransStdMat.hpp"
 #include "BwdTransSumFac.hpp"
 
 namespace Nektar::Operators::detail

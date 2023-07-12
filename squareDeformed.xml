@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="2" SPACE="2">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYICAx7ZT/D4/OW/vfW1rRBvvBXuoMAMjAyoo9QCRCHkmBvyAGUr/XPwfCM7bo8uzoPAeYMizosmjm8OGVT/CHHas9iPkObC6GiHPiSL+AcN9XGjy6O7jhtJ6YPKFfcsjVHkeFP0vMMznxSqPcB8fVvch5PlR5GHiCHsEoPQntRlz3sx8aS+W9+p69IyXcHlBKK0QYgwEr+195s0Ego9weSGs5iPCSRjmsikQfZ1CEHNg8iJQ2hgMPtvDaJi8KMzn4IRywd4Dzf1iDNgAQl4cSqOmW4T7JLDqR8gDAHwmZuEA</VERTEX>
+        <EDGE COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx1kkcSwlAMQ0MLoQZC7z3c/4Zs/Ba8GXuj0ZflyJ4UxX91Euwm2EuQ6usdPkh4KU4Nk75KnL6RODXWO/6JOHtP5WPuTD70uXzotfzoC3HusQxkX+Y0yfdXgaX0tXKRc6M+9K3ykm8nTr69OPkO4sw7Ki/zTuLkOisfvovmsvc1kL3JdZMf/R7I/8BdHuLc5SnO//IK5E7c5S2O76P5+NrAWvo3sFH/D7Z4BrgA</EDGE>
+        <ELEMENT>
+            <Q COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJx10ccSwjAMRdEAofeS0CH0//9DNvcueDNkc8a2LEtKUfx+LWxjJ/Zdl9jFXtxz3ccBDiPPCMdRh3G+M8EpznAedSzifPmnTvdXuI56dYNVxFuHfdW4xR3u0X4OeIy8J3Qe5jtHfd5zXpd41/xXdG7mbfCGd7SfBz4j7oXO1b6t7x35/S+fuG+cc/kCmoQFPwAA</Q>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="13"> E[36,34,11,1] </C>
+            <C ID="14"> E[2,4,16,15] </C>
+            <C ID="15"> E[12,20,28,31] </C>
+            <C ID="16"> E[30,24,39,35] </C>
+            <C ID="17"> Q[0-15] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[17] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <EXPANSIONS>
+        <E COMPOSITE="C[17]" NUMMODES="4" TYPE="MODIFIED" FIELDS="u" />
+    </EXPANSIONS>
+</NEKTAR>

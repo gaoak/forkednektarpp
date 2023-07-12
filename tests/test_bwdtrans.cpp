@@ -8,8 +8,8 @@
 #include "Operators/OperatorBwdTrans.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <SpatialDomains/MeshGraph.h>
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraph.h>
 
 #include "init_fields.hpp"
 
@@ -18,8 +18,29 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-BOOST_FIXTURE_TEST_CASE( bwdtrans, InitFields )
+class Line : public InitFields<FieldState::Coeff, FieldState::Phys>
 {
+protected:
+    virtual std::string GetMeshName() override
+    {
+        return "line.xml";
+    }
+};
+
+class Square : public InitFields<FieldState::Coeff, FieldState::Phys>
+{
+protected:
+    virtual std::string GetMeshName() override
+    {
+        return "square.xml";
+    }
+};
+
+using init = InitFields<FieldState::Coeff, FieldState::Phys>;
+BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
+{
+    Configure();
+
     double *x = fixt_in->GetStorage().GetCPUPtr();
 
     // For each element, initialise first coefficient to zero and rest
@@ -30,10 +51,12 @@ BOOST_FIXTURE_TEST_CASE( bwdtrans, InitFields )
         {
             for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
             {
-                if (coeff == 0) {
+                if (coeff == 0)
+                {
                     *(x++) = 1.0;
                 }
-                else {
+                else
+                {
                     *(x++) = 0.0;
                 }
             }
@@ -43,5 +66,5 @@ BOOST_FIXTURE_TEST_CASE( bwdtrans, InitFields )
     BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
 
     double *y = fixt_out->GetStorage().GetCPUPtr();
-    BOOST_TEST( y[0] == 1.0 );
+    BOOST_TEST(y[0] == 1.0);
 }
