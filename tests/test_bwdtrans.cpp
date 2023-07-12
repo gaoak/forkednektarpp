@@ -63,8 +63,28 @@ BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
         }
     }
 
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    // TODO: Initialise expected solution
+    x = fixt_expected->GetStorage().GetCPUPtr();
 
-    double *y = fixt_out->GetStorage().GetCPUPtr();
-    BOOST_TEST(y[0] == 1.0);
+    // For each element, initialise first coefficient to zero and rest
+    // to 1.
+    for (auto const &block : fixt_expected->GetBlocks())
+    {
+        for (size_t el = 0; el < block.num_elements; ++el)
+        {
+            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+            {
+                if (coeff == 0) {
+                    *(x++) = 1.0;
+                }
+                else {
+                    *(x++) = 0.0;
+                }
+            }
+        }
+    }
+
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    double TOL  {0.01};
+    BOOST_TEST( fixt_out->compare(*fixt_expected, TOL));
 }

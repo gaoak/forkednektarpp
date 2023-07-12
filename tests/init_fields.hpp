@@ -32,6 +32,7 @@ class InitFields
 public:
     Field<double, stateIn> *fixt_in;
     Field<double, stateOut> *fixt_out;
+    Field<double, stateOut> *fixt_expected;
     MultiRegions::ExpListSharedPtr fixt_explist{nullptr};
     ~InitFields()
     {
@@ -67,8 +68,10 @@ public:
         // Create two Field objects with a MemoryRegionCPU backend by default
         auto f_in  = Field<double, stateIn>::create(blocks_in);
         auto f_out = Field<double, stateOut>::create(blocks_out);
+	auto f_expected = Field<double, stateOut>::create(blocks_out);
         fixt_in    = new Field<double, stateIn>(std::move(f_in));
         fixt_out   = new Field<double, stateOut>(std::move(f_out));
+	fixt_expected = new Field<double, stateOut>(std::move(f_expected));
     }
 
 protected:
