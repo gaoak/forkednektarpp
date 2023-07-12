@@ -14,6 +14,7 @@
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
+#include "Operators/OperatorIProductWRTBase.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -91,11 +92,11 @@ int main(int argc, char *argv[])
 
     std::cout << "Initial shape:\n" << in << std::endl << std::endl;
 
+#ifdef NEKTAR_ENABLE_SIMD_AVX2
     // Test out field reshaping
     in.ReshapeStorage<4>();
     std::cout << "Reshaped to 4:\n" << in << std::endl << std::endl;
 
-#ifdef NEKTAR_ENABLE_SIMD_AVX2
     // Test out SIMD instructions
     using vec_t = tinysimd::simd<double>;
 
@@ -205,6 +206,40 @@ int main(int argc, char *argv[])
     out = Field<double, FieldState::Phys>::create(blocks);
     BwdTrans<>::create(explist, "CUDA")->apply(in, out);
 #endif
+
+    std::cout << "Inner Product of a function WRT the Basis" << std::endl;
+
+    // Create two Field objects with a MemoryRegionCPU backend by default
+    // for the inner product with respect to base
+    auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
+    auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+    double *y = inPhys.GetStorage().GetCPUPtr();
+    for (auto const &block : blocks_phys)
+    {
+        for (size_t el = 0; el < block.num_elements; ++el)
+        {
+            for (size_t phys = 0; phys < block.num_pts; ++phys)
+            {
+                // Each element is the index of the quadrature points
+                // this is useful for testing reshapes
+                *(y++) = phys;
+            }
+        }
+    }
+
+    memset(outCoeff.GetStorage().GetCPUPtr(), 0,
+           outCoeff.GetStorage().size() * sizeof(double));
+
+    std::cout << "Initial shape:\n" << inPhys << std::endl << std::endl;
+
+    // IProductWRTBase
+    auto ipwrtb = IProductWRTBase<>::create(explist, "StdMat");
+    // ... and then apply it
+    ipwrtb->apply(inPhys, outCoeff); // out and in is inverted for the IP
+
+    // Let's display the result
+    std::cout << "Out:\n" << outCoeff << std::endl;
 
     std::cout << "END" << std::endl;
     return 0;

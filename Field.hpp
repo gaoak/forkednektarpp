@@ -17,11 +17,10 @@ namespace Nektar
 {
 namespace MultiRegions
 {
-    class ExpList;
-    typedef std::shared_ptr<ExpList> ExpListSharedPtr;
-}
-}
-
+class ExpList;
+typedef std::shared_ptr<ExpList> ExpListSharedPtr;
+} // namespace MultiRegions
+} // namespace Nektar
 
 /**
  * @brief Captures the structure of a block of elements of identical shape
@@ -116,9 +115,8 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block) {
-                return acc + block.block_size;
-            });
+            [](size_t acc, const BlockAttributes &block)
+            { return acc + block.block_size; });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TType>>(

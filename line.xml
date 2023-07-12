@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <GEOMETRY DIM="1" SPACE="1">
+        <VERTEX COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYMAPGFF4H+zR5QEVbwEx</VERTEX>
+        <ELEMENT>
+            <S COMPRESSED="B64Z-LittleEndian" BITSIZE="64">eJxjYEAFjFAaAAAgAAIA</S>
+        </ELEMENT>
+        <COMPOSITE>
+            <C ID="0"> S[0] </C>
+        </COMPOSITE>
+        <DOMAIN>
+            <D ID="0"> C[0] </D>
+        </DOMAIN>
+    </GEOMETRY>
+    <Metadata>
+        <Provenance>
+            <GitBranch>refs/heads/master</GitBranch>
+            <GitSHA1>b9041a54043f57d230bcc1eb5be5c9a048b69a92</GitSHA1>
+            <Hostname>dyn3237-113.wlan.ic.ac.uk</Hostname>
+            <NektarVersion>5.3.0</NektarVersion>
+            <Timestamp>07-Jun-2023 11:25:53</Timestamp>
+        </Provenance>
+        <NekMeshCommandLine>-v line.msh line.xml </NekMeshCommandLine>
+    </Metadata>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0]" NUMMODES="6" TYPE="MODIFIED" FIELDS="u" />
+    </EXPANSIONS>
+</NEKTAR>
