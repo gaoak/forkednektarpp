@@ -99,6 +99,39 @@ public:
         return *this;
     }
 
+  /**
+   * @brief Compare this field to another field, with absolute
+   * tolerance tol.
+   * @return bool
+   */
+  bool compare(Field<TType, TState> &rhs, double tol)
+  {
+    const std::vector<BlockAttributes>& rhs_blocks = rhs.GetBlocks();
+    TType *store = GetStorage().GetCPUPtr();
+    TType *rhs_store = rhs.GetStorage().GetCPUPtr();
+    if (rhs_blocks.size() != block_attributes.size()) return false;
+
+    size_t i {0};
+    for (size_t bl = 0; bl < block_attributes.size(); ++bl){
+
+      size_t num_elements = block_attributes[bl].num_elements;
+      size_t num_pts = block_attributes[bl].num_pts;
+
+      // Check that each block have the same structure
+      if (num_elements != rhs_blocks[bl].num_elements) return false;
+      if (num_pts != rhs_blocks[bl].num_pts) return false;
+
+      // Compare elements in the blocks
+      for (size_t el = 0 ; el < num_elements; ++el) {
+	for (size_t coeff = 0; coeff < num_pts; ++coeff) {
+	  i = coeff + el * num_pts + bl * num_pts * num_elements;
+	  if (std::abs(store[i] - rhs_store[i]) > tol) return false;
+	}
+      }
+    }
+    return true;
+  }
+
     /**
      * @brief Static templated creation method.
      *
