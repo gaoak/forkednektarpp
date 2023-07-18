@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
         vec_t::scalarType *in2ptr = in2.GetStorage().GetCPUPtr();
 
         // Loop over each block in the field and square each element
-        for (auto const &block : inCoeff.GetBlocks())
+        for (auto const &block : blocks_coeff)
         {
             const size_t numMetaBlocks = block.num_elements / vec_t::width;
             for (size_t metaBlock = 0;

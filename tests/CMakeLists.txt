@@ -13,14 +13,16 @@ target_include_directories(test_bwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_bwdtrans PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
-add_executable(test_bwdtranscuda test_bwdtranscuda.cpp)
-target_link_libraries(test_bwdtranscuda PRIVATE Operators)
-target_link_libraries(test_bwdtranscuda PRIVATE ${NEKTAR++_LIBRARIES})
-target_link_libraries(test_bwdtranscuda PRIVATE Boost::unit_test_framework)
-target_include_directories(test_bwdtranscuda PRIVATE "${CMAKE_SOURCE_DIR}")
-target_include_directories(test_bwdtranscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
-target_compile_definitions(test_bwdtranscuda PRIVATE
-    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_bwdtranscuda test_bwdtranscuda.cpp)
+    target_link_libraries(test_bwdtranscuda PRIVATE Operators)
+    target_link_libraries(test_bwdtranscuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_bwdtranscuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_bwdtranscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_bwdtranscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_bwdtranscuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
 
 add_executable(test_ipwrtbase test_ipwrtbase.cpp)
 target_link_libraries(test_ipwrtbase PRIVATE Operators)
