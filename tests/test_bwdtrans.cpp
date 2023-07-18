@@ -18,7 +18,7 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class Line : public InitFields<FieldState::Coeff, FieldState::Phys>
+class Line : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
 protected:
     virtual std::string GetMeshName() override
@@ -27,7 +27,7 @@ protected:
     }
 };
 
-class Square : public InitFields<FieldState::Coeff, FieldState::Phys>
+class Square : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
 protected:
     virtual std::string GetMeshName() override
@@ -36,9 +36,9 @@ protected:
     }
 };
 
-using init = InitFields<FieldState::Coeff, FieldState::Phys>;
 BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
 {
+
     Configure();
 
     double *x = fixt_in->GetStorage().GetCPUPtr();
@@ -74,10 +74,12 @@ BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
         {
             for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
             {
-                if (coeff == 0) {
+                if (coeff == 0)
+                {
                     *(x++) = 1.0;
                 }
-                else {
+                else
+                {
                     *(x++) = 0.0;
                 }
             }
@@ -85,6 +87,6 @@ BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
     }
 
     BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    double TOL  {0.01};
-    BOOST_TEST( fixt_out->compare(*fixt_expected, TOL));
+    double TOL{0.01};
+    BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
 }

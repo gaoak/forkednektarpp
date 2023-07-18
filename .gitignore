@@ -5,6 +5,7 @@ builds
 a.out
 .ccls-cache/
 .cache
+*.opt
 .*
 !.gitignore
 !.gitlab-ci.yml

@@ -8,6 +8,10 @@
 #include <Operators/OperatorBwdTrans.hpp>
 #include <Operators/OperatorIProductWRTBase.hpp>
 
+#ifdef NEKTAR_USE_CUDA
+#include "MemoryRegionCUDA.hpp"
+#endif
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
@@ -25,23 +29,26 @@ using namespace Nektar;
  * https://www.boost.org/doc/libs/1_82_0/libs/test/doc/html/boost_test/tests_organization/fixtures/case.html
  */
 
-template <FieldState stateIn  = FieldState::Coeff,
+template <typename TData, FieldState stateIn = FieldState::Coeff,
           FieldState stateOut = FieldState::Phys>
 class InitFields
 {
 public:
-    Field<double, stateIn> *fixt_in;
-    Field<double, stateOut> *fixt_out;
-    Field<double, stateOut> *fixt_expected;
+    Field<TData, stateIn> *fixt_in;
+    Field<TData, stateOut> *fixt_out;
+    Field<TData, stateOut> *fixt_expected;
+#ifdef NEKTAR_USE_CUDA
+    Field<TData, stateIn> *fixtcuda_in;
+    Field<TData, stateOut> *fixtcuda_out;
+#endif
     MultiRegions::ExpListSharedPtr fixt_explist{nullptr};
+
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
     }
 
-    InitFields()
-    {
-    }
+    InitFields() = default;
 
     void Configure()
     {
@@ -66,12 +73,21 @@ public:
         auto blocks_out = GetBlockAttributes(stateOut, fixt_explist);
 
         // Create two Field objects with a MemoryRegionCPU backend by default
-        auto f_in  = Field<double, stateIn>::create(blocks_in);
-        auto f_out = Field<double, stateOut>::create(blocks_out);
-	auto f_expected = Field<double, stateOut>::create(blocks_out);
-        fixt_in    = new Field<double, stateIn>(std::move(f_in));
-        fixt_out   = new Field<double, stateOut>(std::move(f_out));
-	fixt_expected = new Field<double, stateOut>(std::move(f_expected));
+        auto f_in       = Field<TData, stateIn>::create(blocks_in);
+        auto f_out      = Field<TData, stateOut>::create(blocks_out);
+        auto f_expected = Field<TData, stateOut>::create(blocks_out);
+        fixt_in         = new Field<TData, stateIn>(std::move(f_in));
+        fixt_out        = new Field<TData, stateOut>(std::move(f_out));
+        fixt_expected   = new Field<TData, stateOut>(std::move(f_expected));
+#ifdef NEKTAR_USE_CUDA
+        auto fcuda_in =
+            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in);
+        auto fcuda_out =
+            Field<TData, stateOut>::template create<MemoryRegionCUDA>(
+                blocks_out);
+        fixtcuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
+        fixtcuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
+#endif
     }
 
 protected:

@@ -76,7 +76,7 @@ public:
     void HostToDevice();
     void DeviceToHost();
 
-    bool GetOnDevice() const
+    bool IsOnDevice() const
     {
         return m_ondevice;
     }

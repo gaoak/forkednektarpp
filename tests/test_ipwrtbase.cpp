@@ -18,7 +18,7 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class Line : public InitFields<FieldState::Phys, FieldState::Coeff>
+class Line : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 protected:
     virtual std::string GetMeshName() override
@@ -27,7 +27,7 @@ protected:
     }
 };
 
-class Square : public InitFields<FieldState::Phys, FieldState::Coeff>
+class Square : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 protected:
     virtual std::string GetMeshName() override

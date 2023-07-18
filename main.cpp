@@ -92,46 +92,52 @@ int main(int argc, char *argv[])
 
     std::cout << "Initial shape:\n" << in << std::endl << std::endl;
 
+    // Test SIMD Implementation
 #ifdef NEKTAR_ENABLE_SIMD_AVX2
-    // Test out field reshaping
-    in.ReshapeStorage<4>();
-    std::cout << "Reshaped to 4:\n" << in << std::endl << std::endl;
-
-    // Test out SIMD instructions
-    using vec_t = tinysimd::simd<double>;
-
-    // Reshape into vec_t::width, with the right memory alignment requirements
-    in.ReshapeStorage<vec_t::width, vec_t::alignment>();
-    std::cout << "SIMD In:\n" << in << std::endl << std::endl;
-
-    in2.ReshapeStorage<vec_t::width, vec_t::alignment>();
-    std::cout << "SIMD Out (before):\n" << out << std::endl << std::endl;
-
-    // Reinterpret casting from double to vector type allows for efficient
-    // conversion to SIMD intrinsics
-    vec_t::vectorType *inptr =
-        reinterpret_cast<vec_t::vectorType *>(in.GetStorage().GetCPUPtr());
-    vec_t::scalarType *in2ptr = in2.GetStorage().GetCPUPtr();
-
-    // Loop over each block in the field and square each element
-    for (auto const &block : blocks_coeff)
     {
-        const size_t numMetaBlocks = block.num_elements / vec_t::width;
-        for (size_t metaBlock = 0; metaBlock < numMetaBlocks * block.num_pts;
-             ++metaBlock)
+        // Test out field reshaping
+        in.ReshapeStorage<4>();
+        std::cout << "Reshaped to 4:\n" << in << std::endl << std::endl;
+
+        // Test out SIMD instructions
+        using vec_t = tinysimd::simd<double>;
+
+        // Reshape into vec_t::width, with the right memory alignment
+        // requirements
+        in.ReshapeStorage<vec_t::width, vec_t::alignment>();
+        std::cout << "SIMD In:\n" << in << std::endl << std::endl;
+
+        in2.ReshapeStorage<vec_t::width, vec_t::alignment>();
+        std::cout << "SIMD Out (before):\n" << out << std::endl << std::endl;
+
+        // Reinterpret casting from double to vector type allows for efficient
+        // conversion to SIMD intrinsics
+        vec_t::vectorType *inptr =
+            reinterpret_cast<vec_t::vectorType *>(in.GetStorage().GetCPUPtr());
+
+        vec_t::scalarType *in2ptr = in2.GetStorage().GetCPUPtr();
+
+        // Loop over each block in the field and square each element
+        for (auto const &block : inCoeff.GetBlocks())
         {
-            (vec_t(inptr[metaBlock]) * vec_t(inptr[metaBlock])).store(in2ptr);
-            in2ptr += vec_t::width;
+            const size_t numMetaBlocks = block.num_elements / vec_t::width;
+            for (size_t metaBlock = 0;
+                 metaBlock < numMetaBlocks * block.num_pts; ++metaBlock)
+            {
+                (vec_t(inptr[metaBlock]) * vec_t(inptr[metaBlock]))
+                    .store(in2ptr);
+                in2ptr += vec_t::width;
+            }
+
+            inptr += numMetaBlocks * block.num_pts;
         }
 
-        inptr += numMetaBlocks * block.num_pts;
+        // Back to non-interleaved for non-SIMD Operators
+        in.ReshapeStorage<1>();
+        in2.ReshapeStorage<1>();
+
+        std::cout << "Out:\n" << in2 << std::endl;
     }
-
-    // Back to non-interleaved for non-SIMD Operators
-    in.ReshapeStorage<1>();
-    in2.ReshapeStorage<1>();
-
-    std::cout << "Out:\n" << in2 << std::endl;
 #endif
 
     // Operators are instantiated using a Factory pattern. First lets check
@@ -153,93 +159,146 @@ int main(int argc, char *argv[])
     // Let's display the result
     std::cout << out << std::endl;
 
-    in              = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto &inStorage = in.GetStorage();
-    std::fill(inStorage.GetCPUPtr(), inStorage.GetCPUPtr() + inStorage.size(),
-              0);
-    out = Field<double, FieldState::Phys>::create(blocks_phys);
-
-    auto &outStorage = out.GetStorage();
-    std::fill(outStorage.GetCPUPtr(),
-              outStorage.GetCPUPtr() + outStorage.size(), 0);
-
-    for (auto const &block : in.GetBlocks())
+    // Test BwdTrans Implementation
     {
-        for (size_t el = 0; el < block.num_elements; ++el)
+        std::cout << "BwdTrans (StdMat) test starts." << std::endl;
+
+        // Create two Fields with memory on the CPU.
+        auto inCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        auto outPhys = Field<double, FieldState::Phys>::create(blocks_phys);
+
+        // Assign input values from the CPU.
+        auto *inptr = inCoeff.GetStorage().GetCPUPtr();
+        for (auto const &block : inCoeff.GetBlocks())
         {
-            in.GetStorage().GetCPUPtr()[el * block.num_pts] = 1;
-        }
-    }
-
-    std::cout << in << std::endl;
-
-    BwdTrans<>::create(explist, "StdMat")->apply(in, out);
-
-    std::cout << out << std::endl;
-
-#ifdef NEKTAR_USE_CUDA
-
-    // Test CUDA MemoryRegion
-
-    // Create two Fields with memory on the GPU
-    in = Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
-        blocks_coeff);
-    out =
-        Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(blocks_phys);
-
-    // Perform the BwdTrans on the fields using the CUDA implementation
-    // Since this is a CUDA operator, acting on CUDA fields, everything happens
-    // on the GPU.
-    BwdTrans<>::create(explist, "CUDA")->apply(in, out);
-
-    // Test the GPU-backed fields with a CPU operator
-    // This should show a debug warning due to the implicit conversion. The
-    // purpose of this is to allow us to transition the code to the new
-    // infrastructure and add CUDA operators, without the need to add ALL CUDA
-    // operators before we can test anything.
-    BwdTrans<>::create(explist, "MatFree")->apply(in, out);
-
-    // Create two CPU backed fields and use them with a GPU operator
-    // This call implicitly converts the fields to a GPU backend and warns the
-    // user about that fact
-    in  = Field<double, FieldState::Coeff>::create(blocks);
-    out = Field<double, FieldState::Phys>::create(blocks);
-    BwdTrans<>::create(explist, "CUDA")->apply(in, out);
-#endif
-
-    std::cout << "Inner Product of a function WRT the Basis" << std::endl;
-
-    // Create two Field objects with a MemoryRegionCPU backend by default
-    // for the inner product with respect to base
-    auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
-    auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
-
-    double *y = inPhys.GetStorage().GetCPUPtr();
-    for (auto const &block : blocks_phys)
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
-        {
-            for (size_t phys = 0; phys < block.num_pts; ++phys)
+            for (size_t el = 0; el < block.num_elements; ++el)
             {
-                // Each element is the index of the quadrature points
-                // this is useful for testing reshapes
-                *(y++) = phys;
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = coeff + 1;
+                }
             }
         }
+
+        std::cout << "Initial shape:\n" << inCoeff << std::endl;
+
+        // Perform the BwdTrans on the fields.
+        BwdTrans<>::create(explist, "StdMat")->apply(inCoeff, outPhys);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto outptr = outPhys.GetStorage().GetCPUPtr();
+        for (auto const &block : out.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
     }
+    // Test BwdTrans (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "BwdTrans (CUDA) test starts." << std::endl;
 
-    memset(outCoeff.GetStorage().GetCPUPtr(), 0,
-           outCoeff.GetStorage().size() * sizeof(double));
+        // Create two Fields with memory on the GPU.
+        auto inCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+        auto outPhys =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
 
-    std::cout << "Initial shape:\n" << inPhys << std::endl << std::endl;
+        // Assign input values from the CPU.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = coeff + 1;
+                    std::cout << coeff + 1 << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
 
-    // IProductWRTBase
-    auto ipwrtb = IProductWRTBase<>::create(explist, "StdMat");
-    // ... and then apply it
-    ipwrtb->apply(inPhys, outCoeff); // out and in is inverted for the IP
+        // Perform the BwdTrans on the fields using the CUDA implementation
+        // Since this is a CUDA operator, acting on CUDA fields, everything
+        // happens on the GPU.
+        BwdTrans<>::create(explist, "CUDA")->apply(inCoeff, outPhys);
 
-    // Let's display the result
-    std::cout << "Out:\n" << outCoeff << std::endl;
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
+    // Test IProductWRTBase Implementation
+    {
+        std::cout << "IProductWRTBase (StdMat) test starts." << std::endl;
+
+        // Create two Field objects with a MemoryRegionCPU backend by default
+        // for the inner product with respect to base
+        auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+        // Assign input values
+        auto *inptr = inPhys.GetStorage().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    // Each element is the index of the quadrature points
+                    // this is useful for testing reshapes
+                    *(inptr++) = phys;
+                }
+            }
+        }
+
+        std::cout << "Initial shape:\n" << inPhys << std::endl;
+
+        // IProductWRTBase
+        IProductWRTBase<>::create(explist, "StdMat")->apply(inPhys, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr = outCoeff.GetStorage().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
 
     std::cout << "END" << std::endl;
     return 0;
