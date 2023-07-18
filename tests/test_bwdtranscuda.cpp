@@ -20,19 +20,17 @@ using namespace Nektar;
 
 class Line : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
-protected:
-    virtual std::string GetMeshName() override
-    {
-        return "line.xml";
+public:
+    Line() : InitFields<FieldState::Coeff, FieldState::Phys>() {
+        meshName = "line.xml";
     }
 };
 
 class Square : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
-protected:
-    virtual std::string GetMeshName() override
-    {
-        return "square.xml";
+public:
+    Square() : InitFields<FieldState::Coeff, FieldState::Phys>() {
+        meshName = "square.xml";
     }
 };
 
