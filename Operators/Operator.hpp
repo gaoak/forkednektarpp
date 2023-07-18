@@ -1,12 +1,9 @@
 #pragma once
 
-#include "Field.hpp"
-
 #include <string>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <MultiRegions/ExpList.h>
-// #include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators
 {

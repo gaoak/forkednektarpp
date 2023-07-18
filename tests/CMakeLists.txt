@@ -13,6 +13,15 @@ target_include_directories(test_bwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_bwdtrans PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_bwdtranscuda test_bwdtranscuda.cpp)
+target_link_libraries(test_bwdtranscuda PRIVATE Operators)
+target_link_libraries(test_bwdtranscuda PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_bwdtranscuda PRIVATE Boost::unit_test_framework)
+target_include_directories(test_bwdtranscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_bwdtranscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_bwdtranscuda PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_ipwrtbase test_ipwrtbase.cpp)
 target_link_libraries(test_ipwrtbase PRIVATE Operators)
 target_link_libraries(test_ipwrtbase PRIVATE ${NEKTAR++_LIBRARIES})
@@ -25,8 +34,12 @@ target_compile_definitions(test_ipwrtbase PRIVATE
 add_test(
   NAME BwdTrans
   COMMAND test_bwdtrans
-  # Test executable is looking for input session file in the working
-  # directory
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME BwdTransCUDA
+  COMMAND test_bwdtranscuda
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
