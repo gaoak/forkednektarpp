@@ -34,18 +34,25 @@ template <typename TData, FieldState stateIn = FieldState::Coeff,
 class InitFields
 {
 public:
-    Field<TData, stateIn> *fixt_in;
-    Field<TData, stateOut> *fixt_out;
-    Field<TData, stateOut> *fixt_expected;
+    Field<TData, stateIn>  *fixt_in        = nullptr;
+    Field<TData, stateOut> *fixt_out       = nullptr;
+    Field<TData, stateOut> *fixt_expected  = nullptr;
 #ifdef NEKTAR_USE_CUDA
-    Field<TData, stateIn> *fixtcuda_in;
-    Field<TData, stateOut> *fixtcuda_out;
+    Field<TData, stateIn>  *fixtcuda_in    = nullptr;
+    Field<TData, stateOut> *fixtcuda_out   = nullptr;
 #endif
     MultiRegions::ExpListSharedPtr fixt_explist{nullptr};
 
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
+        if (fixt_in) delete fixt_in;
+        if (fixt_out) delete fixt_out;
+        if (fixt_expected) delete fixt_expected;
+#ifdef NEKTAR_USE_CUDA
+        if (fixtcuda_in) delete fixtcuda_in;
+        if (fixtcuda_out) delete fixtcuda_out;
+#endif
     }
 
     InitFields() = default;
@@ -61,7 +68,7 @@ public:
         // Session::Reader::CreateInstance. The first element stands for
         // the name of the executable which, in our case, doesn't matter.
         int argc     = 2;
-        char *argv[] = {(char *)"exe_name", GetMeshName().data()};
+        char *argv[] = {(char *)"exe_name", meshName.data()};
 
         session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph        = SpatialDomains::MeshGraph::Read(session);
@@ -91,5 +98,5 @@ public:
     }
 
 protected:
-    virtual std::string GetMeshName() = 0;
+    std::string meshName = "";
 };
