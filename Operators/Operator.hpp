@@ -60,6 +60,60 @@ public:
     }
 
 protected:
+    size_t GetGeometricFactorSize(void)
+    {
+        size_t gfSize    = 0;
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+
+        // Calculate the jacobian array size
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            // Determine shape and type of the element
+            auto const expPtr = this->m_expansionList->GetExp(e);
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                gfSize += expPtr->GetTotPoints();
+            }
+            else
+            {
+                gfSize++;
+            }
+        }
+
+        return gfSize;
+    }
+
+    Array<OneD, TData> SetJacobian(size_t jacSize)
+    {
+        // Allocate memory for the jacobian
+        Array<OneD, TData> jac(jacSize, 0.0);
+
+        // Initialise jacobian.
+        size_t index     = 0;
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            auto expPtr = this->m_expansionList->GetExp(e);
+            auto &auxJac =
+                expPtr->GetMetricInfo()->GetJac(expPtr->GetPointsKeys());
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                size_t nqe = expPtr->GetTotPoints();
+                for (size_t i = 0; i < nqe; ++i)
+                {
+                    jac[index++] = auxJac[i];
+                }
+            }
+            else
+            {
+                jac[index++] = auxJac[0];
+            }
+        }
+        return jac;
+    }
+
     MultiRegions::ExpListSharedPtr m_expansionList;
 };
 

@@ -14,48 +14,9 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTBase<TData>(std::move(expansionList))
     {
-        size_t jacSize   = 0;
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        // Calculate the jacobian array size
-        for (size_t e = 0; e < nTotElmts; ++e)
-        {
-            // Determine shape and type of the element
-            auto const expPtr = this->m_expansionList->GetExp(e);
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                jacSize += expPtr->GetTotPoints();
-            }
-            else
-            {
-                jacSize++;
-            }
-        }
-
-        // Allocate memory for the jacobian
-        m_jac = {jacSize, 0.0};
-
         // Initialise jacobian.
-        size_t index = 0;
-        for (size_t e = 0; e < nTotElmts; ++e)
-        {
-            auto expPtr = this->m_expansionList->GetExp(e);
-            auto &auxJac =
-                expPtr->GetMetricInfo()->GetJac(expPtr->GetPointsKeys());
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                size_t nqe = expPtr->GetTotPoints();
-                for (size_t i = 0; i < nqe; ++i)
-                {
-                    m_jac[index++] = auxJac[i];
-                }
-            }
-            else
-            {
-                m_jac[index++] = auxJac[0];
-            }
-        }
+        size_t jacSize = Operator<TData>::GetGeometricFactorSize();
+        m_jac          = Operator<TData>::SetJacobian(jacSize);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -80,7 +41,7 @@ public:
             // This is the B^{T} matrix
             auto const matPtr = expPtr->GetStdMatrix(key);
 
-            Array<OneD, NekDouble> wsp(nqTot * nElmts, 0.0);
+            Array<OneD, TData> wsp(nqTot * nElmts, 0.0);
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
@@ -123,7 +84,7 @@ public:
     static std::string className;
 
 private:
-    Array<OneD, NekDouble> m_jac;
+    Array<OneD, TData> m_jac;
 };
 
 } // namespace Nektar::Operators::detail
