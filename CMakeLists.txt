@@ -31,7 +31,7 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
     Operators/OperatorMass.cpp Operators/Mass/Mass.cpp
     Operators/OperatorIdentity.cpp Operators/Identity/Identity.cpp
-    Operators/OperatorCG.cpp Operators/CG/CG.cpp
+    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGrad.cpp
     )
 
 if (NEKTAR_USE_CUDA)

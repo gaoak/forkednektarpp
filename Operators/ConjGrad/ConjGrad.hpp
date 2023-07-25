@@ -1,4 +1,4 @@
-#include "Operators/OperatorCG.hpp"
+#include "Operators/OperatorConjGrad.hpp"
 
 namespace Nektar::Operators::detail
 {

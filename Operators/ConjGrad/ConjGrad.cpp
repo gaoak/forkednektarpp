@@ -7,7 +7,7 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ContField.h>
 
-#include "CG.hpp"
+#include "ConjGrad.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -51,7 +51,7 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
     std::fill(p_w_A, p_w_A + N, 0.);
     std::fill(p_s_A, p_s_A + N, 0.);
     std::fill(p_p_A, p_p_A + N, 0.);
-    std::fill(p_r_A, p_r_A + N, 0.);
+    //std::fill(p_r_A, p_r_A + N, 0.);
     std::fill(p_q_A, p_q_A + N, 0.);
     std::fill(p_wk,  p_wk + N, 0.);
 
@@ -66,6 +66,9 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
     TData eps; 
     TData min_resid;
     std::array<TData, 3> vExchange;
+
+    // copy RHS into initial residual
+    std::copy(p_in, p_in + N, p_r_A);
 
     // initial residual    
     assembleScatter(N, r_A, wk, true);

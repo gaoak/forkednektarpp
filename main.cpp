@@ -17,7 +17,7 @@
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorIdentity.hpp"
-#include "Operators/OperatorCG.hpp"
+#include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorMass.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     graph   = SpatialDomains::MeshGraph::Read(session);
     explist =
-        MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(session, graph);
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(session, graph);
 
     // Generate a blocks definition from the expansion list for each state
     auto blocks_phys  = GetBlockAttributes(FieldState::Phys, explist);
@@ -110,57 +110,36 @@ int main(int argc, char *argv[])
     // (willdenny) Check CG operator
     
     std::shared_ptr<ContField> explistCF = std::dynamic_pointer_cast<ContField>(explist);
-    
-    /*
-    std::cout << "ExpListCF nullptr? " << ((assMap == nullptr) ? "True" : "False") << "\n";
-    std::cout << "Assembly map nullptr? " << ((assMap == nullptr) ? "True" : "False") << "\n";
+    std::shared_ptr<AssemblyMapCG> assMap = explistCF->GetLocalToGlobalMap();
 
-    if (assMap != nullptr)
-    {
-        std::cout << "Assembly map data:\n";
-        std::cout << "Local: " << assMap->GetNumLocalCoeffs() << "\n";
-        std::cout << "Global: " << assMap->GetNumGlobalCoeffs() << "\n";
-    }
-    */
+    // get size of global/local systems
+    size_t Nglobal = assMap->GetNumGlobalCoeffs();
+    size_t Nlocal = assMap->GetNumLocalCoeffs();
 
-    if (explistCF != nullptr)
-    {
-        std::shared_ptr<AssemblyMapCG> assMap = explistCF->GetLocalToGlobalMap();
-    
-        // get size of global/local systems
-        size_t Nglobal = assMap->GetNumGlobalCoeffs();
-        size_t Nlocal = assMap->GetNumLocalCoeffs();
+    // create random vector of size global dofs
+    Array<OneD, double> randGlobalVec(Nglobal);
+    Array<OneD, double> randLocalVec(Nlocal);
+    for (size_t i = 0; i < Nglobal; ++i)
+        randGlobalVec[i] = 2.*(std::rand() / double(RAND_MAX)) - 1.;
 
-        // create random vector of size global dofs
-        Array<OneD, double> randGlobalVec(Nglobal);
-        Array<OneD, double> randLocalVec(Nlocal);
-        for (size_t i = 0; i < Nglobal; ++i)
-            randGlobalVec[i] = 2.*(std::rand() / double(RAND_MAX)) - 1.;
+    // scatter to local fields
+    assMap->GlobalToLocal(randGlobalVec, randLocalVec);
+    auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+    auto *p_CG_f_hat = CG_f_hat.GetStorage().GetCPUPtr();
+    std::copy(randLocalVec.get(), randLocalVec.get() + Nlocal, p_CG_f_hat);
 
-        // scatter to local fields
-        assMap->GlobalToLocal(randGlobalVec, randLocalVec);
-        auto CG_f = Field<double, FieldState::Coeff>::create(blocks_coeff);
-        auto *p_CG_f = CG_f.GetStorage().GetCPUPtr();
-        std::copy(randLocalVec.get(), randLocalVec.get() + Nlocal, p_CG_f);
+    // solve for u_hat
+    auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+    auto CG_LHS = Mass<double>::create(explist);
+    auto CG_precon = Identity<double, FieldState::Coeff>::create(explist);
+    auto CG_op = ConjGrad<double, FieldState::Coeff>::create(explist);
+    CG_op->setLHS(CG_LHS);
+    CG_op->setPrecon(CG_precon);
+    CG_op->apply(CG_f_hat, CG_u_hat);
 
-        // get mass of coeffs (rhs) (f_hat)
-        auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
-        Mass<double>::create(explist)->apply(CG_f, CG_f_hat);
-        
-        // solve for u_hat
-        auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
-        auto CG_LHS = Mass<double>::create(explist);
-        auto CG_precon = Identity<double, FieldState::Coeff>::create(explist);
-        auto CG_op = ConjGrad<double, FieldState::Coeff>::create(explist);
-        CG_op->setLHS(CG_LHS);
-        CG_op->setPrecon(CG_precon);
-        CG_op->apply(CG_f_hat, CG_u_hat);
-    }
-    else
-    {
-        std::cout << "Couldn't dynamically cast explist to continuous field\n\n";
-    }
-   
+    std::cout << "f hat:\n" << CG_f_hat << "\n"; 
+    std::cout << "u hat:\n" << CG_u_hat << "\n";
+
     // ****************************************************************************
 
     // Test SIMD Implementation
