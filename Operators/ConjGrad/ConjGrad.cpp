@@ -68,7 +68,7 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
     std::array<TData, 3> vExchange;
 
     // initial residual    
-    DoAssembleLoc(N, r_A, wk, true);
+    assembleScatter(N, r_A, wk, true);
     vExchange[2] = std::inner_product(p_wk, p_wk + N, p_r_A, 0.);
     //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -149,9 +149,9 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
         vExchange[1] = std::inner_product(p_s_A, p_s_A + N, p_w_A, 0.);
         
         // <r_{k+1}, r_{k+1}>
-        //m_operator.DoAssembleLoc(r_A, wk, true);
+        //m_operator.assembleScatter(r_A, wk, true);
         //vExchange[2] = Vmath::Dot(nLocal, wk, r_A);
-        DoAssembleLoc(N, r_A, wk, true);
+        assembleScatter(N, r_A, wk, true);
         vExchange[2] = std::inner_product(p_wk, p_wk + N, p_r_A, 0.);
 
         // Perform inner-product exchanges
@@ -195,7 +195,7 @@ void OperatorConjGradImpl<TData, TFieldState>::assembleScatter(
     // ***********************************************************************
 
     // cast the expansion list to continuous field to access assembly map
-    std::shared_ptr<ContField> expListCF = std::static_pointer_cast<ContField>(this->m_expansionList);
+    std::shared_ptr<ContField> expListCF = std::dynamic_pointer_cast<ContField>(this->m_expansionList);
 
     // get assembly map
     std::shared_ptr<AssemblyMapCG> assMap = expListCF->GetLocalToGlobalMap();
@@ -231,5 +231,17 @@ void OperatorConjGradImpl<TData, TFieldState>::assembleScatter(
     // transfer data from output array to output field
     std::copy(outArr.data(), outArr.data() + N, out.GetStorage().GetCPUPtr());
 }
+
+// ****************************************************************************************************************
+
+// Register implementation with Operator Factory
+// Coeff <-> Coeff
+template <>
+std::string OperatorConjGradImpl<double, FieldState::Coeff>::className =
+    GetOperatorFactory<double>().RegisterCreatorFunction(
+        "ConjGrad",
+        OperatorConjGradImpl<double, FieldState::Coeff>::instantiate, 
+        ""
+    );
 
 }
