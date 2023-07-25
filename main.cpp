@@ -11,14 +11,19 @@
  */
 #include <iostream>
 #include <memory>
+#include <cmath>
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "Operators/OperatorCG.hpp"
+#include "Operators/OperatorMass.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ContField.h>
 #include <SpatialDomains/MeshGraph.h>
 
 #ifdef NEKTAR_USE_CUDA
@@ -28,6 +33,7 @@
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::MultiRegions;
 
 template <typename TType, FieldState State>
 std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
@@ -91,6 +97,71 @@ int main(int argc, char *argv[])
            out.GetStorage().size() * sizeof(double));
 
     std::cout << "Initial shape:\n" << in << std::endl << std::endl;
+
+    // ****************************************************************************
+
+    // (willdenny) Check identity operator
+    std::cout << "in2 before identity with in\n" << in2 << "\n\n";
+    Identity<double, FieldState::Coeff>::create(explist, "")->apply(in, in2);
+    std::cout << "in2 after identity with in\n"  << in2 << "\n\n";
+
+    // ****************************************************************************
+
+    // (willdenny) Check CG operator
+    
+    std::shared_ptr<ContField> explistCF = std::dynamic_pointer_cast<ContField>(explist);
+    
+    /*
+    std::cout << "ExpListCF nullptr? " << ((assMap == nullptr) ? "True" : "False") << "\n";
+    std::cout << "Assembly map nullptr? " << ((assMap == nullptr) ? "True" : "False") << "\n";
+
+    if (assMap != nullptr)
+    {
+        std::cout << "Assembly map data:\n";
+        std::cout << "Local: " << assMap->GetNumLocalCoeffs() << "\n";
+        std::cout << "Global: " << assMap->GetNumGlobalCoeffs() << "\n";
+    }
+    */
+
+    if (explistCF != nullptr)
+    {
+        std::shared_ptr<AssemblyMapCG> assMap = explistCF->GetLocalToGlobalMap();
+    
+        // get size of global/local systems
+        size_t Nglobal = assMap->GetNumGlobalCoeffs();
+        size_t Nlocal = assMap->GetNumLocalCoeffs();
+
+        // create random vector of size global dofs
+        Array<OneD, double> randGlobalVec(Nglobal);
+        Array<OneD, double> randLocalVec(Nlocal);
+        for (size_t i = 0; i < Nglobal; ++i)
+            randGlobalVec[i] = 2.*(std::rand() / double(RAND_MAX)) - 1.;
+
+        // scatter to local fields
+        assMap->GlobalToLocal(randGlobalVec, randLocalVec);
+        auto CG_f = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        auto *p_CG_f = CG_f.GetStorage().GetCPUPtr();
+        std::copy(randLocalVec.get(), randLocalVec.get() + Nlocal, p_CG_f);
+
+        // get mass of coeffs (rhs) (f_hat)
+        auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        Mass<double>::create(explist)->apply(CG_f, CG_f_hat);
+        
+        // solve for u_hat
+        auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        auto CG_LHS = Mass<double>::create(explist);
+        auto CG_precon = Identity<double, FieldState::Coeff>::create(explist);
+        auto CG_op = ConjGrad<double, FieldState::Coeff>::create(explist);
+        CG_op->setLHS(CG_LHS);
+        CG_op->setPrecon(CG_precon);
+        CG_op->apply(CG_f_hat, CG_u_hat);
+    }
+    else
+    {
+        std::cout << "Couldn't dynamically cast explist to continuous field\n\n";
+    }
+   
+    // ****************************************************************************
 
     // Test SIMD Implementation
 #ifdef NEKTAR_ENABLE_SIMD_AVX2

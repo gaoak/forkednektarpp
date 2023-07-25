@@ -16,8 +16,8 @@ template <typename TData, FieldState TFieldState>
 class OperatorConjGrad : public Operator<TData>
 {
 protected:
-    std::shared_ptr<OperatorLinear<TData, TFieldState>> m_LHS;
-    std::shared_ptr<OperatorLinear<TData, TFieldState>> m_precon;
+    std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> m_LHS;
+    std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> m_precon;
 
 public:
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -28,14 +28,14 @@ public:
     // pure virtual - must be implemented in implementation class
     virtual void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out) = 0;
 
-    void setLHS(std::shared_ptr<OperatorLinear<TData, TFieldState>> ptr)
+    void setLHS(std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> ptr)
     {
-        p_LHS = ptr;
+        m_LHS = ptr;
     }
 
-    void setPrecon(std::shared_ptr<OperatorLinear<TData, TFieldState>> ptr)
+    void setPrecon(std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> ptr)
     {
-        p_precon = ptr;
+        m_precon = ptr;
     }    
 };
 
