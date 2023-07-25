@@ -15,8 +15,8 @@ using namespace Nektar::MultiRegions;
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, FieldState TFieldState>
-void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
+template <typename TData>
+void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
 {
     // these values should be referenced from Nektar
     TData tol = 1.e-6;
@@ -29,12 +29,12 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
     auto blockAttributes = in.GetBlocks();
 
     // create temporary fields
-    auto w_A = Field<TData, TFieldState>::create(blockAttributes);
-    auto s_A = Field<TData, TFieldState>::create(blockAttributes);
-    auto p_A = Field<TData, TFieldState>::create(blockAttributes);
-    auto r_A = Field<TData, TFieldState>::create(blockAttributes);
-    auto q_A = Field<TData, TFieldState>::create(blockAttributes);
-    auto wk  = Field<TData, TFieldState>::create(blockAttributes);
+    auto w_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
+    auto s_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
+    auto p_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
+    auto r_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
+    auto q_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
+    auto wk  = Field<TData, FieldState::Coeff>::create(blockAttributes);
 
     // store pointers to temporary fields
     auto *p_in  = in.GetStorage().GetCPUPtr();
@@ -182,11 +182,11 @@ void OperatorConjGradImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &
 }
 
 // Assembly to global space followed by scatter to local space
-template <typename TData, FieldState TFieldState>
-void OperatorConjGradImpl<TData, TFieldState>::assembleScatter(
+template <typename TData>
+void OperatorConjGradImpl<TData>::assembleScatter(
     const size_t &N,
-    Field<TData, TFieldState> &in,
-    Field<TData, TFieldState> &out,
+    Field<TData, FieldState::Coeff> &in,
+    Field<TData, FieldState::Coeff> &out,
     const bool &ZeroDir
 )
 {
@@ -240,10 +240,10 @@ void OperatorConjGradImpl<TData, TFieldState>::assembleScatter(
 // Register implementation with Operator Factory
 // Coeff <-> Coeff
 template <>
-std::string OperatorConjGradImpl<double, FieldState::Coeff>::className =
+std::string OperatorConjGradImpl<double>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "ConjGrad",
-        OperatorConjGradImpl<double, FieldState::Coeff>::instantiate, 
+        OperatorConjGradImpl<double>::instantiate, 
         ""
     );
 

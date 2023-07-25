@@ -12,12 +12,12 @@
 namespace Nektar::Operators
 {
 
-template <typename TData, FieldState TFieldState>
+template <typename TData>
 class OperatorConjGrad : public Operator<TData>
 {
 protected:
-    std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> m_LHS;
-    std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> m_precon;
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_LHS;
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_precon;
 
 public:
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -26,24 +26,24 @@ public:
     }
 
     // pure virtual - must be implemented in implementation class
-    virtual void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out) = 0;
+    virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
 
-    void setLHS(std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> ptr)
+    void setLHS(std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> ptr)
     {
         m_LHS = ptr;
     }
 
-    void setPrecon(std::shared_ptr<OperatorLinear<TData, TFieldState, TFieldState>> ptr)
+    void setPrecon(std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> ptr)
     {
         m_precon = ptr;
     }    
 };
 
 // Descriptor / traits class for ConjGrad to be used by Operator create function
-template <typename TData, FieldState TFieldState>
+template <typename TData>
 struct ConjGrad
 {
-    using class_name = OperatorConjGrad<TData, TFieldState>;
+    using class_name = OperatorConjGrad<TData>;
     static const std::string key;
     static const std::string default_impl;
 
@@ -53,14 +53,14 @@ struct ConjGrad
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<ConjGrad<TData, TFieldState>>(expansionList, pKey);
+        return Operator<TData>::template create<ConjGrad<TData>>(expansionList, pKey);
     }
 };
 
 namespace detail
 {
     // declare class for implementation of CG operator
-    template <typename TData, FieldState TFieldState> 
+    template <typename TData> 
     class OperatorConjGradImpl;
 }
 

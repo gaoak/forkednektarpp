@@ -132,7 +132,7 @@ int main(int argc, char *argv[])
     auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
     auto CG_LHS = Mass<double>::create(explist);
     auto CG_precon = Identity<double, FieldState::Coeff>::create(explist);
-    auto CG_op = ConjGrad<double, FieldState::Coeff>::create(explist);
+    auto CG_op = ConjGrad<double>::create(explist);
     CG_op->setLHS(CG_LHS);
     CG_op->setPrecon(CG_precon);
     CG_op->apply(CG_f_hat, CG_u_hat);

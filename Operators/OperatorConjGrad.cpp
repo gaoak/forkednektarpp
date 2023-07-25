@@ -5,9 +5,9 @@ namespace Nektar::Operators
 
 // define static variables for ConjGrad (coeff - coeff)
 template <>
-const std::string ConjGrad<default_fp_type, FieldState::Coeff>::key = "ConjGrad";
+const std::string ConjGrad<default_fp_type>::key = "ConjGrad";
 
 template <>
-const std::string ConjGrad<default_fp_type, FieldState::Coeff>::default_impl = "";
+const std::string ConjGrad<default_fp_type>::default_impl = "";
 
 }
