@@ -299,6 +299,60 @@ int main(int argc, char *argv[])
         }
         std::cout << std::endl;
     }
+    // Test IProductWRTBase (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "IProductWRTBase (CUDA) test starts." << std::endl;
+
+        // Create two Fields with memory on the GPU
+        auto inPhys = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+            blocks_phys);
+        auto outCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // Assign input values.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    // Each element is the index of the quadrature points
+                    // this is useful for testing reshapes
+                    *(inptr++) = phys;
+                    std::cout << phys << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // Perform the IProductWRTBase on the fields using the CUDA
+        // implementation Since this is a CUDA operator, acting on CUDA fields,
+        // everything happens on the GPU.
+        IProductWRTBase<>::create(explist, "CUDA")->apply(inPhys, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
 
     std::cout << "END" << std::endl;
     return 0;

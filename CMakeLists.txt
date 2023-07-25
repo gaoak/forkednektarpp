@@ -31,7 +31,7 @@ set(SRC Field.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operator
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu)
 endif()
 
 if (NEKTAR_USE_SIMD)
