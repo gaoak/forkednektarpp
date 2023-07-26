@@ -28,6 +28,7 @@
     <CONDITIONS>
         <SOLVERINFO>
             <I PROPERTY="EQTYPE" VALUE="Helmholtz" />
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
         </SOLVERINFO>
         <VARIABLES>
             <V ID="0">u</V>

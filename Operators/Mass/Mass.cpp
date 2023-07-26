@@ -18,6 +18,8 @@ void OperatorMassImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<T
     
     // take inner product of physical points
     IProductWRTBase<TData>::create(this->m_expansionList)->apply(tmp, out);
+
+    std::cout << "Finished mass operator\n";
 }
 
 // ****************************************************************************************************************
