@@ -86,7 +86,7 @@ void DoOperator(
     std::vector<BlockAttributes> blockAttributes,
     const Array<OneD, const TData> &pInput,
     Array<OneD, TData> &pOutput,
-    std::shared_ptr<TOp> &pOperator
+    std::shared_ptr<TOp> pOperator
     )
 {
     // create temporary input/output fields
@@ -94,13 +94,13 @@ void DoOperator(
     auto outField = Field<TData, TFieldState>::create(blockAttributes);
 
     // copy input data from array to field
-    cg_debug::CopyArray2Field(N, pInput, inField);
+    cg_debug::CopyArray2Field<TData, TFieldState>(N, pInput, inField);
 
     // apply operator
     pOperator->apply(inField, outField);
 
     // copy output data from field to array
-    cg_debug::CopyField2Array(N, outField, pOutput);
+    cg_debug::CopyField2Array<TData, TFieldState>(N, outField, pOutput);
 }
 
 // ****************************************************************************
@@ -341,14 +341,14 @@ void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Fie
     Array<OneD, TData> pOutput(nLocal);
 
     // Field -> Array
-    cg_debug::CopyField2Array(nLocal, in, pInput);
+    cg_debug::CopyField2Array<TData, FieldState::Coeff>(nLocal, in, pInput);
 
     // Conjugate gradient algorithm
     cg_debug::DoConjugateGradient(explistCF, this->m_LHS, this->m_precon, blockAttributes, 
         nLocal, pInput, pOutput);
 
     // Array -> Field
-    cg_debug::CopyArray2Field(nLocal, pOutput, out);
+    cg_debug::CopyArray2Field<TData, FieldState::Coeff>(nLocal, pOutput, out);
 }
 
 #endif
