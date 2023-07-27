@@ -120,10 +120,7 @@ int main(int argc, char *argv[])
     auto CG_f = Field<double, FieldState::Phys>::create(blocks_phys);
     auto *iter = CG_f.GetStorage().GetCPUPtr();
     for (int i = 0; i < explist->GetTotPoints(); ++i)
-    {
-        *(iter) = 1;
-        iter++;
-    }
+        *(iter++) = 1;
     // inner prod to get rhs
     auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
     IProductWRTBase<double>::create(explist)->apply(CG_f, CG_f_hat);
@@ -142,7 +139,7 @@ int main(int argc, char *argv[])
 
     // solve for u_hat
     auto CG_u_hat   = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto CG_LHS     = Mass<double>::create(explist);
+    auto CG_LHS     = Mass<double>::create(explist);//Mass<double>::create(explist);
     auto CG_precon  = Identity<double, FieldState::Coeff>::create(explist);
     auto CG_op      = ConjGrad<double>::create(explist);
     CG_op->setLHS(CG_LHS);

@@ -14,10 +14,10 @@ void OperatorMassImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<T
     auto tmp = Field<TData, FieldState::Phys>::create(in.GetBlocks());
 
     // transform coefficients into physical points
-    BwdTrans<TData>::create(this->m_expansionList)->apply(in, tmp);
+    this->m_BwdTransOp->apply(in, tmp);
     
     // take inner product of physical points
-    IProductWRTBase<TData>::create(this->m_expansionList)->apply(tmp, out);
+    this->m_IProductWRTBaseOp->apply(tmp, out);
 
     std::cout << "Finished mass operator\n";
 }
