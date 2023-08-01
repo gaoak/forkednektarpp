@@ -21,7 +21,8 @@ using namespace Nektar;
 class Line : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 public:
-    Line() : InitFields<double, FieldState::Phys, FieldState::Coeff>() {
+    Line() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
+    {
         meshName = "line.xml";
     }
 };
@@ -29,7 +30,8 @@ public:
 class Square : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 public:
-    Square() : InitFields<double, FieldState::Phys, FieldState::Coeff>() {
+    Square() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
+    {
         meshName = "square.xml";
     }
 };
