@@ -12,7 +12,8 @@ class OperatorMassImpl : public OperatorMass<TData>
 {
 public:
     OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(std::move(expansionList))
+        : OperatorMass<TData>(std::move(expansionList)), 
+          m_field(Field<TData, FieldState::Phys>::create(GetBlockAttributes(FieldState::Phys, expansionList)))
     {
         this->m_BwdTransOp = BwdTrans<TData>::create(this->m_expansionList);
         this->m_IProductWRTBaseOp = IProductWRTBase<TData>::create(this->m_expansionList);
@@ -34,6 +35,7 @@ public:
 protected:
     std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    Field<TData, FieldState::Phys> m_field;
 };
 
 }
