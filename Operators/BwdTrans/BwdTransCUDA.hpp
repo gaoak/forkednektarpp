@@ -61,13 +61,7 @@ public:
 
     ~OperatorBwdTransImpl()
     {
-        for (auto &basis : m_basis)
-        {
-            for (size_t i = 0; i < basis.second.size(); i++)
-            {
-                cudaFree(basis.second[i]);
-            }
-        }
+        DeallocateDataCUDA<TData>(m_basis);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

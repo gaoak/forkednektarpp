@@ -7,18 +7,15 @@ namespace Nektar::Operators
 {
 
 template <typename TData>
-using BasisMap =
-    std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>>;
-template <typename TData>
-using WeightMap =
+using DataMap =
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>>;
 
 template <typename TData>
-BasisMap<TData> GetBasisDataCUDA(
+DataMap<TData> GetBasisDataCUDA(
     const MultiRegions::ExpListSharedPtr &expansionList)
 {
     // Initialize data map.
-    BasisMap<TData> basis;
+    DataMap<TData> basis;
 
     // Initialize basiskey.
     std::vector<LibUtilities::BasisKey> basisKeys(3,
@@ -40,7 +37,7 @@ BasisMap<TData> GetBasisDataCUDA(
         if (basis.find(basisKeys) == basis.end())
         {
             basis[basisKeys] = std::vector<TData *>(nDim, 0);
-            for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
+            for (size_t d = 0; d < nDim; d++)
             {
                 auto ndata      = expPtr->GetBasis(d)->GetBdata().size();
                 auto hostPtr    = expPtr->GetBasis(d)->GetBdata().get();
@@ -55,11 +52,93 @@ BasisMap<TData> GetBasisDataCUDA(
 }
 
 template <typename TData>
-WeightMap<TData> GetWeightDataCUDA(
+DataMap<TData> GetPointDataCUDA(
     const MultiRegions::ExpListSharedPtr &expansionList)
 {
     // Initialize data map.
-    WeightMap<TData> weight;
+    DataMap<TData> points;
+
+    // Initialize basiskey.
+    std::vector<LibUtilities::BasisKey> basisKeys(3,
+                                                  LibUtilities::NullBasisKey);
+
+    // Loop over the elements of expansionList.
+    size_t nDim = expansionList->GetShapeDimension();
+    for (size_t i = 0; i < expansionList->GetNumElmts(); ++i)
+    {
+        auto const expPtr = expansionList->GetExp(i);
+
+        // Fetch basiskeys of current element.
+        for (size_t d = 0; d < nDim; d++)
+        {
+            basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+        }
+
+        // Copy data to points, if necessary.
+        if (points.find(basisKeys) == points.end())
+        {
+            points[basisKeys] = std::vector<TData *>(nDim, 0);
+            for (size_t d = 0; d < nDim; d++)
+            {
+                auto ndata      = expPtr->GetBasis(d)->GetZ().size();
+                auto hostPtr    = expPtr->GetBasis(d)->GetZ().get();
+                auto &devicePtr = points[basisKeys][d];
+                cudaMalloc((void **)&devicePtr, sizeof(TData) * ndata);
+                cudaMemcpy(devicePtr, hostPtr, sizeof(TData) * ndata,
+                           cudaMemcpyHostToDevice);
+            }
+        }
+    }
+    return points;
+}
+
+template <typename TData>
+DataMap<TData> GetDerivativeDataCUDA(
+    const MultiRegions::ExpListSharedPtr &expansionList)
+{
+    // Initialize data map.
+    DataMap<TData> derivative;
+
+    // Initialize basiskey.
+    std::vector<LibUtilities::BasisKey> basisKeys(3,
+                                                  LibUtilities::NullBasisKey);
+
+    // Loop over the elements of expansionList.
+    size_t nDim = expansionList->GetShapeDimension();
+    for (size_t i = 0; i < expansionList->GetNumElmts(); ++i)
+    {
+        auto const expPtr = expansionList->GetExp(i);
+
+        // Fetch basiskeys of current element.
+        for (size_t d = 0; d < nDim; d++)
+        {
+            basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+        }
+
+        // Copy data to derivative, if necessary.
+        if (derivative.find(basisKeys) == derivative.end())
+        {
+            derivative[basisKeys] = std::vector<TData *>(nDim, 0);
+            for (size_t d = 0; d < nDim; d++)
+            {
+                auto ndata      = expPtr->GetBasis(d)->GetD()->GetPtr().size();
+                auto hostPtr    = expPtr->GetBasis(d)->GetD()->GetPtr().get();
+                auto &devicePtr = derivative[basisKeys][d];
+                cudaMalloc((void **)&devicePtr, sizeof(TData) * ndata);
+                cudaMemcpy(devicePtr, hostPtr, sizeof(TData) * ndata,
+                           cudaMemcpyHostToDevice);
+            }
+        }
+    }
+    return derivative;
+}
+
+template <typename TData>
+DataMap<TData> GetWeightDataCUDA(
+    const MultiRegions::ExpListSharedPtr &expansionList)
+{
+    // Initialize data map.
+    DataMap<TData> weight;
 
     // Initialize basiskey.
     std::vector<LibUtilities::BasisKey> basisKeys(3,
@@ -81,7 +160,7 @@ WeightMap<TData> GetWeightDataCUDA(
         if (weight.find(basisKeys) == weight.end())
         {
             weight[basisKeys] = std::vector<TData *>(nDim, 0);
-            for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
+            for (size_t d = 0; d < nDim; d++)
             {
                 auto ndata = expPtr->GetBasis(d)->GetW().size();
                 Array<OneD, TData> w(ndata);
@@ -112,4 +191,17 @@ WeightMap<TData> GetWeightDataCUDA(
     }
     return weight;
 }
+
+template <typename TData>
+void DeallocateDataCUDA(DataMap<TData> &dataMap)
+{
+    for (auto &data : dataMap)
+    {
+        for (size_t i = 0; i < data.second.size(); i++)
+        {
+            cudaFree(data.second[i]);
+        }
+    }
+}
+
 } // namespace Nektar::Operators
