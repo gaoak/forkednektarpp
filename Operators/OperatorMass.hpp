@@ -21,6 +21,8 @@ public:
     {
     }
 
+    virtual ~OperatorMass() = default;
+
     // apply must be implemented in implementation class
     virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
 

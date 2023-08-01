@@ -101,9 +101,40 @@ int main(int argc, char *argv[])
     // ****************************************************************************
 
     // (willdenny) Check identity operator
-    std::cout << "in2 before identity with in\n" << in2 << "\n\n";
-    Identity<double, FieldState::Coeff>::create(explist, "")->apply(in, in2);
-    std::cout << "in2 after identity with in\n"  << in2 << "\n\n";
+    //std::cout << "in2 before identity with in\n" << in2 << "\n\n";
+    //Identity<double, FieldState::Coeff>::create(explist, "")->apply(in, in2);
+    //std::cout << "in2 after identity with in\n"  << in2 << "\n\n";
+
+    // ****************************************************************************
+
+    std::cout << "Mass error test begin\n";
+
+    auto massIn = Field<double, FieldState::Coeff>::create(blocks_coeff);
+    auto massOut = Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+    Mass<double>::create(explist)->apply(massIn, massOut);
+
+    /*
+    // -------------------------------------
+    std::cout << "Applying mass operator\n";
+
+    // create temporary field for physical points
+    auto tmp = Field<double, FieldState::Phys>::create(in.GetBlocks());
+    auto m_BwdTransOp = BwdTrans<double>::create(explist);
+    auto m_IProductWRTBaseOp = IProductWRTBase<double>::create(explist);
+
+    // transform coefficients into physical points
+    m_BwdTransOp->apply(massIn, tmp);
+
+    // take inner product of physical points
+    m_IProductWRTBaseOp->apply(tmp, massOut);
+
+    std::cout << "Finished mass operator\n";
+    // -------------------------------------
+    */
+
+    std::cout << "Mass error test end\n";
+    
 
     // ****************************************************************************
 
@@ -139,7 +170,7 @@ int main(int argc, char *argv[])
 
     // solve for u_hat
     auto CG_u_hat   = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto CG_LHS     = Mass<double>::create(explist);//Mass<double>::create(explist);
+    auto CG_LHS     = Mass<double>::create(explist);
     auto CG_precon  = Identity<double, FieldState::Coeff>::create(explist);
     auto CG_op      = ConjGrad<double>::create(explist);
     CG_op->setLHS(CG_LHS);
