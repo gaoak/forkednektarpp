@@ -1,4 +1,5 @@
-#define BOOST_TEST_MODULE example
+#define BOOST_TEST_DYN_LINK
+#define BOOST_TEST_MODULE TestBwdTransCUDA
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
@@ -12,6 +13,8 @@
 #include <SpatialDomains/MeshGraph.h>
 
 #include "init_fields.hpp"
+
+BOOST_AUTO_TEST_SUITE(TestBwdTransCUDA)
 
 using namespace std;
 using namespace Nektar::Operators;
@@ -66,3 +69,5 @@ BOOST_FIXTURE_TEST_CASE(bwdtranscuda, Line)
     BOOST_CHECK_CLOSE(y[5], 4.082915537389534, TOL);
     BOOST_CHECK_CLOSE(y[6], 2.000000000000000, TOL);
 }
+
+BOOST_AUTO_TEST_SUITE_END()
