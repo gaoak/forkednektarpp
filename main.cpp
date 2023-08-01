@@ -107,37 +107,6 @@ int main(int argc, char *argv[])
 
     // ****************************************************************************
 
-    std::cout << "Mass error test begin\n";
-
-    auto massIn = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto massOut = Field<double, FieldState::Coeff>::create(blocks_coeff);
-
-    Mass<double>::create(explist)->apply(massIn, massOut);
-
-    /*
-    // -------------------------------------
-    std::cout << "Applying mass operator\n";
-
-    // create temporary field for physical points
-    auto tmp = Field<double, FieldState::Phys>::create(in.GetBlocks());
-    auto m_BwdTransOp = BwdTrans<double>::create(explist);
-    auto m_IProductWRTBaseOp = IProductWRTBase<double>::create(explist);
-
-    // transform coefficients into physical points
-    m_BwdTransOp->apply(massIn, tmp);
-
-    // take inner product of physical points
-    m_IProductWRTBaseOp->apply(tmp, massOut);
-
-    std::cout << "Finished mass operator\n";
-    // -------------------------------------
-    */
-
-    std::cout << "Mass error test end\n";
-    
-
-    // ****************************************************************************
-
     // (willdenny) Check CG operator
     
     std::shared_ptr<ContField> explistCF = std::dynamic_pointer_cast<ContField>(explist);
