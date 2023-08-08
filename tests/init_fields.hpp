@@ -30,7 +30,8 @@ using namespace Nektar;
  */
 
 template <typename TData, FieldState stateIn = FieldState::Coeff,
-          FieldState stateOut = FieldState::Phys>
+          FieldState stateOut = FieldState::Phys,
+          typename TExpList = MultiRegions::ExpList>
 class InitFields
 {
 public:
@@ -41,7 +42,7 @@ public:
     Field<TData, stateIn>  *fixtcuda_in    = nullptr;
     Field<TData, stateOut> *fixtcuda_out   = nullptr;
 #endif
-    MultiRegions::ExpListSharedPtr fixt_explist{nullptr};
+    std::shared_ptr<TExpList> fixt_explist{nullptr};
 
     ~InitFields()
     {
@@ -72,7 +73,7 @@ public:
 
         session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph        = SpatialDomains::MeshGraph::Read(session);
-        fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+        fixt_explist = MemoryManager<TExpList>::AllocateSharedPtr(
             session, graph);
 
         // Generate a blocks definition from the expansion list for each state

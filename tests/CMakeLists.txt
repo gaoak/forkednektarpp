@@ -33,6 +33,15 @@ target_include_directories(test_ipwrtbase PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_ipwrtbase PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_fwdtrans test_fwdtrans.cpp)
+target_link_libraries(test_fwdtrans PRIVATE Operators)
+target_link_libraries(test_fwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_fwdtrans PRIVATE Boost::unit_test_framework)
+target_include_directories(test_fwdtrans PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_fwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_fwdtrans PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_test(
   NAME BwdTrans
   COMMAND test_bwdtrans
@@ -48,5 +57,11 @@ add_test(
 add_test(
   NAME IProductWRTBase
   COMMAND test_ipwrtbase
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME FwdTrans
+  COMMAND test_fwdtrans
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )

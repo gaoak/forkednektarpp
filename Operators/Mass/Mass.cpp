@@ -9,8 +9,6 @@ namespace Nektar::Operators::detail
 template <typename TData>
 void OperatorMassImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
 {
-    std::cout << "Applying mass operator\n";
-
     // create temporary field for physical points
     auto blocks = GetBlockAttributes(FieldState::Phys, this->m_expansionList);
     this->m_field = Field<TData, FieldState::Phys>::create(blocks);
@@ -20,8 +18,6 @@ void OperatorMassImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<T
 
     // take inner product of physical points
     this->m_IProductWRTBaseOp->apply(this->m_field, out);
-
-    std::cout << "Finished mass operator\n";
 }
 
 // ****************************************************************************************************************

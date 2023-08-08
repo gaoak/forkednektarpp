@@ -14,7 +14,7 @@
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
 
-#define SOLVE_VERSION 1
+#define SOLVE_VERSION 2
 
 namespace Nektar::Operators::detail
 {
@@ -357,6 +357,7 @@ void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Fie
 
 #if (SOLVE_VERSION == 2)
 
+/*
 template <typename TData, FieldState TFieldState>
 void print_field(Field<TData, TFieldState> &field)
 {
@@ -368,13 +369,14 @@ void print_field(Field<TData, TFieldState> &field)
     }
     std::cout << "\n";
 }
+*/
 
 template <typename TData>
 void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
 {
     // these values should be referenced from Nektar
-    TData tol = 1.e-6;
-    size_t maxIter = 10;
+    TData tol = 1.e-6;   // ** CHANGE THIS **
+    size_t maxIter = 10; // ** CHANGE THIS **
 
     // get size of vector from in (this needs to be the same for out - maybe assert this?)
     size_t N = in.GetStorage().size();
@@ -405,7 +407,6 @@ void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Fie
     std::fill(p_w_A, p_w_A + N, 0.);
     std::fill(p_s_A, p_s_A + N, 0.);
     std::fill(p_p_A, p_p_A + N, 0.);
-    //std::fill(p_r_A, p_r_A + N, 0.);
     std::fill(p_q_A, p_q_A + N, 0.);
     std::fill(p_wk,  p_wk + N, 0.);
 
@@ -510,13 +511,6 @@ void OperatorConjGradImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, Fie
         //vExchange[2] = Vmath::Dot(nLocal, wk, r_A);
         assembleScatter(N, r_A, wk, true);
         vExchange[2] = std::inner_product(p_wk, p_wk + N, p_r_A, 0.);
-
-        std::cout << "****************************************\n";
-        //std::cout << r_A << "\n\n";
-        //std::cout << wk << "\n\n";
-        //print_field(r_A);
-        //print_field(wk); 
-        std::cout << "****************************************\n";
         
         // Perform inner-product exchanges
         //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);

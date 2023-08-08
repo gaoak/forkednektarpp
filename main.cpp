@@ -19,6 +19,7 @@
 #include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorFwdTrans.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -116,39 +117,34 @@ int main(int argc, char *argv[])
     size_t Nglobal = assMap->GetNumGlobalCoeffs();
     size_t Nlocal = assMap->GetNumLocalCoeffs();
 
-    // field phys - 1s
-    auto CG_f = Field<double, FieldState::Phys>::create(blocks_phys);
+    auto CG_f     = Field<double, FieldState::Phys>::create(blocks_phys);
+    auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+    auto CG_f2    = Field<double, FieldState::Phys >::create(blocks_phys);
+
     auto *iter = CG_f.GetStorage().GetCPUPtr();
-    for (int i = 0; i < explist->GetTotPoints(); ++i)
-        *(iter++) = 1;
-    // inner prod to get rhs
-    auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    IProductWRTBase<double>::create(explist)->apply(CG_f, CG_f_hat);
 
-    // create random vector of size global dofs
-    //Array<OneD, double> randGlobalVec(Nglobal);
-    //Array<OneD, double> randLocalVec(Nlocal);
-    //for (size_t i = 0; i < Nglobal; ++i)
-        //randGlobalVec[i] = 2.*(std::rand() / double(RAND_MAX)) - 1.;
+    int CG_test = 1;
+    
+    if (CG_test == 0)
+    {
+        for (int i = 0; i < explist->GetTotPoints(); ++i)
+            *(iter++) = 1;
+    }
+    else if (CG_test == 1)
+    {    
+        int np = explist->GetTotPoints();
+        Array<OneD, NekDouble> x(np), y(np), z(np);
+        explist->GetCoords(x, y, z);
+        for (int i = 0; i < explist->GetTotPoints(); ++i)
+            *(iter++) = x[i]*x[i] + y[i]*y[i] + 20;
+    }
 
-    // scatter to local fields
-    //assMap->GlobalToLocal(randGlobalVec, randLocalVec);
-    //auto CG_f_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    //auto *p_CG_f_hat = CG_f_hat.GetStorage().GetCPUPtr();
-    //std::copy(randLocalVec.get(), randLocalVec.get() + Nlocal, p_CG_f_hat);
-
-    // solve for u_hat
-    auto CG_u_hat   = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto CG_LHS     = Mass<double>::create(explist);
-    auto CG_precon  = Identity<double, FieldState::Coeff>::create(explist);
-    auto CG_op      = ConjGrad<double>::create(explist);
-    CG_op->setLHS(CG_LHS);
-    CG_op->setPrecon(CG_precon);
-    CG_op->apply(CG_f_hat, CG_u_hat);
+    FwdTrans<double>::create(explist)->apply(CG_f, CG_u_hat);
+    BwdTrans<double>::create(explist)->apply(CG_u_hat, CG_f2);
 
     std::cout << "f:\n" << CG_f << "\n";
-    std::cout << "f hat:\n" << CG_f_hat << "\n"; 
     std::cout << "u hat:\n" << CG_u_hat << "\n";
+    std::cout << "f2:\n" << CG_f2 << "\n";
 
     // ****************************************************************************
 
