@@ -28,6 +28,10 @@ set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 
 set(SRC Field.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp)
 
+if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
+    MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
+endif()
+
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
