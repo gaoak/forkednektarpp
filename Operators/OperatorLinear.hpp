@@ -22,10 +22,6 @@ public:
     }
 
     virtual void apply(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out) = 0;
-    void operator()(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out)
-    {
-        apply(in, out);
-    }
 };
 
 }

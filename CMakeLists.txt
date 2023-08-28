@@ -37,6 +37,8 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
     Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
+    Operators/OperatorHelm.cpp Operators/Helm/Helm.cpp
+    Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
     )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
