@@ -17,7 +17,7 @@ public:
     }
 
     void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out);
-    void configure(const std::unique_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op);
+    void configure(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op);
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

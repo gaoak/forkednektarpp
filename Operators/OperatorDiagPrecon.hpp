@@ -21,7 +21,7 @@ public:
     {
     }
 
-    virtual void configure(const std::unique_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op) = 0;
+    virtual void configure(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op) = 0;
 };
 
 // Descriptor / traits class for DiagPrecon to be used by Operator create function

@@ -2,6 +2,7 @@
 
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ContField.h>
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -12,15 +13,14 @@ namespace Nektar::Operators::detail
 template <typename TData, FieldState TFieldState>
 void OperatorAssmbScatrImpl<TData, TFieldState>::apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
 {
-    /* 
-        ! ADD ASSEMBLY + SCATTER CODE HERE !
-
-    // Assemble + Scatter
-
     // cast expansion list to continuous field
     // then retrieve ptr to the assembly map
     auto contField = std::dynamic_pointer_cast<ContField>(this->m_expansionList);
     auto assmbMap  = contField->GetLocalToGlobalMap();
+
+    Array<OneD, TData> inArr;
+    Array<OneD, TData> outArr;
+    bool ZeroDir = true; // <-- CHANGE THIS
 
     // Get the solution type
     GlobalSysSolnType solnType = assmbMap->GetGlobalSysSolnType();
@@ -46,8 +46,6 @@ void OperatorAssmbScatrImpl<TData, TFieldState>::apply(Field<TData, TFieldState>
         }
         assmbMap->GlobalToLocalBnd(outArr, outArr);
     }
-
-    */
 }
 
 // ****************************************************************************************************************

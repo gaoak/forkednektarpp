@@ -31,7 +31,7 @@ void OperatorDiagPreconImpl<TData>::apply(Field<TData, FieldState::Coeff> &in, F
 }
 
 template <typename TData>
-void OperatorDiagPreconImpl<TData>::configure(const std::unique_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
+void OperatorDiagPreconImpl<TData>::configure(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
 {
     // create unit vector field to extract diagonal
     Field<TData, FieldState::Coeff> unit_vec = Field<TData, FieldState::Coeff>::create(

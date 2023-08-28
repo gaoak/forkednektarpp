@@ -21,6 +21,8 @@
 #include "Operators/OperatorMass.hpp"
 #include "Operators/OperatorFwdTrans.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
+#include "Operators/OperatorMatrix.hpp"
+#include "Operators/OperatorDiagPrecon.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -101,11 +103,38 @@ int main(int argc, char *argv[])
     std::cout << "Initial shape:\n" << in << std::endl << std::endl;
 
     // ****************************************************************************
+    // (willdenny) Matrix and Diag precon test
 
-    // (willdenny) Check identity operator
-    //std::cout << "in2 before identity with in\n" << in2 << "\n\n";
-    //Identity<double, FieldState::Coeff>::create(explist, "")->apply(in, in2);
-    //std::cout << "in2 after identity with in\n"  << in2 << "\n\n";
+    auto matOp = Operators::Matrix<double, FieldState::Coeff>::create(explist);
+    auto matSize = matOp->size();
+    std::vector<double> matData(matSize * matSize, 0);
+    for (int i = 0; i < matSize; ++i)
+    {
+        matData[i*(matSize + 1)] = i;
+    }
+    matOp->fill(matData.data());
+
+//    std::cout << "Matrix = \n" << matOp->toString() << "\n";
+
+    auto matFdIn = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    auto matFdOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    auto preconOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    
+    auto *pMatFdIn = matFdIn.GetStorage().GetCPUPtr();
+    for (size_t i = 0; i < matSize; ++i)
+        *(pMatFdIn++) = 1.;
+    std::cout << "Matrix field in = \n" << matFdIn << "\n";
+
+    matOp->apply(matFdIn, matFdOut);
+
+    std::cout << "Matrix field out = \n" << matFdOut << "\n";
+
+    auto dprecOp = Operators::DiagPrecon<double>::create(explist);
+    dprecOp->configure(matOp);
+
+    dprecOp->apply(matFdOut, preconOut);
+
+    std::cout << "precon field = \n" << preconOut << "\n";
 
     // ****************************************************************************
 

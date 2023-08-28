@@ -17,9 +17,7 @@ public:
     {   
     }
 
-    virtual void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
-    {
-    }
+    virtual void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out) = 0;
 };
 
 // Descriptor / traits class for Assembly+scatter to be used by Operator create function
