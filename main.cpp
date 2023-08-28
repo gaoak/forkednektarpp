@@ -20,6 +20,7 @@
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorMass.hpp"
 #include "Operators/OperatorFwdTrans.hpp"
+#include "Operators/OperatorPhysDeriv.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 //#include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -244,7 +245,7 @@ int main(int argc, char *argv[])
         // Check output values.
         std::cout << "Out:" << std::endl;
         auto outptr = outPhys.GetStorage().GetCPUPtr();
-        for (auto const &block : out.GetBlocks())
+        for (auto const &block : outPhys.GetBlocks())
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -355,6 +356,234 @@ int main(int argc, char *argv[])
         }
         std::cout << std::endl;
     }
+    // Test IProductWRTBase (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "IProductWRTBase (CUDA) test starts." << std::endl;
+
+        // Create two Fields with memory on the GPU
+        auto inPhys = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+            blocks_phys);
+        auto outCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // Assign input values.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    // Each element is the index of the quadrature points
+                    // this is useful for testing reshapes
+                    *(inptr++) = phys;
+                    std::cout << phys << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // Perform the IProductWRTBase on the fields using the CUDA
+        // implementation Since this is a CUDA operator, acting on CUDA fields,
+        // everything happens on the GPU.
+        IProductWRTBase<>::create(explist, "CUDA")->apply(inPhys, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
+    // Test PhysDeriv Implementation
+    {
+        std::cout << "PhysDeriv (StdMat) test starts." << std::endl;
+
+        // Create two Field objects with a MemoryRegionCPU backend by default
+        // for the inner product with respect to base
+        auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto outPhys0 = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto outPhys1 = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto outPhys2 = Field<double, FieldState::Phys>::create(blocks_phys);
+
+        // Assign input values
+        auto *inptr = inPhys.GetStorage().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    // Each element is the index of the quadrature points
+                    // this is useful for testing reshapes
+                    *(inptr++) = phys;
+                }
+            }
+        }
+
+        std::cout << "Initial shape:\n" << inPhys << std::endl;
+
+        // PhysDeriv
+        PhysDeriv<>::create(explist, "StdMat")
+            ->apply(inPhys, outPhys0, outPhys1, outPhys2);
+
+        // Check output values.
+        std::cout << "Out0:" << std::endl;
+        auto *outptr0 = outPhys0.GetStorage().GetCPUPtr();
+        for (auto const &block : outPhys0.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr0++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        // Check output values.
+        std::cout << "Out1:" << std::endl;
+        auto *outptr1 = outPhys1.GetStorage().GetCPUPtr();
+        for (auto const &block : outPhys1.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr1++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        // Check output values.
+        std::cout << "Out2:" << std::endl;
+        auto *outptr2 = outPhys2.GetStorage().GetCPUPtr();
+        for (auto const &block : outPhys2.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr2++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+    // Test PhysDeriv (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "PhysDeriv (CUDA) test starts." << std::endl;
+
+        // Create two Field objects with a MemoryRegionCPU backend by default
+        // for the inner product with respect to base
+        auto inPhys = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+            blocks_phys);
+        auto outPhys0 =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
+        auto outPhys1 =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
+        auto outPhys2 =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
+
+        // Assign input values
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    // Each element is the index of the quadrature points
+                    // this is useful for testing reshapes
+                    *(inptr++) = phys;
+                    std::cout << phys << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // PhysDeriv
+        PhysDeriv<>::create(explist, "CUDA")
+            ->apply(inPhys, outPhys0, outPhys1, outPhys2);
+
+        // Check output values.
+        std::cout << "Out0:" << std::endl;
+        auto *outptr0 =
+            outPhys0.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outPhys0.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr0++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        // Check output values.
+        std::cout << "Out1:" << std::endl;
+        auto *outptr1 =
+            outPhys1.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outPhys1.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr1++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        // Check output values.
+        std::cout << "Out2:" << std::endl;
+        auto *outptr2 =
+            outPhys2.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outPhys2.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    std::cout << *(outptr2++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
 
     std::cout << "END" << std::endl;
     return 0;

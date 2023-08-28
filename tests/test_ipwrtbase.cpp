@@ -1,4 +1,5 @@
-#define BOOST_TEST_MODULE example
+#define BOOST_TEST_DYN_LINK
+#define BOOST_TEST_MODULE TestIPWRTBase
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
@@ -13,6 +14,8 @@
 
 #include "init_fields.hpp"
 
+BOOST_AUTO_TEST_SUITE(TestIPWRTBase)
+
 using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -21,7 +24,8 @@ using namespace Nektar;
 class Line : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 public:
-    Line() : InitFields<double, FieldState::Phys, FieldState::Coeff>() {
+    Line() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
+    {
         meshName = "line.xml";
     }
 };
@@ -29,7 +33,8 @@ public:
 class Square : public InitFields<double, FieldState::Phys, FieldState::Coeff>
 {
 public:
-    Square() : InitFields<double, FieldState::Phys, FieldState::Coeff>() {
+    Square() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
+    {
         meshName = "square.xml";
     }
 };
@@ -63,3 +68,5 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase, Line)
     BOOST_TEST(std::abs(y[4] - 9.36750677027476e-17) < TOL);
     BOOST_CHECK_CLOSE(y[5], 0.00746847423694819, TOL);
 }
+
+BOOST_AUTO_TEST_SUITE_END()

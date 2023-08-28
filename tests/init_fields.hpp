@@ -35,24 +35,39 @@ template <typename TData, FieldState stateIn = FieldState::Coeff,
 class InitFields
 {
 public:
-    Field<TData, stateIn>  *fixt_in        = nullptr;
-    Field<TData, stateOut> *fixt_out       = nullptr;
-    Field<TData, stateOut> *fixt_expected  = nullptr;
+    Field<TData, stateIn> *fixt_in        = nullptr;
+    Field<TData, stateOut> *fixt_out      = nullptr;
+    Field<TData, stateOut> *fixt_expected = nullptr;
 #ifdef NEKTAR_USE_CUDA
-    Field<TData, stateIn>  *fixtcuda_in    = nullptr;
-    Field<TData, stateOut> *fixtcuda_out   = nullptr;
+    Field<TData, stateIn> *fixtcuda_in   = nullptr;
+    Field<TData, stateOut> *fixtcuda_out = nullptr;
 #endif
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
-        if (fixt_in) delete fixt_in;
-        if (fixt_out) delete fixt_out;
-        if (fixt_expected) delete fixt_expected;
+        if (fixt_in)
+        {
+            delete fixt_in;
+        }
+        if (fixt_out)
+        {
+            delete fixt_out;
+        }
+        if (fixt_expected)
+        {
+            delete fixt_expected;
+        }
 #ifdef NEKTAR_USE_CUDA
-        if (fixtcuda_in) delete fixtcuda_in;
-        if (fixtcuda_out) delete fixtcuda_out;
+        if (fixtcuda_in)
+        {
+            delete fixtcuda_in;
+        }
+        if (fixtcuda_out)
+        {
+            delete fixtcuda_out;
+        }
 #endif
     }
 

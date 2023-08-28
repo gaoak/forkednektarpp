@@ -60,6 +60,104 @@ public:
     }
 
 protected:
+    size_t GetGeometricFactorSize(void)
+    {
+        size_t gfSize    = 0;
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+
+        // Calculate the jacobian array size
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            // Determine shape and type of the element
+            auto const expPtr = this->m_expansionList->GetExp(e);
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                gfSize += expPtr->GetTotPoints();
+            }
+            else
+            {
+                gfSize++;
+            }
+        }
+
+        return gfSize;
+    }
+
+    Array<OneD, TData> SetJacobian(size_t jacSize)
+    {
+        // Allocate memory for the jacobian
+        Array<OneD, TData> jac(jacSize, 0.0);
+
+        // Initialise jacobian.
+        size_t index     = 0;
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            auto expPtr = this->m_expansionList->GetExp(e);
+            auto &auxJac =
+                expPtr->GetMetricInfo()->GetJac(expPtr->GetPointsKeys());
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                size_t nqe = expPtr->GetTotPoints();
+                for (size_t i = 0; i < nqe; ++i)
+                {
+                    jac[index++] = auxJac[i];
+                }
+            }
+            else
+            {
+                jac[index++] = auxJac[0];
+            }
+        }
+        return jac;
+    }
+
+    Array<OneD, Array<OneD, TData>> SetDerivativeFactor(size_t dfSize)
+    {
+        // Allocate memory for the derivative factor
+        size_t nDim   = this->m_expansionList->GetShapeDimension();
+        size_t nCoord = this->m_expansionList->GetCoordim(0);
+        Array<OneD, Array<OneD, TData>> derivFac(nDim * nCoord);
+        for (size_t d = 0; d < nDim * nCoord; d++)
+        {
+            derivFac[d] = Array<OneD, TData>(dfSize);
+        }
+
+        // Initialise derivative factor.
+        size_t dfindex   = 0;
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            auto expPtr = this->m_expansionList->GetExp(e);
+            auto &df    = expPtr->GetMetricInfo()->GetDerivFactors(
+                expPtr->GetPointsKeys());
+            size_t nqTot = expPtr->GetTotPoints();
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                for (size_t d = 0; d < nDim * nCoord; d++)
+                {
+                    for (size_t i = 0; i < nqTot; ++i)
+                    {
+                        derivFac[d][dfindex + i] = df[d][i];
+                    }
+                }
+                dfindex += nqTot;
+            }
+            else
+            {
+                for (size_t d = 0; d < nDim * nCoord; d++)
+                {
+                    derivFac[d][dfindex] = df[d][0];
+                }
+                dfindex += 1;
+            }
+        }
+        return derivFac;
+    }
+
     MultiRegions::ExpListSharedPtr m_expansionList;
 };
 

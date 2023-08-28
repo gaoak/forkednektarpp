@@ -1,4 +1,5 @@
-#define BOOST_TEST_MODULE example
+#define BOOST_TEST_DYN_LINK
+#define BOOST_TEST_MODULE TestBwdTrans
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
@@ -13,15 +14,19 @@
 
 #include "init_fields.hpp"
 
+BOOST_AUTO_TEST_SUITE(TestBwdTrans)
+
 using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
+
 class Line : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
 public:
-    Line() : InitFields<double, FieldState::Coeff, FieldState::Phys>() {
+    Line() : InitFields<double, FieldState::Coeff, FieldState::Phys>()
+    {
         meshName = "line.xml";
     }
 };
@@ -29,7 +34,8 @@ public:
 class Square : public InitFields<double, FieldState::Coeff, FieldState::Phys>
 {
 public:
-    Square() : InitFields<double, FieldState::Coeff, FieldState::Phys>() {
+    Square() : InitFields<double, FieldState::Coeff, FieldState::Phys>()
+    {
         meshName = "square.xml";
     }
 };
@@ -88,3 +94,5 @@ BOOST_FIXTURE_TEST_CASE(bwdtrans, Line)
     double TOL{0.01};
     BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
 }
+
+BOOST_AUTO_TEST_SUITE_END()

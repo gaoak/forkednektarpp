@@ -36,12 +36,17 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTrans.cpp
     Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
     Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
+    Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
     )
+
+if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
+    MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
+endif()
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu)
 endif()
 
 if (NEKTAR_USE_SIMD)

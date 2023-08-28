@@ -60,8 +60,7 @@ int NoCaseStringCompare(const string &s1, const string &s2);
 
 int main(int argc, char *argv[])
 {
-    LibUtilities::SessionReaderSharedPtr vSession =
-        LibUtilities::SessionReader::CreateInstance(argc, argv);
+    LibUtilities::SessionReaderSharedPtr vSession = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
     MultiRegions::ContFieldSharedPtr Exp, Fce;
 
