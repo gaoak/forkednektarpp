@@ -34,6 +34,8 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorIdentity.cpp Operators/Identity/Identity.cpp
     Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGrad.cpp
     Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTrans.cpp
+    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
+    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
     )
 
 if (NEKTAR_USE_CUDA)
@@ -62,6 +64,16 @@ add_executable(main ${TEST_SRC})
 target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
+
+add_executable(Helmholtz2D Helmholtz2D.cpp)
+target_link_libraries(Helmholtz2D Operators)
+target_include_directories(Helmholtz2D PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions(Helmholtz2D PUBLIC ${NEKTAR++_DEFINITIONS})
+
+add_executable(MyTest MyTest.cpp)
+target_link_libraries(MyTest Operators)
+target_include_directories(MyTest PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions(MyTest PUBLIC ${NEKTAR++_DEFINITIONS})
 
 add_subdirectory(tests)
 

@@ -565,12 +565,21 @@ void OperatorConjGradImpl<TData>::assembleScatter(
     if (solvertype == eIterativeFull)
     {
         std::cout << "Iterative full\n";
+
+        // inArr and outArr has size = number of local coeffs
+        // Assemble takes the inArr, accumulates on the shared local dofs to produce a vector of length
+        // equal to the number of global coeffs in outArr (note outArr is actually larger -- size equal to num local coeffs)
+        // 
         assMap->Assemble(inArr, outArr);
+        
         if (ZeroDir)
         {
+            // zero out the first nDir values in outArr that are the dirichlet boundary coefficients
             int nDir = assMap->GetNumGlobalDirBndCoeffs();
             Vmath::Zero(nDir, outArr, 1);
         }
+        // transfer the global space outArr to local space outArr
+        // i.e. distribute accumulated values on global dofs to local dofs in same array
         assMap->GlobalToLocal(outArr, outArr);
     }
     else // bnd version.
