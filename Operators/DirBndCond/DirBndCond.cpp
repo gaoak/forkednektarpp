@@ -14,7 +14,7 @@ namespace Nektar::Operators::detail
 {
 
 // Declare function containing lifted code from Nektar in advance
-void ImposeDirichletConditions(Array<OneD, NekDouble> &outarray, const ExpListSharedPtr &explist);
+void ImposeDirichletConditions(Array<OneD, NekDouble> &outarray, const ContFieldSharedPtr &explist);
 
 template <typename TData>
 void OperatorDirBndCondImpl<TData>::apply(Field<TData, FieldState::Coeff> &inout)
@@ -26,23 +26,28 @@ void OperatorDirBndCondImpl<TData>::apply(Field<TData, FieldState::Coeff> &inout
     // m_bndCondExpansions
     // m_bndConditions
 
+    // get number of local coeffs
+    auto contField = std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+    auto nloc = contField->GetLocalToGlobalMap()->GetNumLocalCoeffs();
+
     // Field -> Array
+    Array<OneD, NekDouble> outarray(nloc, inout.GetStorage().GetCPUPtr());
 
-    Array<OneD, NekDouble> outarray;
-
-    ImposeDirichletConditions(outarray, this->m_expansionList);
+    // Core of function
+    ImposeDirichletConditions(outarray, contField);
     
     // Array -> Field
+    std::copy(outarray.data(), outarray.data() + nloc, inout.GetStorage().GetCPUPtr());
 }
 
-// Lifted code from Nektar
-void ImposeDirichletConditions(Array<OneD, NekDouble> &outarray, const ExpListSharedPtr &explist)
+// Lifted code from Nektar (ContField.cpp)
+void ImposeDirichletConditions(Array<OneD, NekDouble> &outarray, const ContFieldSharedPtr &contField)
 {
     // get attributes from expansion list
-    auto contField = std::dynamic_pointer_cast<ContField>(explist);
     auto locToGloMap = contField->GetLocalToGlobalMap();
-    Array<OneD, ExpListSharedPtr> bndCondExpansions; // = contField->GetBndCondExpansions() ?
-    Array<OneD, BoundaryConditionShPtr> bndConditions; // = contField->GetBndConditions() ?
+
+    Array<OneD, ExpListSharedPtr> bndCondExpansions = contField->GetBndCondExpansions(); // = contField->GetBndCondExpansions() ? -- can't find a getter fcn to access this
+    Array<OneD, BoundaryConditionShPtr> bndConditions = contField->GetBndConditions(); // = contField->GetBndConditions() ?
 
     // lifted code:
     int i, j;

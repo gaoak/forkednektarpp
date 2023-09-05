@@ -5,9 +5,9 @@ namespace Nektar::Operators
 
 // define static variables for Assembly+Scatter (for coeff field)
 template <>
-const std::string AssmbScatr<default_fp_type, FieldState::Coeff>::key = "AssmbScatr";
+const std::string AssmbScatr<default_fp_type>::key = "AssmbScatr";
 
 template <>
-const std::string AssmbScatr<default_fp_type, FieldState::Coeff>::default_impl = "";
+const std::string AssmbScatr<default_fp_type>::default_impl = "";
 
 }
