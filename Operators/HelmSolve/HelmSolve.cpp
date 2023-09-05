@@ -1,14 +1,14 @@
-#include "Helm.hpp"
+#include "HelmSolve.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 // Register implementation with Operator Factory
 template <>
-std::string OperatorHelmImpl<double>::className =
+std::string OperatorHelmSolveImpl<double>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "Helm",
-        OperatorHelmImpl<double>::instantiate, 
+        "HelmSolve",
+        OperatorHelmSolveImpl<double>::instantiate, 
         ""
     );
 

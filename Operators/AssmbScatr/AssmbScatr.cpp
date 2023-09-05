@@ -20,6 +20,9 @@ void OperatorAssmbScatrImpl<TData, TFieldState>::apply(Field<TData, TFieldState>
 
     Array<OneD, TData> inArr;
     Array<OneD, TData> outArr;
+
+    
+
     bool ZeroDir = true; // <-- CHANGE THIS
 
     // Get the solution type

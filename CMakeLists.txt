@@ -38,6 +38,7 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
     Operators/OperatorHelm.cpp Operators/Helm/Helm.cpp
+    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolve.cpp
     Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
     )

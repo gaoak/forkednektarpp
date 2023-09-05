@@ -20,6 +20,8 @@ public:
         : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(expansionList)
     {    
     }
+
+    virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 // Descriptor / traits class for Helm to be used by Operator create function

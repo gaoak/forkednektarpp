@@ -9,18 +9,17 @@ namespace Nektar::Operators::detail
 template <typename TData>
 void OperatorFwdTransImpl<TData>::apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out)
 {
-    // create temporary field for coefficient points
     auto blocks = GetBlockAttributes(FieldState::Coeff, this->m_expansionList);
-    this->m_field = Field<TData, FieldState::Coeff>::create(blocks);
+    m_field = Field<TData, FieldState::Coeff>::create(blocks);
 
     // transform physical points f to coefficients f_hat
-    this->m_IProductWRTBaseOp->apply(in, this->m_field);
+    m_IProductWRTBaseOp->apply(in, m_field);
 
     // set up and apply conjugate gradient
     // to solve for coefficients u_hat from f_hat
-    this->m_ConjGradOp->setLHS(this->m_MassOp);
-    this->m_ConjGradOp->setPrecon(this->m_PreconOp);
-    this->m_ConjGradOp->apply(this->m_field, out);
+    m_ConjGradOp->setLHS(m_MassOp);
+    m_ConjGradOp->setPrecon(m_PreconOp);
+    m_ConjGradOp->apply(m_field, out);
 }
 
 // ****************************************************************************************************************
