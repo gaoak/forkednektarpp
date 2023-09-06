@@ -27,9 +27,7 @@ public:
     }
 
     void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
-    {
-        // assert that the in/out sizes conform with the expansion list blocks
-        
+    {        
         auto *diag_ptr = this->m_diag.GetStorage().GetCPUPtr();
         auto *in_ptr = in.GetStorage().GetCPUPtr();
         auto *out_ptr = out.GetStorage().GetCPUPtr();

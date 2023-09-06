@@ -220,9 +220,13 @@ int main(int argc, char *argv[])
         // the factors map and the variable coeffs map
         //Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
         
+        std::cout << "Applying HelmSolve...\n";
+
         auto helmSolveOp = HelmSolve<double>::create(Exp);
-        //helmSolveOp->set_lambda();
+        helmSolveOp->setLambda(double(vSession->GetParameter("Lambda")));
         helmSolveOp->apply(in, out);
+
+        std::cout << "Applied HelmSolve\n";
 
         //----------------------------------------------
         // Backward Transform Solution to get solved values
