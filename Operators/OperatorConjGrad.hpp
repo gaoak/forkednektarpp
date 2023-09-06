@@ -15,28 +15,17 @@ namespace Nektar::Operators
 template <typename TData>
 class OperatorConjGrad : public Operator<TData>
 {
-protected:
-    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_LHS;
-    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_precon;
-
 public:
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(std::move(expansionList))
     {
     }
 
-    // pure virtual - must be implemented in implementation class
     virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
 
-    void setLHS(std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> ptr)
-    {
-        m_LHS = ptr;
-    }
+    virtual void setLHS(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr) = 0;
 
-    void setPrecon(std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> ptr)
-    {
-        m_precon = ptr;
-    }    
+    virtual void setPrecon(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr) = 0;
 };
 
 // Descriptor / traits class for ConjGrad to be used by Operator create function

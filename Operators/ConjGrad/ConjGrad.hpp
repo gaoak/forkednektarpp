@@ -25,6 +25,7 @@ public:
     OperatorConjGradImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorConjGrad<TData>(std::move(expansionList))
     {
+        m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
@@ -33,19 +34,19 @@ public:
         TData tol = 1.e-6;   // ** CHANGE THIS **
         size_t maxIter = 10; // ** CHANGE THIS **
 
-        // get size of vector from in (this needs to be the same for out - maybe assert this?)
-        size_t N = in.GetStorage().size();
+        // get number of local coeffs (=size of in/out fields)
+        size_t nloc = in.GetStorage().size();
 
         // get block attributes (must be same as out.GetBlocks())
-        auto blockAttributes = in.GetBlocks();
+        auto blocks_coeff = in.GetBlocks();
 
         // create temporary fields
-        auto w_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
-        auto s_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
-        auto p_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
-        auto r_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
-        auto q_A = Field<TData, FieldState::Coeff>::create(blockAttributes);
-        auto wk  = Field<TData, FieldState::Coeff>::create(blockAttributes);
+        auto w_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
+        auto s_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
+        auto p_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
+        auto r_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
+        auto q_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
+        auto wk  = Field<TData, FieldState::Coeff>::create(blocks_coeff);
 
         // store pointers to temporary fields
         auto *p_in  = in.GetStorage().GetCPUPtr();
@@ -58,12 +59,12 @@ public:
         auto *p_wk  = wk.GetStorage().GetCPUPtr();
 
         // set the fields to zero
-        std::fill(p_out, p_out + N, 0.);
-        std::fill(p_w_A, p_w_A + N, 0.);
-        std::fill(p_s_A, p_s_A + N, 0.);
-        std::fill(p_p_A, p_p_A + N, 0.);
-        std::fill(p_q_A, p_q_A + N, 0.);
-        std::fill(p_wk,  p_wk + N, 0.);
+        std::fill(p_out, p_out + nloc, 0.);
+        std::fill(p_w_A, p_w_A + nloc, 0.);
+        std::fill(p_s_A, p_s_A + nloc, 0.);
+        std::fill(p_p_A, p_p_A + nloc, 0.);
+        std::fill(p_q_A, p_q_A + nloc, 0.);
+        std::fill(p_wk,  p_wk + nloc, 0.);
 
         size_t k;
         size_t totalIterations;
@@ -78,17 +79,17 @@ public:
         std::array<TData, 3> vExchange;
 
         // copy RHS into initial residual
-        std::copy(p_in, p_in + N, p_r_A);
+        std::copy(p_in, p_in + nloc, p_r_A);
 
         // initial residual    
-        AssmbScatr<TData>::create(this->m_expansionList)->apply(r_A, wk);
+        m_assmbScatr->apply(r_A, wk);
 
-        vExchange[2] = std::inner_product(p_wk, p_wk + N, p_r_A, 0.);
+        vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
         //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
         // calculate rhs magnitude
         rhsMagnitude = 0.;
-        std::for_each(p_in, p_in + N, [&rhsMagnitude](const TData &x)
+        std::for_each(p_in, p_in + nloc, [&rhsMagnitude](const TData &x)
         {
             rhsMagnitude += x*x;
         });
@@ -100,13 +101,13 @@ public:
 
         totalIterations = 0;
 
-        this->m_precon->apply(r_A, w_A);
-        this->m_LHS->apply(w_A, s_A);
+        m_precon->apply(r_A, w_A);
+        m_LHS->apply(w_A, s_A);
 
         k = 0;
 
-        vExchange[0] = std::inner_product(p_r_A, p_r_A + N, p_w_A, 0.);
-        vExchange[1] = std::inner_product(p_s_A, p_s_A + N, p_w_A, 0.);
+        vExchange[0] = std::inner_product(p_r_A, p_r_A + nloc, p_w_A, 0.);
+        vExchange[1] = std::inner_product(p_s_A, p_s_A + nloc, p_w_A, 0.);
         //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
         rho = vExchange[0];
@@ -127,46 +128,46 @@ public:
             // Compute new search direction p_k, q_k
             //Vmath::Svtvp(nLocal, beta, p_A, 1, w_A, 1, p_A, 1);
             //Vmath::Svtvp(nLocal, beta, q_A, 1, s_A, 1, q_A, 1);
-            std::transform(p_p_A, p_p_A + N, p_w_A, p_p_A, [&](const TData &pElem, const TData &wElem){
+            std::transform(p_p_A, p_p_A + nloc, p_w_A, p_p_A, [&](const TData &pElem, const TData &wElem){
                 return beta * pElem + wElem;
             });
-            std::transform(p_q_A, p_q_A + N, p_s_A, p_q_A, [&](const TData &qElem, const TData &sElem){
+            std::transform(p_q_A, p_q_A + nloc, p_s_A, p_q_A, [&](const TData &qElem, const TData &sElem){
                 return beta * qElem + sElem;
             });
 
             // Update solution x_{k+1}
             //Vmath::Svtvp(nLocal, alpha, p_A, 1, pOutput, 1, pOutput, 1);
-            std::transform(p_p_A, p_p_A + N, p_out, p_out, [&](const TData &pElem, const TData &xElem){
+            std::transform(p_p_A, p_p_A + nloc, p_out, p_out, [&](const TData &pElem, const TData &xElem){
                 return alpha * pElem + xElem;
             });
             
             // Update residual vector r_{k+1}
             //Vmath::Svtvp(nLocal, -alpha, q_A, 1, r_A, 1, r_A, 1);
-            std::transform(p_q_A, p_q_A + N, p_r_A, p_r_A, [&](const TData &qElem, const TData &rElem){
+            std::transform(p_q_A, p_q_A + nloc, p_r_A, p_r_A, [&](const TData &qElem, const TData &rElem){
                 return -alpha * qElem + rElem;
             });
 
             // Apply preconditioner
             //m_operator.DoNekSysPrecon(r_A, w_A, true);
-            this->m_precon->apply(r_A, w_A);
+            m_precon->apply(r_A, w_A);
 
             // Perform the method-specific matrix-vector multiply operation.
             //m_operator.DoNekSysLhsEval(w_A, s_A);
-            this->m_LHS->apply(w_A, s_A);
+            m_LHS->apply(w_A, s_A);
 
             // <r_{k+1}, w_{k+1}>
             //vExchange[0] = Vmath::Dot(nLocal, r_A, w_A);
-            vExchange[0] = std::inner_product(p_r_A, p_r_A + N, p_w_A, 0.);
+            vExchange[0] = std::inner_product(p_r_A, p_r_A + nloc, p_w_A, 0.);
             
             // <s_{k+1}, w_{k+1}>
             //vExchange[1] = Vmath::Dot(nLocal, s_A, w_A);
-            vExchange[1] = std::inner_product(p_s_A, p_s_A + N, p_w_A, 0.);
+            vExchange[1] = std::inner_product(p_s_A, p_s_A + nloc, p_w_A, 0.);
             
             // <r_{k+1}, r_{k+1}>
             //m_operator.assembleScatter(r_A, wk, true);
             //vExchange[2] = Vmath::Dot(nLocal, wk, r_A);
-            AssmbScatr<TData>::create(this->m_expansionList)->apply(r_A, wk);
-            vExchange[2] = std::inner_product(p_wk, p_wk + N, p_r_A, 0.);
+            m_assmbScatr->apply(r_A, wk);
+            vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
             
             // Perform inner-product exchanges
             //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
@@ -192,6 +193,16 @@ public:
         }
     }
 
+    void setLHS(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr)
+    {
+        m_LHS = ptr;
+    }
+
+    void setPrecon(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr)
+    {
+        m_precon = ptr;
+    }
+
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -202,6 +213,12 @@ public:
 
     // className - for OperatorFactory
     static std::string className;
+
+protected:
+    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatr;
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_LHS;
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_precon;
+
 };
 
 }
