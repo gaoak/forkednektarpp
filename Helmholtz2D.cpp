@@ -41,9 +41,23 @@
 #include <MultiRegions/ContField.h>
 #include <SpatialDomains/MeshGraph.h>
 
+#include "Field.hpp"
+#include "Operators/OperatorBwdTrans.hpp"
+#include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "Operators/OperatorConjGrad.hpp"
+#include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorFwdTrans.hpp"
+#include "Operators/OperatorPhysDeriv.hpp"
+#include "Operators/OperatorMatrix.hpp"
+#include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/OperatorHelmSolve.hpp"
+
 using namespace std;
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
+using namespace Nektar::MultiRegions;
+using namespace Nektar::Operators;
 
 //#define TIMING
 #ifdef TIMING
@@ -110,6 +124,10 @@ int main(int argc, char *argv[])
         // Targets the u variable (only variable in session)
         Exp = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(vSession, graph2D, vSession->GetVariable(0));
         
+        // get blocks from expansion list
+        auto blocks_phys = GetBlockAttributes(FieldState::Phys, Exp);
+        auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, Exp);
+
         //----------------------------------------------
 
         Timing("Read files and define exp ..");
@@ -160,63 +178,6 @@ int main(int argc, char *argv[])
         }
         //----------------------------------------------
 
-        //----------------------------------------------
-        // Set up variable coefficients if defined
-        if (vSession->DefinesFunction("d00"))
-        {
-            Array<OneD, NekDouble> d00(nq, 0.0);
-            // Get an equation object for the function "d00" (initial values?)
-            // This is then evaluated at the coords for the quadrature points
-            // The coefficient array is then stored in the varcoeffs map
-            LibUtilities::EquationSharedPtr d00func = vSession->GetFunction("d00", 0);
-            d00func->Evaluate(xc0, xc1, xc2, d00);
-            varcoeffs[StdRegions::eVarCoeffD00] = d00; 
-        }
-
-        if (vSession->DefinesFunction("d01"))
-        {
-            Array<OneD, NekDouble> d01(nq, 0.0);
-            LibUtilities::EquationSharedPtr d01func =
-                vSession->GetFunction("d01", 0);
-            d01func->Evaluate(xc0, xc1, xc2, d01);
-            varcoeffs[StdRegions::eVarCoeffD01] = d01;
-        }
-
-        if (vSession->DefinesFunction("d11"))
-        {
-            Array<OneD, NekDouble> d11(nq, 0.0);
-            LibUtilities::EquationSharedPtr d11func =
-                vSession->GetFunction("d11", 0);
-            d11func->Evaluate(xc0, xc1, xc2, d11);
-            varcoeffs[StdRegions::eVarCoeffD11] = d11;
-        }
-
-        //----------------------------------------------
-
-        //----------------------------------------------
-        // Set up const diffusion coefficients if defined
-        if (vSession->DefinesParameter("d00"))
-        {
-            NekDouble d00;
-            // Loads the parameter and stores in the factors map
-            vSession->LoadParameter("d00", d00, 1.0);
-            factors[StdRegions::eFactorCoeffD00] = d00;
-        }
-
-        if (vSession->DefinesParameter("d01"))
-        {
-            NekDouble d01;
-            vSession->LoadParameter("d01", d01, 1.0);
-            factors[StdRegions::eFactorCoeffD01] = d01;
-        }
-
-        if (vSession->DefinesParameter("d11"))
-        {
-            NekDouble d11;
-            vSession->LoadParameter("d11", d11, 1.0);
-            factors[StdRegions::eFactorCoeffD11] = d11;
-        }
-        //----------------------------------------------
 
         //----------------------------------------------
         // Define forcing function for first variable defined in file
@@ -224,6 +185,10 @@ int main(int argc, char *argv[])
         fce = Array<OneD, NekDouble>(nq);
         LibUtilities::EquationSharedPtr ffunc = vSession->GetFunction("Forcing", 0);
         ffunc->Evaluate(xc0, xc1, xc2, fce);
+
+        // copy fce into field
+        auto in = Field<double, FieldState::Phys>::create(blocks_phys);
+        std::copy(fce.data(), fce.data() + in.GetStorage().size(), in.GetStorage().GetCPUPtr());
 
         //----------------------------------------------
 
@@ -233,8 +198,11 @@ int main(int argc, char *argv[])
         // The physical point values are initially set to be equal to the fce array
         // the physical points represent function evaluatations at the quadrature points
         // used for integration / differentiation
-        Fce = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(*Exp);
-        Fce->SetPhys(fce);
+        
+        // not needed
+        //Fce = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(*Exp);
+        //Fce->SetPhys(fce);
+        
         //----------------------------------------------
         Timing("Define forcing ..");
 
@@ -244,32 +212,29 @@ int main(int argc, char *argv[])
         //----------------------------------------------
         // Helmholtz solution taking physical forcing after setting
         // initial condition to zero
-        Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1); // initially set coefficients to zero
+        // Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1); // initially set coefficients to zero
+        auto out = Field<double, FieldState::Coeff>::create(blocks_coeff);
 
         // note Exp->UpdateCoeffs() returns reference to underlying array
         // Do HelmSolve using a const reference to the physical point values, a reference to the coeffs,
         // the factors map and the variable coeffs map
-        Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
-
-        //----------------------------------------------
-        Timing("Helmholtz Solve ..");
-
-#ifdef TIMING
-        for (i = 0; i < 20; ++i)
-        {
-            Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1);
-            Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors,
-                           varcoeffs);
-        }
-
-        Timing("20 Helmholtz Solves:... ");
-#endif
+        //Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
+        
+        auto helmSolveOp = HelmSolve<double>::create(Exp);
+        //helmSolveOp->set_lambda();
+        helmSolveOp->apply(in, out);
 
         //----------------------------------------------
         // Backward Transform Solution to get solved values
         // Undertakes backward transform which converts from coefficients to physical points
         // Reads in a constant reference to the coeffs and writes to a refernece of the physical points
-        Exp->BwdTrans(Exp->GetCoeffs(), Exp->UpdatePhys());
+        
+        //Exp->BwdTrans(Exp->GetCoeffs(), Exp->UpdatePhys());
+        
+        // BwdTrans<>::create()->apply(out,.)
+        auto outPhys = Field<double, FieldState::Phys>::create(blocks_phys);
+        BwdTrans<double>::create(Exp)->apply(out, outPhys);
+
         //----------------------------------------------
 
         // *********************************************************************************
@@ -277,7 +242,7 @@ int main(int argc, char *argv[])
 
         //-----------------------------------------------
         // Write solution to file
-        string out = vSession->GetSessionName() + ".fld";
+        string out_file = vSession->GetSessionName() + ".fld";
         std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
             Exp->GetFieldDefinitions();
         std::vector<std::vector<NekDouble>> FieldData(FieldDef.size());
@@ -287,7 +252,7 @@ int main(int argc, char *argv[])
             FieldDef[i]->m_fields.push_back("u");
             Exp->AppendFieldData(FieldDef[i], FieldData[i]);
         }
-        fld->Write(out, FieldDef, FieldData);
+        fld->Write(out_file, FieldDef, FieldData);
         //-----------------------------------------------
 
         //----------------------------------------------
