@@ -5,6 +5,7 @@
 #include "Operators/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorIdentity.hpp"
+#include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators::detail
 {
@@ -23,7 +24,20 @@ public:
         m_IProductWRTBaseOp = IProductWRTBase<TData>::create(this->m_expansionList);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out);
+    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out)
+    {
+        auto blocks = GetBlockAttributes(FieldState::Coeff, this->m_expansionList);
+        m_field = Field<TData, FieldState::Coeff>::create(blocks);
+
+        // transform physical points f to coefficients f_hat
+        m_IProductWRTBaseOp->apply(in, m_field);
+
+        // set up and apply conjugate gradient
+        // to solve for coefficients u_hat from f_hat
+        m_ConjGradOp->setLHS(m_MassOp);
+        m_ConjGradOp->setPrecon(m_PreconOp);
+        m_ConjGradOp->apply(m_field, out);
+    }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

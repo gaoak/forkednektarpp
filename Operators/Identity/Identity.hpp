@@ -14,7 +14,15 @@ public:
     {
     }
 
-    void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out);
+    void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
+    {
+        size_t N = in.GetStorage().size();
+        auto pIn = in.GetStorage().GetCPUPtr();
+        auto pOut = out.GetStorage().GetCPUPtr();
+        
+        for (size_t i = 0; i < N; ++i)
+            *(pOut++) = *(pIn++);
+    }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

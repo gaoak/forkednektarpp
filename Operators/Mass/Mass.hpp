@@ -3,6 +3,9 @@
 #include "Operators/OperatorMass.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorBwdTrans.hpp"
+#include "Operators/OperatorIProductWRTBase.hpp"
+#include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators::detail
 {
@@ -19,7 +22,18 @@ public:
         this->m_IProductWRTBaseOp = IProductWRTBase<TData>::create(this->m_expansionList);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out);
+    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
+    {
+        // create temporary field for physical points
+        auto blocks = GetBlockAttributes(FieldState::Phys, this->m_expansionList);
+        this->m_field = Field<TData, FieldState::Phys>::create(blocks);
+
+        // transform coefficients into physical points
+        this->m_BwdTransOp->apply(in, this->m_field);
+
+        // take inner product of physical points
+        this->m_IProductWRTBaseOp->apply(this->m_field, out);
+    }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
