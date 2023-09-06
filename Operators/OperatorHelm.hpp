@@ -22,6 +22,8 @@ public:
     }
 
     virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void setLambda(const TData &lambda) = 0;
 };
 
 // Descriptor / traits class for Helm to be used by Operator create function
