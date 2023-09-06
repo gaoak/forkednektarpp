@@ -41,6 +41,8 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolve.cpp
     Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
+    Operators/OperatorLaplace.cpp Operators/Laplace/Laplace.cpp
+    Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCond.cpp
     )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)

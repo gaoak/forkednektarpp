@@ -26,16 +26,17 @@ public:
     {
         // cast expansion list to continuous field
         // then retrieve ptr to the assembly map
-        auto contField = std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        auto assmbMap  = contField->GetLocalToGlobalMap();
+        auto contfield = std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto assmbMap  = contfield->GetLocalToGlobalMap();
 
         // get number of local coeffs
         auto nloc = assmbMap->GetNumLocalCoeffs();
 
-        // copy in_field data to in_array, initialise out_array
+        // Field -> Array (** Needs changing!)
         Array<OneD, TData> inArr(nloc, in.GetStorage().GetCPUPtr());
         Array<OneD, TData> outArr(nloc);
         
+        // Lifted code:
         bool ZeroDir = true; // set to true in NekLinSysIterCGLoc.cpp
 
         // Get the solution type
@@ -66,8 +67,8 @@ public:
             assmbMap->GlobalToLocalBnd(outArr, outArr);
         }
 
-        // copy data from out_array to out_field
-        std::copy(outArr.data(), outArr.data() + nloc, in.GetStorage().GetCPUPtr());
+        // Array -> Field (** Needs changing!)
+        std::copy(outArr.data(), outArr.data() + nloc, out.GetStorage().GetCPUPtr());
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
