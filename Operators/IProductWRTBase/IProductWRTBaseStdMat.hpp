@@ -20,7 +20,8 @@ public:
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out) override
+               Field<TData, FieldState::Coeff> &out,
+               const TData lambda = 1.0) override
     {
         auto const *inptr = in.GetStorage().GetCPUPtr();
         auto *outptr      = out.GetStorage().GetCPUPtr();
@@ -64,7 +65,7 @@ public:
             }
 
             Blas::Dgemm('N', 'N', matPtr->GetRows(), nElmts,
-                        matPtr->GetColumns(), 1.0, matPtr->GetRawPtr(),
+                        matPtr->GetColumns(), lambda, matPtr->GetRawPtr(),
                         matPtr->GetRows(), wsp.get(), nqTot, 0.0, outptr,
                         nmTot);
 

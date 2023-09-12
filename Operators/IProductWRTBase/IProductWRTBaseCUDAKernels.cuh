@@ -28,6 +28,10 @@ __global__ void IProductWRTBaseSegKernel(const size_t nm0, const size_t nq0,
             TData jac_val = DEFORMED ? jacptr[i] : jacptr[0];
             sum += inptr[i] * basis0[p * nq0 + i] * jac_val * w0[i];
         }
+        if (SCALE)
+        {
+            sum *= scale;
+        }
         outptr[p] = APPEND ? outptr[p] + sum : sum;
     }
 }
@@ -76,9 +80,14 @@ __global__ void IProductWRTBaseQuadKernel(
             {
                 sum += wsp[j] * basis1[q * nq1 + j] * w1[j];
             }
+            if (SCALE)
+            {
+                sum *= scale;
+            }
             outptr[q * nm0 + p] = APPEND ? outptr[q * nm0 + p] + sum : sum;
         }
     }
+    delete wsp;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
@@ -128,7 +137,11 @@ __global__ void IProductWRTBaseTriKernel(
             {
                 sum += wsp[eta1] * basis1[mode * nq1 + eta1] * w1[eta1];
             }
-            outptr[mode++] = APPEND ? outptr[mode++] + sum : sum;
+            if (SCALE)
+            {
+                sum *= scale;
+            }
+            outptr[mode++] = APPEND ? outptr[mode] + sum : sum;
         }
     }
 
@@ -158,8 +171,9 @@ __global__ void IProductWRTBaseTriKernel(
                 iprod_01 += prod * basis0[nq0 + eta0];
             }
         }
-        outptr[1] += iprod_01;
+        outptr[1] += SCALE ? iprod_01 * scale : iprod_01;
     }
+    delete wsp;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
@@ -227,11 +241,17 @@ __global__ void IProductWRTBaseHexKernel(
                 {
                     sum += wsp1[k] * basis2[r * nq2 + k] * w2[k];
                 }
+                if (SCALE)
+                {
+                    sum *= scale;
+                }
                 outptr[r * nm0 * nm1 + q * nm0 + p] =
                     APPEND ? outptr[r * nm0 * nm1 + q * nm0 + p] + sum : sum;
             }
         }
     }
+    delete wsp0;
+    delete wsp1;
 }
 
 // NOTE: Not workign when nm2 > nm1
@@ -303,7 +323,11 @@ __global__ void IProductWRTBaseTetKernel(
                 {
                     tmp += wsp1[k] * basis2[mode2 * nq2 + k] * w2[k];
                 }
-                outptr[cnt_pqr++] = APPEND ? outptr[cnt_pqr++] + tmp : tmp;
+                if (SCALE)
+                {
+                    tmp *= scale;
+                }
+                outptr[cnt_pqr++] = APPEND ? outptr[cnt_pqr] + tmp : tmp;
             }
         }
     }
@@ -342,26 +366,28 @@ __global__ void IProductWRTBaseTetKernel(
                     tmp *= inptr[cnt] * tmpQ;
 
                     // add to existing entry
-                    outptr[1] += tmp;
+                    outptr[1] += SCALE ? tmp * scale : tmp;
 
                     // bottom vertex
                     //
                     tmp = basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] *
                           inptr[cnt] * tmpQ;
-                    outptr[nm2] += tmp;
+                    outptr[nm2] += SCALE ? tmp * scale : tmp;
 
                     // singular edge
                     for (size_t r = 1; r < nm2 - 1; ++r)
                     {
                         tmp = basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
                               basis0[nq0 + i] * inptr[cnt] * tmpQ;
-                        outptr[nm2 + r] += tmp;
+                        outptr[nm2 + r] += SCALE ? tmp * scale : tmp;
                     }
                     cnt++;
                 }
             }
         }
     }
+    delete wsp0;
+    delete wsp1;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
@@ -431,8 +457,11 @@ __global__ void IProductWRTBasePrismKernel(
                 {
                     sum_k += basis2[(mode_pr + r) * nq2 + k] * w2[k] * wsp1[k];
                 }
-                outptr[mode_pqr++] =
-                    APPEND ? outptr[mode_pqr++] + sum_k : sum_k;
+                if (SCALE)
+                {
+                    sum_k *= scale;
+                }
+                outptr[mode_pqr++] = APPEND ? outptr[mode_pqr] + sum_k : sum_k;
             }
         }
         mode_pr += nm2 - p;
@@ -477,9 +506,12 @@ __global__ void IProductWRTBasePrismKernel(
 
         for (size_t q = 0; q < nm1; ++q)
         {
-            outptr[nm2 * q + 1] += wsp2[q];
+            outptr[nm2 * q + 1] += SCALE ? wsp2[q] * scale : wsp2[q];
         }
     }
+    delete wsp0;
+    delete wsp1;
+    delete wsp2;
 }
 
 // NOTE: Not workign when nm2 > nm1
@@ -549,8 +581,11 @@ __global__ void IProductWRTBasePyrKernel(
                 {
                     sum_k += basis2[mode_pqr * nq2 + k] * w2[k] * wsp1[k];
                 }
-                outptr[mode_pqr++] =
-                    APPEND ? outptr[mode_pqr++] + sum_k : sum_k;
+                if (SCALE)
+                {
+                    sum_k *= scale;
+                }
+                outptr[mode_pqr++] = APPEND ? outptr[mode_pqr] + sum_k : sum_k;
             }
         }
 
@@ -574,8 +609,11 @@ __global__ void IProductWRTBasePyrKernel(
                 {
                     sum_k += basis2[mode_pqr * nq2 + k] * w2[k] * wsp1[k];
                 }
-                outptr[mode_pqr++] =
-                    APPEND ? outptr[mode_pqr++] + sum_k : sum_k;
+                if (SCALE)
+                {
+                    sum_k *= scale;
+                }
+                outptr[mode_pqr++] = APPEND ? outptr[mode_pqr] + sum_k : sum_k;
             }
         }
     }
@@ -612,11 +650,13 @@ __global__ void IProductWRTBasePyrKernel(
                     tmp *= inptr[cnt++] * tmpQ;
 
                     // add to existing entry
-                    outptr[1] += tmp;
+                    outptr[1] += SCALE ? tmp * scale : tmp;
                 }
             }
         }
     }
+    delete wsp0;
+    delete wsp1;
 }
 
 } // namespace Nektar::Operators::detail
