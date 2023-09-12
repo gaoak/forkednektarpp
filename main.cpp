@@ -1,4 +1,4 @@
-/**
+/*i*
  * @file main.cpp
  * @author Nektar++ Development Team
  * @brief Demonstrator program for the new Field class.
@@ -15,6 +15,7 @@
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
@@ -433,6 +434,33 @@ int main(int argc, char *argv[])
             std::cout << std::endl;
         }
         std::cout << std::endl;
+
+        std::cout << "IProductWRTDerivBase (StdMat) test starts." << std::endl;
+
+        // Create two Field objects with a MemoryRegionCPU backend by default
+        // for the inner product with respect to deriv base
+        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+        // IProductWRTDerivBase
+        IProductWRTDerivBase<>::create(explist, "StdMat")
+            ->apply(outPhys0, outPhys1, outPhys2, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr = outCoeff.GetStorage().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
     }
     // Test PhysDeriv (CUDA) Implementation
 #ifdef NEKTAR_USE_CUDA
@@ -522,6 +550,36 @@ int main(int argc, char *argv[])
                 {
                     std::cout << *(outptr2++) << ' ';
                 }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        std::cout << "IProductWRTDerivBase (CUDA) test starts." << std::endl;
+
+        // Create two Field objects with a MemoryRegionCPU backend by default
+        // for the inner product with respect to deriv base
+        auto outCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // IProductWRTDerivBase
+        IProductWRTDerivBase<>::create(explist, "CUDA")
+            ->apply(outPhys0, outPhys1, outPhys2, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
         }
