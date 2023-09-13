@@ -26,8 +26,7 @@ message(STATUS "Found Nektar++: version ${NEKTAR++_VERSION}")
 
 set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 
-set(SRC Field.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp)
-
+set(SRC Field.cpp Operators/Operator.cpp Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp)
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
     MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
 endif()
@@ -35,7 +34,7 @@ endif()
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu Operators/Helmholtz/HelmholtzCUDA.cu)
 endif()
 
 if (NEKTAR_USE_SIMD)
