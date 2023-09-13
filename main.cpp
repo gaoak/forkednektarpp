@@ -14,6 +14,7 @@
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
+#include "Operators/OperatorHelmholtz.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
@@ -580,6 +581,101 @@ int main(int argc, char *argv[])
                     std::cout << *(outptr++) << ' ';
                 }
                 std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
+    // Test Helmholtz Implementation
+    {
+        std::cout << "Helmholtz (StdMat) test starts." << std::endl;
+
+        // Create two Fields with memory on the CPU.
+        auto inCoeff  = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+        // Assign input values from the CPU.
+        auto *inptr = inCoeff.GetStorage().GetCPUPtr();
+        for (auto const &block : inCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = coeff + 1;
+                }
+            }
+        }
+
+        std::cout << "Initial shape:\n" << inCoeff << std::endl;
+
+        // Perform the Helmholtz on the fields.
+        Helmholtz<>::create(explist, "StdMat")->apply(inCoeff, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto outptr = outCoeff.GetStorage().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+    // Test Helmholtz (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "Helmholtz (CUDA) test starts." << std::endl;
+
+        // Create two Fields with memory on the GPU.
+        auto inCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+        auto outCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // Assign input values from the CPU.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = coeff + 1;
+                    std::cout << coeff + 1 << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // Perform the Helmholtz on the fields using the CUDA implementation
+        // Since this is a CUDA operator, acting on CUDA fields, everything
+        // happens on the GPU.
+        Helmholtz<>::create(explist, "CUDA")->apply(inCoeff, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << ' ';
+                }
             }
             std::cout << std::endl;
         }
