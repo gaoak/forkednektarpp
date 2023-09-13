@@ -43,6 +43,8 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
     Operators/OperatorLaplace.cpp Operators/Laplace/Laplace.cpp
     Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCond.cpp
+    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
+    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
     )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
@@ -52,7 +54,7 @@ endif()
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu Operators/Helmholtz/HelmholtzCUDA.cu)
 endif()
 
 if (NEKTAR_USE_SIMD)
