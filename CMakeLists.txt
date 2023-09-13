@@ -37,11 +37,9 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
     Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
-    Operators/OperatorHelm.cpp Operators/Helm/Helm.cpp
     Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolve.cpp
     Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
-    Operators/OperatorLaplace.cpp Operators/Laplace/Laplace.cpp
     Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCond.cpp
     Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
     Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp

@@ -7,7 +7,8 @@
 #include "Operators/OperatorNeuBndCond.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorLinear.hpp"
-#include "Operators/OperatorHelm.hpp"
+#include "Operators/OperatorPrecon.hpp"
+#include "Operators/OperatorHelmholtz.hpp"
 
 using namespace Nektar;
 using namespace Nektar::Operators;
@@ -28,7 +29,7 @@ public:
         m_DirBCOp   = DirBndCond<TData>::create(this->m_expansionList);
         m_NeuBCOp   = NeuBndCond<TData>::create(this->m_expansionList);
         m_CGOp      = ConjGrad<TData>::create(this->m_expansionList);
-        m_HelmOp    = Helm<TData>::create(this->m_expansionList);
+        m_HelmOp    = Helmholtz<TData>::create(this->m_expansionList);
         m_CGOp->setLHS(m_HelmOp);
     }
 
@@ -49,17 +50,15 @@ public:
 
     void setLambda(const TData &lambda)
     {
-        m_HelmOp->setLambda(lambda);
+        // ** CURRENTLY HELMHOLTZ OPERATOR DOESN'T TAKE LAMBDA !! 
+        //m_HelmOp->setLambda(lambda);
     }
 
-    void setPrecon(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &precon)
+    void setPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon)
     {
         m_CGOp->setPrecon(precon);
-        
-        // ** NEEDS CHANGING:
-        //      Make a preconditioner base class with configure pure virutal
-        //      Then change this function to take a precon base class ptr so configure can be run
-        //precon->configure(m_HelmOp);
+
+        precon->configure(m_HelmOp);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
@@ -78,7 +77,7 @@ protected:
     std::shared_ptr<OperatorNeuBndCond<TData>> m_NeuBCOp;
     std::shared_ptr<OperatorDirBndCond<TData>> m_DirBCOp;
     std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
-    std::shared_ptr<OperatorHelm<TData>> m_HelmOp;
+    std::shared_ptr<OperatorHelmholtz<TData>> m_HelmOp;
     Field<TData, FieldState::Coeff> m_rhs;
 };
 

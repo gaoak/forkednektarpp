@@ -241,6 +241,8 @@ int main(int argc, char *argv[])
         // BwdTrans<>::create()->apply(out,.)
         auto outPhys = Field<double, FieldState::Phys>::create(blocks_phys);
         BwdTrans<double>::create(Exp)->apply(out, outPhys);
+        
+        std::cout << "BwdTrans done\n";
 
         //----------------------------------------------
 
@@ -260,6 +262,7 @@ int main(int argc, char *argv[])
             Exp->AppendFieldData(FieldDef[i], FieldData[i]);
         }
         fld->Write(out_file, FieldDef, FieldData);
+
         //-----------------------------------------------
 
         //----------------------------------------------
@@ -273,8 +276,10 @@ int main(int argc, char *argv[])
             // evaluate exact solution
             ex_sol->Evaluate(xc0, xc1, xc2, fce);
 
+            // Segmentation fault here!
             Fce->SetPhys(fce);
             Fce->SetPhysState(true);
+
             //--------------------------------------------
 
             //--------------------------------------------
@@ -282,6 +287,7 @@ int main(int argc, char *argv[])
             NekDouble vLinfError = Exp->Linf(Exp->GetPhys(), Fce->GetPhys());
             NekDouble vL2Error   = Exp->L2(Exp->GetPhys(), Fce->GetPhys());
             NekDouble vH1Error   = Exp->H1(Exp->GetPhys(), Fce->GetPhys());
+
             if (vSession->GetComm()->GetRank() == 0)
             {
                 cout << "L infinity error: " << vLinfError << endl;
@@ -290,6 +296,9 @@ int main(int argc, char *argv[])
             }
             //--------------------------------------------
         }
+
+        
+        std::cout << "Test1\n";
         //----------------------------------------------
     }
     catch (const std::runtime_error &)
