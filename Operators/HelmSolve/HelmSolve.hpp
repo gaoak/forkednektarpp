@@ -37,14 +37,11 @@ public:
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
-        // Handle Neumann BCs
-        m_NeuBCOp->apply(out);
+        // Handle Neumann BCs on RHS
+        m_NeuBCOp->apply(m_rhs);
 
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
-
-        // Set precon
-        m_CGOp->setPrecon(m_precon);
 
         // Solve for u_hat using Conjugate Gradient
         m_CGOp->apply(m_rhs, out);
@@ -57,7 +54,12 @@ public:
 
     void setPrecon(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &precon)
     {
-        m_precon = precon;
+        m_CGOp->setPrecon(precon);
+        
+        // ** NEEDS CHANGING:
+        //      Make a preconditioner base class with configure pure virutal
+        //      Then change this function to take a precon base class ptr so configure can be run
+        //precon->configure(m_HelmOp);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
@@ -76,7 +78,6 @@ protected:
     std::shared_ptr<OperatorNeuBndCond<TData>> m_NeuBCOp;
     std::shared_ptr<OperatorDirBndCond<TData>> m_DirBCOp;
     std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
-    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> m_precon;
     std::shared_ptr<OperatorHelm<TData>> m_HelmOp;
     Field<TData, FieldState::Coeff> m_rhs;
 };

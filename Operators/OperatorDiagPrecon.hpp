@@ -7,21 +7,20 @@
 
 #include "Field.hpp"
 #include "Operator.hpp"
-#include "OperatorLinear.hpp"
+#include "OperatorPrecon.hpp"
 
 namespace Nektar::Operators
 {
 
 template <typename TData>
-class OperatorDiagPrecon : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+class OperatorDiagPrecon : public OperatorPrecon<TData>
 {
 public:
     OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(std::move(expansionList))
+        : OperatorPrecon<TData>(std::move(expansionList))
     {
     }
 
-    virtual void configure(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op) = 0;
 };
 
 // Descriptor / traits class for DiagPrecon to be used by Operator create function
