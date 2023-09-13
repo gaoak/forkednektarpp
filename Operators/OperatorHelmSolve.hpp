@@ -6,6 +6,7 @@
 #include "Field.hpp"
 #include "Operator.hpp"
 #include "OperatorLinear.hpp"
+#include "OperatorPrecon.hpp"
 
 namespace Nektar::Operators
 {
@@ -24,7 +25,7 @@ public:
 
     virtual void setLambda(const TData &lambda) = 0;
 
-    virtual void setPrecon(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &precon) = 0;
+    virtual void setPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
 };
 
 // Descriptor / traits class for HelmSolve to be used by Operator create function
