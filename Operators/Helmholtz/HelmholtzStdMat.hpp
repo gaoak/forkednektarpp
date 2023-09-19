@@ -58,12 +58,12 @@ public:
         m_IProductWRTBaseOp->apply(m_bwd, out, m_lambda);
 
         // Step 4: Multiply by diffusion coefficient
-        DiffusionCoeff(m_deriv0, m_deriv1, m_deriv2, m_derivcoeff0,
-                       m_derivcoeff1, m_derivcoeff2);
+        //DiffusionCoeff(m_deriv0, m_deriv1, m_deriv2, m_derivcoeff0,
+        //               m_derivcoeff1, m_derivcoeff2);
 
         // Step 5: Inner product
-        m_IProductWRTDerivBaseOp->apply(m_derivcoeff0, m_derivcoeff1,
-                                        m_derivcoeff2, out, true);
+        m_IProductWRTDerivBaseOp->apply(m_deriv0, m_deriv1,
+                                        m_deriv2, out, true);
     }
 
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv0,

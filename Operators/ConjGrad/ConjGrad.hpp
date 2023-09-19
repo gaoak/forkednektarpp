@@ -32,7 +32,7 @@ public:
     {
         // these values should be referenced from Nektar
         TData tol = 1.e-6;   // ** CHANGE THIS **
-        size_t maxIter = 1000; // ** CHANGE THIS **
+        size_t maxIter = 100000; // ** CHANGE THIS **
 
         // get number of local coeffs (=size of in/out fields)
         size_t nloc = in.GetStorage().size();
@@ -84,7 +84,7 @@ public:
         // initial residual    
         m_assmbScatr->apply(r_A, wk);
 
-        vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
+        vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_wk, 0.);
         //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
         // calculate rhs magnitude
@@ -166,12 +166,15 @@ public:
             // <r_{k+1}, r_{k+1}>
             //m_operator.assembleScatter(r_A, wk, true);
             //vExchange[2] = Vmath::Dot(nLocal, wk, r_A);
-            m_assmbScatr->apply(r_A, wk);
-            vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
+            
+            m_assmbScatr->apply(r_A, wk); // Assembly (communication)
+
+            vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_wk, 0.);
             
             // Perform inner-product exchanges
             //m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
-
+            
+            // (communication)
             rho_new = vExchange[0];
             mu      = vExchange[1];
             eps     = vExchange[2];

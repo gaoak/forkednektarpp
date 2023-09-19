@@ -34,6 +34,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/Communication/Comm.h>
@@ -53,6 +54,7 @@
 #include "Operators/OperatorDiagPrecon.hpp"
 #include "Operators/OperatorHelmSolve.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
+
 
 using namespace std;
 using namespace Nektar;
@@ -282,30 +284,43 @@ int main(int argc, char *argv[])
 
             // fce contains u_exact --> in physical points
             // now execute helmholtz operator on u
+            //std::transform(u_exact_phys.)
             auto u_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
             auto u_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
             auto f_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
             auto f_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
             
+            /*std::transform(u_exact_phys.GetStorage().GetCPUPtr(), 
+                u_exact_phys.GetStorage().GetCPUPtr() + Exp->GetTotPoints(),
+                u_exact_phys.GetStorage().GetCPUPtr(),
+                [](double x ){return 1.0;});*/
             std::copy(u_exact_pts.begin(), u_exact_pts.end(), u_exact_phys.GetStorage().GetCPUPtr());
-            FwdTrans<double>::create(Exp)->apply(u_exact_phys, u_exact_coeff);            
-            
+            FwdTrans<double>::create(Exp)->apply(u_exact_phys, u_exact_coeff);
+
             auto helmholtzOp = Helmholtz<double>::create(Exp);
-            helmholtzOp->SetLambda(double(vSession->GetParameter("Lambda")));
-            // diffusion coefficients?
-            Helmholtz<double>::create(Exp)->apply(u_exact_coeff, f_exact_coeff);
+            helmholtzOp->SetLambda(0.);
+            // diffusion coefficients
+            // ** DIFFUSION **
+            
+            //
+            helmholtzOp->apply(u_exact_coeff, f_exact_coeff);
 
             BwdTrans<double>::create(Exp)->apply(f_exact_coeff, f_exact_phys);
 
             std::cout << f_exact_phys.GetStorage().size() << " -- " << nq << " -- " << fce.size() << "\n";
+            auto *in_ptr = u_exact_phys.GetStorage().GetCPUPtr();
             auto *field_ptr = f_exact_phys.GetStorage().GetCPUPtr();
             auto *arr_ptr = fce.begin();
             double eps = 0.;
             double diff;
-            for (size_t i = 0; i < 50; ++i)
+            for (size_t i = 0; i < Exp->GetTotPoints(); ++i)
             {
-                diff = *(arr_ptr++) - *(field_ptr++);
-                eps = diff * diff;
+                //std::cout << *(arr_ptr) << " -- " << *(field_ptr) << "\n";
+                std::cout << *(arr_ptr) << " -- " << *(field_ptr) << "\n";
+                diff = *(arr_ptr) - *(field_ptr);
+                eps += diff * diff;
+                arr_ptr++;
+                field_ptr++;                
             }
             std::cout << "Error=" << eps << "\n";
 
