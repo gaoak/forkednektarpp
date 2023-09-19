@@ -58,13 +58,20 @@ int main(int argc, char *argv[])
         MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(session, graph);
 
     // Generate a blocks definition from the expansion list for each state
-    auto blocks_phys  = GetBlockAttributes(FieldState::Phys, explist);
-    auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, explist);
+    // Test out SIMD instructions
+    using vec_t = tinysimd::simd<double>;
+    auto blocks_phys =
+        GetBlockAttributes(FieldState::Phys, explist, vec_t::width);
+    auto blocks_coeff =
+        GetBlockAttributes(FieldState::Coeff, explist, vec_t::width);
 
     // Create two Field objects with a MemoryRegionCPU backend by default
-    auto in  = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto in2 = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto out = Field<double, FieldState::Phys>::create(blocks_phys);
+    auto in  = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
+                                                       vec_t::alignment);
+    auto in2 = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
+                                                        vec_t::alignment);
+    auto out = Field<double, FieldState::Phys>::create(blocks_phys, 1,
+                                                       vec_t::alignment);
 
     // Populate the field with some data. In this case, we just grab a pointer
     // to the memory on the CPU and populate the array with values. Operators,
@@ -88,30 +95,43 @@ int main(int argc, char *argv[])
                 *(x++) = coeff;
             }
         }
+        for (size_t el = 0; el < block.num_padding_elements; ++el)
+        {
+            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+            {
+                *(x++) = 0.0;
+            }
+        }
+    }
+
+    // initialize out to zero
+    x = out.GetStorage().GetCPUPtr();
+    for (auto const &block : blocks_phys)
+    {
+        for (size_t pt = 0; pt < block.block_size; ++pt)
+        {
+            *(x++) = 0.0;
+        }
     }
 
     memset(out.GetStorage().GetCPUPtr(), 0,
            out.GetStorage().size() * sizeof(double));
 
-    std::cout << "Initial shape:\n" << in << std::endl << std::endl;
+    std::cout << "Initial In shape:\n" << in << std::endl << std::endl;
 
     // Test SIMD Implementation
 #ifdef NEKTAR_ENABLE_SIMD_AVX2
     {
         // Test out field reshaping
-        in.ReshapeStorage<4>();
-        std::cout << "Reshaped to 4:\n" << in << std::endl << std::endl;
-
-        // Test out SIMD instructions
-        using vec_t = tinysimd::simd<double>;
+        in.ReshapeStorage<2>();
+        std::cout << "Reshape In to 2:\n" << in << std::endl << std::endl;
 
         // Reshape into vec_t::width, with the right memory alignment
         // requirements
-        in.ReshapeStorage<vec_t::width, vec_t::alignment>();
+        in.ReshapeStorage<vec_t::width>();
         std::cout << "SIMD In:\n" << in << std::endl << std::endl;
 
-        in2.ReshapeStorage<vec_t::width, vec_t::alignment>();
-        std::cout << "SIMD Out (before):\n" << out << std::endl << std::endl;
+        in2.ReshapeStorage<vec_t::width>();
 
         // Reinterpret casting from double to vector type allows for efficient
         // conversion to SIMD intrinsics
@@ -119,27 +139,37 @@ int main(int argc, char *argv[])
             reinterpret_cast<vec_t::vectorType *>(in.GetStorage().GetCPUPtr());
 
         vec_t::scalarType *in2ptr = in2.GetStorage().GetCPUPtr();
-
         // Loop over each block in the field and square each element
         for (auto const &block : blocks_coeff)
         {
-            const size_t numMetaBlocks = block.num_elements / vec_t::width;
-            for (size_t metaBlock = 0;
-                 metaBlock < numMetaBlocks * block.num_pts; ++metaBlock)
+            if ((block.num_elements + block.num_padding_elements) %
+                    vec_t::width !=
+                0)
             {
-                (vec_t(inptr[metaBlock]) * vec_t(inptr[metaBlock]))
-                    .store(in2ptr);
-                in2ptr += vec_t::width;
+                break; // Now with paddings this should not happen
             }
-
-            inptr += numMetaBlocks * block.num_pts;
+            else
+            {
+                const size_t numMetaBlocks =
+                    (block.num_elements + block.num_padding_elements) /
+                    vec_t::width;
+                for (size_t metaBlock = 0;
+                     metaBlock < numMetaBlocks * block.num_pts; ++metaBlock)
+                {
+                    (vec_t(inptr[metaBlock]) * vec_t(inptr[metaBlock]))
+                        .store(in2ptr);
+                    in2ptr += vec_t::width;
+                }
+                inptr += numMetaBlocks * block.num_pts;
+            }
         }
 
         // Back to non-interleaved for non-SIMD Operators
         in.ReshapeStorage<1>();
-        in2.ReshapeStorage<1>();
+        std::cout << "Reshape In back to 1:\n" << in << std::endl << std::endl;
 
-        std::cout << "Out:\n" << in2 << std::endl;
+        in2.ReshapeStorage<1>();
+        std::cout << "In2 is the square of In:\n" << in2 << std::endl;
     }
 #endif
 
@@ -157,7 +187,7 @@ int main(int argc, char *argv[])
     // We can combine these for one-shot operations
     BwdTrans<>::create(explist)->apply(in, out);
     // We can also explicitly select the implementation of the operator to use
-    BwdTrans<>::create(explist, "SumFac")->apply(in, out);
+    // BwdTrans<>::create(explist, "SumFac")->apply(in, out);
 
     // Let's display the result
     std::cout << out << std::endl;
@@ -167,8 +197,10 @@ int main(int argc, char *argv[])
         std::cout << "BwdTrans (StdMat) test starts." << std::endl;
 
         // Create two Fields with memory on the CPU.
-        auto inCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
-        auto outPhys = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto inCoeff = Field<double, FieldState::Coeff>::create(
+            blocks_coeff, 1, vec_t::alignment);
+        auto outPhys = Field<double, FieldState::Phys>::create(
+            blocks_phys, 1, vec_t::alignment);
 
         // Assign input values from the CPU.
         auto *inptr = inCoeff.GetStorage().GetCPUPtr();
@@ -181,6 +213,22 @@ int main(int argc, char *argv[])
                     *(inptr++) = coeff + 1;
                 }
             }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = 0.0;
+                }
+            }
+        }
+        // initialize out to zero
+        double *outptr = outPhys.GetStorage().GetCPUPtr();
+        for (auto const &block : outPhys.GetBlocks())
+        {
+            for (size_t pt = 0; pt < block.block_size; ++pt)
+            {
+                *(outptr++) = 0.0;
+            }
         }
 
         std::cout << "Initial shape:\n" << inCoeff << std::endl;
@@ -189,20 +237,39 @@ int main(int argc, char *argv[])
         BwdTrans<>::create(explist, "StdMat")->apply(inCoeff, outPhys);
 
         // Check output values.
-        std::cout << "Out:" << std::endl;
-        auto outptr = outPhys.GetStorage().GetCPUPtr();
-        for (auto const &block : outPhys.GetBlocks())
+        std::cout << "Out (StdMat):" << std::endl;
+        std::cout << outPhys << std::endl;
+
+        // Perform the BwdTrans by matfree
+        auto outPhys2 = Field<double, FieldState::Phys>::create(
+            blocks_phys, 1, vec_t::alignment);
+        // initialize out2 to zero
+        outptr = outPhys2.GetStorage().GetCPUPtr();
+        for (auto const &block : outPhys2.GetBlocks())
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t pt = 0; pt < block.block_size; ++pt)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr++) << ' ';
-                }
+                *(outptr++) = 0.0;
             }
-            std::cout << std::endl;
         }
-        std::cout << std::endl;
+        BwdTrans<>::create(explist, "MatFree")->apply(inCoeff, outPhys2);
+        // Check output values.
+        std::cout << "Initial shape (MatFree):\n" << inCoeff << std::endl;
+        std::cout << "Out (MatFree):" << std::endl;
+        std::cout << outPhys2 << std::endl;
+        // We can compare any two field of same storage - not necessary to be
+        // scalar
+        outPhys.ReshapeStorage<vec_t::width>();
+        if (outPhys2.compare(outPhys, 1e-9))
+        {
+            std::cout << "Results match! (BwdTrans MatFree/StdMat) \n"
+                      << std::endl;
+        }
+        else
+        {
+            std::cout << "Results do not match! (BwdTrans MatFree/StdMat)\n"
+                      << std::endl;
+        }
     }
     // Test BwdTrans (CUDA) Implementation
 #ifdef NEKTAR_USE_CUDA
@@ -684,5 +751,9 @@ int main(int argc, char *argv[])
 #endif
 
     std::cout << "END" << std::endl;
+
+    // Finalise session
+    session->Finalise();
+
     return 0;
 }

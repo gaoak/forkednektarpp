@@ -91,16 +91,23 @@ public:
             session, graph);
 
         // Generate a blocks definition from the expansion list for each state
-        auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist);
-        auto blocks_out = GetBlockAttributes(stateOut, fixt_explist);
+        using vec_t = tinysimd::simd<double>;
+
+        auto blocks_in =
+            GetBlockAttributes(stateIn, fixt_explist, vec_t::width);
+        auto blocks_out =
+            GetBlockAttributes(stateOut, fixt_explist, vec_t::width);
 
         // Create two Field objects with a MemoryRegionCPU backend by default
-        auto f_in       = Field<TData, stateIn>::create(blocks_in);
-        auto f_out      = Field<TData, stateOut>::create(blocks_out);
-        auto f_expected = Field<TData, stateOut>::create(blocks_out);
-        fixt_in         = new Field<TData, stateIn>(std::move(f_in));
-        fixt_out        = new Field<TData, stateOut>(std::move(f_out));
-        fixt_expected   = new Field<TData, stateOut>(std::move(f_expected));
+        auto f_in =
+            Field<TData, stateIn>::create(blocks_in, 1, vec_t::alignment);
+        auto f_out =
+            Field<TData, stateOut>::create(blocks_out, 1, vec_t::alignment);
+        auto f_expected =
+            Field<TData, stateOut>::create(blocks_out, 1, vec_t::alignment);
+        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
 #ifdef NEKTAR_USE_CUDA
         auto fcuda_in =
             Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in);

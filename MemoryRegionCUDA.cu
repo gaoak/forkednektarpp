@@ -4,7 +4,8 @@
 #include "MemoryRegionCUDA.hpp"
 
 template <typename TData>
-MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n) : MemoryRegionCPU<TData>(n)
+MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n, size_t alignment)
+    : MemoryRegionCPU<TData>(n, alignment)
 {
     initFromSize(n);
 }

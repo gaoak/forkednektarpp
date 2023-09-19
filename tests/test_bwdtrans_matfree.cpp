@@ -1,5 +1,4 @@
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestBwdTrans
+#define BOOST_TEST_MODULE example
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
@@ -14,7 +13,7 @@
 
 #include "init_fields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestBwdTrans)
+BOOST_AUTO_TEST_SUITE(TestBwdTransMatFree)
 
 using namespace std;
 using namespace Nektar::Operators;
@@ -54,29 +53,27 @@ BOOST_FIXTURE_TEST_CASE(line, Line)
 {
 
     Configure();
+    // initialize the expected output
+    double *exptr = fixt_expected->GetStorage().GetCPUPtr();
 
+    // initialize input to the operator
     double *x = fixt_in->GetStorage().GetCPUPtr();
-    // initialize the input to the operator
-    x[0] = 36;
-    x[1] = -6;
-    x[2] = -84;
-    x[3] = 90;
-    x[4] = -42;
-    x[5] = 49.5;
+    x[0]      = 36;
+    x[1]      = -6;
+    x[2]      = -84;
+    x[3]      = 90;
+    x[4]      = -42;
+    x[5]      = 49.5;
 
-    // apply the StdMat implementation of the BwdTrans
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    // apply StdMat implementation of the BwdTrans operator to define the
+    // expected output
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    // apply MatFree implementation of the BwdTrans operator
+    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
+    fixt_out->ReshapeStorage<1>();
 
-    // compare the output of StdMat with analytic evaluation of BwdTrans
-    static double *y = fixt_out->GetStorage().GetCPUPtr();
-    double TOL       = 1e-8;
-    BOOST_CHECK_CLOSE(y[0], 36.00000000, TOL);
-    BOOST_CHECK_CLOSE(y[1], 2.4885027623, TOL);
-    BOOST_CHECK_CLOSE(y[2], -1.9926349937, TOL);
-    BOOST_CHECK_CLOSE(y[3], 1.875000000, TOL);
-    BOOST_CHECK_CLOSE(y[4], -1.9926349937, TOL);
-    BOOST_CHECK_CLOSE(y[5], 2.4885027623, TOL);
-    BOOST_CHECK_CLOSE(y[6], -6.000000000, TOL);
+    double TOL = 1e-12;
+    BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
 }
 
 BOOST_FIXTURE_TEST_CASE(square, Square)
@@ -97,30 +94,22 @@ BOOST_FIXTURE_TEST_CASE(square, Square)
                 fixt_explist->UpdateCoeffs()[id] = coeff;
             }
         }
-    }
-
-    // create Array to store expected result from Nektar++
-    int totQP{fixt_explist->GetTotPoints()};
-    Array<Nektar::OneD, Nektar::NekDouble> expected_result(totQP);
-
-    // calculate expected result from Nektar++
-    fixt_explist->BwdTrans(fixt_explist->GetCoeffs(), expected_result);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-
-    // Copy expected result from Array to fixt_expected
-    x         = fixt_expected->GetStorage().GetCPUPtr();
-    double *z = expected_result.data();
-    for (auto const &block : fixt_expected->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
+        for (size_t el = 0; el < block.num_padding_elements; ++el)
         {
             for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
             {
-                (*x++) = (*z++);
+                x++;
             }
         }
     }
+
+    // apply StdMat implementation of the BwdTrans operator to define the
+    // expected output
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    // calculate result from current implementation
+    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
+    // reshape fixt_out to scalar
+    fixt_out->ReshapeStorage<1>();
 
     // compare
     double TOL = 1e-12;
@@ -145,29 +134,22 @@ BOOST_FIXTURE_TEST_CASE(square_all_elements, SquareAllElements)
                 fixt_explist->UpdateCoeffs()[id] = coeff;
             }
         }
-    }
-
-    // create Array to store expected result from Nektar++
-    int totQP{fixt_explist->GetTotPoints()};
-    Array<Nektar::OneD, Nektar::NekDouble> expected_result(totQP);
-    // calculate expected result from Nektar++
-    fixt_explist->BwdTrans(fixt_explist->GetCoeffs(), expected_result);
-
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-
-    x         = fixt_expected->GetStorage().GetCPUPtr();
-    double *z = expected_result.data();
-    for (auto const &block : fixt_expected->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
+        for (size_t el = 0; el < block.num_padding_elements; ++el)
         {
             for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
             {
-                (*x++) = (*z++);
+                x++;
             }
         }
     }
+
+    // apply StdMat implementation of the BwdTrans operator to define the
+    // expected output
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    // calculate result from current implementation
+    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
+    // reshape fixt_out to scalar
+    fixt_out->ReshapeStorage<1>();
 
     // compare
     double TOL = 1e-12;
