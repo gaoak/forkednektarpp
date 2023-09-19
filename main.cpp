@@ -20,9 +20,10 @@
 #include "Operators/OperatorPhysDeriv.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-//#include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraph.h>
+
+#include <LibUtilities/BasicUtils/Timer.h>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -39,6 +40,11 @@ std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
     for (size_t i = 0; i < f.GetStorage().size(); ++i)
     {
         stream << x[i] << ' ';
+        // if (i > 20)
+        // {
+        //     stream << "...";
+        //     break;
+        // }
     }
     stream << std::endl;
 
@@ -191,10 +197,13 @@ int main(int argc, char *argv[])
 
     // Let's display the result
     std::cout << out << std::endl;
+    std::cout << std::endl;
 
     // Test BwdTrans Implementation
     {
         std::cout << "BwdTrans (StdMat) test starts." << std::endl;
+
+        LibUtilities::Timer timer;
 
         // Create two Fields with memory on the CPU.
         auto inCoeff = Field<double, FieldState::Coeff>::create(
@@ -234,7 +243,12 @@ int main(int argc, char *argv[])
         std::cout << "Initial shape:\n" << inCoeff << std::endl;
 
         // Perform the BwdTrans on the fields.
-        BwdTrans<>::create(explist, "StdMat")->apply(inCoeff, outPhys);
+        auto op = BwdTrans<>::create(explist, "StdMat");
+        timer.Start();
+        op->apply(inCoeff, outPhys);
+        timer.Stop();
+        std::cout << ">>> Time for BwdTrans StdMat: " << timer.TimePerTest(1)
+                  << " s \n"<< std::endl;
 
         // Check output values.
         std::cout << "Out (StdMat):" << std::endl;
@@ -243,16 +257,17 @@ int main(int argc, char *argv[])
         // Perform the BwdTrans by matfree
         auto outPhys2 = Field<double, FieldState::Phys>::create(
             blocks_phys, 1, vec_t::alignment);
-        // initialize out2 to zero
-        outptr = outPhys2.GetStorage().GetCPUPtr();
-        for (auto const &block : outPhys2.GetBlocks())
-        {
-            for (size_t pt = 0; pt < block.block_size; ++pt)
-            {
-                *(outptr++) = 0.0;
-            }
-        }
-        BwdTrans<>::create(explist, "MatFree")->apply(inCoeff, outPhys2);
+        // Make sure field is reshaped before calling apply()
+        // So that we can get true performance of the operator
+        inCoeff.ReshapeStorage<vec_t::width>();
+        outPhys2.ReshapeStorage<vec_t::width>();
+        auto op2 = BwdTrans<>::create(explist, "MatFree");
+        timer.Start();
+        op2->apply(inCoeff, outPhys2);
+        timer.Stop();
+        std::cout << ">>> Time for BwdTrans MatFree: " << timer.TimePerTest(1)
+                  << " s \n"<< std::endl;
+        
         // Check output values.
         std::cout << "Initial shape (MatFree):\n" << inCoeff << std::endl;
         std::cout << "Out (MatFree):" << std::endl;
@@ -270,6 +285,7 @@ int main(int argc, char *argv[])
             std::cout << "Results do not match! (BwdTrans MatFree/StdMat)\n"
                       << std::endl;
         }
+        std::cout << std::endl;
     }
     // Test BwdTrans (CUDA) Implementation
 #ifdef NEKTAR_USE_CUDA
@@ -328,6 +344,8 @@ int main(int argc, char *argv[])
     {
         std::cout << "IProductWRTBase (StdMat) test starts." << std::endl;
 
+        LibUtilities::Timer timer;
+
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
         auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
@@ -346,26 +364,56 @@ int main(int argc, char *argv[])
                     *(inptr++) = phys;
                 }
             }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    *(inptr++) = 0.0;
+                }
+            }
         }
 
         std::cout << "Initial shape:\n" << inPhys << std::endl;
 
         // IProductWRTBase
-        IProductWRTBase<>::create(explist, "StdMat")->apply(inPhys, outCoeff);
-
+        auto op = IProductWRTBase<>::create(explist, "StdMat");
+        timer.Start();
+        op->apply(inPhys, outCoeff);
+        timer.Stop();
+        std::cout << ">>> Time for IProductWRTBase StdMat: " << timer.TimePerTest(1)
+                  << " s \n"<< std::endl;
         // Check output values.
-        std::cout << "Out:" << std::endl;
-        auto *outptr = outCoeff.GetStorage().GetCPUPtr();
-        for (auto const &block : outCoeff.GetBlocks())
+        std::cout << "Out (StdMat):" << std::endl;
+        std::cout << outCoeff << std::endl;
+
+        // IProductWRTBase by MatrixFree
+        auto outCoeff2 = Field<double, FieldState::Coeff>::create(
+            blocks_coeff, 1, vec_t::alignment);
+        // Make sure field is reshaped before calling apply()
+        // So that we can get true performance of the operator
+        inPhys.ReshapeStorage<vec_t::width>();
+        outCoeff2.ReshapeStorage<vec_t::width>();
+        auto op2 = IProductWRTBase<>::create(explist, "MatFree");
+        timer.Start();
+        op2->apply(inPhys, outCoeff2);
+        timer.Stop();
+        std::cout << ">>> Time for IProductWRTBase MatFree: " << timer.TimePerTest(1)
+                  << " s \n"<< std::endl;
+        // Check output values.
+        std::cout << "Out (MatFree):" << std::endl;
+        std::cout << outCoeff2 << std::endl;
+        // We can compare any two field of same storage - not necessary to be
+        // scalar
+        outCoeff2.ReshapeStorage<1>();
+        if (outCoeff.compare(outCoeff2, 1e-9))
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                {
-                    std::cout << *(outptr++) << ' ';
-                }
-            }
-            std::cout << std::endl;
+            std::cout << "Results match! (IProductWRTBase MatFree/StdMat) \n"
+                      << std::endl;
+        }
+        else
+        {
+            std::cout << "Results do not match! (IProductWRTBase MatFree/StdMat)\n"
+                      << std::endl;
         }
         std::cout << std::endl;
     }
@@ -457,50 +505,16 @@ int main(int argc, char *argv[])
 
         // Check output values.
         std::cout << "Out0:" << std::endl;
-        auto *outptr0 = outPhys0.GetStorage().GetCPUPtr();
-        for (auto const &block : outPhys0.GetBlocks())
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr0++) << ' ';
-                }
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
+        std::cout << outPhys0 << std::endl;
 
         // Check output values.
         std::cout << "Out1:" << std::endl;
-        auto *outptr1 = outPhys1.GetStorage().GetCPUPtr();
-        for (auto const &block : outPhys1.GetBlocks())
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr1++) << ' ';
-                }
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
+        std::cout << outPhys1 << std::endl;
 
         // Check output values.
         std::cout << "Out2:" << std::endl;
-        auto *outptr2 = outPhys2.GetStorage().GetCPUPtr();
-        for (auto const &block : outPhys2.GetBlocks())
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr2++) << ' ';
-                }
-            }
-            std::cout << std::endl;
-        }
+        std::cout << outPhys2 << std::endl;
+
         std::cout << std::endl;
 
         std::cout << "IProductWRTDerivBase (StdMat) test starts." << std::endl;

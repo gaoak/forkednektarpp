@@ -118,6 +118,8 @@ public:
         if (rhs.m_curVecWidth != m_curVecWidth)
             return false;
 
+        bool isMatched = true;
+
         for (size_t component = 0; component < GetNumComponents(); ++component)
         {
             for (size_t bl = 0; bl < block_attributes.size(); ++bl)
@@ -135,6 +137,8 @@ public:
                 if (num_pts != rhs_blocks[bl].num_pts)
                     return false;
 
+                int MisMatchcnt = 0, total = 0;
+
                 for (size_t metaBlock = 0; metaBlock < num_metaBlocks;
                      ++metaBlock)
                 {
@@ -145,17 +149,43 @@ public:
                             // skip padding elements
                             if (metaBlock * m_curVecWidth + k + 1 <= num_elements)
                             {
+                                total++;
                                 if (std::abs(*store - *rhs_store) > tol)
-                                    return false;
+                                {
+                                    if (MisMatchcnt == 0)
+                                    {
+                                        std::cout << "Mismatch in block " << bl
+                                                << " at metaBlock " << metaBlock
+                                                << " and coefficient " << coeff
+                                                << " and vector element " << k
+                                                << " with value " << *store
+                                                << " and " << *rhs_store
+                                                << std::endl;
+                                        isMatched = false;
+                                    }
+                                    MisMatchcnt++;
+                                }
                             }
                             store++;
                             rhs_store++;
                         }
                     }
                 }
+                if (!isMatched)
+                {
+                    std::cout << "Number of mismatches in block " << bl << " is "
+                            << MisMatchcnt << " out of "<< total << std::endl;
+                }
             }
         }
-        return true;
+        if (isMatched)
+        {   
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     /**
