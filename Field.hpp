@@ -352,6 +352,11 @@ public:
         return component_names.size();
     }
 
+    size_t GetFieldSize()
+    {
+        return m_storage->size() / GetNumComponents();
+    }
+
     Nektar::Array<Nektar::OneD, TType> toArray() const
     {
         return Nektar::Array<Nektar::OneD, TType>(m_storage->size(),
@@ -438,7 +443,7 @@ private:
      * @param num_components Number of components for a vector field.
      */
     Field(std::vector<BlockAttributes> blocks, int num_components = 1)
-        : block_attributes(std::move(blocks))
+        : block_attributes(std::move(blocks)), component_names(num_components)
     {
     }
 

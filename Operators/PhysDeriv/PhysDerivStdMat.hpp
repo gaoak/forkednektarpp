@@ -58,15 +58,14 @@ public:
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out0,
-               Field<TData, FieldState::Phys> &out1,
-               Field<TData, FieldState::Phys> &out2) override
+               Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
         auto const *inptr = in.GetStorage().GetCPUPtr();
-        std::vector<TData *> outptr{out0.GetStorage().GetCPUPtr(),
-                                    out1.GetStorage().GetCPUPtr(),
-                                    out2.GetStorage().GetCPUPtr()};
+        auto *outptr0     = out.GetStorage().GetCPUPtr();
+        auto *outptr1     = outptr0 + out.GetFieldSize();
+        auto *outptr2     = outptr1 + out.GetFieldSize();
+        std::vector<TData *> outptr{outptr0, outptr1, outptr2};
 
         // Initialize index.
         size_t expIdx  = 0;

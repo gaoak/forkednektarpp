@@ -13,8 +13,8 @@
 template <typename TData> class MemoryRegionCPU
 {
 public:
-    MemoryRegionCPU()                           = delete;
-    MemoryRegionCPU(const MemoryRegionCPU &rhs) = delete;
+    MemoryRegionCPU()                                      = delete;
+    MemoryRegionCPU(const MemoryRegionCPU &rhs)            = delete;
     MemoryRegionCPU &operator=(const MemoryRegionCPU &rhs) = delete;
 
     MemoryRegionCPU(MemoryRegionCPU &&rhs)
