@@ -55,9 +55,8 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="6,6" FIELDS="u" BASISTYPE="Modified_A,Modified_B" NUMPOINTS="8,7" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0"/>
-        <E COMPOSITE="C[1]" NUMMODES="6,6" FIELDS="u" BASISTYPE="Modified_A,Modified_A" NUMPOINTS="8,8" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"/>
+        <E COMPOSITE="C[0]" NUMMODES="4,4" FIELDS="u" BASISTYPE="Modified_A,Modified_B" NUMPOINTS="6,5" POINTSTYPE="GaussLobattoLegendre,GaussRadauMAlpha1Beta0"/>
+        <E COMPOSITE="C[1]" NUMMODES="7,7" FIELDS="u" BASISTYPE="Modified_A,Modified_A" NUMPOINTS="8,8" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"/>
     </EXPANSIONS>
 
 </NEKTAR>
-

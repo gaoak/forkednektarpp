@@ -28,15 +28,17 @@ typedef std::shared_ptr<ExpList> ExpListSharedPtr;
  */
 struct BlockAttributes
 {
+    // default constructor: no padding
     BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts)
+          block_size(num_elements * num_pts), num_padding_elements(0)
     {
     }
 
     size_t num_elements;
+    size_t num_padding_elements;
     size_t num_pts;
-    size_t block_size;
+    size_t block_size; // (num_elements + num_padding_elements) * num_pts
 };
 
 /**
@@ -56,7 +58,8 @@ enum class FieldState
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 std::vector<BlockAttributes> GetBlockAttributes(
-    FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist);
+    FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist,
+    size_t VectorWidth = 1);
 
 /**
  * @brief A Field represents expansion data to be operated on.
@@ -101,7 +104,7 @@ public:
 
     /**
      * @brief Compare this field to another field, with absolute
-     * tolerance tol.
+     * tolerance tol. Two fields must have same storage shape.
      * @return bool
      */
     bool compare(Field<TType, TState> &rhs, double tol)
@@ -109,30 +112,46 @@ public:
         const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
         TType *store     = GetStorage().GetCPUPtr();
         TType *rhs_store = rhs.GetStorage().GetCPUPtr();
+
         if (rhs_blocks.size() != block_attributes.size())
             return false;
+        if (rhs.m_curVecWidth != m_curVecWidth)
+            return false;
 
-        size_t i{0};
-        for (size_t bl = 0; bl < block_attributes.size(); ++bl)
+        for (size_t component = 0; component < GetNumComponents(); ++component)
         {
-
-            size_t num_elements = block_attributes[bl].num_elements;
-            size_t num_pts      = block_attributes[bl].num_pts;
-
-            // Check that each block have the same structure
-            if (num_elements != rhs_blocks[bl].num_elements)
-                return false;
-            if (num_pts != rhs_blocks[bl].num_pts)
-                return false;
-
-            // Compare elements in the blocks
-            for (size_t el = 0; el < num_elements; ++el)
+            for (size_t bl = 0; bl < block_attributes.size(); ++bl)
             {
-                for (size_t coeff = 0; coeff < num_pts; ++coeff)
+                size_t num_pts      = block_attributes[bl].num_pts;
+                size_t num_elements = block_attributes[bl].num_elements;
+                size_t num_padding_elements =
+                    block_attributes[bl].num_padding_elements;
+                size_t num_metaBlocks =
+                    (num_elements + num_padding_elements) / m_curVecWidth;
+
+                // Check that each block have the same structure
+                if (num_elements != rhs_blocks[bl].num_elements)
+                    return false;
+                if (num_pts != rhs_blocks[bl].num_pts)
+                    return false;
+
+                for (size_t metaBlock = 0; metaBlock < num_metaBlocks;
+                     ++metaBlock)
                 {
-                    i = coeff + el * num_pts + bl * num_pts * num_elements;
-                    if (std::abs(store[i] - rhs_store[i]) > tol)
-                        return false;
+                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
+                    {
+                        for (size_t k = 0; k < m_curVecWidth; ++k)
+                        {
+                            // skip padding elements
+                            if (metaBlock * m_curVecWidth + k + 1 <= num_elements)
+                            {
+                                if (std::abs(*store - *rhs_store) > tol)
+                                    return false;
+                            }
+                            store++;
+                            rhs_store++;
+                        }
+                    }
                 }
             }
         }
@@ -148,19 +167,21 @@ public:
      * @return Field<TType, TState>
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    static Field<TType, TState> create(std::vector<BlockAttributes> blocks,
-                                       int num_components = 1)
+    static Field<TType, TState> create(
+        std::vector<BlockAttributes> blocks, int num_components = 1,
+        size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         auto field = Field(std::move(blocks), num_components);
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TType>>(
-            storage_size * num_components);
+            storage_size * num_components, Align);
 
         return field;
     }
@@ -250,45 +271,40 @@ public:
      * @tparam  VectorWidth     Target vector width.
      * @tparam  Align           Memory alignment to use.
      */
-    template <size_t VectorWidth,
-              size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
-    void ReshapeStorage()
+    template <size_t VectorWidth> void ReshapeStorage()
     {
         // No reshape required, early return
         if (m_curVecWidth == VectorWidth)
             return;
 
-        ReshapeToScalar<Align>();
+        ReshapeToScalar();
 
         // Early return if "scalar" shape is required
         if (VectorWidth == 1)
             return;
 
-        // New memory region with requested alignment
-        MemoryRegionCPU<TType> reshapedStorage(m_storage->size(), Align);
-
-        TType *inptr  = m_storage->GetCPUPtr();
-        TType *outptr = reshapedStorage.GetCPUPtr();
+        TType *ptr = m_storage->GetCPUPtr();
 
         for (const auto &block : block_attributes)
         {
-            ASSERTL1(
-                block.num_elements % VectorWidth == 0,
-                "Number of elements not divisible by VectorWidth, padding not "
-                "implemented yet.");
+            const size_t numMetaBlocks =
+                (block.num_elements + block.num_padding_elements) / VectorWidth;
+            const size_t MetaBlockSize = VectorWidth * block.num_pts;
 
-            const size_t numMetaBlocks = block.num_elements / VectorWidth;
+            Nektar::Array<Nektar::OneD, TType> temp(MetaBlockSize, 0.0);
+
             for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
             {
-                InterleaveFromScalar<VectorWidth>(inptr, block.num_pts, outptr);
-                inptr += block.num_pts * VectorWidth;
-                outptr += block.num_pts * VectorWidth;
+                // Copy data into temporary storage because inptr and outptr
+                // access the same memory location
+                std::copy(ptr, ptr + MetaBlockSize, temp.get());
+                InterleaveFromScalar<VectorWidth>(temp.get(), block.num_pts,
+                                                  ptr);
+                ptr += block.num_pts * VectorWidth;
             }
         }
 
         m_curVecWidth = VectorWidth;
-        m_storage     = std::make_unique<MemoryRegionCPU<TType>>(
-            std::move(reshapedStorage));
     }
 
     std::vector<BlockAttributes> const &GetBlocks() const
@@ -317,32 +333,33 @@ private:
      * @brief Reshapes the current storage interleaving to a non-interleaved
      * arrangement.
      */
-    template <size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__>
     void ReshapeToScalar()
     {
         if (m_curVecWidth == 1)
             return;
 
-        MemoryRegionCPU<TType> reshapedStorage(m_storage->size(), Align);
-
-        TType *inptr  = m_storage->GetCPUPtr();
-        TType *outptr = reshapedStorage.GetCPUPtr();
+        TType *inptr = m_storage->GetCPUPtr();
 
         for (const auto &block : block_attributes)
         {
-            const size_t numMetaBlocks = block.num_elements / m_curVecWidth;
+            const size_t numMetaBlocks =
+                (block.num_elements + block.num_padding_elements) /
+                m_curVecWidth;
+            const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
+
+            Nektar::Array<Nektar::OneD, TType> temp(MetaBlockSize, 0.0);
 
             for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
             {
-                Deinterleave(inptr, block.num_pts, outptr);
-                inptr += m_curVecWidth * block.num_pts;
-                outptr += m_curVecWidth * block.num_pts;
+                // Copy data into temporary storage because inptr and outptr
+                // access the same memory location
+                std::copy(inptr, inptr + MetaBlockSize, temp.get());
+                Deinterleave(temp.get(), block.num_pts, inptr);
+                inptr += MetaBlockSize;
             }
         }
 
         m_curVecWidth = 1;
-        m_storage     = std::make_unique<MemoryRegionCPU<TType>>(
-            std::move(reshapedStorage));
     }
 
     /**
@@ -397,7 +414,7 @@ private:
 
     std::unique_ptr<MemoryRegionCPU<TType>> m_storage;
     std::vector<BlockAttributes> block_attributes;
-    std::vector<std::string> component_names;
+    std::vector<std::string> component_names = {"u"};
 
     size_t m_curVecWidth = 1;
 };
