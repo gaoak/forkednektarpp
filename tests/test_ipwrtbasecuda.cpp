@@ -39,11 +39,12 @@ public:
     }
 };
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda, Line)
+BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_line, Line)
 {
     Configure();
 
-    static double *x =
+    double *x = fixt_in->GetStorage().GetCPUPtr();
+    double *y = 
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
 
     for (auto const &block : fixtcuda_in->GetBlocks())
@@ -53,22 +54,55 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda, Line)
             for (size_t phys = 0; phys < block.num_pts; ++phys)
             {
                 *(x++) = phys;
+                *(y++) = phys;
             }
         }
     }
 
     IProductWRTBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    
+    // Generate the expected results as reference to be compared
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_expected);
 
-    static double *y =
-        fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
     double TOL = 1e-12;
-    BOOST_CHECK_CLOSE(y[0], 1.097532178406115, TOL);
-    BOOST_CHECK_CLOSE(y[1], 1.902467821593885, TOL);
-    BOOST_CHECK_CLOSE(y[2], 0.500000000000000, TOL);
-    BOOST_CHECK_CLOSE(y[3], 0.150377322580158, TOL);
-    BOOST_TEST(std::abs(y[4] - 1.387778780781446e-17) < TOL);
-    BOOST_CHECK_CLOSE(y[5], 0.0074684742369482, TOL);
+
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
 }
+
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square, Square)
+{
+    Configure();
+
+    double *x = fixt_in->GetStorage().GetCPUPtr();
+    double *y = 
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+
+    for (auto const &block : fixtcuda_in->GetBlocks())
+    {
+        for (size_t el = 0; el < block.num_elements; ++el)
+        {
+            for (size_t phys = 0; phys < block.num_pts; ++phys)
+            {
+                *(x++) = phys;
+                *(y++) = phys;
+            }
+        }
+    }
+
+    IProductWRTBase<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    
+    // Generate the expected results as reference to be compared
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_expected);
+
+    double TOL = 1e-12;
+
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

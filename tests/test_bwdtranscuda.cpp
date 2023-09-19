@@ -39,20 +39,23 @@ public:
     }
 };
 
-BOOST_FIXTURE_TEST_CASE(bwdtranscuda, Line)
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_line, Line)
 {
     Configure();
 
-    static double *x =
+    // Set pointers to initialize menory chunks on both CPU and GPU
+    double *x = fixt_in->GetStorage().GetCPUPtr();
+    double *y = 
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
 
-    for (auto const &block : fixtcuda_in->GetBlocks())
+    for (auto const &block : fixt_in->GetBlocks())
     {
         for (size_t el = 0; el < block.num_elements; ++el)
         {
             for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
             {
                 *(x++) = coeff + 1;
+                *(y++) = coeff + 1;
             }
         }
     }
@@ -60,16 +63,48 @@ BOOST_FIXTURE_TEST_CASE(bwdtranscuda, Line)
     BwdTrans<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
 
-    static double *y =
-        fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+    // Generate the expected results as reference to be compared
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+
     double TOL = 1e-12;
-    BOOST_CHECK_CLOSE(y[0], 1.000000000000000, TOL);
-    BOOST_CHECK_CLOSE(y[1], 0.808463389187877, TOL);
-    BOOST_CHECK_CLOSE(y[2], 1.993385866728399, TOL);
-    BOOST_CHECK_CLOSE(y[3], 1.312500000000000, TOL);
-    BOOST_CHECK_CLOSE(y[4], 2.321846776942122, TOL);
-    BOOST_CHECK_CLOSE(y[5], 4.082915537389534, TOL);
-    BOOST_CHECK_CLOSE(y[6], 2.000000000000000, TOL);
+
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
 }
+
+
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_sqaure, Square)
+{
+    Configure();
+
+    // Set pointers to initialize menory chunks on both CPU and GPU
+    double *x = fixt_in->GetStorage().GetCPUPtr();
+    double *y = 
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+
+    for (auto const &block : fixt_in->GetBlocks())
+    {
+        for (size_t el = 0; el < block.num_elements; ++el)
+        {
+            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+            {
+                *(x++) = coeff + 1;
+                *(y++) = coeff + 1;
+            }
+        }
+    }
+
+
+    BwdTrans<>::create(fixt_explist, "CUDA")->apply(*fixtcuda_in, *fixtcuda_out);
+
+    // Generate the expected results as reference to be compared
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+
+    double TOL = 1e-12;
+
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
+}
+
+
 
 BOOST_AUTO_TEST_SUITE_END()

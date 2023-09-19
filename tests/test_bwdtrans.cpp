@@ -172,6 +172,36 @@ BOOST_FIXTURE_TEST_CASE(square_all_elements, SquareAllElements)
     // compare
     double TOL = 1e-12;
     BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
+}*/
+
+BOOST_FIXTURE_TEST_CASE(bwdtrans_line, Line)
+{
+    Configure();
+
+    static double *x =
+        fixt_in->GetStorage().GetCPUPtr();
+
+    for (auto const &block : fixt_in->GetBlocks())
+    {
+        for (size_t el = 0; el < block.num_elements; ++el)
+        {
+            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+            {
+                *(x++) = coeff + 1;
+            }
+        }
+    }
+
+    // TODO:
+    // SumFac implmentation not updated yet
+    BwdTrans<>::create(fixt_explist, "SumFac")->apply(*fixt_in, *fixt_out);
+
+    // Generate the expected results as reference to be compared
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+
+    double TOL = 1e-12;
+
+    BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
 }
 
 BOOST_AUTO_TEST_SUITE_END()
