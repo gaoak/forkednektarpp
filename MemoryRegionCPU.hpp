@@ -29,7 +29,7 @@ public:
                     size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         // C++17 aligned new
-        m_host      = new (std::align_val_t(alignment)) TData[n];
+        m_host      = new (std::align_val_t(alignment)) TData[n]();
         m_alignment = alignment;
         m_size      = n;
     }

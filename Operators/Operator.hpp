@@ -1,9 +1,11 @@
 #pragma once
 
+#include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+#include <MultiRegions/ExpList.h>
 #include <string>
 
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ExpList.h>
+#include "Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -11,7 +13,7 @@ namespace Nektar::Operators
 // Use typenames to define available implementations to
 // allow extension by users without modifying library
 using default_fp_type = double;
-
+using vec_t           = tinysimd::simd<double>;
 // Core implementation types
 struct ImplStdMat;
 struct ImplSumFac;
@@ -156,6 +158,134 @@ protected:
             }
         }
         return derivFac;
+    }
+
+    size_t GetVectorizedGeomFactorSize(
+        const std::vector<BlockAttributes> &blocks)
+    {
+        size_t gfSize = 0;
+        size_t exp_id = 0;
+        for (size_t blk = 0; blk < blocks.size(); ++blk)
+        {
+            size_t num_metaBlocks =
+                (blocks[blk].num_elements + blocks[blk].num_padding_elements) /
+                vec_t::width;
+
+            auto const expPtr = this->m_expansionList->GetExp(exp_id);
+
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                gfSize += num_metaBlocks * expPtr->GetTotPoints();
+            }
+            else
+            {
+                gfSize += num_metaBlocks;
+            }
+
+            exp_id += blocks[blk].num_elements;
+        }
+
+        return gfSize;
+    }
+
+    std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
+    SetVectorizedJacobian(size_t jacSize, std::vector<BlockAttributes> &blocks)
+    {
+        // Allocate memory for the jacobian
+        std::vector<vec_t, tinysimd::allocator<vec_t>> jac;
+        jac.resize(jacSize);
+
+        size_t exp_id = 0;
+        size_t jac_id = 0;
+        for (size_t blk = 0; blk < blocks.size(); ++blk)
+        {
+            size_t num_elements         = blocks[blk].num_elements;
+            size_t num_padding_elements = blocks[blk].num_padding_elements;
+            size_t num_metaBlocks =
+                (num_elements + num_padding_elements) / vec_t::width;
+
+            auto expPtr = this->m_expansionList->GetExp(exp_id);
+
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                Array<OneD, Array<OneD, NekDouble>> jacArray(vec_t::width);
+                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t i = 0; i < vec_t::width; ++i)
+                    {
+                        jacArray[i] = this->m_expansionList->GetExp(exp_id++)
+                                          ->GetMetricInfo()
+                                          ->GetJac(expPtr->GetPointsKeys());
+                    }
+
+                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                    {
+                        for (size_t i = 0; i < vec_t::width; ++i)
+                        {
+                            tmp[i] = jacArray[i][pt];
+                        }
+                        jac[jac_id++].load(&tmp[0]);
+                    }
+                }
+                // Last block: may have padding elements
+                for (size_t i = 0; i < vec_t::width - num_padding_elements; ++i)
+                {
+                    jacArray[i] = this->m_expansionList->GetExp(exp_id++)
+                                      ->GetMetricInfo()
+                                      ->GetJac(expPtr->GetPointsKeys());
+                }
+
+                for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                {
+                    for (size_t i = 0; i < vec_t::width - num_padding_elements;
+                         ++i)
+                    {
+                        tmp[i] = jacArray[i][pt];
+                    }
+                    for (size_t i = vec_t::width - num_padding_elements;
+                         i < vec_t::width; ++i)
+                    {
+                        tmp[i] = 0.0;
+                    }
+                    jac[jac_id++].load(&tmp[0]);
+                }
+            }
+            else // regular geometry
+            {
+                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t i = 0; i < vec_t::width; ++i)
+                    {
+                        auto &auxJac = this->m_expansionList->GetExp(exp_id++)
+                                           ->GetMetricInfo()
+                                           ->GetJac(expPtr->GetPointsKeys());
+                        tmp[i] = auxJac[0];
+                    }
+                    jac[jac_id++].load(&tmp[0]);
+                }
+                // last block: may have padding elements
+                for (size_t i = 0; i < vec_t::width - num_padding_elements; ++i)
+                {
+                    auto &auxJac = this->m_expansionList->GetExp(exp_id++)
+                                       ->GetMetricInfo()
+                                       ->GetJac(expPtr->GetPointsKeys());
+                    tmp[i] = auxJac[0];
+                }
+                for (size_t i = vec_t::width - num_padding_elements;
+                     i < vec_t::width; ++i)
+                {
+                    tmp[i] = 0.0;
+                }
+                jac[jac_id++].load(&tmp[0]);
+            }
+        }
+
+        return MemoryManager<std::vector<vec_t, tinysimd::allocator<vec_t>>>::
+            AllocateSharedPtr(jac);
     }
 
     MultiRegions::ExpListSharedPtr m_expansionList;
