@@ -19,15 +19,11 @@ public:
     }
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Phys> &out0,
-                       Field<TData, FieldState::Phys> &out1,
-                       Field<TData, FieldState::Phys> &out2) = 0;
+                       Field<TData, FieldState::Phys> &out) = 0;
     virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Phys> &out0,
-                            Field<TData, FieldState::Phys> &out1,
-                            Field<TData, FieldState::Phys> &out2)
+                            Field<TData, FieldState::Phys> &out)
     {
-        apply(in, out0, out1, out2);
+        apply(in, out);
     }
 };
 

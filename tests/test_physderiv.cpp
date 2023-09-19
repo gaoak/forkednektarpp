@@ -1,73 +1,93 @@
 #define BOOST_TEST_MODULE example
+#include <boost/test/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Field.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
+#include "init_physderivfields.hpp"
 
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
-
-#include "init_fields.hpp"
-
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
-class Line : public InitFields<double, FieldState::Phys, FieldState::Phys>
+BOOST_FIXTURE_TEST_CASE(physderivseg, Seg)
 {
-public:
-    Line() : InitFields<double, FieldState::Phys, FieldState::Phys>()
+    Configure(1, 1);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
     {
-        meshName = "line.xml";
+        OutputIfNotMatch(1.0E-12);
     }
-};
-
-class Square : public InitFields<double, FieldState::Phys, FieldState::Phys>
-{
-public:
-    Square() : InitFields<double, FieldState::Phys, FieldState::Phys>()
-    {
-        meshName = "square.xml";
-    }
-};
-
-BOOST_FIXTURE_TEST_CASE(physderiv, Line)
-{
-
-    Configure();
-
-    double *inptr = fixt_in->GetStorage().GetCPUPtr();
-    double *exptr = fixt_expected->GetStorage().GetCPUPtr();
-
-    size_t order = 6, pts = 0;
-    Array<OneD, double> x(fixt_explist->GetTotPoints());
-    fixt_explist->GetCoords(x);
-    for (auto const &block : fixt_in->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
-        {
-            for (size_t phys = 0; phys < block.num_pts; ++phys)
-            {
-                double tmp1 = 0.0, tmp2 = 0.0;
-                for (size_t k = 0; k < order; k++)
-                {
-                    tmp1 += std::pow(x[pts], k);
-                    tmp2 += k * std::pow(x[pts], k - 1);
-                }
-                pts++;
-                *(inptr++) = tmp1;
-                *(exptr++) = tmp2;
-            }
-        }
-    }
-
-    PhysDeriv<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_out, *fixt_out, *fixt_out);
-    double TOL{1.0E-12};
-    BOOST_TEST(fixt_out->compare(*fixt_expected, TOL));
 }
+
+BOOST_FIXTURE_TEST_CASE(physderivquad, Quad)
+{
+    Configure(1, 2);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(1.0E-12);
+    }
+}
+
+/*BOOST_FIXTURE_TEST_CASE(physderivtri, Tri)
+{
+    Configure(1, 2);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(1.0E-12);
+    }
+}*/
+
+/*BOOST_FIXTURE_TEST_CASE(physderivhex, Hex)
+{
+    Configure(1, 3);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(1.0E-12);
+    }
+}*/
+
+/*BOOST_FIXTURE_TEST_CASE(physderivprism, Prism)
+{
+    Configure(1, 3);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-06));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(1.0E-12);
+    }
+}*/
+
+/*BOOST_FIXTURE_TEST_CASE(physderivpyr, Pyr)
+{
+    Configure(1, 3);
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-06));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(1.0E-12);
+    }
+}*/

@@ -5,8 +5,6 @@
 
 #include "Field.hpp"
 #include <MultiRegions/ExpList.h>
-#include <Operators/OperatorBwdTrans.hpp>
-#include <Operators/OperatorIProductWRTBase.hpp>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -72,7 +70,7 @@ public:
 
     InitFields() = default;
 
-    void Configure()
+    void Configure(size_t nin = 1, size_t nout = 1)
     {
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and create an expansion list
@@ -100,20 +98,21 @@ public:
 
         // Create two Field objects with a MemoryRegionCPU backend by default
         auto f_in =
-            Field<TData, stateIn>::create(blocks_in, 1, vec_t::alignment);
+            Field<TData, stateIn>::create(blocks_in, nin, vec_t::alignment);
         auto f_out =
-            Field<TData, stateOut>::create(blocks_out, 1, vec_t::alignment);
+            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
         auto f_expected =
-            Field<TData, stateOut>::create(blocks_out, 1, vec_t::alignment);
+            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
         fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
 #ifdef NEKTAR_USE_CUDA
         auto fcuda_in =
-            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in);
+            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in,
+                                                                     nin);
         auto fcuda_out =
             Field<TData, stateOut>::template create<MemoryRegionCUDA>(
-                blocks_out);
+                blocks_out, nout);
         fixtcuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
         fixtcuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
 #endif

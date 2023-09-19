@@ -332,7 +332,7 @@ int main(int argc, char *argv[])
             {
                 for (size_t phys = 0; phys < block.num_pts; ++phys)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
             }
             std::cout << std::endl;
@@ -463,8 +463,9 @@ int main(int argc, char *argv[])
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
         }
@@ -477,10 +478,9 @@ int main(int argc, char *argv[])
 
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
-        auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
-        auto outPhys0 = Field<double, FieldState::Phys>::create(blocks_phys);
-        auto outPhys1 = Field<double, FieldState::Phys>::create(blocks_phys);
-        auto outPhys2 = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto inPhys  = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto outPhys = Field<double, FieldState::Phys>::create(
+                               blocks_phys, explist->GetCoordim(0));
 
         // Assign input values
         auto *inptr = inPhys.GetStorage().GetCPUPtr();
@@ -500,21 +500,26 @@ int main(int argc, char *argv[])
         std::cout << "Initial shape:\n" << inPhys << std::endl;
 
         // PhysDeriv
-        PhysDeriv<>::create(explist, "StdMat")
-            ->apply(inPhys, outPhys0, outPhys1, outPhys2);
+        PhysDeriv<>::create(explist, "StdMat")->apply(inPhys, outPhys);
 
         // Check output values.
-        std::cout << "Out0:" << std::endl;
-        std::cout << outPhys0 << std::endl;
-
-        // Check output values.
-        std::cout << "Out1:" << std::endl;
-        std::cout << outPhys1 << std::endl;
-
-        // Check output values.
-        std::cout << "Out2:" << std::endl;
-        std::cout << outPhys2 << std::endl;
-
+        auto *outptr = outPhys.GetStorage().GetCPUPtr();
+        for (size_t d = 0; d < outPhys.GetNumComponents(); ++d)
+        {
+            std::cout << "Out" << d << ":" << std::endl;
+            for (auto const &block : outPhys.GetBlocks())
+            {
+                for (size_t el = 0; el < block.num_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        std::cout << *(outptr++) << " ";
+                    }
+                    std::cout << std::endl;
+                }
+                std::cout << std::endl;
+            }
+        }
         std::cout << std::endl;
 
         std::cout << "IProductWRTDerivBase (StdMat) test starts." << std::endl;
@@ -525,18 +530,18 @@ int main(int argc, char *argv[])
 
         // IProductWRTDerivBase
         IProductWRTDerivBase<>::create(explist, "StdMat")
-            ->apply(outPhys0, outPhys1, outPhys2, outCoeff);
+            ->apply(outPhys, outCoeff);
 
         // Check output values.
         std::cout << "Out:" << std::endl;
-        auto *outptr = outCoeff.GetStorage().GetCPUPtr();
+        outptr = outCoeff.GetStorage().GetCPUPtr();
         for (auto const &block : outCoeff.GetBlocks())
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
                 std::cout << std::endl;
             }
@@ -553,15 +558,9 @@ int main(int argc, char *argv[])
         // for the inner product with respect to base
         auto inPhys = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
             blocks_phys);
-        auto outPhys0 =
+        auto outPhys =
             Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
-                blocks_phys);
-        auto outPhys1 =
-            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
-                blocks_phys);
-        auto outPhys2 =
-            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
-                blocks_phys);
+                blocks_phys, 3);
 
         // Assign input values
         std::cout << "Initial shape: " << std::endl;
@@ -583,57 +582,26 @@ int main(int argc, char *argv[])
         std::cout << std::endl << std::endl;
 
         // PhysDeriv
-        PhysDeriv<>::create(explist, "CUDA")
-            ->apply(inPhys, outPhys0, outPhys1, outPhys2);
+        PhysDeriv<>::create(explist, "CUDA")->apply(inPhys, outPhys);
 
         // Check output values.
-        std::cout << "Out0:" << std::endl;
-        auto *outptr0 =
-            outPhys0.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-        for (auto const &block : outPhys0.GetBlocks())
+        auto *outptr =
+            outPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (size_t d = 0; d < outPhys.GetNumComponents(); ++d)
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            std::cout << "Out" << d << ":" << std::endl;
+            for (auto const &block : outPhys.GetBlocks())
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t el = 0; el < block.num_elements; ++el)
                 {
-                    std::cout << *(outptr0++) << ' ';
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        std::cout << *(outptr++) << " ";
+                    }
+                    std::cout << std::endl;
                 }
+                std::cout << std::endl;
             }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
-
-        // Check output values.
-        std::cout << "Out1:" << std::endl;
-        auto *outptr1 =
-            outPhys1.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-        for (auto const &block : outPhys1.GetBlocks())
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr1++) << ' ';
-                }
-            }
-            std::cout << std::endl;
-        }
-        std::cout << std::endl;
-
-        // Check output values.
-        std::cout << "Out2:" << std::endl;
-        auto *outptr2 =
-            outPhys2.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-        for (auto const &block : outPhys2.GetBlocks())
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    std::cout << *(outptr2++) << ' ';
-                }
-            }
-            std::cout << std::endl;
         }
         std::cout << std::endl;
 
@@ -647,11 +615,11 @@ int main(int argc, char *argv[])
 
         // IProductWRTDerivBase
         IProductWRTDerivBase<>::create(explist, "CUDA")
-            ->apply(outPhys0, outPhys1, outPhys2, outCoeff);
+            ->apply(outPhys, outCoeff);
 
         // Check output values.
         std::cout << "Out:" << std::endl;
-        auto *outptr =
+        outptr =
             outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
         for (auto const &block : outCoeff.GetBlocks())
         {
@@ -659,7 +627,7 @@ int main(int argc, char *argv[])
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
                 std::cout << std::endl;
             }
@@ -703,8 +671,9 @@ int main(int argc, char *argv[])
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
         }
@@ -755,8 +724,9 @@ int main(int argc, char *argv[])
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    std::cout << *(outptr++) << ' ';
+                    std::cout << *(outptr++) << " ";
                 }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
         }

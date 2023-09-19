@@ -20,18 +20,14 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, FieldState::Phys> &in0,
-                       Field<TData, FieldState::Phys> &in1,
-                       Field<TData, FieldState::Phys> &in2,
+    virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out,
                        bool APPEND = false) = 0;
-    virtual void operator()(Field<TData, FieldState::Phys> &in0,
-                            Field<TData, FieldState::Phys> &in1,
-                            Field<TData, FieldState::Phys> &in2,
+    virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out,
                             bool APPEND = false)
     {
-        apply(in0, in1, in2, out);
+        apply(in, out);
     }
 };
 

@@ -18,15 +18,10 @@ public:
           m_bwd(
               Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
                   GetBlockAttributes(FieldState::Phys, expansionList))),
-          m_deriv0(
+          m_deriv(
               Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
-                  GetBlockAttributes(FieldState::Phys, expansionList))),
-          m_deriv1(
-              Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
-                  GetBlockAttributes(FieldState::Phys, expansionList))),
-          m_deriv2(
-              Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
-                  GetBlockAttributes(FieldState::Phys, expansionList)))
+                  GetBlockAttributes(FieldState::Phys, expansionList),
+                  expansionList->GetCoordim(0)))
     {
         auto nCoord = this->m_expansionList->GetCoordim(0);
 
@@ -54,37 +49,36 @@ public:
         m_BwdTransOp->apply(in, m_bwd);
 
         // Step 2: PhysDeriv
-        m_PhysDerivOp->apply(m_bwd, m_deriv0, m_deriv1, m_deriv2);
+        m_PhysDerivOp->apply(m_bwd, m_deriv);
 
         // Step 3: Inner product for mass matrix operation
         m_IProductWRTBaseOp->apply(m_bwd, out, m_lambda);
 
         // Step 4: Multiply by diffusion coefficient
-        DiffusionCoeff(m_deriv0, m_deriv1, m_deriv2);
+        DiffusionCoeff(m_deriv);
 
         // Step 5: Inner product
-        m_IProductWRTDerivBaseOp->apply(m_deriv0, m_deriv1, m_deriv2, out,
-                                        true);
+        m_IProductWRTDerivBaseOp->apply(m_deriv, out, true);
     }
 
-    void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv0,
-                        Field<TData, FieldState::Phys> &deriv1,
-                        Field<TData, FieldState::Phys> &deriv2)
+    void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)
     {
         // Initialize pointers.
-        std::vector<TData *> derivptr{deriv0.template GetStorage<MemoryRegionCUDA>().GetGPUPtr(),
-                                      deriv1.template GetStorage<MemoryRegionCUDA>().GetGPUPtr(),
-                                      deriv2.template GetStorage<MemoryRegionCUDA>().GetGPUPtr()};
+        auto *derivptr0 =
+            deriv.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *derivptr1 = derivptr0 + deriv.GetFieldSize();
+        auto *derivptr2 = derivptr1 + deriv.GetFieldSize();
+        std::vector<TData *> derivptr{derivptr0, derivptr1, derivptr2};
 
         // Initialize index.
         size_t expIdx = 0;
 
-        for (size_t block_idx = 0; block_idx < deriv0.GetBlocks().size();
+        for (size_t block_idx = 0; block_idx < deriv.GetBlocks().size();
              ++block_idx)
         {
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nElmts       = deriv0.GetBlocks()[block_idx].num_elements;
+            auto nElmts       = deriv.GetBlocks()[block_idx].num_elements;
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
 
@@ -146,9 +140,7 @@ private:
     std::shared_ptr<OperatorIProductWRTDerivBase<TData>>
         m_IProductWRTDerivBaseOp;
     Field<TData, FieldState::Phys> m_bwd;
-    Field<TData, FieldState::Phys> m_deriv0;
-    Field<TData, FieldState::Phys> m_deriv1;
-    Field<TData, FieldState::Phys> m_deriv2;
+    Field<TData, FieldState::Phys> m_deriv;
     TData m_lambda = 1.0;
     TData *m_diffCoeff;
     size_t m_blockSize = 32;
