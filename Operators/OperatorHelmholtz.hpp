@@ -26,6 +26,11 @@ public:
     {
         apply(in, out);
     }
+
+    virtual void SetLambda(TData lambda)
+    {
+        std::cout << "SetLambda needs implementation!\n";
+    }
 };
 
 // Descriptor / traits class for Helmholtz

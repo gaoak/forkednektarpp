@@ -124,7 +124,7 @@ public:
             expansionList);
     }
 
-    void SetLambda(TData lambda)
+    void SetLambda(TData lambda) override
     {
         m_lambda = lambda;
     }

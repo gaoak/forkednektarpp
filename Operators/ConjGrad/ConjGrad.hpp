@@ -32,7 +32,7 @@ public:
     {
         // these values should be referenced from Nektar
         TData tol = 1.e-6;   // ** CHANGE THIS **
-        size_t maxIter = 10; // ** CHANGE THIS **
+        size_t maxIter = 1000; // ** CHANGE THIS **
 
         // get number of local coeffs (=size of in/out fields)
         size_t nloc = in.GetStorage().size();

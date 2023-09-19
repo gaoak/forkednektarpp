@@ -52,6 +52,7 @@
 #include "Operators/OperatorMatrix.hpp"
 #include "Operators/OperatorDiagPrecon.hpp"
 #include "Operators/OperatorHelmSolve.hpp"
+#include "Operators/OperatorHelmholtz.hpp"
 
 using namespace std;
 using namespace Nektar;
@@ -186,6 +187,8 @@ int main(int argc, char *argv[])
         LibUtilities::EquationSharedPtr ffunc = vSession->GetFunction("Forcing", 0);
         ffunc->Evaluate(xc0, xc1, xc2, fce);
 
+        
+
         // copy fce into field
         auto in = Field<double, FieldState::Phys>::create(blocks_phys);
         std::copy(fce.data(), fce.data() + in.GetStorage().size(), in.GetStorage().GetCPUPtr());
@@ -246,11 +249,9 @@ int main(int argc, char *argv[])
 
         //----------------------------------------------
 
-        // *********************************************************************************
-        // *********************************************************************************
-
         //-----------------------------------------------
         // Write solution to file
+        /*
         string out_file = vSession->GetSessionName() + ".fld";
         std::vector<LibUtilities::FieldDefinitionsSharedPtr> FieldDef =
             Exp->GetFieldDefinitions();
@@ -262,7 +263,7 @@ int main(int argc, char *argv[])
             Exp->AppendFieldData(FieldDef[i], FieldData[i]);
         }
         fld->Write(out_file, FieldDef, FieldData);
-
+        */
         //-----------------------------------------------
 
         //----------------------------------------------
@@ -272,11 +273,44 @@ int main(int argc, char *argv[])
 
         if (ex_sol)
         {
+            std::cout << "Exact solution is provided\n";
+
             //----------------------------------------------
             // evaluate exact solution
-            ex_sol->Evaluate(xc0, xc1, xc2, fce);
+            auto u_exact_pts = Array<OneD, NekDouble>(nq);
+            ex_sol->Evaluate(xc0, xc1, xc2, u_exact_pts);
+
+            // fce contains u_exact --> in physical points
+            // now execute helmholtz operator on u
+            auto u_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
+            auto u_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
+            auto f_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
+            auto f_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
+            
+            std::copy(u_exact_pts.begin(), u_exact_pts.end(), u_exact_phys.GetStorage().GetCPUPtr());
+            FwdTrans<double>::create(Exp)->apply(u_exact_phys, u_exact_coeff);            
+            
+            auto helmholtzOp = Helmholtz<double>::create(Exp);
+            helmholtzOp->SetLambda(double(vSession->GetParameter("Lambda")));
+            // diffusion coefficients?
+            Helmholtz<double>::create(Exp)->apply(u_exact_coeff, f_exact_coeff);
+
+            BwdTrans<double>::create(Exp)->apply(f_exact_coeff, f_exact_phys);
+
+            std::cout << f_exact_phys.GetStorage().size() << " -- " << nq << " -- " << fce.size() << "\n";
+            auto *field_ptr = f_exact_phys.GetStorage().GetCPUPtr();
+            auto *arr_ptr = fce.begin();
+            double eps = 0.;
+            double diff;
+            for (size_t i = 0; i < 50; ++i)
+            {
+                diff = *(arr_ptr++) - *(field_ptr++);
+                eps = diff * diff;
+            }
+            std::cout << "Error=" << eps << "\n";
 
             // Segmentation fault here!
+            /*
             Fce->SetPhys(fce);
             Fce->SetPhysState(true);
 
@@ -295,10 +329,9 @@ int main(int argc, char *argv[])
                 cout << "H 1 error:        " << vH1Error << endl;
             }
             //--------------------------------------------
+            */
         }
 
-        
-        std::cout << "Test1\n";
         //----------------------------------------------
     }
     catch (const std::runtime_error &)
