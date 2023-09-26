@@ -21,25 +21,72 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr)
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+                     bool padding = true)
     {
-        size_t pts = 0, el = 0;
+        size_t el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x);
         for (auto const &block : blocks)
         {
-            for (; el < block.num_elements; ++el)
+            for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t i = 0; i < M / 2 ; i++)
                     {
                         tmp += std::pow(x[pts], i);
                     }
-                    pts++;
                     *(inptr++) = tmp;
+                }
+            }
+            if (padding)
+            {
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        *(inptr++) = 0.0;
+                    }
+                }
+            }
+        }
+    }
+
+    void NektarSolution(const std::vector<BlockAttributes> &blocks,
+                        double *inptr)
+    {
+        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
+                                       fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys0 = outphys;
+        Array<OneD, NekDouble> outphys1 = NullNekDouble1DArray;
+        Array<OneD, NekDouble> outphys2 = NullNekDouble1DArray;
+
+        // Set test case
+        SetTestCase(blocks, inphys.get(), false);
+
+        // Calculate expected result from Nektar++
+        fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
+
+        // Copy expected result from Array to fixt_expected
+        double *ptr = outphys.get();
+        for (auto const &block : blocks)
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    (*inptr++) = (*ptr++);
+                }
+            }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    *(inptr++) = 0.0;
                 }
             }
         }
@@ -48,23 +95,29 @@ public:
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
                           double *inptr)
     {
-        size_t pts = 0, el = 0;
+        size_t el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x);
         for (auto const &block : blocks)
         {
-            for (; el < block.num_elements; ++el)
+            for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t i = 1; i < M / 2; i++)
                     {
                         tmp += i * std::pow(x[pts], i - 1);
                     }
-                    pts++;
                     *(inptr++) = tmp;
+                }
+            }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    *(inptr++) = 0.0;
                 }
             }
         }
@@ -78,30 +131,81 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr)
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+                     bool padding = true)
     {
-        size_t pts = 0, el = 0;
+        size_t el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y);
         for (auto const &block : blocks)
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t i = 0; i < M / 2; i++)
                     {
-                        for (size_t j = 0; j < N; j++)
+                        for (size_t j = 0; j < N / 2; j++)
                         {
                             tmp += std::pow(x[pts], i) * std::pow(y[pts], j);
                         }
                     }
-                    pts++;
                     *(inptr++) = tmp;
+                }
+            }
+            if (padding)
+            {
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        *(inptr++) = 0.0;
+                    }
+                }
+            }
+        }
+    }
+
+    void NektarSolution(const std::vector<BlockAttributes> &blocks,
+                        double *inptr)
+    {
+        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
+                                       fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys0 = outphys;
+        Array<OneD, NekDouble> outphys1 =
+            outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, NekDouble> outphys2 = NullNekDouble1DArray;
+
+        // Set test case
+        SetTestCase(blocks, inphys.get(), false);
+
+        // Calculate expected result from Nektar++
+        fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
+
+        // Copy expected result from Array to fixt_expected
+        double *ptr = outphys.get();
+        for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
+        {
+            for (auto const &block : blocks)
+            {
+                for (size_t el = 0; el < block.num_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        (*inptr++) = (*ptr++);
+                    }
+                }
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        *(inptr++) = 0.0;
+                    }
                 }
             }
         }
@@ -110,52 +214,46 @@ public:
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
                           double *inptr)
     {
-        size_t pts = 0, el = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y);
-        for (auto const &block : blocks)
+        for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            size_t el = 0, pts = 0;
+            for (auto const &block : blocks)
             {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t e = 0; e < block.num_elements; ++e, ++el)
                 {
-                    double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                    size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                     {
-                        for (size_t j = 0; j < N; j++)
+                        double tmp = 0.0;
+                        for (size_t i = 0; i < M / 2; i++)
                         {
-                            tmp += i * std::pow(x[pts], i - 1) *
-                                   std::pow(y[pts], j);
+                            for (size_t j = 0; j < N / 2; j++)
+                            {
+                                if (n == 0 && i >= 1)
+                                {
+                                    tmp += i * std::pow(x[pts], i - 1) *
+                                           std::pow(y[pts], j);
+                                }
+                                if (n == 1 && j >= 1)
+                                {
+                                    tmp += j * std::pow(x[pts], i) *
+                                           std::pow(y[pts], j - 1);
+                                }
+                            }
                         }
+                        *(inptr++) = tmp;
                     }
-                    pts++;
-                    *(inptr++) = tmp;
                 }
-            }
-        }
-        pts = 0;
-        for (auto const &block : blocks)
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
                 {
-                    double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
                     {
-                        for (size_t j = 0; j < N; j++)
-                        {
-                            tmp += j * std::pow(x[pts], i) *
-                                   std::pow(y[pts], j - 1);
-                        }
+                        *(inptr++) = 0.0;
                     }
-                    pts++;
-                    *(inptr++) = tmp;
                 }
             }
         }
@@ -169,28 +267,29 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr)
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+                     bool padding = true)
     {
-        size_t pts = 0, el = 0;
+        size_t el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
         for (auto const &block : blocks)
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
                 size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t i = 0; i < M / 2; i++)
                     {
-                        for (size_t j = 0; j < N; j++)
+                        for (size_t j = 0; j < N / 2; j++)
                         {
-                            for (size_t k = 0; k < K; k++)
+                            for (size_t k = 0; k < K / 2; k++)
                             {
                                 tmp += std::pow(x[pts], i) *
                                        std::pow(y[pts], j) *
@@ -198,8 +297,59 @@ public:
                             }
                         }
                     }
-                    pts++;
                     *(inptr++) = tmp;
+                }
+            }
+            if (padding)
+            {
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        *(inptr++) = 0.0;
+                    }
+                }
+            }
+        }
+    }
+
+    void NektarSolution(const std::vector<BlockAttributes> &blocks,
+                        double *inptr)
+    {
+        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
+                                       fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys0 = outphys;
+        Array<OneD, NekDouble> outphys1 =
+            outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, NekDouble> outphys2 =
+            outphys1 + fixt_explist->GetTotPoints();
+
+        // Set test case
+        SetTestCase(blocks, inphys.get(), false);
+
+        // Calculate expected result from Nektar++
+        fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
+
+        // Copy expected result from Array to fixt_expected
+        double *ptr = outphys.get();
+        for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
+        {
+            for (auto const &block : blocks)
+            {
+                for (size_t el = 0; el < block.num_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        (*inptr++) = (*ptr++);
+                    }
+                }
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    {
+                        *(inptr++) = 0.0;
+                    }
                 }
             }
         }
@@ -208,91 +358,59 @@ public:
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
                           double *inptr)
     {
-        size_t pts = 0, el = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
-        for (auto const &block : blocks)
+        for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
+            size_t el = 0, pts = 0;
+            for (auto const &block : blocks)
             {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t e = 0; e < block.num_elements; ++e, ++el)
                 {
-                    double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                    size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
+                    size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                     {
-                        for (size_t j = 0; j < N; j++)
+                        double tmp = 0.0;
+                        for (size_t i = 0; i < M / 2; i++)
                         {
-                            for (size_t k = 0; k < K; k++)
+                            for (size_t j = 0; j < N / 2; j++)
                             {
-                                tmp += i * std::pow(x[pts], i - 1) *
-                                       std::pow(y[pts], j) *
-                                       std::pow(z[pts], k);
+                                for (size_t k = 0; k < K / 2; k++)
+                                {
+                                    if (n == 0 && i >= 1)
+                                    {
+                                        tmp += i * std::pow(x[pts], i - 1) *
+                                               std::pow(y[pts], j) *
+                                               std::pow(z[pts], k);
+                                    }
+                                    if (n == 1 && j >= 1)
+                                    {
+                                        tmp += j * std::pow(x[pts], i) *
+                                               std::pow(y[pts], j - 1) *
+                                               std::pow(z[pts], k);
+                                    }
+                                    if (n == 2 && k >= 1)
+                                    {
+                                        tmp += k * std::pow(x[pts], i) *
+                                               std::pow(y[pts], j) *
+                                               std::pow(z[pts], k - 1);
+                                    }
+                                }
                             }
                         }
+                        *(inptr++) = tmp;
                     }
-                    pts++;
-                    *(inptr++) = tmp;
                 }
-            }
-        }
-        pts = 0;
-        for (auto const &block : blocks)
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t el = 0; el < block.num_padding_elements; ++el)
                 {
-                    double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
+                    for (size_t phys = 0; phys < block.num_pts; ++phys)
                     {
-                        for (size_t j = 0; j < N; j++)
-                        {
-                            for (size_t k = 0; k < K; k++)
-                            {
-                                tmp += j * std::pow(x[pts], i) *
-                                       std::pow(y[pts], j - 1) *
-                                       std::pow(z[pts], k);
-                            }
-                        }
+                        *(inptr++) = 0.0;
                     }
-                    pts++;
-                    *(inptr++) = tmp;
-                }
-            }
-        }
-        pts = 0;
-        for (auto const &block : blocks)
-        {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    double tmp = 0.0;
-                    for (size_t i = 0; i < M; i++)
-                    {
-                        for (size_t j = 0; j < N; j++)
-                        {
-                            for (size_t k = 0; k < K; k++)
-                            {
-                                tmp += k * std::pow(x[pts], i) *
-                                       std::pow(y[pts], j) *
-                                       std::pow(z[pts], k - 1);
-                            }
-                        }
-                    }
-                    pts++;
-                    *(inptr++) = tmp;
                 }
             }
         }
@@ -323,6 +441,15 @@ public:
     Tri()
     {
         meshName = "run/tri.xml";
+    }
+};
+
+class SquareAllElements : public PhysDerivField2D
+{
+public:
+    SquareAllElements()
+    {
+        meshName = "run/square_all_elements.xml";
     }
 };
 
@@ -359,5 +486,23 @@ public:
     Tet()
     {
         meshName = "run/tet.xml";
+    }
+};
+
+class CubePrismHex : public PhysDerivField3D
+{
+public:
+    CubePrismHex()
+    {
+        meshName = "run/cube_prismhex.xml";
+    }
+};
+
+class CubeAllElements : public PhysDerivField3D
+{
+public:
+    CubeAllElements()
+    {
+        meshName = "run/cube_all_elements.xml";
     }
 };

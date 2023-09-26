@@ -94,6 +94,7 @@ public:
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(expIdx);
             auto nElmts       = in.GetBlocks()[block_idx].num_elements;
+            auto nPadElmts    = in.GetBlocks()[block_idx].num_padding_elements;
             auto nqTot        = expPtr->GetTotPoints();
             auto nCoord       = expPtr->GetCoordim();
             auto shape        = expPtr->DetShapeType();
@@ -180,10 +181,10 @@ public:
 
             // Increment pointer and index for next element type.
             dfptr += deformed ? nqTot * nElmts : nElmts;
-            outptr0 += nqTot * nElmts;
-            outptr1 += nqTot * nElmts;
-            outptr2 += nqTot * nElmts;
-            inptr += nqTot * nElmts;
+            outptr0 += (nPadElmts + nElmts) * nqTot;
+            outptr1 += (nPadElmts + nElmts) * nqTot;
+            outptr2 += (nPadElmts + nElmts) * nqTot;
+            inptr += (nPadElmts + nElmts) * nqTot;
             expIdx += nElmts;
         }
     }

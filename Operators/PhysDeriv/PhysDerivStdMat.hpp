@@ -81,6 +81,7 @@ public:
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(expIdx);
             auto nElmts       = in.GetBlocks()[block_idx].num_elements;
+            auto nPadElmts    = in.GetBlocks()[block_idx].num_padding_elements;
             auto nDim         = expPtr->GetShapeDimension();
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
@@ -120,7 +121,7 @@ public:
                                      1, deriv[d].get(), 1, outptr[i], 1,
                                      outptr[i], 1);
                     }
-                    outptr[i] += nqTot * nElmts;
+                    outptr[i] += (nPadElmts + nElmts) * nqTot;
                 }
                 dfindex += nqTot * nElmts;
             }
@@ -142,10 +143,12 @@ public:
                         }
                         outptr[i] += nqTot;
                     }
+                    // skip padding elements
+                    outptr[i] += nPadElmts * nqTot;
                 }
                 dfindex += nElmts;
             }
-            inptr += nqTot * nElmts;
+            inptr += (nPadElmts + nElmts) * nqTot;
             expIdx += nElmts;
         }
     }
