@@ -34,11 +34,24 @@ public:
                const TData lambda) override
     {
         boost::ignore_unused(lambda);
-        // Reshape into vec_t::width, with the right memory alignment
-        // requirements, if the data are already interleaved, this method
-        // returns
+        // check alignment
+        if (in.GetAlignment() != vec_t::alignment)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Input Field are not aligned to the required alignment "
+                     "for the SIMD vector type.");
+        }
+        if (out.GetAlignment() != vec_t::alignment)
+        {
+            NEKERROR(ErrorUtil::efatal,
+                     "Output Field are not aligned to the required alignment "
+                     "for the SIMD vector type.");
+        }
+        // Reshape into vec_t::width. If the Field is already
+        // interleaved, this method returns.
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
+
         TData *inptr  = in.GetStorage().GetCPUPtr();
         TData *outptr = out.GetStorage().GetCPUPtr();
 

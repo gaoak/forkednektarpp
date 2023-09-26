@@ -288,6 +288,124 @@ protected:
             AllocateSharedPtr(jac);
     }
 
+    std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
+    SetVectorizedDerivFactor(size_t dfSize,
+                             std::vector<BlockAttributes> &blocks)
+    {
+        // Allocate memory for the derivative factor
+        size_t nDim   = this->m_expansionList->GetShapeDimension();
+        size_t nCoord = this->m_expansionList->GetCoordim(0);
+        std::vector<vec_t, tinysimd::allocator<vec_t>> derivFac;
+        derivFac.resize(nDim * nCoord * dfSize);
+        // derivFac storage order: vec->dim->coord->point->element->block
+        // original df: point->dim->coord->element->block
+        size_t exp_id = 0;
+        size_t jac_id = 0;
+        for (size_t blk = 0; blk < blocks.size(); ++blk)
+        {
+            size_t num_elements         = blocks[blk].num_elements;
+            size_t num_padding_elements = blocks[blk].num_padding_elements;
+            size_t num_metaBlocks =
+                (num_elements + num_padding_elements) / vec_t::width;
+
+            auto expPtr = this->m_expansionList->GetExp(exp_id);
+
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+                // loop over meta-blocks: except last one
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                    {
+                        for (size_t d = 0; d < nDim * nCoord; ++d)
+                        {
+                            for (size_t i = 0; i < vec_t::width; ++i)
+                            {
+                                auto &df =
+                                    this->m_expansionList->GetExp(exp_id + i)
+                                        ->GetMetricInfo()
+                                        ->GetDerivFactors(
+                                            expPtr->GetPointsKeys());
+                                tmp[i] = df[d][pt];
+                            }
+                            derivFac[jac_id++].load(&tmp[0]);
+                        }
+                    }
+                    exp_id += vec_t::width;
+                }
+                // Last block: may have padding elements
+                for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                {
+                    for (size_t d = 0; d < nDim * nCoord; ++d)
+                    {
+                        for (size_t i = 0;
+                             i < vec_t::width - num_padding_elements; ++i)
+                        {
+                            auto &df =
+                                this->m_expansionList->GetExp(exp_id + i)
+                                    ->GetMetricInfo()
+                                    ->GetDerivFactors(expPtr->GetPointsKeys());
+                            tmp[i] = df[d][pt];
+                        }
+                        for (size_t i = vec_t::width - num_padding_elements;
+                             i < vec_t::width; ++i)
+                        {
+                            tmp[i] = 0.0;
+                        }
+                        derivFac[jac_id++].load(&tmp[0]);
+                    }
+                }
+                exp_id += vec_t::width - num_padding_elements;
+            }
+            else
+            {
+                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+                // loop over meta-blocks: except last one
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t d = 0; d < nDim * nCoord; ++d)
+                    {
+                        for (size_t i = 0; i < vec_t::width; ++i)
+                        {
+                            auto &df =
+                                this->m_expansionList->GetExp(exp_id + i)
+                                    ->GetMetricInfo()
+                                    ->GetDerivFactors(expPtr->GetPointsKeys());
+                            tmp[i] = df[d][0];
+                        }
+                        derivFac[jac_id++].load(&tmp[0]);
+                    }
+                    exp_id += vec_t::width;
+                }
+                // Last block: may have padding elements
+                for (size_t d = 0; d < nDim * nCoord; ++d)
+                {
+                    for (size_t i = 0; i < vec_t::width - num_padding_elements;
+                         ++i)
+                    {
+                        auto &df =
+                            this->m_expansionList->GetExp(exp_id + i)
+                                ->GetMetricInfo()
+                                ->GetDerivFactors(expPtr->GetPointsKeys());
+                        tmp[i] = df[d][0];
+                    }
+                    for (size_t i = vec_t::width - num_padding_elements;
+                         i < vec_t::width; ++i)
+                    {
+                        tmp[i] = 0.0;
+                    }
+                    derivFac[jac_id++].load(&tmp[0]);
+                }
+                exp_id += vec_t::width - num_padding_elements;
+            }
+        }
+
+        return MemoryManager<std::vector<vec_t, tinysimd::allocator<vec_t>>>::
+            AllocateSharedPtr(derivFac);
+    }
+
     MultiRegions::ExpListSharedPtr m_expansionList;
 };
 

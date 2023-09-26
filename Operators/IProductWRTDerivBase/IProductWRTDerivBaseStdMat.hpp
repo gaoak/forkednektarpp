@@ -180,12 +180,12 @@ public:
                             outptr, nmTot);
 
                 // Increment pointer and index for next element type.
-                inptr[d] += nqTot * nElmts;
+                inptr[d] += in.GetBlocks()[block_idx].block_size;
                 wspptr[d] += nqTot * nElmts;
             }
             jacIdx += deformed ? nqTot * nElmts : nElmts;
             dfIdx += deformed ? nqTot * nElmts : nElmts;
-            outptr += nmTot * nElmts;
+            outptr += out.GetBlocks()[block_idx].block_size;
             expIdx += nElmts;
         }
     }
