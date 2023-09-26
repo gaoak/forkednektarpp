@@ -1,25 +1,25 @@
-#define BOOST_TEST_MODULE TestIProductWRTBaseCUDA
+#define BOOST_TEST_MODULE TestIProductWRTDerivBaseCUDA
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "init_ipwrtbasefields.hpp"
+#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#include "init_ipwrtderivbasefields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestIProductWRTBaseCUDA)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseCUDA)
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_seg, Seg)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_seg, Seg)
 {
-    Configure();
+    Configure(1, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -29,16 +29,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_seg, Seg)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_quad, Quad)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_quad, Quad)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -48,16 +48,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_quad, Quad)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_tri, Tri)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -67,16 +67,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_square_all_elements, SquareAllElements)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -86,16 +86,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square_all_elements, SquareAllElements)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_hex, Hex)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_hex, Hex)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -105,16 +105,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_hex, Hex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_prism, Prism)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -124,16 +124,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_prism, Prism)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_pyr, Pyr)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_pyr, Pyr)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -143,16 +143,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_pyr, Pyr)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_tet, Tet)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_tet, Tet)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -162,16 +162,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_tet, Tet)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_cube_prism_hex, CubePrismHex)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_cube_prism_hex, CubePrismHex)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
@@ -181,16 +181,16 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_cube_prism_hex, CubePrismHex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_cube_all_elements, CubeAllElements)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_cube_all_elements, CubeAllElements)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
-    IProductWRTBase<>::create(fixt_explist, "CUDA")
+    IProductWRTDerivBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;

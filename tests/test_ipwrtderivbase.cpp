@@ -1,25 +1,25 @@
-#define BOOST_TEST_MODULE TestIProductWRTBase
+#define BOOST_TEST_MODULE TestIProductWRTDerivBase
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "init_ipwrtbasefields.hpp"
+#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#include "init_ipwrtderivbasefields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestIProductWRTBase)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
 using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_seg, Seg)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_seg, Seg)
 {
-    Configure();
+    Configure(1, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -31,11 +31,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_seg, Seg)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_quad, Quad)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_quad, Quad)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -47,11 +47,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_quad, Quad)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_tri, Tri)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -63,11 +63,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_square_all_elements, SquareAllElements)
 {
-    Configure();
+    Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -79,11 +79,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_square_all_elements, SquareAllElements)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_hex, Hex)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_hex, Hex)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -95,11 +95,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_hex, Hex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_prism, Prism)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -111,11 +111,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_prism, Prism)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_pyr, Pyr)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_pyr, Pyr)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -127,11 +127,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_pyr, Pyr)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_tet, Tet)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_tet, Tet)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -143,11 +143,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_tet, Tet)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_prism_hex, CubePrismHex)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_cube_prism_hex, CubePrismHex)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -159,11 +159,11 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_prism_hex, CubePrismHex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_all_elements, CubeAllElements)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbase_cube_all_elements, CubeAllElements)
 {
-    Configure();
+    Configure(3, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    IProductWRTBase<>::create(fixt_explist, "StdMat")
+    IProductWRTDerivBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
