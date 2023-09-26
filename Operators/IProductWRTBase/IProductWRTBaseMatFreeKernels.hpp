@@ -1,3 +1,4 @@
+#pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
 namespace Nektar::Operators::detail

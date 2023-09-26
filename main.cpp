@@ -36,15 +36,29 @@ using namespace Nektar;
 template <typename TType, FieldState State>
 std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
 {
-    auto *x = f.GetStorage().GetCPUPtr();
-    for (size_t i = 0; i < f.GetStorage().size(); ++i)
+    for (size_t i = 0; i < f.GetNumComponents(); ++i)
     {
-        stream << x[i] << ' ';
-        // if (i > 20)
-        // {
-        //     stream << "...";
-        //     break;
-        // }
+        stream << "Component " << i << ": "<< std::endl;
+        auto *x = f.GetStorage().GetCPUPtr() + i * f.GetFieldSize();
+        for (auto const &block : f.GetBlocks())
+        {
+            size_t numMetaBlocks = 
+                block.num_elements + block.num_padding_elements / 
+                f.GetVecWidth();
+
+            for (size_t el = 0; el < numMetaBlocks; ++el)
+            {
+                for (size_t pt = 0; pt < block.num_pts; ++pt)
+                {
+                    for (size_t v = 0; v < f.GetVecWidth(); ++v)
+                    {
+                        stream << *(x++) << ' ';
+                    }
+                    stream << "  ";
+                }
+                stream << std::endl;
+            }
+        }
     }
     stream << std::endl;
 
@@ -73,7 +87,7 @@ int main(int argc, char *argv[])
 
     // Create two Field objects with a MemoryRegionCPU backend by default
     auto in  = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
-                                                       vec_t::alignment);
+                                                        vec_t::alignment);
     auto in2 = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
                                                         vec_t::alignment);
     auto out = Field<double, FieldState::Phys>::create(blocks_phys, 1,
@@ -170,6 +184,16 @@ int main(int argc, char *argv[])
             }
         }
 
+        // Test multi-compoenents feature
+        auto vin = Field<double, FieldState::Coeff>::create(
+            blocks_coeff, std::vector<std::string>{"u", "v"}, vec_t::alignment);
+        vin.ReshapeStorage<vec_t::width>();
+        vin.CopyDataFrom(in);        // by default, copy the first component
+        vin.CopyDataFrom(in2, 0, 1); // copy the second component
+        std::cout << "Copy in and in2 to Vin:\n" << vin << std::endl << std::endl;
+        vin.ReshapeStorage<1>();
+         std::cout << "Vin reshape back to 1:\n" << vin << std::endl << std::endl;
+
         // Back to non-interleaved for non-SIMD Operators
         in.ReshapeStorage<1>();
         std::cout << "Reshape In back to 1:\n" << in << std::endl << std::endl;
@@ -247,8 +271,8 @@ int main(int argc, char *argv[])
         timer.Start();
         op->apply(inCoeff, outPhys);
         timer.Stop();
-        std::cout << ">>> Time for BwdTrans StdMat: " << timer.TimePerTest(1)
-                  << " s \n"<< std::endl;
+        std::cout << ">>> Time for BwdTrans StdMat: " 
+                  << timer.TimePerTest(1) << " s \n" << std::endl;
 
         // Check output values.
         std::cout << "Out (StdMat):" << std::endl;
@@ -265,9 +289,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op2->apply(inCoeff, outPhys2);
         timer.Stop();
-        std::cout << ">>> Time for BwdTrans MatFree: " << timer.TimePerTest(1)
-                  << " s \n"<< std::endl;
-        
+        std::cout << ">>> Time for BwdTrans MatFree: " 
+                  << timer.TimePerTest(1) << " s \n" << std::endl;
+
         // Check output values.
         std::cout << "Initial shape (MatFree):\n" << inCoeff << std::endl;
         std::cout << "Out (MatFree):" << std::endl;
@@ -348,8 +372,10 @@ int main(int argc, char *argv[])
 
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
-        auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys);
-        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
+        auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys, 1,
+                                                                 vec_t::alignment);
+        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
+                                                                 vec_t::alignment);
 
         // Assign input values
         auto *inptr = inPhys.GetStorage().GetCPUPtr();
@@ -380,8 +406,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op->apply(inPhys, outCoeff);
         timer.Stop();
-        std::cout << ">>> Time for IProductWRTBase StdMat: " << timer.TimePerTest(1)
-                  << " s \n"<< std::endl;
+        std::cout << ">>> Time for IProductWRTBase StdMat: "
+                  << timer.TimePerTest(1) << " s \n"
+                  << std::endl;
         // Check output values.
         std::cout << "Out (StdMat):" << std::endl;
         std::cout << outCoeff << std::endl;
@@ -397,8 +424,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op2->apply(inPhys, outCoeff2);
         timer.Stop();
-        std::cout << ">>> Time for IProductWRTBase MatFree: " << timer.TimePerTest(1)
-                  << " s \n"<< std::endl;
+        std::cout << ">>> Time for IProductWRTBase MatFree: "
+                  << timer.TimePerTest(1) << " s \n"
+                  << std::endl;
         // Check output values.
         std::cout << "Out (MatFree):" << std::endl;
         std::cout << outCoeff2 << std::endl;
@@ -412,7 +440,7 @@ int main(int argc, char *argv[])
         }
         else
         {
-            std::cout << "Results do not match! (IProductWRTBase MatFree/StdMat)\n"
+            std::cout << "Results DON'T match! (IProductWRTBase MatFree/StdMat)\n"
                       << std::endl;
         }
         std::cout << std::endl;
@@ -476,11 +504,13 @@ int main(int argc, char *argv[])
     {
         std::cout << "PhysDeriv (StdMat) test starts." << std::endl;
 
+        LibUtilities::Timer timer;
+
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
-        auto inPhys  = Field<double, FieldState::Phys>::create(blocks_phys);
+        auto inPhys  = Field<double, FieldState::Phys>::create(blocks_phys, 1, vec_t::alignment);
         auto outPhys = Field<double, FieldState::Phys>::create(
-                               blocks_phys, explist->GetCoordim(0));
+                        blocks_phys, explist->GetCoordim(0), vec_t::alignment);
 
         // Assign input values
         auto *inptr = inPhys.GetStorage().GetCPUPtr();
@@ -495,6 +525,13 @@ int main(int argc, char *argv[])
                     *(inptr++) = phys;
                 }
             }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    *(inptr++) = 0.0;
+                }
+            }
         }
 
         std::cout << "Initial shape:\n" << inPhys << std::endl;
@@ -502,52 +539,56 @@ int main(int argc, char *argv[])
         // PhysDeriv
         PhysDeriv<>::create(explist, "StdMat")->apply(inPhys, outPhys);
 
+        // PhysDeriv by stdMat
+        auto op = PhysDeriv<>::create(explist, "StdMat");
+        timer.Start();
+        op->apply(inPhys, outPhys);
+        timer.Stop();
+        std::cout << ">>> Time for PhysDeriv StdMat: " 
+                  << timer.TimePerTest(1) << " s \n" << std::endl;
         // Check output values.
-        auto *outptr = outPhys.GetStorage().GetCPUPtr();
-        for (size_t d = 0; d < outPhys.GetNumComponents(); ++d)
+        std::cout << "Out (StdMat):" << std::endl;
+        std::cout << outPhys << std::endl;
+
+        // PhysDeriv by MatrixFree
+        auto coordim = explist->GetCoordim(0);
+        auto derivPhys = Field<double, FieldState::Phys>::create(blocks_phys, 
+                            explist->GetCoordim(0), vec_t::alignment);
+        // Assign ouput values to zeros
+        auto *outptr = derivPhys.GetStorage().GetCPUPtr();
+        for (int component = 0; component < explist->GetCoordim(0); ++component)
         {
-            std::cout << "Out" << d << ":" << std::endl;
-            for (auto const &block : outPhys.GetBlocks())
+            for (auto const &block : derivPhys.GetBlocks())
             {
-                for (size_t el = 0; el < block.num_elements; ++el)
+                for (size_t el = 0; el < block.block_size; ++el)
                 {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        std::cout << *(outptr++) << " ";
-                    }
-                    std::cout << std::endl;
+                    *(outptr++) = 0.0;
                 }
-                std::cout << std::endl;
             }
         }
-        std::cout << std::endl;
-
-        std::cout << "IProductWRTDerivBase (StdMat) test starts." << std::endl;
-
-        // Create two Field objects with a MemoryRegionCPU backend by default
-        // for the inner product with respect to deriv base
-        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff);
-
-        // IProductWRTDerivBase
-        IProductWRTDerivBase<>::create(explist, "StdMat")
-            ->apply(outPhys, outCoeff);
-
+        // Make sure field is reshaped before calling apply()
+        inPhys.ReshapeStorage<vec_t::width>();
+        derivPhys.ReshapeStorage<vec_t::width>();
+        auto op2 = PhysDeriv<>::create(explist, "MatFree");
+        timer.Start();
+        op2->apply(inPhys, derivPhys);
+        timer.Stop();
+        std::cout << ">>> Time for PhysDeriv MatFree: " 
+                  << timer.TimePerTest(1) << " s \n" << std::endl;
         // Check output values.
-        std::cout << "Out:" << std::endl;
-        outptr = outCoeff.GetStorage().GetCPUPtr();
-        for (auto const &block : outCoeff.GetBlocks())
+        derivPhys.ReshapeStorage<1>();
+        std::cout << "Out (MatFree):" << std::endl;
+        std::cout << derivPhys << std::endl;
+        if (derivPhys.compare(outPhys, 1e-9))
         {
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                {
-                    std::cout << *(outptr++) << " ";
-                }
-                std::cout << std::endl;
-            }
-            std::cout << std::endl;
+            std::cout << "Results match! (PhysDeriv MatFree/StdMat) \n"
+                    << std::endl;
         }
-        std::cout << std::endl;
+        else
+        {
+            std::cout << "Results DON'T match! (PhysDeriv MatFree/StdMat)\n"
+                    << std::endl;
+        }
     }
     // Test PhysDeriv (CUDA) Implementation
 #ifdef NEKTAR_USE_CUDA
