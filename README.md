@@ -35,6 +35,24 @@ To build the redesign project with CUDA:
 
 This can be obtained by using the following command
 ```bash
-cmake ../ -DNektar++_DIR=~/code/nektarMaster/build/dist/lib64/nektar++/cmake -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_USE_CUDA=ON -DNEKTAR_USE_SIMD=OFF 
+cmake ../ -DNektar++_DIR=~/code/nektarMaster/build/dist/lib64/nektar++/cmake -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_USE_CUDA=ON -DNEKTAR_USE_SIMD=OFF -DCMAKE_CUDA_ARCHITECTURES=86
 make
 ```
+
+NOTE: The `CMAKE_CUDA_ARCHITECTURES` parameter must be set to the appropriate compute capability of the GPU. On Linux, the compute capbability can be obtained by using the following command
+```bash
+nvidia-smi --query-gpu=compute_cap --format=csv
+```
+
+Here is a list of CUDA compute capability:
+- 6.0 -> `-DCMAKE_CUDA_ARCHITECTURES=60`
+- 6.1 -> `-DCMAKE_CUDA_ARCHITECTURES=61`
+- 6.2 -> `-DCMAKE_CUDA_ARCHITECTURES=62`
+- 7.0 -> `-DCMAKE_CUDA_ARCHITECTURES=70`
+- 7.2 -> `-DCMAKE_CUDA_ARCHITECTURES=72`
+- 7.5 -> `-DCMAKE_CUDA_ARCHITECTURES=75`
+- 8.0 -> `-DCMAKE_CUDA_ARCHITECTURES=80`
+- 8.6 -> `-DCMAKE_CUDA_ARCHITECTURES=86`
+- 8.7 -> `-DCMAKE_CUDA_ARCHITECTURES=87`
+- 8.9 -> `-DCMAKE_CUDA_ARCHITECTURES=89`
+- 9.0 -> `-DCMAKE_CUDA_ARCHITECTURES=90`
