@@ -80,7 +80,7 @@ private:
     std::vector<LibUtilities::BasisSharedPtr> m_basis;
     std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_B;
     int m_nElmtGroup;
-    
+
     // void copy_to_vec_t(const NekDouble *in, const std::uint32_t nVec,
     //                    std::vector<vec_t, allocator<vec_t>> &out)
     // {
@@ -126,8 +126,7 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_B[0],
-                                         tmpOut);
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_B[0], tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -165,8 +164,7 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_B[0],
-                                         tmpOut);
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_B[0], tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -210,8 +208,8 @@ private:
             // load_interleave(input, nmTot, tmpIn);
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
-                                         this->m_B[0], this->m_B[1],
-                                         wsp0, tmpOut);
+                                         this->m_B[0], this->m_B[1], wsp0,
+                                         tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -260,8 +258,8 @@ private:
             // load_interleave(input, nmTot, tmpIn);
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
-                                         this->m_B[0], this->m_B[1],
-                                         wsp0, tmpOut);
+                                         this->m_B[0], this->m_B[1], wsp0,
+                                         tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -305,9 +303,9 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            BwdTrans3DKernel<SHAPE_TYPE>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_B[0],
-                this->m_B[1], this->m_B[2], wsp0, wsp1, tmpOut);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
+                                         tmpIn, this->m_B[0], this->m_B[1],
+                                         this->m_B[2], wsp0, wsp1, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -358,9 +356,9 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            BwdTrans3DKernel<SHAPE_TYPE>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_B[0],
-                this->m_B[1], this->m_B[2], wsp0, wsp1, tmpOut);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
+                                         tmpIn, this->m_B[0], this->m_B[1],
+                                         this->m_B[2], wsp0, wsp1, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);

@@ -235,8 +235,7 @@ DataMap<TData> GetDerivativeDataCUDA(
     return derivative;
 }
 
-template <typename TData>
-void DeallocateDataCUDA(DataMap<TData> &dataMap)
+template <typename TData> void DeallocateDataCUDA(DataMap<TData> &dataMap)
 {
     for (auto &data : dataMap)
     {

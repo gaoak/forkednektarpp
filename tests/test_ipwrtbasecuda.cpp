@@ -44,7 +44,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_line, Line)
     Configure();
 
     double *x = fixt_in->GetStorage().GetCPUPtr();
-    double *y = 
+    double *y =
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
 
     for (auto const &block : fixtcuda_in->GetBlocks())
@@ -61,7 +61,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_line, Line)
 
     IProductWRTBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
-    
+
     // Generate the expected results as reference to be compared
     IProductWRTBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
@@ -70,14 +70,13 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_line, Line)
 
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
 }
-
 
 BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square, Square)
 {
     Configure();
 
     double *x = fixt_in->GetStorage().GetCPUPtr();
-    double *y = 
+    double *y =
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
 
     for (auto const &block : fixtcuda_in->GetBlocks())
@@ -94,7 +93,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square, Square)
 
     IProductWRTBase<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
-    
+
     // Generate the expected results as reference to be compared
     IProductWRTBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_expected);
@@ -103,6 +102,5 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbasecuda_square, Square)
 
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
 }
-
 
 BOOST_AUTO_TEST_SUITE_END()

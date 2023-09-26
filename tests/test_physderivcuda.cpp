@@ -7,7 +7,7 @@
 #include "Operators/OperatorPhysDeriv.hpp"
 #include "init_physderivfields.hpp"
 
-BOOST_FIXTURE_TEST_CASE(physderivseg, Seg)
+BOOST_FIXTURE_TEST_CASE(physderiv_seg, Seg)
 {
     Configure(1, 1);
     SetTestCase(
@@ -20,7 +20,7 @@ BOOST_FIXTURE_TEST_CASE(physderivseg, Seg)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
 }
 
-BOOST_FIXTURE_TEST_CASE(physderivquad, Quad)
+BOOST_FIXTURE_TEST_CASE(physderiv_quad, Quad)
 {
     Configure(1, 2);
     SetTestCase(
@@ -33,7 +33,7 @@ BOOST_FIXTURE_TEST_CASE(physderivquad, Quad)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
 }
 
-/*BOOST_FIXTURE_TEST_CASE(physderivhex, Hex)
+/*BOOST_FIXTURE_TEST_CASE(physderiv_hex, Hex)
 {
     Configure(1, 3);
     SetTestCase(
