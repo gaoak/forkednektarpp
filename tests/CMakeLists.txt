@@ -73,9 +73,35 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
+add_executable(test_ipwrtderivbase test_ipwrtderivbase.cpp)
+target_link_libraries(test_ipwrtderivbase PRIVATE Operators)
+target_link_libraries(test_ipwrtderivbase PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_ipwrtderivbase PRIVATE Boost::unit_test_framework)
+target_include_directories(test_ipwrtderivbase PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_ipwrtderivbase PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_ipwrtderivbase PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_ipwrtderivbasecuda test_ipwrtderivbasecuda.cpp)
+    target_link_libraries(test_ipwrtderivbasecuda PRIVATE Operators)
+    target_link_libraries(test_ipwrtderivbasecuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_ipwrtderivbasecuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_ipwrtderivbasecuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_ipwrtderivbasecuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_ipwrtderivbasecuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_test(
   NAME BwdTrans
   COMMAND test_bwdtrans
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME BwdTransMatFree
+  COMMAND test_bwdtrans_matfree
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
@@ -116,7 +142,15 @@ IF (NEKTAR_USE_CUDA)
 ENDIF()
 
 add_test(
-  NAME BwdTransMatFree
-  COMMAND test_bwdtrans_matfree
+  NAME IProductWRTDerivBase
+  COMMAND test_ipwrtderivbase
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME IProductWRTDerivBaseCUDA
+      COMMAND test_ipwrtderivbasecuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
