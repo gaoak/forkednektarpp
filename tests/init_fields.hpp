@@ -130,8 +130,8 @@ public:
                 {
                     if (fabs(*(outptr++) - *(expptr++)) > tol)
                     {
-                        printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el, phys,
-                               *outptr, *expptr, fabs(*outptr - *expptr));
+                        printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el,
+                               phys, *outptr, *expptr, fabs(*outptr - *expptr));
                     }
                 }
             }

@@ -1,72 +1,178 @@
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestIPWRTBase
+#define BOOST_TEST_MODULE TestIProductWRTBase
+#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Field.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
+#include "init_ipwrtbasefields.hpp"
 
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
-
-#include "init_fields.hpp"
-
-BOOST_AUTO_TEST_SUITE(TestIPWRTBase)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTBase)
 
 using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class Line : public InitFields<double, FieldState::Phys, FieldState::Coeff>
-{
-public:
-    Line() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
-    {
-        meshName = "line.xml";
-    }
-};
-
-class Square : public InitFields<double, FieldState::Phys, FieldState::Coeff>
-{
-public:
-    Square() : InitFields<double, FieldState::Phys, FieldState::Coeff>()
-    {
-        meshName = "square.xml";
-    }
-};
-
-BOOST_FIXTURE_TEST_CASE(ipwrtbase, Line)
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_seg, Seg)
 {
     Configure();
-
-    static double *x = fixt_in->GetStorage().GetCPUPtr();
-
-    for (auto const &block : fixt_in->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
-        {
-            for (size_t phys = 0; phys < block.num_pts; ++phys)
-            {
-                *(x++) = phys;
-            }
-        }
-    }
-
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     IProductWRTBase<>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
 
-    static double *y = fixt_out->GetStorage().GetCPUPtr();
-    double TOL       = 1e-12;
-    BOOST_CHECK_CLOSE(y[0], 1.09753217840612, TOL);
-    BOOST_CHECK_CLOSE(y[1], 1.90246782159389, TOL);
-    BOOST_CHECK_CLOSE(y[2], 0.5, TOL);
-    BOOST_CHECK_CLOSE(y[3], 0.150377322580158, TOL);
-    BOOST_TEST(std::abs(y[4] - 9.36750677027476e-17) < TOL);
-    BOOST_CHECK_CLOSE(y[5], 0.00746847423694819, TOL);
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_quad, Quad)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_tri, Tri)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_square_all_elements, SquareAllElements)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_hex, Hex)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_prism, Prism)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_pyr, Pyr)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_tet, Tet)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_prism_hex, CubePrismHex)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_all_elements, CubeAllElements)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    IProductWRTBase<>::create(fixt_explist, "StdMat")
+        ->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
 }
 
 BOOST_AUTO_TEST_SUITE_END()
