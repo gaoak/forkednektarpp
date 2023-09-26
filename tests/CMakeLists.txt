@@ -4,14 +4,14 @@ find_package(
   COMPONENTS unit_test_framework
 )
 
-#add_executable(test_bwdtrans test_bwdtrans.cpp)
-#target_link_libraries(test_bwdtrans PRIVATE Operators)
-#target_link_libraries(test_bwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
-#target_link_libraries(test_bwdtrans PRIVATE Boost::unit_test_framework)
-#target_include_directories(test_bwdtrans PRIVATE "${CMAKE_SOURCE_DIR}")
-#target_include_directories(test_bwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
-#target_compile_definitions(test_bwdtrans PRIVATE
-#    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+add_executable(test_bwdtrans test_bwdtrans.cpp)
+target_link_libraries(test_bwdtrans PRIVATE Operators)
+target_link_libraries(test_bwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_bwdtrans PRIVATE Boost::unit_test_framework)
+target_include_directories(test_bwdtrans PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_bwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_bwdtrans PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
 add_executable(test_bwdtrans_matfree test_bwdtrans_matfree.cpp)
 target_link_libraries(test_bwdtrans_matfree PRIVATE Operators)
@@ -73,11 +73,11 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
-#add_test(
-#  NAME BwdTrans
-#  COMMAND test_bwdtrans
-#  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-#)
+add_test(
+  NAME BwdTrans
+  COMMAND test_bwdtrans
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
 
 IF (NEKTAR_USE_CUDA)
     add_test(

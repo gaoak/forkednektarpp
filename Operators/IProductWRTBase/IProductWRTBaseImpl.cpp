@@ -1,5 +1,5 @@
-#include "IProductWRTBaseStdMat.hpp"
 #include "IProductWRTBaseMatFree.hpp"
+#include "IProductWRTBaseStdMat.hpp"
 
 namespace Nektar::Operators::detail
 {

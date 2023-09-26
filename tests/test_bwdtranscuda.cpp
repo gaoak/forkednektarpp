@@ -1,110 +1,193 @@
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestBwdTransCUDA
+#include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
-
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
-
-#include "init_fields.hpp"
+#include "init_bwdtransfields.hpp"
 
 BOOST_AUTO_TEST_SUITE(TestBwdTransCUDA)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
-class Line : public InitFields<double, FieldState::Coeff, FieldState::Phys>
-{
-public:
-    Line() : InitFields<double, FieldState::Coeff, FieldState::Phys>()
-    {
-        meshName = "line.xml";
-    }
-};
-
-class Square : public InitFields<double, FieldState::Coeff, FieldState::Phys>
-{
-public:
-    Square() : InitFields<double, FieldState::Coeff, FieldState::Phys>()
-    {
-        meshName = "square.xml";
-    }
-};
-
-BOOST_FIXTURE_TEST_CASE(bwdtranscuda_line, Line)
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_seg, Seg)
 {
     Configure();
-
-    // Set pointers to initialize menory chunks on both CPU and GPU
-    double *x = fixt_in->GetStorage().GetCPUPtr();
-    double *y = 
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-
-    for (auto const &block : fixt_in->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
-        {
-            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-            {
-                *(x++) = coeff + 1;
-                *(y++) = coeff + 1;
-            }
-        }
-    }
-
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
     BwdTrans<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
-
-    // Generate the expected results as reference to be compared
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-
-    double TOL = 1e-12;
-
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
 }
 
-
-
-BOOST_FIXTURE_TEST_CASE(bwdtranscuda_sqaure, Square)
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_quad, Quad)
 {
     Configure();
-
-    // Set pointers to initialize menory chunks on both CPU and GPU
-    double *x = fixt_in->GetStorage().GetCPUPtr();
-    double *y = 
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-
-    for (auto const &block : fixt_in->GetBlocks())
-    {
-        for (size_t el = 0; el < block.num_elements; ++el)
-        {
-            for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-            {
-                *(x++) = coeff + 1;
-                *(y++) = coeff + 1;
-            }
-        }
-    }
-
-
-    BwdTrans<>::create(fixt_explist, "CUDA")->apply(*fixtcuda_in, *fixtcuda_out);
-
-    // Generate the expected results as reference to be compared
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
     BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-
-    double TOL = 1e-12;
-
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, TOL));
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
 }
 
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_tri, Tri)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
 
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_square_all_elements, SquareAllElements)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_hex, Hex)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_prism, Prism)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_pyr, Pyr)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_tet, Tet)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_cube_prism_hex, CubePrismHex)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(bwdtranscuda_cube_all_elements, CubeAllElements)
+{
+    Configure();
+    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    SetTestCase(
+        fixtcuda_in->GetBlocks(),
+        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
+    BwdTrans<>::create(fixt_explist, "CUDA")
+        ->apply(*fixtcuda_in, *fixtcuda_out);
+    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
 
 BOOST_AUTO_TEST_SUITE_END()

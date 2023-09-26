@@ -142,8 +142,8 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            inptr += nmTot * nElmts;
-            outptr += nqTot * nElmts;
+            inptr += in.GetBlocks()[block_idx].block_size;
+            outptr += out.GetBlocks()[block_idx].block_size;
             expIdx += nElmts;
         }
     }

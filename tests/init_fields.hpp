@@ -118,6 +118,26 @@ public:
 #endif
     }
 
+    void OutputIfNotMatch(double *outptr, double *expptr, double tol)
+    {
+        printf(
+            "#elm #pts output               expected            difference\n");
+        for (auto const &block : fixt_out->GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    if (fabs(*(outptr++) - *(expptr++)) > tol)
+                    {
+                        printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el, phys,
+                               *outptr, *expptr, fabs(*outptr - *expptr));
+                    }
+                }
+            }
+        }
+    }
+
 protected:
     std::string meshName = "";
 };

@@ -189,8 +189,7 @@ private:
             // load_interleave(inptr, nqTot, tmpIn);
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nq0, tmpIn, this->m_B[0], this->m_w[0], jac_ptr,
-                tmpOut);
+                nm0, nq0, tmpIn, this->m_B[0], this->m_w[0], jac_ptr, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outptr);
@@ -234,8 +233,7 @@ private:
             // load_interleave(inptr, nqTot, tmpIn);
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nq0, tmpIn, this->m_B[0], this->m_w[0], jac_ptr,
-                tmpOut);
+                nm0, nq0, tmpIn, this->m_B[0], this->m_w[0], jac_ptr, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outptr);
@@ -297,9 +295,8 @@ private:
             // load_interleave(inptr, nqTot, tmpIn);
 
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_B[0],
-                this->m_B[1], this->m_w[0], this->m_w[1], jac_ptr, wsp0,
-                tmpOut);
+                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_B[0], this->m_B[1],
+                this->m_w[0], this->m_w[1], jac_ptr, wsp0, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outptr);
@@ -356,9 +353,8 @@ private:
             // load_interleave(inptr, nqTot, tmpIn);
 
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_B[0],
-                this->m_B[1], this->m_w[0], this->m_w[1], jac_ptr, wsp0,
-                tmpOut);
+                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_B[0], this->m_B[1],
+                this->m_w[0], this->m_w[1], jac_ptr, wsp0, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outptr);
