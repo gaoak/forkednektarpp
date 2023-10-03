@@ -1,10 +1,6 @@
 #pragma once
 
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ExpList.h>
-
 #include "Field.hpp"
-#include "Operator.hpp"
 #include "OperatorLinear.hpp"
 #include "OperatorPrecon.hpp"
 

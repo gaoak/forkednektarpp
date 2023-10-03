@@ -33,7 +33,7 @@ public:
         m_CGOp->setLHS(m_HelmOp);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out)
+    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);

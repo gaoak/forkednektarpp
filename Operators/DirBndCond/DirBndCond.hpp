@@ -26,7 +26,7 @@ public:
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &inout)
+    void apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // get number of local coeffs
         auto contfield = std::dynamic_pointer_cast<ContField>(this->m_expansionList);

@@ -9,7 +9,7 @@ namespace Nektar::Operators
 // IProductWRTDerivBase base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
-class OperatorIProductWRTDerivBase : public OperatorLinear<TData, FieldState::Phys, FieldState::Coeff>
+class OperatorIProductWRTDerivBase : public Operator<TData>
 {
 public:
     virtual ~OperatorIProductWRTDerivBase() = default;
@@ -23,6 +23,7 @@ public:
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out,
                        bool APPEND = false) = 0;
+
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out,
                             bool APPEND = false)

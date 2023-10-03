@@ -21,6 +21,7 @@ public:
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {

@@ -28,7 +28,7 @@ public:
         m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
+    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) override
     {
         // these values should be referenced from Nektar
         TData tol = 1.e-6;   // ** CHANGE THIS **

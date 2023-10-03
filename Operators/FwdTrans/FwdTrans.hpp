@@ -24,7 +24,7 @@ public:
         m_IProductWRTBaseOp = IProductWRTBase<TData>::create(this->m_expansionList);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out)
+    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out) override
     {
         auto blocks = GetBlockAttributes(FieldState::Coeff, this->m_expansionList);
         m_field = Field<TData, FieldState::Coeff>::create(blocks);

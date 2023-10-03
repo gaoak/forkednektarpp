@@ -1,25 +1,28 @@
 #pragma once
 
 #include "Field.hpp"
-#include "Operator.hpp"
+#include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
 {
 
 // BwdTrans base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorBwdTrans : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+template <typename TData> class OperatorBwdTrans : public OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>
 {
 public:
     virtual ~OperatorBwdTrans() = default;
 
     OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+        : OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>(expansionList)
     {
     }
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Phys> &out) = 0;
+                       Field<TData, FieldState::Phys> &out) override
+    {
+    }
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Phys> &out)
     {

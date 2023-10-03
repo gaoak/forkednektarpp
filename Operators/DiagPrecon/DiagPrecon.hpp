@@ -26,7 +26,7 @@ public:
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out)
+    void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) override
     {        
         auto *diag_ptr = this->m_diag.GetStorage().GetCPUPtr();
         auto *in_ptr = in.GetStorage().GetCPUPtr();

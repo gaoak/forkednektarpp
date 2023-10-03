@@ -1,12 +1,6 @@
 #pragma once
 
-#include <memory>
-#include <algorithm>
-
-#include <MultiRegions/ExpList.h>
-
 #include "Field.hpp"
-#include "Operator.hpp"
 #include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
