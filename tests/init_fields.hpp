@@ -85,8 +85,9 @@ public:
 
         session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph        = SpatialDomains::MeshGraph::Read(session);
-        fixt_explist = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-            session, graph);
+        fixt_explist = MemoryManager<MultiRegions::ExpList>::
+            AllocateSharedPtr(session, graph, true, "DefaultVar",
+                              Collections::eNoCollection);
 
         // Generate a blocks definition from the expansion list for each state
         using vec_t = tinysimd::simd<double>;
