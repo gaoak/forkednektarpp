@@ -1,12 +1,12 @@
 #pragma once
 #include <boost/test/unit_test_log.hpp>
 #include <string>
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 #include "Field.hpp"
-#include <MultiRegions/ExpList.h>
 #include <MultiRegions/ContField.h>
+#include <MultiRegions/ExpList.h>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -31,7 +31,7 @@ using namespace Nektar;
 
 template <typename TData, FieldState stateIn = FieldState::Coeff,
           FieldState stateOut = FieldState::Phys,
-          typename TExpList = MultiRegions::ExpList>
+          typename TExpList   = MultiRegions::ExpList>
 class InitFields
 {
 public:
@@ -86,20 +86,22 @@ public:
         int argc     = 2;
         char *argv[] = {(char *)"exe_name", meshName.data()};
 
-        session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph        = SpatialDomains::MeshGraph::Read(session);
+        session = LibUtilities::SessionReader::CreateInstance(argc, argv);
+        graph   = SpatialDomains::MeshGraph::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
-           fixt_explist = MemoryManager<MultiRegions::ContField>::
-            AllocateSharedPtr(session, graph, "DefaultVar", true, false,
+            fixt_explist =
+                MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+                    session, graph, "DefaultVar", true, false,
                     Collections::eNoCollection);
         }
 
         if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
         {
-            fixt_explist = MemoryManager<MultiRegions::ExpList>::
-            AllocateSharedPtr(session, graph, true, "DefaultVar",
-                              Collections::eNoCollection);
+            fixt_explist =
+                MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
+                    session, graph, true, "DefaultVar",
+                    Collections::eNoCollection);
         }
 
         // Generate a blocks definition from the expansion list for each state

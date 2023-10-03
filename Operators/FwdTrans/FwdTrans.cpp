@@ -7,8 +7,5 @@ namespace Nektar::Operators::detail
 template <>
 std::string OperatorFwdTransImpl<double>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "FwdTrans",
-        OperatorFwdTransImpl<double>::instantiate, 
-        ""
-    );
-}
+        "FwdTrans", OperatorFwdTransImpl<double>::instantiate, "");
+} // namespace Nektar::Operators::detail

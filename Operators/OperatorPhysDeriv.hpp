@@ -8,13 +8,16 @@ namespace Nektar::Operators
 
 // PhysDeriv base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorPhysDeriv : public OperatorLinear<TData, FieldState::Phys, FieldState::Phys>
+template <typename TData>
+class OperatorPhysDeriv
+    : public OperatorLinear<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
     virtual ~OperatorPhysDeriv() = default;
 
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Phys, FieldState::Phys>(expansionList)
+        : OperatorLinear<TData, FieldState::Phys, FieldState::Phys>(
+              expansionList)
     {
     }
 

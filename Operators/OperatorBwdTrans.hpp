@@ -8,13 +8,16 @@ namespace Nektar::Operators
 
 // BwdTrans base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorBwdTrans : public OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>
+template <typename TData>
+class OperatorBwdTrans
+    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>
 {
 public:
     virtual ~OperatorBwdTrans() = default;
 
     OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>(expansionList)
+        : OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>(
+              expansionList)
     {
     }
 

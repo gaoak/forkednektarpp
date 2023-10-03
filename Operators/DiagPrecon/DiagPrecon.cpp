@@ -7,9 +7,6 @@ namespace Nektar::Operators::detail
 template <>
 std::string OperatorDiagPreconImpl<double>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "DiagPrecon",
-        OperatorDiagPreconImpl<double>::instantiate, 
-        ""
-    );
+        "DiagPrecon", OperatorDiagPreconImpl<double>::instantiate, "");
 
-}
+} // namespace Nektar::Operators::detail

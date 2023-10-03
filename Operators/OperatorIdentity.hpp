@@ -14,7 +14,8 @@ public:
     virtual ~OperatorIdentity() = default;
 
     OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, TFieldState, TFieldState>(std::move(expansionList))
+        : OperatorLinear<TData, TFieldState, TFieldState>(
+              std::move(expansionList))
     {
     }
 

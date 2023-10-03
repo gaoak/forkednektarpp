@@ -8,13 +8,16 @@ namespace Nektar::Operators
 
 // Mass base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorMass : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+template <typename TData>
+class OperatorMass
+    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
     virtual ~OperatorMass() = default;
 
     OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(expansionList)
+        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
+              expansionList)
     {
     }
 

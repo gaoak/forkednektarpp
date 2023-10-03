@@ -15,13 +15,13 @@ public:
     OperatorMatrixImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorMatrix<TData, TFieldState>(std::move(expansionList))
     {
-        // get size of the matrix from the blocks given by state and expansionlist
+        // get size of the matrix from the blocks given by state and
+        // expansionlist
         auto blocks = GetBlockAttributes(TFieldState, expansionList);
-        m_size = std::accumulate(
-            blocks.begin(), blocks.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
-        
+        m_size      = std::accumulate(blocks.begin(), blocks.end(), 0,
+                                 [](size_t acc, const BlockAttributes &block)
+                                 { return acc + block.block_size; });
+
         // create memory for square matrix of given size
         m_matrix = std::vector<TData>(m_size * m_size);
     }
@@ -33,7 +33,7 @@ public:
 
     void fill(const TData *src)
     {
-        std::copy(src, src + (m_size * m_size), m_matrix.begin()); 
+        std::copy(src, src + (m_size * m_size), m_matrix.begin());
     }
 
     std::string toString()
@@ -55,8 +55,8 @@ public:
 
     void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
     {
-        auto *pIn = in.GetStorage().GetCPUPtr();
-        auto *pOut = out.GetStorage().GetCPUPtr();
+        auto *pIn    = in.GetStorage().GetCPUPtr();
+        auto *pOut   = out.GetStorage().GetCPUPtr();
         auto pMatrix = m_matrix.cbegin();
 
         for (size_t i = 0; i < m_size; ++i)
@@ -87,7 +87,6 @@ public:
 protected:
     size_t m_size;
     std::vector<TData> m_matrix;
-
 };
 
-}
+} // namespace Nektar::Operators::detail

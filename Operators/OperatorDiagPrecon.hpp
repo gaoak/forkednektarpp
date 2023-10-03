@@ -14,12 +14,11 @@ public:
         : OperatorPrecon<TData>(std::move(expansionList))
     {
     }
-
 };
 
-// Descriptor / traits class for DiagPrecon to be used by Operator create function
-template <typename TData>
-struct DiagPrecon
+// Descriptor / traits class for DiagPrecon to be used by Operator create
+// function
+template <typename TData> struct DiagPrecon
 {
     using class_name = OperatorDiagPrecon<TData>;
     static const std::string key;
@@ -31,15 +30,15 @@ struct DiagPrecon
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<DiagPrecon<TData>>(expansionList, pKey);
+        return Operator<TData>::template create<DiagPrecon<TData>>(
+            expansionList, pKey);
     }
 };
 
 namespace detail
 {
-    // declare class for implementation of DiagPrecon operator
-    template <typename TData> 
-    class OperatorDiagPreconImpl;
-}
+// declare class for implementation of DiagPrecon operator
+template <typename TData> class OperatorDiagPreconImpl;
+} // namespace detail
 
-}
+} // namespace Nektar::Operators

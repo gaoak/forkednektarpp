@@ -8,15 +8,11 @@ template <>
 std::string OperatorMatrixImpl<double, FieldState::Coeff>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "MatrixCoeff",
-        OperatorMatrixImpl<double, FieldState::Coeff>::instantiate, 
-        ""
-    );
+        OperatorMatrixImpl<double, FieldState::Coeff>::instantiate, "");
 
 template <>
 std::string OperatorMatrixImpl<double, FieldState::Phys>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "MatrixPhys",
-        OperatorMatrixImpl<double, FieldState::Phys>::instantiate, 
-        ""
-    );
-}
+        "MatrixPhys", OperatorMatrixImpl<double, FieldState::Phys>::instantiate,
+        "");
+} // namespace Nektar::Operators::detail

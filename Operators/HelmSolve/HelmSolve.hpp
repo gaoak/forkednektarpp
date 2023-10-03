@@ -2,13 +2,13 @@
 
 #include "Operators/OperatorHelmSolve.hpp"
 
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "Operators/OperatorDirBndCond.hpp"
-#include "Operators/OperatorNeuBndCond.hpp"
 #include "Operators/OperatorConjGrad.hpp"
-#include "Operators/OperatorLinear.hpp"
-#include "Operators/OperatorPrecon.hpp"
+#include "Operators/OperatorDirBndCond.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorLinear.hpp"
+#include "Operators/OperatorNeuBndCond.hpp"
+#include "Operators/OperatorPrecon.hpp"
 
 using namespace Nektar;
 using namespace Nektar::Operators;
@@ -23,17 +23,19 @@ class OperatorHelmSolveImpl : public OperatorHelmSolve<TData>
 public:
     OperatorHelmSolveImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmSolve<TData>(std::move(expansionList)),
-        m_rhs(Field<TData, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, expansionList)))
+          m_rhs(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList)))
     {
-        m_IProdOp   = IProductWRTBase<TData>::create(this->m_expansionList);
-        m_DirBCOp   = DirBndCond<TData>::create(this->m_expansionList);
-        m_NeuBCOp   = NeuBndCond<TData>::create(this->m_expansionList);
-        m_CGOp      = ConjGrad<TData>::create(this->m_expansionList);
-        m_HelmOp    = Helmholtz<TData>::create(this->m_expansionList);
+        m_IProdOp = IProductWRTBase<TData>::create(this->m_expansionList);
+        m_DirBCOp = DirBndCond<TData>::create(this->m_expansionList);
+        m_NeuBCOp = NeuBndCond<TData>::create(this->m_expansionList);
+        m_CGOp    = ConjGrad<TData>::create(this->m_expansionList);
+        m_HelmOp  = Helmholtz<TData>::create(this->m_expansionList);
         m_CGOp->setLHS(m_HelmOp);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out) override
+    void apply(Field<TData, FieldState::Phys> &in,
+               Field<TData, FieldState::Coeff> &out) override
     {
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
@@ -50,8 +52,8 @@ public:
 
     void setLambda(const TData &lambda)
     {
-        // ** CURRENTLY HELMHOLTZ OPERATOR DOESN'T TAKE LAMBDA !! 
-        //m_HelmOp->setLambda(lambda);
+        // ** CURRENTLY HELMHOLTZ OPERATOR DOESN'T TAKE LAMBDA !!
+        // m_HelmOp->setLambda(lambda);
     }
 
     void setPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon)
@@ -65,8 +67,7 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorHelmSolveImpl<TData>>(
-            expansionList);
+        return std::make_unique<OperatorHelmSolveImpl<TData>>(expansionList);
     }
 
     // className - for OperatorFactory
@@ -81,4 +82,4 @@ protected:
     Field<TData, FieldState::Coeff> m_rhs;
 };
 
-}
+} // namespace Nektar::Operators::detail

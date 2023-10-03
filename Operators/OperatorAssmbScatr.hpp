@@ -8,21 +8,21 @@ using namespace Nektar;
 namespace Nektar::Operators
 {
 
-template <typename TData>
-class OperatorAssmbScatr : public Operator<TData>
+template <typename TData> class OperatorAssmbScatr : public Operator<TData>
 {
 public:
     OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
-    {   
+    {
     }
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in, Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void apply(Field<TData, FieldState::Coeff> &in,
+                       Field<TData, FieldState::Coeff> &out) = 0;
 };
 
-// Descriptor / traits class for Assembly+scatter to be used by Operator create function
-template <typename TData>
-struct AssmbScatr
+// Descriptor / traits class for Assembly+scatter to be used by Operator create
+// function
+template <typename TData> struct AssmbScatr
 {
     using class_name = OperatorAssmbScatr<TData>;
     static const std::string key;
@@ -34,15 +34,15 @@ struct AssmbScatr
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<AssmbScatr<TData>>(expansionList, pKey);
+        return Operator<TData>::template create<AssmbScatr<TData>>(
+            expansionList, pKey);
     }
 };
 
 namespace detail
 {
-    // declare class for implementation of assembly+scatter operator
-    template <typename TData> 
-    class OperatorAssmbScatrImpl;
-}
+// declare class for implementation of assembly+scatter operator
+template <typename TData> class OperatorAssmbScatrImpl;
+} // namespace detail
 
-}
+} // namespace Nektar::Operators

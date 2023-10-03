@@ -8,25 +8,27 @@ namespace Nektar::Operators
 {
 
 // Matrix operator base class
-template <typename TData>
-class OperatorHelmSolve : public Operator<TData>
+template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
 
 public:
-    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList) : Operator<TData>(expansionList)
-    {    
+    OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
+        : Operator<TData>(expansionList)
+    {
     }
 
-    virtual void apply(Field<TData, FieldState::Phys> &in, Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void apply(Field<TData, FieldState::Phys> &in,
+                       Field<TData, FieldState::Coeff> &out) = 0;
 
     virtual void setLambda(const TData &lambda) = 0;
 
-    virtual void setPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
+    virtual void setPrecon(
+        const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
 };
 
-// Descriptor / traits class for HelmSolve to be used by Operator create function
-template <typename TData>
-struct HelmSolve
+// Descriptor / traits class for HelmSolve to be used by Operator create
+// function
+template <typename TData> struct HelmSolve
 {
     using class_name = OperatorHelmSolve<TData>;
     static const std::string key;
@@ -38,15 +40,15 @@ struct HelmSolve
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<HelmSolve<TData>>(expansionList, pKey);
+        return Operator<TData>::template create<HelmSolve<TData>>(expansionList,
+                                                                  pKey);
     }
 };
 
 namespace detail
 {
-    // declare class for implementation of HelmSolve operator
-    template <typename TData> 
-    class OperatorHelmSolveImpl;
-}
+// declare class for implementation of HelmSolve operator
+template <typename TData> class OperatorHelmSolveImpl;
+} // namespace detail
 
-}
+} // namespace Nektar::Operators

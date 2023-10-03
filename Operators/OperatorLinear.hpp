@@ -18,10 +18,11 @@ public:
 
     OperatorLinear(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
-    {    
+    {
     }
 
-    virtual void apply(Field<TData, TFieldIn> &in, Field<TData, TFieldOut> &out) = 0;
+    virtual void apply(Field<TData, TFieldIn> &in,
+                       Field<TData, TFieldOut> &out) = 0;
 };
 
-}
+} // namespace Nektar::Operators
