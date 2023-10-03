@@ -67,7 +67,8 @@ BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(ipwrtderivbasecuda_square_all_elements,
+                        SquareAllElements)
 {
     Configure(2, 1);
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());

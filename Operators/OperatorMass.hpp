@@ -6,14 +6,14 @@
 namespace Nektar::Operators
 {
 
-// Helmholtz base class
+// Mass base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorHelmholtz : public Operator<TData>
+template <typename TData> class OperatorMass : public Operator<TData>
 {
 public:
-    virtual ~OperatorHelmholtz() = default;
+    virtual ~OperatorMass() = default;
 
-    OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
@@ -34,10 +34,10 @@ public:
     TData m_lambda = 1.0;
 };
 
-// Descriptor / traits class for Helmholtz
-template <typename TData = default_fp_type> struct Helmholtz
+// Descriptor / traits class for Mass
+template <typename TData = default_fp_type> struct Mass
 {
-    using class_name = OperatorHelmholtz<TData>;
+    using class_name = OperatorMass<TData>;
     using FieldIn    = Field<TData, FieldState::Coeff>;
     using FieldOut   = Field<TData, FieldState::Coeff>;
     static const std::string key;
@@ -47,14 +47,14 @@ template <typename TData = default_fp_type> struct Helmholtz
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Helmholtz>(expansionList, pKey);
+        return Operator<TData>::template create<Mass>(expansionList, pKey);
     }
 };
 
 namespace detail
 {
-// Template for Helmholtz implementations
-template <typename TData, typename Op> class OperatorHelmholtzImpl;
+// Template for Mass implementations
+template <typename TData, typename Op> class OperatorMassImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators
