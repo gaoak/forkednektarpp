@@ -42,6 +42,15 @@ target_include_directories(test_ipwrtbase PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_ipwrtbase PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_ipwrtbase_matfree test_ipwrtbase_matfree.cpp)
+target_link_libraries(test_ipwrtbase_matfree PRIVATE Operators)
+target_link_libraries(test_ipwrtbase_matfree PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_ipwrtbase_matfree PRIVATE Boost::unit_test_framework)
+target_include_directories(test_ipwrtbase_matfree PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_ipwrtbase_matfree PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_ipwrtbase_matfree PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 IF (NEKTAR_USE_CUDA)
     add_executable(test_ipwrtbasecuda test_ipwrtbasecuda.cpp)
     target_link_libraries(test_ipwrtbasecuda PRIVATE Operators)
@@ -60,6 +69,15 @@ target_link_libraries(test_physderiv PRIVATE Boost::unit_test_framework)
 target_include_directories(test_physderiv PRIVATE "${CMAKE_SOURCE_DIR}")
 target_include_directories(test_physderiv PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_physderiv PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+add_executable(test_physderiv_matfree test_physderiv_matfree.cpp)
+target_link_libraries(test_physderiv_matfree PRIVATE Operators)
+target_link_libraries(test_physderiv_matfree PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_physderiv_matfree PRIVATE Boost::unit_test_framework)
+target_include_directories(test_physderiv_matfree PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_physderiv_matfree PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_physderiv_matfree PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
 IF (NEKTAR_USE_CUDA)
@@ -119,6 +137,12 @@ add_test(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
+add_test(
+  NAME IProductWRTBaseMatFree
+  COMMAND test_ipwrtbase_matfree
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
 IF (NEKTAR_USE_CUDA)
     add_test(
       NAME IProductWRTBaseCUDA
@@ -130,6 +154,12 @@ ENDIF()
 add_test(
   NAME PhysDeriv
   COMMAND test_physderiv
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME PhysDerivMatFree
+  COMMAND test_physderiv_matfree
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
