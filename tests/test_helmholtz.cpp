@@ -1,22 +1,27 @@
-#define BOOST_TEST_MODULE TestPhysDeriv
+#define BOOST_TEST_MODULE TestHelmholtz
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorPhysDeriv.hpp"
-#include "init_physderivfields.hpp"
+#include "Operators/OperatorHelmholtz.hpp"
+#include "init_helmholtzfields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
+BOOST_AUTO_TEST_SUITE(TestHelmholtz)
 
-BOOST_FIXTURE_TEST_CASE(physderiv_seg, Seg)
+using namespace std;
+using namespace Nektar::Operators;
+using namespace Nektar::LibUtilities;
+using namespace Nektar;
+
+BOOST_FIXTURE_TEST_CASE(helmholtz_seg, Seg)
 {
-    Configure(1, 1);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -25,13 +30,13 @@ BOOST_FIXTURE_TEST_CASE(physderiv_seg, Seg)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_quad, Quad)
+BOOST_FIXTURE_TEST_CASE(helmholtz_quad, Quad)
 {
-    Configure(1, 2);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -40,13 +45,13 @@ BOOST_FIXTURE_TEST_CASE(physderiv_quad, Quad)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(helmholtz_tri, Tri)
 {
-    Configure(1, 2);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -55,13 +60,13 @@ BOOST_FIXTURE_TEST_CASE(physderiv_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(helmholtz_square_all_elements, SquareAllElements)
 {
-    Configure(1, 2);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -70,14 +75,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_square_all_elements, SquareAllElements)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_hex, Hex)
+BOOST_FIXTURE_TEST_CASE(helmholtz_hex, Hex)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
@@ -85,14 +90,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_hex, Hex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(helmholtz_prism, Prism)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
@@ -100,14 +105,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_prism, Prism)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_pyr, Pyr)
+BOOST_FIXTURE_TEST_CASE(helmholtz_pyr, Pyr)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    NektarSolution(fixt_expected->GetBlocks(),
-                   fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
@@ -115,14 +120,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_pyr, Pyr)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_tet, Tet)
+BOOST_FIXTURE_TEST_CASE(helmholtz_tet, Tet)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
@@ -130,14 +135,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_tet, Tet)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_cube_prism_hex, CubePrismHex)
+BOOST_FIXTURE_TEST_CASE(helmholtz_cube_prism_hex, CubePrismHex)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
@@ -145,14 +150,14 @@ BOOST_FIXTURE_TEST_CASE(physderiv_cube_prism_hex, CubePrismHex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(physderiv_cube_all_elements, CubeAllElements)
+BOOST_FIXTURE_TEST_CASE(helmholtz_cube_all_elements, CubeAllElements)
 {
-    Configure(1, 3);
+    Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
+    Helmholtz<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    PhysDeriv<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_out);
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),

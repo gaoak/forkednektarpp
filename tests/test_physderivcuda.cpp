@@ -8,6 +8,8 @@
 #include "Operators/OperatorPhysDeriv.hpp"
 #include "init_physderivfields.hpp"
 
+BOOST_AUTO_TEST_SUITE(TestPhysDerivCUDA)
+
 BOOST_FIXTURE_TEST_CASE(physderivcuda_seg, Seg)
 {
     Configure(1, 1);
@@ -187,3 +189,5 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_cube_all_elements, CubeAllElements)
                          fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
+
+BOOST_AUTO_TEST_SUITE_END()
