@@ -45,14 +45,16 @@ public:
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
                           double *inptr)
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetCoordim(0) * fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> inphys(fixt_explist->GetCoordim(0) *
+                                      fixt_explist->GetTotPoints());
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set test case
         SetTestCase(blocks, inphys.get(), false);
 
         // Calculate expected result from Nektar++
-        Array<OneD, Array<OneD, NekDouble>> inphysarray(fixt_explist->GetCoordim(0));
+        Array<OneD, Array<OneD, NekDouble>> inphysarray(
+            fixt_explist->GetCoordim(0));
         if (fixt_explist->GetCoordim(0) > 0)
         {
             inphysarray[0] = inphys;

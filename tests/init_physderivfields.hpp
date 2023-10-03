@@ -35,7 +35,7 @@ public:
                 for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M / 2 ; i++)
+                    for (size_t i = 0; i < M / 2; i++)
                     {
                         tmp += std::pow(x[pts], i);
                     }

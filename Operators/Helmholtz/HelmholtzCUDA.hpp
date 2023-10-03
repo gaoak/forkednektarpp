@@ -52,7 +52,7 @@ public:
         m_PhysDerivOp->apply(m_bwd, m_deriv);
 
         // Step 3: Inner product for mass matrix operation
-        m_IProductWRTBaseOp->apply(m_bwd, out, m_lambda);
+        m_IProductWRTBaseOp->apply(m_bwd, out, this->m_lambda);
 
         // Step 4: Multiply by diffusion coefficient
         DiffusionCoeff(m_deriv);
@@ -126,11 +126,6 @@ public:
             expansionList);
     }
 
-    void SetLambda(TData lambda)
-    {
-        m_lambda = lambda;
-    }
-
     static std::string className;
 
 private:
@@ -141,7 +136,6 @@ private:
         m_IProductWRTDerivBaseOp;
     Field<TData, FieldState::Phys> m_bwd;
     Field<TData, FieldState::Phys> m_deriv;
-    TData m_lambda = 1.0;
     TData *m_diffCoeff;
     size_t m_blockSize = 32;
     size_t m_gridSize;

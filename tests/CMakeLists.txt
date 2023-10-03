@@ -111,6 +111,24 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
+add_executable(test_mass test_mass.cpp)
+target_link_libraries(test_mass PRIVATE Operators)
+target_link_libraries(test_mass PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_mass PRIVATE Boost::unit_test_framework)
+target_include_directories(test_mass PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_mass PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_mass PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+add_executable(test_masscuda test_masscuda.cpp)
+target_link_libraries(test_masscuda PRIVATE Operators)
+target_link_libraries(test_masscuda PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_masscuda PRIVATE Boost::unit_test_framework)
+target_include_directories(test_masscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_masscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_masscuda PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_helmholtz test_helmholtz.cpp)
 target_link_libraries(test_helmholtz PRIVATE Operators)
 target_link_libraries(test_helmholtz PRIVATE ${NEKTAR++_LIBRARIES})
@@ -201,6 +219,20 @@ IF (NEKTAR_USE_CUDA)
     add_test(
       NAME IProductWRTDerivBaseCUDA
       COMMAND test_ipwrtderivbasecuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
+
+add_test(
+  NAME Mass
+  COMMAND test_mass
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME MassCUDA
+      COMMAND test_masscuda
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
 ENDIF()
