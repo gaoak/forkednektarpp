@@ -9,7 +9,8 @@ class HelmholtzField
     : public InitFields<double, FieldState::Coeff, FieldState::Coeff>
 {
 public:
-    HelmholtzField() : InitFields<double, FieldState::Coeff, FieldState::Coeff>()
+    HelmholtzField()
+        : InitFields<double, FieldState::Coeff, FieldState::Coeff>()
     {
     }
 
@@ -45,11 +46,12 @@ public:
         Array<OneD, NekDouble> bwdtrans(fixt_explist->GetTotPoints());
 
         Array<OneD, NekDouble> deriv(fixt_explist->GetCoordim(0) *
-                                       fixt_explist->GetTotPoints());
+                                     fixt_explist->GetTotPoints());
         Array<OneD, NekDouble> deriv0 = deriv;
         Array<OneD, NekDouble> deriv1 = deriv0 + fixt_explist->GetTotPoints();
         Array<OneD, NekDouble> deriv2 = deriv1 + fixt_explist->GetTotPoints();
-        Array<OneD, Array<OneD, NekDouble>> derivarray(fixt_explist->GetCoordim(0));
+        Array<OneD, Array<OneD, NekDouble>> derivarray(
+            fixt_explist->GetCoordim(0));
         if (fixt_explist->GetCoordim(0) > 0)
         {
             derivarray[0] = deriv0;

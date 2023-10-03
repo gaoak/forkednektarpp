@@ -15,6 +15,7 @@
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
@@ -764,6 +765,111 @@ int main(int argc, char *argv[])
             for (size_t el = 0; el < block.num_elements; ++el)
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
+
+    // Test Identity (CUDA) Implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "Identity (CUDA) test starts for Coeff space." << std::endl;
+
+        // Create two Fields with memory on the GPU.
+        auto inCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+        auto outCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // Assign input values from the CPU.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            inCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr++) = coeff + 1;
+                    std::cout << coeff + 1 << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // Perform the Identity on the fields using the CUDA implementation
+        // Since this is a CUDA operator, acting on CUDA fields, everything
+        // happens on the GPU.
+        Identity<double, FieldState::Coeff>::create(explist, "CUDA")->apply(inCoeff, outCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << " ";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+
+        std::cout << "Identity (CUDA) test starts for Phys space." << std::endl;
+
+        // Create two Fields with memory on the GPU.
+        auto inPhys =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
+        auto outPhys =
+            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+                blocks_phys);
+
+        // Assign input values from the CPU.
+        std::cout << "Initial shape: " << std::endl;
+        inptr =
+            inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : inPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    *(inptr++) = phys + 1;
+                    std::cout << phys + 1 << " ";
+                }
+            }
+        }
+        std::cout << std::endl << std::endl;
+
+        // Perform the Identity on the fields using the CUDA implementation
+        // Since this is a CUDA operator, acting on CUDA fields, everything
+        // happens on the GPU.
+        Identity<double, FieldState::Phys>::create(explist, "CUDA")->apply(inPhys, outPhys);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        outptr =
+            outPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : outPhys.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
                 {
                     std::cout << *(outptr++) << " ";
                 }

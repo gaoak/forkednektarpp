@@ -134,7 +134,7 @@ protected:
         {
             auto expPtr = this->m_expansionList->GetExp(e);
             auto &df    = expPtr->GetMetricInfo()->GetDerivFactors(
-                expPtr->GetPointsKeys());
+                   expPtr->GetPointsKeys());
             size_t nqTot = expPtr->GetTotPoints();
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)

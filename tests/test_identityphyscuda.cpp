@@ -1,31 +1,26 @@
-#define BOOST_TEST_MODULE TestHelmholtzCUDA
+#define BOOST_TEST_MODULE TestIdentityCUDA
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorHelmholtz.hpp"
-#include "init_helmholtzfields.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "init_identityphysfields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestHelmholtzCUDA)
+BOOST_AUTO_TEST_SUITE(TestIdentityCUDA)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_seg, Seg)
+BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -34,17 +29,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_seg, Seg)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_quad, Quad)
+BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -53,17 +48,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_quad, Quad)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -72,17 +67,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -91,17 +86,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_square_all_elements, SquareAllElements)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_hex, Hex)
+BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -110,17 +105,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_hex, Hex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -129,17 +124,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_prism, Prism)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_pyr, Pyr)
+BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -148,17 +143,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_pyr, Pyr)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_tet, Tet)
+BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -167,17 +162,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_tet, Tet)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_cube_prism_hex, CubePrismHex)
+BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
@@ -186,17 +181,17 @@ BOOST_FIXTURE_TEST_CASE(helmholtzcuda_cube_prism_hex, CubePrismHex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(helmholtzcuda_cube_all_elements, CubeAllElements)
+BOOST_FIXTURE_TEST_CASE(identitycuda_cube_all_elements, CubeAllElements)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Helmholtz<>::create(fixt_explist, "StdMat")
-        ->apply(*fixt_in, *fixt_expected);
-    Helmholtz<>::create(fixt_explist, "CUDA")
+    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {

@@ -111,6 +111,43 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
+add_executable(test_identitycoeff test_identitycoeff.cpp)
+target_link_libraries(test_identitycoeff PRIVATE Operators)
+target_link_libraries(test_identitycoeff PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_identitycoeff PRIVATE Boost::unit_test_framework)
+target_include_directories(test_identitycoeff PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_identitycoeff PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_identitycoeff PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+add_executable(test_identityphys test_identityphys.cpp)
+target_link_libraries(test_identityphys PRIVATE Operators)
+target_link_libraries(test_identityphys PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_identityphys PRIVATE Boost::unit_test_framework)
+target_include_directories(test_identityphys PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_identityphys PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_identityphys PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_identitycoeffcuda test_identitycoeffcuda.cpp)
+    target_link_libraries(test_identitycoeffcuda PRIVATE Operators)
+    target_link_libraries(test_identitycoeffcuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_identitycoeffcuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_identitycoeffcuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_identitycoeffcuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_identitycoeffcuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+    add_executable(test_identityphyscuda test_identityphyscuda.cpp)
+    target_link_libraries(test_identityphyscuda PRIVATE Operators)
+    target_link_libraries(test_identityphyscuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_identityphyscuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_identityphyscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_identityphyscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_identityphyscuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_mass test_mass.cpp)
 target_link_libraries(test_mass PRIVATE Operators)
 target_link_libraries(test_mass PRIVATE ${NEKTAR++_LIBRARIES})
@@ -219,6 +256,32 @@ IF (NEKTAR_USE_CUDA)
     add_test(
       NAME IProductWRTDerivBaseCUDA
       COMMAND test_ipwrtderivbasecuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
+
+add_test(
+  NAME IdentityCoeff
+  COMMAND test_identitycoeff
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME IdentityPhys
+  COMMAND test_identityphys
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME IdentityCoeffCUDA
+      COMMAND test_identitycoeffcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+
+    add_test(
+      NAME IdentityPhysCUDA
+      COMMAND test_identityphyscuda
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
 ENDIF()

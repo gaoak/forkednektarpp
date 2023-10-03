@@ -33,8 +33,10 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp 
     Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp 
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp 
+    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
     Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
     Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp)
+
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
     MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
 endif()
@@ -49,7 +51,8 @@ if (NEKTAR_USE_CUDA)
     set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu 
                    Operators/IProductWRTBase/IProductWRTBaseCUDA.cu 
                    Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu 
-                   Operators/PhysDeriv/PhysDerivCUDA.cu 
+                   Operators/PhysDeriv/PhysDerivCUDA.cu
+		   Operators/Identity/IdentityCUDA.cu 
                    Operators/Mass/MassCUDA.cu 
                    Operators/Helmholtz/HelmholtzCUDA.cu)
 endif()
