@@ -6,7 +6,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData, FieldState TFieldState>
-class OperatorIdentityImpl : public OperatorIdentity<TData, TFieldState>
+class OperatorIdentityImpl<TData, TFieldState, ImplStdMat>
+    : public OperatorIdentity<TData, TFieldState>
 {
 public:
     OperatorIdentityImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -16,19 +17,22 @@ public:
 
     void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
     {
-        size_t N = in.GetStorage().size();
-        auto pIn = in.GetStorage().GetCPUPtr();
+        size_t N  = in.GetStorage().size();
+        auto pIn  = in.GetStorage().GetCPUPtr();
         auto pOut = out.GetStorage().GetCPUPtr();
-        
+
         for (size_t i = 0; i < N; ++i)
+        {
             *(pOut++) = *(pIn++);
+        }
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorIdentityImpl<TData, TFieldState>>(
+        return std::make_unique<
+            OperatorIdentityImpl<TData, TFieldState, ImplStdMat>>(
             expansionList);
     }
 
@@ -36,4 +40,4 @@ public:
     static std::string className;
 };
 
-}
+} // namespace Nektar::Operators::detail

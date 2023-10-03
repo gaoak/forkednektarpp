@@ -1,3 +1,4 @@
+#include "IProductWRTBaseMatFree.hpp"
 #include "IProductWRTBaseStdMat.hpp"
 
 namespace Nektar::Operators::detail
@@ -9,5 +10,11 @@ std::string OperatorIProductWRTBaseImpl<double, ImplStdMat>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "IProductWRTBaseStdMat",
         OperatorIProductWRTBaseImpl<double, ImplStdMat>::instantiate, "...");
+
+template <>
+std::string OperatorIProductWRTBaseImpl<double, ImplMatFree>::className =
+    GetOperatorFactory<double>().RegisterCreatorFunction(
+        "IProductWRTBaseMatFree",
+        OperatorIProductWRTBaseImpl<double, ImplMatFree>::instantiate, "...");
 
 } // namespace Nektar::Operators::detail

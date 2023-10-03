@@ -103,9 +103,7 @@ public:
         cudaFree(m_derivFac);
     }
 
-    void apply(Field<TData, FieldState::Phys> &in0,
-               Field<TData, FieldState::Phys> &in1,
-               Field<TData, FieldState::Phys> &in2,
+    void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
@@ -125,12 +123,11 @@ public:
         }
 
         // Copy memory to GPU, if necessary and get raw pointers.
-        std::vector<TData *> inptr{
-            in0.template GetStorage<MemoryRegionCUDA>().GetGPUPtr(),
-            in1.template GetStorage<MemoryRegionCUDA>().GetGPUPtr(),
-            in2.template GetStorage<MemoryRegionCUDA>().GetGPUPtr()};
+        auto *inptr0 = in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *inptr1 = inptr0 + in.GetFieldSize();
+        auto *inptr2 = inptr1 + in.GetFieldSize();
+        std::vector<TData *> inptr{inptr0, inptr1, inptr2};
         auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-
         std::vector<TData *> wspptr{m_wsp0, m_wsp1, m_wsp2};
         auto jacptr = m_jac;
         auto dfptr  = m_derivFac;

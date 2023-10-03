@@ -8,7 +8,7 @@ namespace Nektar::Operators
 
 // IProductWRTBase base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorIProductWRTBase : public Operator<TData>
+template <typename TData> class OperatorIProductWRTBase :  public OperatorLinear<TData, FieldState::Phys, FieldState::Coeff>
 {
 public:
     virtual ~OperatorIProductWRTBase() = default;

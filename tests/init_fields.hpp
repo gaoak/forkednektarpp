@@ -5,8 +5,6 @@
 
 #include "Field.hpp"
 #include <MultiRegions/ExpList.h>
-#include <Operators/OperatorBwdTrans.hpp>
-#include <Operators/OperatorIProductWRTBase.hpp>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -73,7 +71,7 @@ public:
 
     InitFields() = default;
 
-    void Configure()
+    void Configure(size_t nin = 1, size_t nout = 1)
     {
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and create an expansion list
@@ -88,29 +86,60 @@ public:
 
         session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph        = SpatialDomains::MeshGraph::Read(session);
-        fixt_explist = MemoryManager<TExpList>::AllocateSharedPtr(
-            session, graph);
+        fixt_explist = MemoryManager<MultiRegions::ExpList>::
+            AllocateSharedPtr(session, graph, true, "DefaultVar",
+                              Collections::eNoCollection);
 
         // Generate a blocks definition from the expansion list for each state
-        auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist);
-        auto blocks_out = GetBlockAttributes(stateOut, fixt_explist);
+        using vec_t = tinysimd::simd<double>;
+
+        auto blocks_in =
+            GetBlockAttributes(stateIn, fixt_explist, vec_t::width);
+        auto blocks_out =
+            GetBlockAttributes(stateOut, fixt_explist, vec_t::width);
 
         // Create two Field objects with a MemoryRegionCPU backend by default
-        auto f_in       = Field<TData, stateIn>::create(blocks_in);
-        auto f_out      = Field<TData, stateOut>::create(blocks_out);
-        auto f_expected = Field<TData, stateOut>::create(blocks_out);
-        fixt_in         = new Field<TData, stateIn>(std::move(f_in));
-        fixt_out        = new Field<TData, stateOut>(std::move(f_out));
-        fixt_expected   = new Field<TData, stateOut>(std::move(f_expected));
+        auto f_in =
+            Field<TData, stateIn>::create(blocks_in, nin, vec_t::alignment);
+        auto f_out =
+            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
+        auto f_expected =
+            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
+        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
 #ifdef NEKTAR_USE_CUDA
         auto fcuda_in =
-            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in);
+            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in,
+                                                                     nin);
         auto fcuda_out =
             Field<TData, stateOut>::template create<MemoryRegionCUDA>(
-                blocks_out);
+                blocks_out, nout);
         fixtcuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
         fixtcuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
 #endif
+    }
+
+    void OutputIfNotMatch(double *outptr, double *expptr, double tol)
+    {
+        printf(
+            "#elm #pts output               expected            difference\n");
+        for (auto const &block : fixt_out->GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    if (fabs(*outptr - *expptr) > tol)
+                    {
+                        printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el,
+                               phys, *outptr, *expptr, fabs(*outptr - *expptr));
+                    }
+                    expptr++;
+                    outptr++;
+                }
+            }
+        }
     }
 
 protected:

@@ -5,7 +5,8 @@ using namespace Nektar;
 using namespace LibUtilities;
 
 std::vector<BlockAttributes> GetBlockAttributes(
-    FieldState state, const MultiRegions::ExpListSharedPtr explist)
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    size_t VectorWidth)
 {
     std::vector<BlockAttributes> blockAttr;
 
@@ -14,10 +15,21 @@ std::vector<BlockAttributes> GetBlockAttributes(
     std::vector<BasisKey> thisbasisKeys(3, NullBasisKey);
     int prevIsDeformed = -1, thisIsDeformed = -1;
 
-    // loop over elements
-    for (int i = 0; i < explist->GetNumElmts(); i++)
+    // initialize the first block using the first element
+    auto expPtr = explist->GetExp(0);
+    for (int d = 0; d < expPtr->GetNumBases(); d++)
     {
-        auto expPtr = explist->GetExp(i);
+        prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+    }
+    prevIsDeformed = expPtr->GetMetricInfo()->GetGtype();
+    size_t num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
+                                               : expPtr->GetNcoeffs();
+    blockAttr.push_back({1, num_pts});
+
+    // loop over elements
+    for (int i = 1; i < explist->GetNumElmts(); i++)
+    {
+        expPtr = explist->GetExp(i);
 
         // fetch basiskeys of current element
         for (int d = 0; d < expPtr->GetNumBases(); d++)
@@ -36,12 +48,40 @@ std::vector<BlockAttributes> GetBlockAttributes(
         }
         else // if not, create a new block with the number of elements = 1
         {
-            size_t num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
-                                                       : expPtr->GetNcoeffs();
+            // compute the padding elements before creating a new block
+            if (blockAttr.back().num_elements % VectorWidth == 0)
+            {
+                blockAttr.back().num_padding_elements = 0;
+            }
+            else
+            {
+                blockAttr.back().num_padding_elements =
+                    VectorWidth - blockAttr.back().num_elements % VectorWidth;
+                blockAttr.back().block_size +=
+                    blockAttr.back().num_padding_elements *
+                    blockAttr.back().num_pts;
+            }
+            // update num_pts for a new block
+            num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
+                                                : expPtr->GetNcoeffs();
             blockAttr.push_back({1, num_pts});
             prevbasisKeys  = thisbasisKeys;
             prevIsDeformed = thisIsDeformed;
         }
+    }
+
+    // update the padding elements for the last block
+    // compute the padding elements
+    if (blockAttr.back().num_elements % VectorWidth == 0)
+    {
+        blockAttr.back().num_padding_elements = 0;
+    }
+    else
+    {
+        blockAttr.back().num_padding_elements =
+            VectorWidth - blockAttr.back().num_elements % VectorWidth;
+        blockAttr.back().block_size +=
+            blockAttr.back().num_padding_elements * blockAttr.back().num_pts;
     }
 
     return blockAttr;

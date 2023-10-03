@@ -1,52 +1,60 @@
 #pragma once
 
-#include <memory>
-#include <algorithm>
-
-#include <MultiRegions/ExpList.h>
-
 #include "Field.hpp"
-#include "Operator.hpp"
 #include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
 {
 
-template <typename TData>
-class OperatorMass : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+// Mass base class
+// Defines the apply operator to enforce apply parameter types
+template <typename TData> class OperatorMass : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
+    virtual ~OperatorMass() = default;
+
     OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(expansionList)
     {
     }
 
-    virtual ~OperatorMass() = default;
+    virtual void apply(Field<TData, FieldState::Coeff> &in,
+                       Field<TData, FieldState::Coeff> &out) = 0;
+    virtual void operator()(Field<TData, FieldState::Coeff> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        apply(in, out);
+    }
+
+    void SetLambda(TData lambda)
+    {
+        m_lambda = lambda;
+    }
+
+    TData m_lambda = 1.0;
 };
 
-// Descriptor / traits class for Mass to be used by Operator create function
-template <typename TData>
-struct Mass
+// Descriptor / traits class for Mass
+template <typename TData = default_fp_type> struct Mass
 {
     using class_name = OperatorMass<TData>;
+    using FieldIn    = Field<TData, FieldState::Coeff>;
+    using FieldOut   = Field<TData, FieldState::Coeff>;
     static const std::string key;
     static const std::string default_impl;
-
-    Mass() = delete;
 
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Mass<TData>>(expansionList, pKey);
+        return Operator<TData>::template create<Mass>(expansionList, pKey);
     }
 };
 
 namespace detail
 {
-    // declare class for implementation of Mass matrix operator
-    template <typename TData> 
-    class OperatorMassImpl;
-}
+// Template for Mass implementations
+template <typename TData, typename Op> class OperatorMassImpl;
+} // namespace detail
 
-}
+} // namespace Nektar::Operators

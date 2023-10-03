@@ -58,15 +58,14 @@ public:
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out0,
-               Field<TData, FieldState::Phys> &out1,
-               Field<TData, FieldState::Phys> &out2) override
+               Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
         auto const *inptr = in.GetStorage().GetCPUPtr();
-        std::vector<TData *> outptr{out0.GetStorage().GetCPUPtr(),
-                                    out1.GetStorage().GetCPUPtr(),
-                                    out2.GetStorage().GetCPUPtr()};
+        auto *outptr0     = out.GetStorage().GetCPUPtr();
+        auto *outptr1     = outptr0 + out.GetFieldSize();
+        auto *outptr2     = outptr1 + out.GetFieldSize();
+        std::vector<TData *> outptr{outptr0, outptr1, outptr2};
 
         // Initialize index.
         size_t expIdx  = 0;
@@ -82,6 +81,7 @@ public:
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(expIdx);
             auto nElmts       = in.GetBlocks()[block_idx].num_elements;
+            auto nPadElmts    = in.GetBlocks()[block_idx].num_padding_elements;
             auto nDim         = expPtr->GetShapeDimension();
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
@@ -121,7 +121,7 @@ public:
                                      1, deriv[d].get(), 1, outptr[i], 1,
                                      outptr[i], 1);
                     }
-                    outptr[i] += nqTot * nElmts;
+                    outptr[i] += (nPadElmts + nElmts) * nqTot;
                 }
                 dfindex += nqTot * nElmts;
             }
@@ -143,10 +143,12 @@ public:
                         }
                         outptr[i] += nqTot;
                     }
+                    // skip padding elements
+                    outptr[i] += nPadElmts * nqTot;
                 }
                 dfindex += nElmts;
             }
-            inptr += nqTot * nElmts;
+            inptr += (nPadElmts + nElmts) * nqTot;
             expIdx += nElmts;
         }
     }

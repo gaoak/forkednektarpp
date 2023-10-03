@@ -71,20 +71,15 @@ public:
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Phys> &out0,
-               Field<TData, FieldState::Phys> &out1,
-               Field<TData, FieldState::Phys> &out2) override
+               Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
         auto const *inptr =
             in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto *outptr0 =
-            out0.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto *outptr1 =
-            out1.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto *outptr2 =
-            out2.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto dfptr = m_derivFac;
+        auto *outptr0 = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *outptr1 = outptr0 + out.GetFieldSize();
+        auto *outptr2 = outptr1 + out.GetFieldSize();
+        auto dfptr    = m_derivFac;
 
         // Initialize index.
         size_t expIdx = 0;
@@ -99,6 +94,7 @@ public:
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(expIdx);
             auto nElmts       = in.GetBlocks()[block_idx].num_elements;
+            auto nPadElmts    = in.GetBlocks()[block_idx].num_padding_elements;
             auto nqTot        = expPtr->GetTotPoints();
             auto nCoord       = expPtr->GetCoordim();
             auto shape        = expPtr->DetShapeType();
@@ -185,10 +181,10 @@ public:
 
             // Increment pointer and index for next element type.
             dfptr += deformed ? nqTot * nElmts : nElmts;
-            outptr0 += nqTot * nElmts;
-            outptr1 += nqTot * nElmts;
-            outptr2 += nqTot * nElmts;
-            inptr += nqTot * nElmts;
+            outptr0 += (nPadElmts + nElmts) * nqTot;
+            outptr1 += (nPadElmts + nElmts) * nqTot;
+            outptr2 += (nPadElmts + nElmts) * nqTot;
+            inptr += (nPadElmts + nElmts) * nqTot;
             expIdx += nElmts;
         }
     }

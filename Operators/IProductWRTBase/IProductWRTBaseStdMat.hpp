@@ -69,8 +69,8 @@ public:
                         matPtr->GetRows(), wsp.get(), nqTot, 0.0, outptr,
                         nmTot);
 
-            inptr += nqTot * nElmts;
-            outptr += nmTot * nElmts;
+            inptr += in.GetBlocks()[block_idx].block_size;
+            outptr += out.GetBlocks()[block_idx].block_size;
             expIdx += nElmts;
         }
     }

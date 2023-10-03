@@ -12,7 +12,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Debug)
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 86)
+    set(CMAKE_CUDA_ARCHITECTURES 75 80 86)
+    # CMake 3.24
+    # set(CMAKE_CUDA_ARCHITECTURES native)
 endif()
 
 # Default install location: build/dist
@@ -30,8 +32,8 @@ set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 set(SRC Field.cpp Operators/Operator.cpp 
     Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp 
     Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
-    Operators/OperatorMass.cpp Operators/Mass/Mass.cpp
-    Operators/OperatorIdentity.cpp Operators/Identity/Identity.cpp
+    Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
+    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
     Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGrad.cpp
     Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTrans.cpp
     Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
@@ -52,13 +54,78 @@ endif()
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu Operators/IProductWRTBase/IProductWRTBaseCUDA.cu Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu Operators/PhysDeriv/PhysDerivCUDA.cu Operators/Helmholtz/HelmholtzCUDA.cu)
+    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu 
+                   Operators/IProductWRTBase/IProductWRTBaseCUDA.cu 
+                   Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu 
+                   Operators/PhysDeriv/PhysDerivCUDA.cu
+		   Operators/Identity/IdentityCUDA.cu 
+                   Operators/Mass/MassCUDA.cu 
+                   Operators/Helmholtz/HelmholtzCUDA.cu)
 endif()
 
 if (NEKTAR_USE_SIMD)
     add_compile_definitions(NEKTAR_ENABLE_SIMD_AVX512 NEKTAR_ENABLE_SIMD_AVX2 NEKTAR_ENABLE_SIMD_SSE2)
     add_compile_options("-march=native")
 endif()
+
+SET(OPERATORS_HEADERS
+    Operators/Operators.hpp
+)
+
+# # Boilerplate cpp implementation files for registering an operator
+# # with the factory. There are individual files for each operator shape
+# # so to reduce compile time timeout failures due to the large number
+# # of template impementations.
+
+# SET(OPERATORS BwdTrans)
+# SET(SHAPES Seg Tri Quad Hex Tet Prism Pyr )
+# SET(DIMENSIONS 1 2 2 3 3 3 3 )
+
+# # Note the commented out code is future simpler code for when cmake 3.17 can
+# # be used on the tester.
+
+# foreach(OPERATOR IN LISTS OPERATORS)
+# #  if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
+# #    Remove the code in this part of the conditional once CMake 3.17
+# #    can be used on the CI tester.
+#      foreach(SHAPE IN LISTS SHAPES)
+#         IF( "${SHAPE}" STREQUAL "Seg" )
+# 	    SET(DIMENSION 1)
+#         ELSEIF( "${SHAPE}" STREQUAL "Tri" OR "${SHAPE}" STREQUAL "Quad" )
+# 	    SET(DIMENSION 2)
+# 	ELSE()
+# 	    SET(DIMENSION 3)
+#         ENDIF()
+# #  else()
+# #     Use this code once CMake 3.17 can be used on the CI tester.
+# #     foreach(SHAPE DIMENSION IN ZIP_LISTS SHAPES DIMENSIONS)
+# #  endif()
+
+# 	# Uppercase is used for the #defines in the header files.
+# 	string(TOUPPER ${SHAPE} TYPE)	
+
+#         # INST sets the macro used in NektarExpMacros.h
+#         # The BwdTrans only has regular elements.
+#         IF( "${OPERATOR}" STREQUAL "BwdTrans" )
+#             SET(INST 1)
+#         # All other operators have regular and deformed elements.
+#         ELSE()
+#             SET(INST 2)
+#         ENDIF()
+
+#         # Create the cpp file from the implementation file.
+#         configure_file(Operators/OperatorImp.cpp.in ${OPERATOR}${SHAPE}.cpp)
+
+#         # Add the respective headers and cpp file.
+#         SET(OPERATORS_HEADERS ${OPERATORS_HEADERS}
+#         ${OPERATOR}/${OPERATOR}MatFree.hpp)
+#         SET(OPERATORS_HEADERS ${OPERATORS_HEADERS}
+#         ${OPERATOR}/${OPERATOR}MatFreeKernels.hpp)
+#         SET(SRC ${SRC} ${OPERATORS_SOURCES}
+#             ${CMAKE_CURRENT_BINARY_DIR}/${OPERATOR}${SHAPE}.cpp)
+
+#     endforeach()
+# endforeach()
 
 # add_compile_options("-fsanitize=address,undefined")
 # add_link_options("-fsanitize=address,undefined")
@@ -80,11 +147,6 @@ add_executable(Helmholtz2D Helmholtz2D.cpp)
 target_link_libraries(Helmholtz2D Operators)
 target_include_directories(Helmholtz2D PRIVATE ${CMAKE_SOURCE_DIR})
 target_compile_definitions(Helmholtz2D PUBLIC ${NEKTAR++_DEFINITIONS})
-
-add_executable(MyTest MyTest.cpp)
-target_link_libraries(MyTest Operators)
-target_include_directories(MyTest PRIVATE ${CMAKE_SOURCE_DIR})
-target_compile_definitions(MyTest PUBLIC ${NEKTAR++_DEFINITIONS})
 
 add_subdirectory(tests)
 

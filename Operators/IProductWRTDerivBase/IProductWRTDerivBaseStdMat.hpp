@@ -69,16 +69,15 @@ public:
         }
     }
 
-    void apply(Field<TData, FieldState::Phys> &in0,
-               Field<TData, FieldState::Phys> &in1,
-               Field<TData, FieldState::Phys> &in2,
+    void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
         // Copy memory to GPU, if necessary and get raw pointers.
-        std::vector<TData *> inptr{in0.GetStorage().GetCPUPtr(),
-                                   in1.GetStorage().GetCPUPtr(),
-                                   in2.GetStorage().GetCPUPtr()};
+        auto *inptr0 = in.GetStorage().GetCPUPtr();
+        auto *inptr1 = inptr0 + in.GetFieldSize();
+        auto *inptr2 = inptr1 + in.GetFieldSize();
+        std::vector<TData *> inptr{inptr0, inptr1, inptr2};
         auto *outptr = out.GetStorage().GetCPUPtr();
         std::vector<TData *> wspptr{m_wsp[0].get(), m_wsp[1].get(),
                                     m_wsp[2].get()};
@@ -181,12 +180,12 @@ public:
                             outptr, nmTot);
 
                 // Increment pointer and index for next element type.
-                inptr[d] += nqTot * nElmts;
+                inptr[d] += in.GetBlocks()[block_idx].block_size;
                 wspptr[d] += nqTot * nElmts;
             }
             jacIdx += deformed ? nqTot * nElmts : nElmts;
             dfIdx += deformed ? nqTot * nElmts : nElmts;
-            outptr += nmTot * nElmts;
+            outptr += out.GetBlocks()[block_idx].block_size;
             expIdx += nElmts;
         }
     }
