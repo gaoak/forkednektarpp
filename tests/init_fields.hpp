@@ -2,9 +2,11 @@
 #include <boost/test/unit_test_log.hpp>
 #include <string>
 #include <vector>
+#include <type_traits>
 
 #include "Field.hpp"
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ContField.h>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
@@ -86,9 +88,19 @@ public:
 
         session      = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph        = SpatialDomains::MeshGraph::Read(session);
-        fixt_explist = MemoryManager<MultiRegions::ExpList>::
+        if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
+        {
+           fixt_explist = MemoryManager<MultiRegions::ContField>::
+            AllocateSharedPtr(session, graph, "DefaultVar", true, false,
+                    Collections::eNoCollection);
+        }
+
+        if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
+        {
+            fixt_explist = MemoryManager<MultiRegions::ExpList>::
             AllocateSharedPtr(session, graph, true, "DefaultVar",
                               Collections::eNoCollection);
+        }
 
         // Generate a blocks definition from the expansion list for each state
         using vec_t = tinysimd::simd<double>;

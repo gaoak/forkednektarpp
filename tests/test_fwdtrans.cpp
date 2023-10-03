@@ -5,14 +5,8 @@
 #include <memory>
 #include <cmath>
 
-#include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorFwdTrans.hpp"
-
-#include <LibUtilities/BasicUtils/SessionReader.h>
-#include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
-#include <MultiRegions/ContField.h>
 
 #include "init_fields.hpp"
 
@@ -22,15 +16,6 @@ using namespace Nektar::LibUtilities;
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
 
-/*
-class Line : public InitFields<double, FieldState::Coeff, FieldState::Phys>
-{
-public:
-    Line() : InitFields<double, FieldState::Coeff, FieldState::Phys>() {
-        meshName = "line.xml";
-    }
-};
-*/
 class Square : public InitFields<double, FieldState::Phys, FieldState::Coeff, MultiRegions::ContField>
 {
 public:
@@ -42,8 +27,6 @@ public:
 BOOST_FIXTURE_TEST_CASE(fwdtrans, Square)
 {
     Configure();
-
-    //explist = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(session, graph);
 
     auto blocks_phys = GetBlockAttributes(FieldState::Phys, fixt_explist);
     auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, fixt_explist);
