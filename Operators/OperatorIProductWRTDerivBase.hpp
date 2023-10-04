@@ -23,6 +23,7 @@ public:
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out,
                        bool APPEND = false) = 0;
+
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out,
                             bool APPEND = false)

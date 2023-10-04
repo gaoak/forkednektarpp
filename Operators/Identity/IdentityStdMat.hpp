@@ -15,7 +15,8 @@ public:
     {
     }
 
-    void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
+    void apply(Field<TData, TFieldState> &in,
+               Field<TData, TFieldState> &out) override
     {
         size_t N  = in.GetStorage().size();
         auto pIn  = in.GetStorage().GetCPUPtr();

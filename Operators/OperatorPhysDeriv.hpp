@@ -1,25 +1,29 @@
 #pragma once
 
 #include "Field.hpp"
-#include "Operator.hpp"
+#include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
 {
 
 // PhysDeriv base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorPhysDeriv : public Operator<TData>
+template <typename TData>
+class OperatorPhysDeriv
+    : public OperatorLinear<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
     virtual ~OperatorPhysDeriv() = default;
 
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+        : OperatorLinear<TData, FieldState::Phys, FieldState::Phys>(
+              expansionList)
     {
     }
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Phys> &out) = 0;
+
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Phys> &out)
     {

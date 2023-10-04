@@ -1,25 +1,21 @@
 #pragma once
 
-#include <vector>
-
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ExpList.h>
-
 #include "Field.hpp"
-#include "Operator.hpp"
+#include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
 {
 
 // Identity base class
 template <typename TData, FieldState TFieldState>
-class OperatorIdentity : public Operator<TData>
+class OperatorIdentity : public OperatorLinear<TData, TFieldState, TFieldState>
 {
 public:
     virtual ~OperatorIdentity() = default;
 
     OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(std::move(expansionList))
+        : OperatorLinear<TData, TFieldState, TFieldState>(
+              std::move(expansionList))
     {
     }
 

@@ -9,6 +9,7 @@ option(NEKTAR_USE_SIMD "Enable SIMD support, if available" TRUE)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_BUILD_TYPE Debug)
 
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 75 80 86)
@@ -30,16 +31,21 @@ set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 
 set(SRC Field.cpp Operators/Operator.cpp 
     Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp 
-    Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp 
-    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp 
-    Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp 
-    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
+    Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
     Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
-    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp)
-
-if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
-    MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
-endif()
+    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
+    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGrad.cpp
+    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTrans.cpp
+    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
+    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
+    Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
+    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolve.cpp
+    Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
+    Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
+    Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCond.cpp
+    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
+    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
+    )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
     MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
@@ -136,6 +142,11 @@ add_executable(main ${TEST_SRC})
 target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
+
+add_executable(Helmholtz2D Helmholtz2D.cpp)
+target_link_libraries(Helmholtz2D Operators)
+target_include_directories(Helmholtz2D PRIVATE ${CMAKE_SOURCE_DIR})
+target_compile_definitions(Helmholtz2D PUBLIC ${NEKTAR++_DEFINITIONS})
 
 add_subdirectory(tests)
 

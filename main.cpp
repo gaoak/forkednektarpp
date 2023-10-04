@@ -11,17 +11,25 @@
  */
 #include <iostream>
 #include <memory>
+#include <cmath>
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
 #include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "Operators/OperatorConjGrad.hpp"
+#include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorFwdTrans.hpp"
 #include "Operators/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
+#include "Operators/OperatorMatrix.hpp"
+#include "Operators/OperatorDiagPrecon.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ExpList.h>
+#include <MultiRegions/ContField.h>
 #include <SpatialDomains/MeshGraph.h>
 
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -33,6 +41,7 @@
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
+using namespace Nektar::MultiRegions;
 
 template <typename TType, FieldState State>
 std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
@@ -76,7 +85,7 @@ int main(int argc, char *argv[])
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     graph   = SpatialDomains::MeshGraph::Read(session);
     explist =
-        MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(session, graph);
+        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(session, graph);
 
     // Generate a blocks definition from the expansion list for each state
     // Test out SIMD instructions
@@ -139,6 +148,82 @@ int main(int argc, char *argv[])
            out.GetStorage().size() * sizeof(double));
 
     std::cout << "Initial In shape:\n" << in << std::endl << std::endl;
+
+    // ****************************************************************************
+    // (willdenny) Matrix and Diag precon test
+
+    auto matOp = Operators::Matrix<double, FieldState::Coeff>::create(explist);
+    auto matSize = matOp->size();
+    std::vector<double> matData(matSize * matSize, 0);
+    for (int i = 0; i < matSize; ++i)
+    {
+        matData[i*(matSize + 1)] = i;
+    }
+    matOp->fill(matData.data());
+
+//    std::cout << "Matrix = \n" << matOp->toString() << "\n";
+
+    auto matFdIn = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    auto matFdOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    auto preconOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
+    
+    auto *pMatFdIn = matFdIn.GetStorage().GetCPUPtr();
+    for (size_t i = 0; i < matSize; ++i)
+        *(pMatFdIn++) = 1.;
+    std::cout << "Matrix field in = \n" << matFdIn << "\n";
+
+    matOp->apply(matFdIn, matFdOut);
+
+    std::cout << "Matrix field out = \n" << matFdOut << "\n";
+
+    auto dprecOp = Operators::DiagPrecon<double>::create(explist);
+    dprecOp->configure(matOp);
+
+    dprecOp->apply(matFdOut, preconOut);
+
+    std::cout << "precon field = \n" << preconOut << "\n";
+
+    // ****************************************************************************
+
+    // (willdenny) Check CG operator
+    
+    std::shared_ptr<ContField> explistCF = std::dynamic_pointer_cast<ContField>(explist);
+    std::shared_ptr<AssemblyMapCG> assMap = explistCF->GetLocalToGlobalMap();
+
+    // get size of global/local systems
+    size_t Nglobal = assMap->GetNumGlobalCoeffs();
+    size_t Nlocal = assMap->GetNumLocalCoeffs();
+
+    auto CG_f     = Field<double, FieldState::Phys>::create(blocks_phys);
+    auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
+    auto CG_f2    = Field<double, FieldState::Phys >::create(blocks_phys);
+
+    auto *iter = CG_f.GetStorage().GetCPUPtr();
+
+    int CG_test = 1;
+    
+    if (CG_test == 0)
+    {
+        for (int i = 0; i < explist->GetTotPoints(); ++i)
+            *(iter++) = 1;
+    }
+    else if (CG_test == 1)
+    {    
+        int np = explist->GetTotPoints();
+        Array<OneD, NekDouble> x(np), y(np), z(np);
+        explist->GetCoords(x, y, z);
+        for (int i = 0; i < explist->GetTotPoints(); ++i)
+            *(iter++) = x[i]*x[i] + y[i]*y[i] + 20;
+    }
+
+    FwdTrans<double>::create(explist)->apply(CG_f, CG_u_hat);
+    BwdTrans<double>::create(explist)->apply(CG_u_hat, CG_f2);
+
+    std::cout << "f:\n" << CG_f << "\n";
+    std::cout << "u hat:\n" << CG_u_hat << "\n";
+    std::cout << "f2:\n" << CG_f2 << "\n";
+
+    // ****************************************************************************
 
     // Test SIMD Implementation
 #ifdef NEKTAR_ENABLE_SIMD_AVX2

@@ -1,20 +1,23 @@
 #pragma once
 
 #include "Field.hpp"
-#include "Operator.hpp"
+#include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
 {
 
 // Mass base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData> class OperatorMass : public Operator<TData>
+template <typename TData>
+class OperatorMass
+    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
     virtual ~OperatorMass() = default;
 
     OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(expansionList)
+        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
+              expansionList)
     {
     }
 
