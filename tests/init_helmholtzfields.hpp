@@ -43,49 +43,40 @@ public:
                           double *inptr)
     {
         Array<OneD, NekDouble> incoeffs(fixt_explist->GetNcoeffs());
-        Array<OneD, NekDouble> bwdtrans(fixt_explist->GetTotPoints());
-
-        Array<OneD, NekDouble> deriv(fixt_explist->GetCoordim(0) *
-                                     fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> deriv0 = deriv;
-        Array<OneD, NekDouble> deriv1 = deriv0 + fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> deriv2 = deriv1 + fixt_explist->GetTotPoints();
-        Array<OneD, Array<OneD, NekDouble>> derivarray(
-            fixt_explist->GetCoordim(0));
-        if (fixt_explist->GetCoordim(0) > 0)
-        {
-            derivarray[0] = deriv0;
-        }
-        if (fixt_explist->GetCoordim(0) > 1)
-        {
-            derivarray[1] = deriv1;
-        }
-        if (fixt_explist->GetCoordim(0) > 2)
-        {
-            derivarray[2] = deriv2;
-        }
-        Array<OneD, NekDouble> mass(fixt_explist->GetNcoeffs());
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs());
+        Array<OneD, NekDouble> tmp;
 
         // Set test case
         SetTestCase(blocks, incoeffs.get(), false);
 
         // Calculate expected result from Nektar++
-        fixt_explist->BwdTrans(incoeffs, bwdtrans);
-        fixt_explist->PhysDeriv(bwdtrans, deriv0, deriv1, deriv2);
-        fixt_explist->IProductWRTDerivBase(derivarray, outcoeffs);
-        fixt_explist->IProductWRTBase(bwdtrans, mass);
+        auto e = 0, offset = 0;
+        StdRegions::FactorMap factors;
+        factors[StdRegions::eFactorLambda] = 1.0;
+        for (auto const &block : blocks)
+        {
+            auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz,
+                        fixt_explist->GetExp(e)->DetShapeType(),
+                        *(fixt_explist->GetExp(e)), factors);
+                fixt_explist->GetExp(e)->GeneralMatrixOp(incoeffs + offset,
+                        tmp = outcoeffs + offset, mkey);
+                e++;
+                offset += nmTot;
+            }
+        }
 
         // Copy expected result from Array to fixt_expected
         double *coeffptr = outcoeffs.get();
-        double *massptr  = mass.get();
         for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
                 {
-                    (*inptr++) = (*coeffptr++) + (*massptr++);
+                    (*inptr++) = (*coeffptr++);
                 }
             }
             for (size_t el = 0; el < block.num_padding_elements; ++el)
