@@ -19,7 +19,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorConjGradImpl : public OperatorConjGrad<TData>
+class OperatorConjGradImpl<TData, ImplStdMat> : public OperatorConjGrad<TData>
 {
 public:
     OperatorConjGradImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -213,7 +213,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorConjGradImpl<TData>>(expansionList);
+        return std::make_unique<OperatorConjGradImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

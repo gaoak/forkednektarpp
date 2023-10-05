@@ -43,7 +43,8 @@ template <typename TData, FieldState TFieldState> struct Matrix
 namespace detail
 {
 // declare class for implementation of Matrix operator
-template <typename TData, FieldState TFieldState> class OperatorMatrixImpl;
+template <typename TData, FieldState TFieldState, typename Op>
+class OperatorMatrixImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

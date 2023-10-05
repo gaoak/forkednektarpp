@@ -11,7 +11,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorFwdTransImpl : public OperatorFwdTrans<TData>
+class OperatorFwdTransImpl<TData, ImplStdMat> : public OperatorFwdTrans<TData>
 {
 public:
     OperatorFwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -48,7 +48,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorFwdTransImpl<TData>>(expansionList);
+        return std::make_unique<OperatorFwdTransImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

@@ -18,7 +18,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorHelmSolveImpl : public OperatorHelmSolve<TData>
+class OperatorHelmSolveImpl<TData, ImplStdMat> : public OperatorHelmSolve<TData>
 {
 public:
     OperatorHelmSolveImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -67,7 +67,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorHelmSolveImpl<TData>>(expansionList);
+        return std::make_unique<OperatorHelmSolveImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

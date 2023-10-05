@@ -48,7 +48,7 @@ template <typename TData> struct HelmSolve
 namespace detail
 {
 // declare class for implementation of HelmSolve operator
-template <typename TData> class OperatorHelmSolveImpl;
+template <typename TData, typename Op> class OperatorHelmSolveImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

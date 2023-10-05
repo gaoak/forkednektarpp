@@ -42,7 +42,7 @@ template <typename TData> struct AssmbScatr
 namespace detail
 {
 // declare class for implementation of assembly+scatter operator
-template <typename TData> class OperatorAssmbScatrImpl;
+template <typename TData, typename Op> class OperatorAssmbScatrImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

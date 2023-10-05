@@ -42,7 +42,7 @@ template <typename TData> struct FwdTrans
 namespace detail
 {
 // declare class for implementation of FwdTrans matrix operator
-template <typename TData> class OperatorFwdTransImpl;
+template <typename TData, typename Op> class OperatorFwdTransImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

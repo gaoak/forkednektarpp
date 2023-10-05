@@ -14,7 +14,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorAssmbScatrImpl : public OperatorAssmbScatr<TData>
+class OperatorAssmbScatrImpl<TData, ImplStdMat>
+    : public OperatorAssmbScatr<TData>
 {
 public:
     OperatorAssmbScatrImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -78,7 +79,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorAssmbScatrImpl<TData>>(expansionList);
+        return std::make_unique<OperatorAssmbScatrImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory
