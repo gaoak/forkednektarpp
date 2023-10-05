@@ -38,7 +38,7 @@ template <typename TData> struct DiagPrecon
 namespace detail
 {
 // declare class for implementation of DiagPrecon operator
-template <typename TData> class OperatorDiagPreconImpl;
+template <typename TData, typename Op> class OperatorDiagPreconImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

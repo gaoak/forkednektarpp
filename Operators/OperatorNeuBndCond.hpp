@@ -41,7 +41,7 @@ template <typename TData> struct NeuBndCond
 namespace detail
 {
 // declare class for implementation of NeuBndCond operator
-template <typename TData> class OperatorNeuBndCondImpl;
+template <typename TData, typename Op> class OperatorNeuBndCondImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

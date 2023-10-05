@@ -17,7 +17,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorDiagPreconImpl : public OperatorDiagPrecon<TData>
+class OperatorDiagPreconImpl<TData, ImplStdMat>
+    : public OperatorDiagPrecon<TData>
 {
 public:
     OperatorDiagPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -88,7 +89,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorDiagPreconImpl<TData>>(expansionList);
+        return std::make_unique<OperatorDiagPreconImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

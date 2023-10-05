@@ -41,7 +41,7 @@ template <typename TData> struct DirBndCond
 namespace detail
 {
 // declare class for implementation of DirBndCond operator
-template <typename TData> class OperatorDirBndCondImpl;
+template <typename TData, typename Op> class OperatorDirBndCondImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators

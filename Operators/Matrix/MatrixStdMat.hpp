@@ -9,7 +9,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData, FieldState TFieldState>
-class OperatorMatrixImpl : public OperatorMatrix<TData, TFieldState>
+class OperatorMatrixImpl<TData, TFieldState, ImplStdMat>
+    : public OperatorMatrix<TData, TFieldState>
 {
 public:
     OperatorMatrixImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -19,8 +20,8 @@ public:
         // expansionlist
         auto blocks = GetBlockAttributes(TFieldState, expansionList);
         m_size      = std::accumulate(blocks.begin(), blocks.end(), 0,
-                                 [](size_t acc, const BlockAttributes &block)
-                                 { return acc + block.block_size; });
+                                      [](size_t acc, const BlockAttributes &block)
+                                      { return acc + block.block_size; });
 
         // create memory for square matrix of given size
         m_matrix = std::vector<TData>(m_size * m_size);
@@ -77,8 +78,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorMatrixImpl<TData, TFieldState>>(
-            expansionList);
+        return std::make_unique<
+            OperatorMatrixImpl<TData, TFieldState, ImplStdMat>>(expansionList);
     }
 
     // className - for OperatorFactory

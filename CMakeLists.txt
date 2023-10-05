@@ -34,15 +34,15 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
     Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
     Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
-    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGrad.cpp
-    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTrans.cpp
-    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatr.cpp
-    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCond.cpp
+    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGradImpl.cpp
+    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTransImpl.cpp
+    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatrImpl.cpp
+    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCondImpl.cpp
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
-    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolve.cpp
-    Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPrecon.cpp
-    Operators/OperatorMatrix.cpp Operators/Matrix/Matrix.cpp
-    Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCond.cpp
+    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolveImpl.cpp
+    Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPreconImpl.cpp
+    Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
+    Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCondImpl.cpp
     Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
     Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
     )

@@ -19,7 +19,8 @@ void ImposeDirichletConditions(Array<OneD, NekDouble> &arr,
                                const ContFieldSharedPtr &contfield);
 
 template <typename TData>
-class OperatorDirBndCondImpl : public OperatorDirBndCond<TData>
+class OperatorDirBndCondImpl<TData, ImplStdMat>
+    : public OperatorDirBndCond<TData>
 {
 public:
     OperatorDirBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -49,7 +50,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorDirBndCondImpl<TData>>(expansionList);
+        return std::make_unique<OperatorDirBndCondImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

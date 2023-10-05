@@ -15,7 +15,8 @@ void ImposeNeumannConditions(Array<OneD, NekDouble> &arr,
                              const ContFieldSharedPtr &contfield);
 
 template <typename TData>
-class OperatorNeuBndCondImpl : public OperatorNeuBndCond<TData>
+class OperatorNeuBndCondImpl<TData, ImplStdMat>
+    : public OperatorNeuBndCond<TData>
 {
 public:
     OperatorNeuBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -45,7 +46,8 @@ public:
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorNeuBndCondImpl<TData>>(expansionList);
+        return std::make_unique<OperatorNeuBndCondImpl<TData, ImplStdMat>>(
+            expansionList);
     }
 
     // className - for OperatorFactory

@@ -47,7 +47,7 @@ template <typename TData> struct ConjGrad
 namespace detail
 {
 // declare class for implementation of CG operator
-template <typename TData> class OperatorConjGradImpl;
+template <typename TData, typename Op> class OperatorConjGradImpl;
 } // namespace detail
 
 } // namespace Nektar::Operators
