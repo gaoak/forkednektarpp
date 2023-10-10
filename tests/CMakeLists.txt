@@ -42,6 +42,15 @@ target_include_directories(test_ipwrtbase PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_ipwrtbase PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_ipwrtbasesumfac test_ipwrtbasesumfac.cpp)
+target_link_libraries(test_ipwrtbasesumfac PRIVATE Operators)
+target_link_libraries(test_ipwrtbasesumfac PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_ipwrtbasesumfac PRIVATE Boost::unit_test_framework)
+target_include_directories(test_ipwrtbasesumfac PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_ipwrtbasesumfac PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_ipwrtbasesumfac PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_ipwrtbase_matfree test_ipwrtbase_matfree.cpp)
 target_link_libraries(test_ipwrtbase_matfree PRIVATE Operators)
 target_link_libraries(test_ipwrtbase_matfree PRIVATE ${NEKTAR++_LIBRARIES})
@@ -219,6 +228,12 @@ ENDIF()
 add_test(
   NAME IProductWRTBase
   COMMAND test_ipwrtbase
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME IProductWRTBaseSumFac
+  COMMAND test_ipwrtbasesumfac
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 

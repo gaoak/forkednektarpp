@@ -19,8 +19,8 @@ public:
         // expansionlist
         auto blocks = GetBlockAttributes(TFieldState, expansionList);
         m_size      = std::accumulate(blocks.begin(), blocks.end(), 0,
-                                 [](size_t acc, const BlockAttributes &block)
-                                 { return acc + block.block_size; });
+                                      [](size_t acc, const BlockAttributes &block)
+                                      { return acc + block.block_size; });
 
         // create memory for square matrix of given size
         m_matrix = std::vector<TData>(m_size * m_size);

@@ -9,27 +9,26 @@
  * Kings College London
  *
  */
+#include <cmath>
 #include <iostream>
 #include <memory>
-#include <cmath>
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
-#include "Operators/OperatorHelmholtz.hpp"
-#include "Operators/OperatorIdentity.hpp"
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorConjGrad.hpp"
-#include "Operators/OperatorMass.hpp"
-#include "Operators/OperatorFwdTrans.hpp"
-#include "Operators/OperatorIProductWRTDerivBase.hpp"
-#include "Operators/OperatorPhysDeriv.hpp"
-#include "Operators/OperatorMatrix.hpp"
 #include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/OperatorFwdTrans.hpp"
+#include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorMatrix.hpp"
+#include "Operators/OperatorPhysDeriv.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <MultiRegions/ExpList.h>
 #include <MultiRegions/ContField.h>
+#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraph.h>
 
 #include <LibUtilities/BasicUtils/Timer.h>
@@ -48,13 +47,12 @@ std::ostream &operator<<(std::ostream &stream, Field<TType, State> &f)
 {
     for (size_t i = 0; i < f.GetNumComponents(); ++i)
     {
-        stream << "Component " << i << ": "<< std::endl;
+        stream << "Component " << i << ": " << std::endl;
         auto *x = f.GetStorage().GetCPUPtr() + i * f.GetFieldSize();
         for (auto const &block : f.GetBlocks())
         {
-            size_t numMetaBlocks = 
-                block.num_elements + block.num_padding_elements / 
-                f.GetVecWidth();
+            size_t numMetaBlocks = block.num_elements +
+                                   block.num_padding_elements / f.GetVecWidth();
 
             for (size_t el = 0; el < numMetaBlocks; ++el)
             {
@@ -84,8 +82,8 @@ int main(int argc, char *argv[])
 
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     graph   = SpatialDomains::MeshGraph::Read(session);
-    explist =
-        MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(session, graph);
+    explist = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(session,
+                                                                        graph);
 
     // Generate a blocks definition from the expansion list for each state
     // Test out SIMD instructions
@@ -157,16 +155,19 @@ int main(int argc, char *argv[])
     std::vector<double> matData(matSize * matSize, 0);
     for (int i = 0; i < matSize; ++i)
     {
-        matData[i*(matSize + 1)] = i;
+        matData[i * (matSize + 1)] = i;
     }
     matOp->fill(matData.data());
 
-//    std::cout << "Matrix = \n" << matOp->toString() << "\n";
+    //    std::cout << "Matrix = \n" << matOp->toString() << "\n";
 
-    auto matFdIn = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
-    auto matFdOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
-    auto preconOut = Field<double, FieldState::Coeff>::create(GetBlockAttributes(FieldState::Coeff, explist));
-    
+    auto matFdIn = Field<double, FieldState::Coeff>::create(
+        GetBlockAttributes(FieldState::Coeff, explist));
+    auto matFdOut = Field<double, FieldState::Coeff>::create(
+        GetBlockAttributes(FieldState::Coeff, explist));
+    auto preconOut = Field<double, FieldState::Coeff>::create(
+        GetBlockAttributes(FieldState::Coeff, explist));
+
     auto *pMatFdIn = matFdIn.GetStorage().GetCPUPtr();
     for (size_t i = 0; i < matSize; ++i)
         *(pMatFdIn++) = 1.;
@@ -186,34 +187,35 @@ int main(int argc, char *argv[])
     // ****************************************************************************
 
     // (willdenny) Check CG operator
-    
-    std::shared_ptr<ContField> explistCF = std::dynamic_pointer_cast<ContField>(explist);
+
+    std::shared_ptr<ContField> explistCF =
+        std::dynamic_pointer_cast<ContField>(explist);
     std::shared_ptr<AssemblyMapCG> assMap = explistCF->GetLocalToGlobalMap();
 
     // get size of global/local systems
     size_t Nglobal = assMap->GetNumGlobalCoeffs();
-    size_t Nlocal = assMap->GetNumLocalCoeffs();
+    size_t Nlocal  = assMap->GetNumLocalCoeffs();
 
     auto CG_f     = Field<double, FieldState::Phys>::create(blocks_phys);
     auto CG_u_hat = Field<double, FieldState::Coeff>::create(blocks_coeff);
-    auto CG_f2    = Field<double, FieldState::Phys >::create(blocks_phys);
+    auto CG_f2    = Field<double, FieldState::Phys>::create(blocks_phys);
 
     auto *iter = CG_f.GetStorage().GetCPUPtr();
 
     int CG_test = 1;
-    
+
     if (CG_test == 0)
     {
         for (int i = 0; i < explist->GetTotPoints(); ++i)
             *(iter++) = 1;
     }
     else if (CG_test == 1)
-    {    
+    {
         int np = explist->GetTotPoints();
         Array<OneD, NekDouble> x(np), y(np), z(np);
         explist->GetCoords(x, y, z);
         for (int i = 0; i < explist->GetTotPoints(); ++i)
-            *(iter++) = x[i]*x[i] + y[i]*y[i] + 20;
+            *(iter++) = x[i] * x[i] + y[i] * y[i] + 20;
     }
 
     FwdTrans<double>::create(explist)->apply(CG_f, CG_u_hat);
@@ -276,9 +278,13 @@ int main(int argc, char *argv[])
         vin.ReshapeStorage<vec_t::width>();
         vin.CopyDataFrom(in);        // by default, copy the first component
         vin.CopyDataFrom(in2, 0, 1); // copy the second component
-        std::cout << "Copy in and in2 to Vin:\n" << vin << std::endl << std::endl;
+        std::cout << "Copy in and in2 to Vin:\n"
+                  << vin << std::endl
+                  << std::endl;
         vin.ReshapeStorage<1>();
-         std::cout << "Vin reshape back to 1:\n" << vin << std::endl << std::endl;
+        std::cout << "Vin reshape back to 1:\n"
+                  << vin << std::endl
+                  << std::endl;
 
         // Back to non-interleaved for non-SIMD Operators
         in.ReshapeStorage<1>();
@@ -357,8 +363,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op->apply(inCoeff, outPhys);
         timer.Stop();
-        std::cout << ">>> Time for BwdTrans StdMat: " 
-                  << timer.TimePerTest(1) << " s \n" << std::endl;
+        std::cout << ">>> Time for BwdTrans StdMat: " << timer.TimePerTest(1)
+                  << " s \n"
+                  << std::endl;
 
         // Check output values.
         std::cout << "Out (StdMat):" << std::endl;
@@ -375,8 +382,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op2->apply(inCoeff, outPhys2);
         timer.Stop();
-        std::cout << ">>> Time for BwdTrans MatFree: " 
-                  << timer.TimePerTest(1) << " s \n" << std::endl;
+        std::cout << ">>> Time for BwdTrans MatFree: " << timer.TimePerTest(1)
+                  << " s \n"
+                  << std::endl;
 
         // Check output values.
         std::cout << "Initial shape (MatFree):\n" << inCoeff << std::endl;
@@ -459,9 +467,9 @@ int main(int argc, char *argv[])
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
         auto inPhys   = Field<double, FieldState::Phys>::create(blocks_phys, 1,
-                                                                 vec_t::alignment);
-        auto outCoeff = Field<double, FieldState::Coeff>::create(blocks_coeff, 1,
-                                                                 vec_t::alignment);
+                                                                vec_t::alignment);
+        auto outCoeff = Field<double, FieldState::Coeff>::create(
+            blocks_coeff, 1, vec_t::alignment);
 
         // Assign input values
         auto *inptr = inPhys.GetStorage().GetCPUPtr();
@@ -526,8 +534,9 @@ int main(int argc, char *argv[])
         }
         else
         {
-            std::cout << "Results DON'T match! (IProductWRTBase MatFree/StdMat)\n"
-                      << std::endl;
+            std::cout
+                << "Results DON'T match! (IProductWRTBase MatFree/StdMat)\n"
+                << std::endl;
         }
         std::cout << std::endl;
     }
@@ -594,9 +603,10 @@ int main(int argc, char *argv[])
 
         // Create two Field objects with a MemoryRegionCPU backend by default
         // for the inner product with respect to base
-        auto inPhys  = Field<double, FieldState::Phys>::create(blocks_phys, 1, vec_t::alignment);
+        auto inPhys  = Field<double, FieldState::Phys>::create(blocks_phys, 1,
+                                                               vec_t::alignment);
         auto outPhys = Field<double, FieldState::Phys>::create(
-                        blocks_phys, explist->GetCoordim(0), vec_t::alignment);
+            blocks_phys, explist->GetCoordim(0), vec_t::alignment);
 
         // Assign input values
         auto *inptr = inPhys.GetStorage().GetCPUPtr();
@@ -630,16 +640,17 @@ int main(int argc, char *argv[])
         timer.Start();
         op->apply(inPhys, outPhys);
         timer.Stop();
-        std::cout << ">>> Time for PhysDeriv StdMat: " 
-                  << timer.TimePerTest(1) << " s \n" << std::endl;
+        std::cout << ">>> Time for PhysDeriv StdMat: " << timer.TimePerTest(1)
+                  << " s \n"
+                  << std::endl;
         // Check output values.
         std::cout << "Out (StdMat):" << std::endl;
         std::cout << outPhys << std::endl;
 
         // PhysDeriv by MatrixFree
-        auto coordim = explist->GetCoordim(0);
-        auto derivPhys = Field<double, FieldState::Phys>::create(blocks_phys, 
-                            explist->GetCoordim(0), vec_t::alignment);
+        auto coordim   = explist->GetCoordim(0);
+        auto derivPhys = Field<double, FieldState::Phys>::create(
+            blocks_phys, explist->GetCoordim(0), vec_t::alignment);
         // Assign ouput values to zeros
         auto *outptr = derivPhys.GetStorage().GetCPUPtr();
         for (int component = 0; component < explist->GetCoordim(0); ++component)
@@ -659,8 +670,9 @@ int main(int argc, char *argv[])
         timer.Start();
         op2->apply(inPhys, derivPhys);
         timer.Stop();
-        std::cout << ">>> Time for PhysDeriv MatFree: " 
-                  << timer.TimePerTest(1) << " s \n" << std::endl;
+        std::cout << ">>> Time for PhysDeriv MatFree: " << timer.TimePerTest(1)
+                  << " s \n"
+                  << std::endl;
         // Check output values.
         derivPhys.ReshapeStorage<1>();
         std::cout << "Out (MatFree):" << std::endl;
@@ -668,12 +680,12 @@ int main(int argc, char *argv[])
         if (derivPhys.compare(outPhys, 1e-9))
         {
             std::cout << "Results match! (PhysDeriv MatFree/StdMat) \n"
-                    << std::endl;
+                      << std::endl;
         }
         else
         {
             std::cout << "Results DON'T match! (PhysDeriv MatFree/StdMat)\n"
-                    << std::endl;
+                      << std::endl;
         }
     }
     // Test PhysDeriv (CUDA) Implementation
@@ -746,8 +758,7 @@ int main(int argc, char *argv[])
 
         // Check output values.
         std::cout << "Out:" << std::endl;
-        outptr =
-            outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        outptr = outCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
         for (auto const &block : outCoeff.GetBlocks())
         {
             for (size_t el = 0; el < block.num_elements; ++el)
@@ -864,7 +875,8 @@ int main(int argc, char *argv[])
     // Test Identity (CUDA) Implementation
 #ifdef NEKTAR_USE_CUDA
     {
-        std::cout << "Identity (CUDA) test starts for Coeff space." << std::endl;
+        std::cout << "Identity (CUDA) test starts for Coeff space."
+                  << std::endl;
 
         // Create two Fields with memory on the GPU.
         auto inCoeff =
@@ -894,7 +906,8 @@ int main(int argc, char *argv[])
         // Perform the Identity on the fields using the CUDA implementation
         // Since this is a CUDA operator, acting on CUDA fields, everything
         // happens on the GPU.
-        Identity<double, FieldState::Coeff>::create(explist, "CUDA")->apply(inCoeff, outCoeff);
+        Identity<double, FieldState::Coeff>::create(explist, "CUDA")
+            ->apply(inCoeff, outCoeff);
 
         // Check output values.
         std::cout << "Out:" << std::endl;
@@ -917,17 +930,15 @@ int main(int argc, char *argv[])
         std::cout << "Identity (CUDA) test starts for Phys space." << std::endl;
 
         // Create two Fields with memory on the GPU.
-        auto inPhys =
-            Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
-                blocks_phys);
+        auto inPhys = Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
+            blocks_phys);
         auto outPhys =
             Field<double, FieldState::Phys>::create<MemoryRegionCUDA>(
                 blocks_phys);
 
         // Assign input values from the CPU.
         std::cout << "Initial shape: " << std::endl;
-        inptr =
-            inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        inptr = inPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
         for (auto const &block : inPhys.GetBlocks())
         {
             for (size_t el = 0; el < block.num_elements; ++el)
@@ -944,12 +955,12 @@ int main(int argc, char *argv[])
         // Perform the Identity on the fields using the CUDA implementation
         // Since this is a CUDA operator, acting on CUDA fields, everything
         // happens on the GPU.
-        Identity<double, FieldState::Phys>::create(explist, "CUDA")->apply(inPhys, outPhys);
+        Identity<double, FieldState::Phys>::create(explist, "CUDA")
+            ->apply(inPhys, outPhys);
 
         // Check output values.
         std::cout << "Out:" << std::endl;
-        outptr =
-            outPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        outptr = outPhys.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
         for (auto const &block : outPhys.GetBlocks())
         {
             for (size_t el = 0; el < block.num_elements; ++el)
