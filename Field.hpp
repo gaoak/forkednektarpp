@@ -419,9 +419,9 @@ public:
     void CopyDataFrom(Field<TType, TState> &rhs, size_t rhs_component = 0,
                       size_t component = 0)
     {
-        ASSERTL0(rhs_component < rhs.GetNumComponents() && rhs_component > 0,
+        ASSERTL0(rhs_component < rhs.GetNumComponents(),
                  "rhs_component is out of range!");
-        ASSERTL0(component < GetNumComponents() && component > 0,
+        ASSERTL0(component < GetNumComponents(),
                  "component is out of range!");
 
         const auto &rhs_blocks = rhs.GetBlocks();
