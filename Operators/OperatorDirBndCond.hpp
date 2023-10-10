@@ -7,10 +7,13 @@ namespace Nektar::Operators
 {
 
 // Matrix operator base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorDirBndCond : public Operator<TData>
 {
 
 public:
+    virtual ~OperatorDirBndCond() = default;
+
     OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
@@ -21,7 +24,7 @@ public:
 
 // Descriptor / traits class for DirBndCond to be used by Operator create
 // function
-template <typename TData> struct DirBndCond
+template <typename TData = default_fp_type> struct DirBndCond
 {
     using class_name = OperatorDirBndCond<TData>;
     static const std::string key;
@@ -40,7 +43,7 @@ template <typename TData> struct DirBndCond
 
 namespace detail
 {
-// declare class for implementation of DirBndCond operator
+// Template for implementation of DirBndCond operator
 template <typename TData, typename Op> class OperatorDirBndCondImpl;
 } // namespace detail
 

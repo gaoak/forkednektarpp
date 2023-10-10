@@ -41,11 +41,13 @@ template <typename TData = default_fp_type> struct IProductWRTDerivBase
     static const std::string key;
     static const std::string default_impl;
 
+    IProductWRTDerivBase() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<IProductWRTDerivBase>(
+        return Operator<TData>::template create<IProductWRTDerivBase<TData>>(
             std::move(expansionList), pKey);
     }
 };

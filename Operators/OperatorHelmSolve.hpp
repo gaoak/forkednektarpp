@@ -8,10 +8,13 @@ namespace Nektar::Operators
 {
 
 // Matrix operator base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
 
 public:
+    virtual ~OperatorHelmSolve() = default;
+
     OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
@@ -28,7 +31,7 @@ public:
 
 // Descriptor / traits class for HelmSolve to be used by Operator create
 // function
-template <typename TData> struct HelmSolve
+template <typename TData = default_fp_type> struct HelmSolve
 {
     using class_name = OperatorHelmSolve<TData>;
     static const std::string key;
@@ -47,7 +50,7 @@ template <typename TData> struct HelmSolve
 
 namespace detail
 {
-// declare class for implementation of HelmSolve operator
+// Template for implementation of HelmSolve operator
 template <typename TData, typename Op> class OperatorHelmSolveImpl;
 } // namespace detail
 

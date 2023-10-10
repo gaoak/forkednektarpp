@@ -12,6 +12,8 @@ class OperatorMatrix : public OperatorLinear<TData, TFieldState, TFieldState>
 {
 
 public:
+    virtual ~OperatorMatrix() = default;
+
     OperatorMatrix(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
     {
@@ -42,7 +44,7 @@ template <typename TData, FieldState TFieldState> struct Matrix
 
 namespace detail
 {
-// declare class for implementation of Matrix operator
+// Template for implementation of Matrix operator
 template <typename TData, FieldState TFieldState, typename Op>
 class OperatorMatrixImpl;
 } // namespace detail

@@ -7,6 +7,7 @@ namespace Nektar::Operators
 {
 
 // Identity base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData, FieldState TFieldState>
 class OperatorIdentity : public OperatorLinear<TData, TFieldState, TFieldState>
 {
@@ -30,8 +31,7 @@ public:
 };
 
 // Descriptor / traits class for Identity
-template <typename TData         = default_fp_type,
-          FieldState TFieldState = FieldState::Coeff>
+template <FieldState TFieldState, typename TData = default_fp_type>
 struct Identity
 {
     using class_name = OperatorIdentity<TData, TFieldState>;
@@ -46,14 +46,14 @@ struct Identity
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Identity<TData, TFieldState>>(
+        return Operator<TData>::template create<Identity<TFieldState, TData>>(
             expansionList, pKey);
     }
 };
 
 namespace detail
 {
-// declare class for implementation of Identity operator
+// Template for Identity implementations
 template <typename TData, FieldState TFieldState, typename Op>
 class OperatorIdentityImpl;
 } // namespace detail

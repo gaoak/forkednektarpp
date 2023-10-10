@@ -17,7 +17,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -36,7 +36,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -55,7 +55,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -74,7 +74,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -93,7 +93,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -112,7 +112,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -131,7 +131,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -150,7 +150,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -169,7 +169,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -188,7 +188,7 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_cube_all_elements, CubeAllElements)
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "CUDA")
+    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());

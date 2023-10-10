@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Field.hpp"
-#include "Operator.hpp"
 #include "OperatorLinear.hpp"
 
 namespace Nektar::Operators
@@ -48,11 +47,14 @@ template <typename TData = default_fp_type> struct Helmholtz
     static const std::string key;
     static const std::string default_impl;
 
+    Helmholtz() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Helmholtz>(expansionList, pKey);
+        return Operator<TData>::template create<Helmholtz<TData>>(expansionList,
+                                                                  pKey);
     }
 };
 

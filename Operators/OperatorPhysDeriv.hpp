@@ -40,11 +40,14 @@ template <typename TData = default_fp_type> struct PhysDeriv
     static const std::string key;
     static const std::string default_impl;
 
+    PhysDeriv() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<PhysDeriv>(expansionList, pKey);
+        return Operator<TData>::template create<PhysDeriv<TData>>(expansionList,
+                                                                  pKey);
     }
 };
 

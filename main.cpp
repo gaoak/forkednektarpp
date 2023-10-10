@@ -906,7 +906,7 @@ int main(int argc, char *argv[])
         // Perform the Identity on the fields using the CUDA implementation
         // Since this is a CUDA operator, acting on CUDA fields, everything
         // happens on the GPU.
-        Identity<double, FieldState::Coeff>::create(explist, "CUDA")
+        Identity<FieldState::Coeff>::create(explist, "CUDA")
             ->apply(inCoeff, outCoeff);
 
         // Check output values.
@@ -955,7 +955,7 @@ int main(int argc, char *argv[])
         // Perform the Identity on the fields using the CUDA implementation
         // Since this is a CUDA operator, acting on CUDA fields, everything
         // happens on the GPU.
-        Identity<double, FieldState::Phys>::create(explist, "CUDA")
+        Identity<FieldState::Phys>::create(explist, "CUDA")
             ->apply(inPhys, outPhys);
 
         // Check output values.

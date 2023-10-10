@@ -36,6 +36,7 @@ enum class FieldState
     Coeff
 };
 
+using default_fp_type = double;
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 /**
@@ -74,10 +75,10 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
 /**
  * @brief A Field represents expansion data to be operated on.
- * @tparam TType  The floating-point representation used by the field.
+ * @tparam TData  The floating-point representation used by the field.
  * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TType = double, FieldState TState = DefaultState> class Field
+template <typename TData = default_fp_type, FieldState TState = DefaultState> class Field
 {
 public:
     Field(const Field &) = delete;
@@ -120,7 +121,7 @@ public:
      * and same components.
      * @return bool
      */
-    bool compare(Field<TType, TState> &rhs, double tol)
+    bool compare(Field<TData, TState> &rhs, TData tol)
     {
         if (rhs.GetNumComponents() != GetNumComponents())
             return false;
@@ -133,8 +134,8 @@ public:
 
         bool isMatched = true;
 
-        TType *store     = GetStorage().GetCPUPtr();
-        TType *rhs_store = rhs.GetStorage().GetCPUPtr();
+        TData *store     = GetStorage().GetCPUPtr();
+        TData *rhs_store = rhs.GetStorage().GetCPUPtr();
 
         for (size_t component = 0; component < GetNumComponents(); ++component)
         {
@@ -215,10 +216,10 @@ public:
      * @param blocks         Field data specification.
      * @param components     Names of components for a vector field.
      * @param Align          Memory alignment to use.
-     * @return Field<TType, TState>
+     * @return Field<TData, TState>
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    static Field<TType, TState> create(
+    static Field<TData, TState> create(
         std::vector<BlockAttributes> blocks,
         std::vector<std::string> components,
         size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
@@ -232,7 +233,7 @@ public:
             { return acc + block.block_size; });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
-        field.m_storage = std::make_unique<TMemoryRegion<TType>>(
+        field.m_storage = std::make_unique<TMemoryRegion<TData>>(
             storage_size * num_components, Align);
         // Record the alignment
         field.m_alignment = Align;
@@ -247,10 +248,10 @@ public:
      * @param blocks         Field data specification.
      * @param num_components Number of components for a vector field.
      * @param Align          Memory alignment to use.
-     * @return Field<TType, TState>
+     * @return Field<TData, TState>
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    static Field<TType, TState> create(
+    static Field<TData, TState> create(
         std::vector<BlockAttributes> blocks, int num_components = 1,
         size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
@@ -262,7 +263,7 @@ public:
             { return acc + block.block_size; });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
-        field.m_storage = std::make_unique<TMemoryRegion<TType>>(
+        field.m_storage = std::make_unique<TMemoryRegion<TData>>(
             storage_size * num_components, Align);
         // Record the alignment
         field.m_alignment = Align;
@@ -277,11 +278,11 @@ public:
      * @param array          Nektar::Array to copy from
      * @param blocks         Field storage layout.
      * @param Align          Memory alignment to use.
-     * @return Field<TType, TState>
+     * @return Field<TData, TState>
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    static Field<TType, TState> fromArray(
-        Nektar::Array<Nektar::OneD, TType> const &array,
+    static Field<TData, TState> fromArray(
+        Nektar::Array<Nektar::OneD, TData> const &array,
         std::vector<BlockAttributes> blocks,
         size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
@@ -311,12 +312,12 @@ public:
      * is required to achieve the conversion.
      */
     template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    TMemoryRegion<TType> &GetStorage()
+    TMemoryRegion<TData> &GetStorage()
     {
-        using T = TMemoryRegion<TType>;
+        using T = TMemoryRegion<TData>;
 
-        static_assert(std::is_base_of<MemoryRegionCPU<TType>, T>::value,
-                      "TMemoryRegion must derive MemoryRegionCPU<TType>");
+        static_assert(std::is_base_of<MemoryRegionCPU<TData>, T>::value,
+                      "TMemoryRegion must derive MemoryRegionCPU<TData>");
         try
         {
             // This cast fails if e.g. a MemoryRegionCUDA is requested from a
@@ -338,7 +339,7 @@ public:
 
             // This is just here so that the fromCPU method does
             // not need to be declared for MemoryRegionCPU
-            if constexpr (!std::is_same<T, MemoryRegionCPU<TType>>::value)
+            if constexpr (!std::is_same<T, MemoryRegionCPU<TData>>::value)
             {
                 // Dynamic cast threw an exception, attempt to allocate the
                 // requested TMemoryRegion from old data
@@ -382,7 +383,7 @@ public:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TType *ptr = m_storage->GetCPUPtr() + component * scalar_field_size;
+            TData *ptr = m_storage->GetCPUPtr() + component * scalar_field_size;
 
             for (const auto &block : block_attributes)
             {
@@ -391,7 +392,7 @@ public:
                     VectorWidth;
                 const size_t MetaBlockSize = VectorWidth * block.num_pts;
 
-                Nektar::Array<Nektar::OneD, TType> temp(MetaBlockSize, 0.0);
+                Nektar::Array<Nektar::OneD, TData> temp(MetaBlockSize, 0.0);
 
                 for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
                      ++metaBlock)
@@ -416,7 +417,7 @@ public:
      * @param rhs_component the component to load in the source field
      * @param component the component to overwrite in the destination field
      */
-    void CopyDataFrom(Field<TType, TState> &rhs, size_t rhs_component = 0,
+    void CopyDataFrom(Field<TData, TState> &rhs, size_t rhs_component = 0,
                       size_t component = 0)
     {
         ASSERTL0(rhs_component < rhs.GetNumComponents(),
@@ -432,9 +433,9 @@ public:
 
         size_t scalar_field_size = GetFieldSize();
 
-        const TType *rhs_ptr =
+        const TData *rhs_ptr =
             rhs.GetStorage().GetCPUPtr() + rhs_component * scalar_field_size;
-        TType *ptr = GetStorage().GetCPUPtr() + component * scalar_field_size;
+        TData *ptr = GetStorage().GetCPUPtr() + component * scalar_field_size;
 
         for (auto const &block : block_attributes)
         {
@@ -495,9 +496,9 @@ public:
         return m_curVecWidth;
     }
 
-    Nektar::Array<Nektar::OneD, TType> toArray() const
+    Nektar::Array<Nektar::OneD, TData> toArray() const
     {
-        return Nektar::Array<Nektar::OneD, TType>(m_storage->size(),
+        return Nektar::Array<Nektar::OneD, TData>(m_storage->size(),
                                                   m_storage->GetCPUPtr());
     }
 
@@ -516,7 +517,7 @@ private:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TType *inptr =
+            TData *inptr =
                 m_storage->GetCPUPtr() + component * scalar_field_size;
 
             for (const auto &block : block_attributes)
@@ -526,7 +527,7 @@ private:
                     m_curVecWidth;
                 const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
 
-                Nektar::Array<Nektar::OneD, TType> temp(MetaBlockSize, 0.0);
+                Nektar::Array<Nektar::OneD, TData> temp(MetaBlockSize, 0.0);
 
                 for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
                      ++metaBlock)
@@ -550,7 +551,7 @@ private:
      * @param   out         Output array of VW specified by VectorWidth.
      */
     template <size_t VectorWidth>
-    void InterleaveFromScalar(const TType *in, size_t dataLen, TType *out)
+    void InterleaveFromScalar(const TData *in, size_t dataLen, TData *out)
     {
         // TODO: SIMD this
         for (size_t idx = 0; idx < dataLen; ++idx)
@@ -569,7 +570,7 @@ private:
      * @param   dataLen Length of a block of data (e.g. an element)
      * @param   out     Output array
      */
-    void Deinterleave(const TType *in, size_t dataLen, TType *out)
+    void Deinterleave(const TData *in, size_t dataLen, TData *out)
     {
         for (size_t idx = 0; idx < dataLen; ++idx)
         {
@@ -599,7 +600,7 @@ private:
     {
     }
 
-    std::unique_ptr<MemoryRegionCPU<TType>> m_storage;
+    std::unique_ptr<MemoryRegionCPU<TData>> m_storage;
     std::vector<BlockAttributes> block_attributes;
     std::vector<std::string> component_names = {"u"};
 
