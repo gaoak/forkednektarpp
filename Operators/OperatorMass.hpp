@@ -23,6 +23,7 @@ public:
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
@@ -46,11 +47,14 @@ template <typename TData = default_fp_type> struct Mass
     static const std::string key;
     static const std::string default_impl;
 
+    Mass() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Mass>(expansionList, pKey);
+        return Operator<TData>::template create<Mass<TData>>(expansionList,
+                                                             pKey);
     }
 };
 

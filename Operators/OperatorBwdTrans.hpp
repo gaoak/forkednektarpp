@@ -42,11 +42,14 @@ template <typename TData = default_fp_type> struct BwdTrans
     static const std::string key;
     static const std::string default_impl;
 
+    BwdTrans() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<BwdTrans>(expansionList, pKey);
+        return Operator<TData>::template create<BwdTrans<TData>>(expansionList,
+                                                                 pKey);
     }
 };
 

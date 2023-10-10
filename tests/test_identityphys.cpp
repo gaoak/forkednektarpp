@@ -19,7 +19,7 @@ BOOST_FIXTURE_TEST_CASE(identity_seg, Seg)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -35,7 +35,7 @@ BOOST_FIXTURE_TEST_CASE(identity_quad, Quad)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -51,7 +51,7 @@ BOOST_FIXTURE_TEST_CASE(identity_tri, Tri)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -67,7 +67,7 @@ BOOST_FIXTURE_TEST_CASE(identity_square_all_elements, SquareAllElements)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -83,7 +83,7 @@ BOOST_FIXTURE_TEST_CASE(identity_hex, Hex)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -99,7 +99,7 @@ BOOST_FIXTURE_TEST_CASE(identity_prism, Prism)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -115,7 +115,7 @@ BOOST_FIXTURE_TEST_CASE(identity_pyr, Pyr)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -131,7 +131,7 @@ BOOST_FIXTURE_TEST_CASE(identity_tet, Tet)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -147,7 +147,7 @@ BOOST_FIXTURE_TEST_CASE(identity_cube_prism_hex, CubePrismHex)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -163,7 +163,7 @@ BOOST_FIXTURE_TEST_CASE(identity_cube_all_elements, CubeAllElements)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    Identity<double, FieldState::Phys>::create(fixt_explist, "StdMat")
+    Identity<FieldState::Phys>::create(fixt_explist, "StdMat")
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());

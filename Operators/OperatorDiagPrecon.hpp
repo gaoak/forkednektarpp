@@ -6,10 +6,14 @@
 namespace Nektar::Operators
 {
 
+// DiagPrecon base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorDiagPrecon : public OperatorPrecon<TData>
 {
 public:
+    virtual ~OperatorDiagPrecon() = default;
+
     OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(std::move(expansionList))
     {
@@ -18,7 +22,7 @@ public:
 
 // Descriptor / traits class for DiagPrecon to be used by Operator create
 // function
-template <typename TData> struct DiagPrecon
+template <typename TData = default_fp_type> struct DiagPrecon
 {
     using class_name = OperatorDiagPrecon<TData>;
     static const std::string key;
@@ -37,7 +41,7 @@ template <typename TData> struct DiagPrecon
 
 namespace detail
 {
-// declare class for implementation of DiagPrecon operator
+// Template for implementation of DiagPrecon operator
 template <typename TData, typename Op> class OperatorDiagPreconImpl;
 } // namespace detail
 

@@ -6,23 +6,31 @@
 namespace Nektar::Operators
 {
 
+// FwdTrans base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorFwdTrans : public Operator<TData>
 {
 public:
+    virtual ~OperatorFwdTrans() = default;
+
     OperatorFwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
-    virtual ~OperatorFwdTrans() = default;
-
     // apply must be implemented in implementation class
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void operator()(Field<TData, FieldState::Phys> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        apply(in, out);
+    }
 };
 
-// Descriptor / traits class for FwdTrans to be used by Operator create function
-template <typename TData> struct FwdTrans
+// Descriptor / traits class for FwdTrans
+template <typename TData = default_fp_type> struct FwdTrans
 {
     using class_name = OperatorFwdTrans<TData>;
     static const std::string key;

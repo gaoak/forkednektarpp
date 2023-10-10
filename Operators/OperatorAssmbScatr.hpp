@@ -3,14 +3,16 @@
 #include "Field.hpp"
 #include "Operator.hpp"
 
-using namespace Nektar;
-
 namespace Nektar::Operators
 {
 
+// AssmbScatr base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorAssmbScatr : public Operator<TData>
 {
 public:
+    virtual ~OperatorAssmbScatr() = default;
+
     OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
@@ -41,7 +43,7 @@ template <typename TData> struct AssmbScatr
 
 namespace detail
 {
-// declare class for implementation of assembly+scatter operator
+// Template for implementation of assembly+scatter operator
 template <typename TData, typename Op> class OperatorAssmbScatrImpl;
 } // namespace detail
 

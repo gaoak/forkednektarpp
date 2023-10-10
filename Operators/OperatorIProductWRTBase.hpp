@@ -38,11 +38,13 @@ template <typename TData = default_fp_type> struct IProductWRTBase
     static const std::string key;
     static const std::string default_impl;
 
+    IProductWRTBase() = delete;
+
     static std::shared_ptr<class_name> create(
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<IProductWRTBase>(
+        return Operator<TData>::template create<IProductWRTBase<TData>>(
             std::move(expansionList), pKey);
     }
 };

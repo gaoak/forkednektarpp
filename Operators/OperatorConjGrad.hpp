@@ -6,9 +6,13 @@
 namespace Nektar::Operators
 {
 
+// ConjGrad base class
+// Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorConjGrad : public Operator<TData>
 {
 public:
+    virtual ~OperatorConjGrad() = default;
+
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(std::move(expansionList))
     {
@@ -16,6 +20,12 @@ public:
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void operator()(Field<TData, FieldState::Coeff> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        apply(in, out);
+    }
 
     virtual void setLHS(
         const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
@@ -27,7 +37,7 @@ public:
 };
 
 // Descriptor / traits class for ConjGrad to be used by Operator create function
-template <typename TData> struct ConjGrad
+template <typename TData = default_fp_type> struct ConjGrad
 {
     using class_name = OperatorConjGrad<TData>;
     static const std::string key;
@@ -46,7 +56,7 @@ template <typename TData> struct ConjGrad
 
 namespace detail
 {
-// declare class for implementation of CG operator
+// Template for implementation of CG operator
 template <typename TData, typename Op> class OperatorConjGradImpl;
 } // namespace detail
 

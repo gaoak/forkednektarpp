@@ -21,7 +21,7 @@ public:
     {
         m_ConjGradOp = ConjGrad<TData>::create(this->m_expansionList);
         m_PreconOp =
-            Identity<TData, FieldState::Coeff>::create(this->m_expansionList);
+            Identity<FieldState::Coeff, TData>::create(this->m_expansionList);
         m_MassOp = Mass<TData>::create(this->m_expansionList);
         m_IProductWRTBaseOp =
             IProductWRTBase<TData>::create(this->m_expansionList);
