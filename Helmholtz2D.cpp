@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
-#include <algorithm>
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/Communication/Comm.h>
@@ -44,17 +44,16 @@
 
 #include "Field.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorConjGrad.hpp"
-#include "Operators/OperatorMass.hpp"
-#include "Operators/OperatorFwdTrans.hpp"
-#include "Operators/OperatorPhysDeriv.hpp"
-#include "Operators/OperatorMatrix.hpp"
 #include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/OperatorFwdTrans.hpp"
 #include "Operators/OperatorHelmSolve.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
-
+#include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorMatrix.hpp"
+#include "Operators/OperatorPhysDeriv.hpp"
 
 using namespace std;
 using namespace Nektar;
@@ -77,7 +76,8 @@ int NoCaseStringCompare(const string &s1, const string &s2);
 
 int main(int argc, char *argv[])
 {
-    LibUtilities::SessionReaderSharedPtr vSession = LibUtilities::SessionReader::CreateInstance(argc, argv);
+    LibUtilities::SessionReaderSharedPtr vSession =
+        LibUtilities::SessionReader::CreateInstance(argc, argv);
 
     MultiRegions::ContFieldSharedPtr Exp, Fce;
 
@@ -95,18 +95,22 @@ int main(int argc, char *argv[])
 
     try
     {
-        LibUtilities::FieldIOSharedPtr fld = LibUtilities::FieldIO::CreateDefault(vSession);
+        LibUtilities::FieldIOSharedPtr fld =
+            LibUtilities::FieldIO::CreateDefault(vSession);
 
         //----------------------------------------------
         // Read in mesh from input file
-        SpatialDomains::MeshGraphSharedPtr graph2D = SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphSharedPtr graph2D =
+            SpatialDomains::MeshGraph::Read(vSession);
         //----------------------------------------------
 
         //----------------------------------------------
         // Print summary of solution details
         factors[StdRegions::eFactorLambda] = vSession->GetParameter("Lambda");
-        const SpatialDomains::ExpansionInfoMap &expansions = graph2D->GetExpansionInfo();
-        LibUtilities::BasisKey bkey0 = expansions.begin()->second->m_basisKeyVector[0];
+        const SpatialDomains::ExpansionInfoMap &expansions =
+            graph2D->GetExpansionInfo();
+        LibUtilities::BasisKey bkey0 =
+            expansions.begin()->second->m_basisKeyVector[0];
 
         if (vSession->GetComm()->GetRank() == 0)
         {
@@ -125,10 +129,11 @@ int main(int argc, char *argv[])
         //----------------------------------------------
         // Define Expansion
         // Targets the u variable (only variable in session)
-        Exp = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(vSession, graph2D, vSession->GetVariable(0));
-        
+        Exp = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
+            vSession, graph2D, vSession->GetVariable(0));
+
         // get blocks from expansion list
-        auto blocks_phys = GetBlockAttributes(FieldState::Phys, Exp);
+        auto blocks_phys  = GetBlockAttributes(FieldState::Phys, Exp);
         auto blocks_coeff = GetBlockAttributes(FieldState::Coeff, Exp);
 
         //----------------------------------------------
@@ -139,25 +144,28 @@ int main(int argc, char *argv[])
         // Set up coordinates of mesh for Forcing function evaluation
         coordim = Exp->GetCoordim(0);
         nq      = Exp->GetTotPoints();
-        
+
         /*
         // PRINT MAPPING VALUES FROM THE ASSEMBLY
         auto locToGloMap = Exp->GetLocalToGlobalMap();
         std::cout << "Num elements = " << Exp->GetNumElmts() << "\n";
-        std::cout << "Number of global coeffs = " << locToGloMap->GetNumGlobalCoeffs() << "\n";
-        std::cout << "Number of local  coeffs = " << locToGloMap->GetNumLocalCoeffs() << "\n";
-        std::cout << "Number of global bnd coeffs = " << locToGloMap->GetNumGlobalBndCoeffs() << "\n";
-        std::cout << "Number of local bnd coeffs = " << locToGloMap->GetNumLocalBndCoeffs() << "\n";
-        std::cout << "Number of local dir bnd coeffs = " << locToGloMap->GetNumLocalDirBndCoeffs() << "\n";
-        int maxGloIdx = 0;
-        for (int i = 0; i < locToGloMap->GetNumLocalCoeffs(); ++i)
+        std::cout << "Number of global coeffs = " <<
+        locToGloMap->GetNumGlobalCoeffs() << "\n"; std::cout << "Number of local
+        coeffs = " << locToGloMap->GetNumLocalCoeffs() << "\n"; std::cout <<
+        "Number of global bnd coeffs = " << locToGloMap->GetNumGlobalBndCoeffs()
+        << "\n"; std::cout << "Number of local bnd coeffs = " <<
+        locToGloMap->GetNumLocalBndCoeffs() << "\n"; std::cout << "Number of
+        local dir bnd coeffs = " << locToGloMap->GetNumLocalDirBndCoeffs() <<
+        "\n"; int maxGloIdx = 0; for (int i = 0; i <
+        locToGloMap->GetNumLocalCoeffs(); ++i)
         {
             int gloIdx = locToGloMap->GetLocalToGlobalMap(i);
             if (gloIdx > maxGloIdx)
                 maxGloIdx = gloIdx;
             std::cout << "Local " << i << " --> Global " << gloIdx << "\n";
         }
-        std::cout << "Max global idx = " << locToGloMap->GetNumGlobalCoeffs() - 1 << " --- " << maxGloIdx << "\n";
+        std::cout << "Max global idx = " << locToGloMap->GetNumGlobalCoeffs() -
+        1 << " --- " << maxGloIdx << "\n";
         */
 
         xc0 = Array<OneD, NekDouble>(nq, 0.0);
@@ -165,8 +173,9 @@ int main(int argc, char *argv[])
         xc2 = Array<OneD, NekDouble>(nq, 0.0);
 
         // Get Coords calculates the values of all elemental quadrature points
-        //std::cout << "Total points = " << nq << "\n";
-        //std::cout << "Total points / number of elements = " << nq / Exp->GetNumElmts() << "\n";
+        // std::cout << "Total points = " << nq << "\n";
+        // std::cout << "Total points / number of elements = " << nq /
+        // Exp->GetNumElmts() << "\n";
         switch (coordim)
         {
             case 2:
@@ -181,33 +190,34 @@ int main(int argc, char *argv[])
         }
         //----------------------------------------------
 
-
         //----------------------------------------------
         // Define forcing function for first variable defined in file
         // calculate the values of the forcing function at the quadrature points
         fce = Array<OneD, NekDouble>(nq);
-        LibUtilities::EquationSharedPtr ffunc = vSession->GetFunction("Forcing", 0);
+        LibUtilities::EquationSharedPtr ffunc =
+            vSession->GetFunction("Forcing", 0);
         ffunc->Evaluate(xc0, xc1, xc2, fce);
-
-        
 
         // copy fce into field
         auto in = Field<double, FieldState::Phys>::create(blocks_phys);
-        std::copy(fce.data(), fce.data() + in.GetStorage().size(), in.GetStorage().GetCPUPtr());
+        std::copy(fce.data(), fce.data() + in.GetStorage().size(),
+                  in.GetStorage().GetCPUPtr());
 
         //----------------------------------------------
 
         //----------------------------------------------
         // Setup expansion containing the  forcing function
-        // Copies the expansion list describing the mesh and expansion polynomials for the problem
-        // The physical point values are initially set to be equal to the fce array
-        // the physical points represent function evaluatations at the quadrature points
-        // used for integration / differentiation
-        
+        // Copies the expansion list describing the mesh and expansion
+        // polynomials for the problem The physical point values are initially
+        // set to be equal to the fce array the physical points represent
+        // function evaluatations at the quadrature points used for integration
+        // / differentiation
+
         // not needed
-        //Fce = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(*Exp);
-        //Fce->SetPhys(fce);
-        
+        // Fce =
+        // MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(*Exp);
+        // Fce->SetPhys(fce);
+
         //----------------------------------------------
         Timing("Define forcing ..");
 
@@ -217,15 +227,17 @@ int main(int argc, char *argv[])
         //----------------------------------------------
         // Helmholtz solution taking physical forcing after setting
         // initial condition to zero
-        // Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1); // initially set coefficients to zero
+        // Vmath::Zero(Exp->GetNcoeffs(), Exp->UpdateCoeffs(), 1); // initially
+        // set coefficients to zero
         auto out = Field<double, FieldState::Coeff>::create(blocks_coeff);
 
         // note Exp->UpdateCoeffs() returns reference to underlying array
-        // Do HelmSolve using a const reference to the physical point values, a reference to the coeffs,
-        // the factors map and the variable coeffs map
-        //Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors, varcoeffs);
-        
-        auto helmSolveOp = HelmSolve<double>::create(Exp);
+        // Do HelmSolve using a const reference to the physical point values, a
+        // reference to the coeffs, the factors map and the variable coeffs map
+        // Exp->HelmSolve(Fce->GetPhys(), Exp->UpdateCoeffs(), factors,
+        // varcoeffs);
+
+        auto helmSolveOp  = HelmSolve<double>::create(Exp);
         auto diagPreconOp = DiagPrecon<double>::create(Exp);
 
         helmSolveOp->setPrecon(diagPreconOp);
@@ -238,15 +250,16 @@ int main(int argc, char *argv[])
 
         //----------------------------------------------
         // Backward Transform Solution to get solved values
-        // Undertakes backward transform which converts from coefficients to physical points
-        // Reads in a constant reference to the coeffs and writes to a refernece of the physical points
-        
-        //Exp->BwdTrans(Exp->GetCoeffs(), Exp->UpdatePhys());
-        
+        // Undertakes backward transform which converts from coefficients to
+        // physical points Reads in a constant reference to the coeffs and
+        // writes to a refernece of the physical points
+
+        // Exp->BwdTrans(Exp->GetCoeffs(), Exp->UpdatePhys());
+
         // BwdTrans<>::create()->apply(out,.)
         auto outPhys = Field<double, FieldState::Phys>::create(blocks_phys);
         BwdTrans<double>::create(Exp)->apply(out, outPhys);
-        
+
         std::cout << "BwdTrans done\n";
 
         //----------------------------------------------
@@ -271,7 +284,8 @@ int main(int argc, char *argv[])
         //----------------------------------------------
         // See if there is an exact solution, if so
         // evaluate and plot errors
-        LibUtilities::EquationSharedPtr ex_sol = vSession->GetFunction("ExactSolution", 0);
+        LibUtilities::EquationSharedPtr ex_sol =
+            vSession->GetFunction("ExactSolution", 0);
 
         if (ex_sol)
         {
@@ -284,43 +298,49 @@ int main(int argc, char *argv[])
 
             // fce contains u_exact --> in physical points
             // now execute helmholtz operator on u
-            //std::transform(u_exact_phys.)
-            auto u_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
-            auto u_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
-            auto f_exact_phys = Field<double, FieldState::Phys>::create(blocks_phys);
-            auto f_exact_coeff = Field<double, FieldState::Coeff>::create(blocks_coeff);            
-            
-            /*std::transform(u_exact_phys.GetStorage().GetCPUPtr(), 
+            // std::transform(u_exact_phys.)
+            auto u_exact_phys =
+                Field<double, FieldState::Phys>::create(blocks_phys);
+            auto u_exact_coeff =
+                Field<double, FieldState::Coeff>::create(blocks_coeff);
+            auto f_exact_phys =
+                Field<double, FieldState::Phys>::create(blocks_phys);
+            auto f_exact_coeff =
+                Field<double, FieldState::Coeff>::create(blocks_coeff);
+
+            /*std::transform(u_exact_phys.GetStorage().GetCPUPtr(),
                 u_exact_phys.GetStorage().GetCPUPtr() + Exp->GetTotPoints(),
                 u_exact_phys.GetStorage().GetCPUPtr(),
                 [](double x ){return 1.0;});*/
-            std::copy(u_exact_pts.begin(), u_exact_pts.end(), u_exact_phys.GetStorage().GetCPUPtr());
+            std::copy(u_exact_pts.begin(), u_exact_pts.end(),
+                      u_exact_phys.GetStorage().GetCPUPtr());
             FwdTrans<double>::create(Exp)->apply(u_exact_phys, u_exact_coeff);
 
             auto helmholtzOp = Helmholtz<double>::create(Exp);
             helmholtzOp->SetLambda(0.);
             // diffusion coefficients
             // ** DIFFUSION **
-            
+
             //
             helmholtzOp->apply(u_exact_coeff, f_exact_coeff);
 
             BwdTrans<double>::create(Exp)->apply(f_exact_coeff, f_exact_phys);
 
-            std::cout << f_exact_phys.GetStorage().size() << " -- " << nq << " -- " << fce.size() << "\n";
-            auto *in_ptr = u_exact_phys.GetStorage().GetCPUPtr();
+            std::cout << f_exact_phys.GetStorage().size() << " -- " << nq
+                      << " -- " << fce.size() << "\n";
+            auto *in_ptr    = u_exact_phys.GetStorage().GetCPUPtr();
             auto *field_ptr = f_exact_phys.GetStorage().GetCPUPtr();
-            auto *arr_ptr = fce.begin();
-            double eps = 0.;
+            auto *arr_ptr   = fce.begin();
+            double eps      = 0.;
             double diff;
             for (size_t i = 0; i < Exp->GetTotPoints(); ++i)
             {
-                //std::cout << *(arr_ptr) << " -- " << *(field_ptr) << "\n";
+                // std::cout << *(arr_ptr) << " -- " << *(field_ptr) << "\n";
                 std::cout << *(arr_ptr) << " -- " << *(field_ptr) << "\n";
                 diff = *(arr_ptr) - *(field_ptr);
                 eps += diff * diff;
                 arr_ptr++;
-                field_ptr++;                
+                field_ptr++;
             }
             std::cout << "Error=" << eps << "\n";
 
@@ -355,7 +375,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    vSession->Finalise();   
+    vSession->Finalise();
 }
 
 /**
