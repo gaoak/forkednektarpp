@@ -1,3 +1,4 @@
+#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestMassCUDA
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
