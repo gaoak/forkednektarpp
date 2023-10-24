@@ -29,13 +29,6 @@ public:
     {
         apply(in, out);
     }
-
-    void SetLambda(TData lambda)
-    {
-        m_lambda = lambda;
-    }
-
-    TData m_lambda = 1.0;
 };
 
 // Descriptor / traits class for Mass

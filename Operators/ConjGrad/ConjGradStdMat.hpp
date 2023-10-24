@@ -23,41 +23,43 @@ class OperatorConjGradImpl<TData, ImplStdMat> : public OperatorConjGrad<TData>
 {
 public:
     OperatorConjGradImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorConjGrad<TData>(std::move(expansionList))
+        : OperatorConjGrad<TData>(expansionList),
+          m_w_A(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_s_A(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_p_A(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_r_A(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_q_A(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_wk(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList)))
     {
-        m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
+        auto contfield =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        auto assmbMap = contfield->GetLocalToGlobalMap();
+        m_tol         = assmbMap->GetIterativeTolerance();
+        m_maxIter     = assmbMap->GetMaxIterations();
+        m_assmbScatr  = AssmbScatr<TData>::create(this->m_expansionList);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // these values should be referenced from Nektar
-        TData tol      = 1.e-6;  // ** CHANGE THIS **
-        size_t maxIter = 100000; // ** CHANGE THIS **
-
         // get number of local coeffs (=size of in/out fields)
         size_t nloc = in.GetStorage().size();
-
-        // get block attributes (must be same as out.GetBlocks())
-        auto blocks_coeff = in.GetBlocks();
-
-        // create temporary fields
-        auto w_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
-        auto s_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
-        auto p_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
-        auto r_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
-        auto q_A = Field<TData, FieldState::Coeff>::create(blocks_coeff);
-        auto wk  = Field<TData, FieldState::Coeff>::create(blocks_coeff);
 
         // store pointers to temporary fields
         auto *p_in  = in.GetStorage().GetCPUPtr();
         auto *p_out = out.GetStorage().GetCPUPtr();
-        auto *p_w_A = w_A.GetStorage().GetCPUPtr();
-        auto *p_s_A = s_A.GetStorage().GetCPUPtr();
-        auto *p_p_A = p_A.GetStorage().GetCPUPtr();
-        auto *p_r_A = r_A.GetStorage().GetCPUPtr();
-        auto *p_q_A = q_A.GetStorage().GetCPUPtr();
-        auto *p_wk  = wk.GetStorage().GetCPUPtr();
+        auto *p_w_A = m_w_A.GetStorage().GetCPUPtr();
+        auto *p_s_A = m_s_A.GetStorage().GetCPUPtr();
+        auto *p_p_A = m_p_A.GetStorage().GetCPUPtr();
+        auto *p_r_A = m_r_A.GetStorage().GetCPUPtr();
+        auto *p_q_A = m_q_A.GetStorage().GetCPUPtr();
+        auto *p_wk  = m_wk.GetStorage().GetCPUPtr();
 
         // set the fields to zero
         std::fill(p_out, p_out + nloc, 0.);
@@ -77,32 +79,33 @@ public:
         TData mu;
         TData eps;
         TData min_resid;
-        std::array<TData, 3> vExchange;
+        std::array<TData, 3> vExchange{0.0, 0.0, 0.0};
 
         // copy RHS into initial residual
         std::copy(p_in, p_in + nloc, p_r_A);
 
         // initial residual
-        m_assmbScatr->apply(r_A, wk);
-
-        vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_wk, 0.);
+        m_assmbScatr->apply(m_r_A, m_wk);
+        vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
         // m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
-        // calculate rhs magnitude
-        rhsMagnitude = 0.;
-        std::for_each(p_in, p_in + nloc,
-                      [&rhsMagnitude](const TData &x)
-                      { rhsMagnitude += x * x; });
-        rhsMagnitude = std::sqrt(rhsMagnitude);
-
         eps = vExchange[2];
-        if (eps < tol * tol * rhsMagnitude)
-            return;
+
+        // calculate rhs magnitude
+        m_assmbScatr->apply(in, m_wk);
+        rhsMagnitude = std::inner_product(p_in, p_in + nloc, p_wk, 0.);
+        // m_Comm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         totalIterations = 0;
 
-        m_precon->apply(r_A, w_A);
-        m_LHS->apply(w_A, s_A);
+        if (eps < m_tol * m_tol * rhsMagnitude)
+        {
+            return;
+        }
+
+        m_precon->apply(m_r_A, m_w_A);
+        m_LHS->apply(m_w_A, m_s_A);
 
         k = 0;
 
@@ -119,57 +122,43 @@ public:
 
         while (true)
         {
-            if (k >= maxIter)
+            if (k >= m_maxIter)
             {
                 std::cout << "Exceeded max iterations\n";
                 return;
             }
 
             // Compute new search direction p_k, q_k
-            // Vmath::Svtvp(nLocal, beta, p_A, 1, w_A, 1, p_A, 1);
-            // Vmath::Svtvp(nLocal, beta, q_A, 1, s_A, 1, q_A, 1);
             std::transform(p_p_A, p_p_A + nloc, p_w_A, p_p_A,
-                           [&](const TData &pElem, const TData &wElem)
+                           [&beta](const TData &pElem, const TData &wElem)
                            { return beta * pElem + wElem; });
             std::transform(p_q_A, p_q_A + nloc, p_s_A, p_q_A,
-                           [&](const TData &qElem, const TData &sElem)
+                           [&beta](const TData &qElem, const TData &sElem)
                            { return beta * qElem + sElem; });
 
             // Update solution x_{k+1}
-            // Vmath::Svtvp(nLocal, alpha, p_A, 1, pOutput, 1, pOutput, 1);
             std::transform(p_p_A, p_p_A + nloc, p_out, p_out,
-                           [&](const TData &pElem, const TData &xElem)
+                           [&alpha](const TData &pElem, const TData &xElem)
                            { return alpha * pElem + xElem; });
 
             // Update residual vector r_{k+1}
-            // Vmath::Svtvp(nLocal, -alpha, q_A, 1, r_A, 1, r_A, 1);
             std::transform(p_q_A, p_q_A + nloc, p_r_A, p_r_A,
-                           [&](const TData &qElem, const TData &rElem)
+                           [&alpha](const TData &qElem, const TData &rElem)
                            { return -alpha * qElem + rElem; });
 
             // Apply preconditioner
-            // m_operator.DoNekSysPrecon(r_A, w_A, true);
-            m_precon->apply(r_A, w_A);
+            m_precon->apply(m_r_A, m_w_A);
 
             // Perform the method-specific matrix-vector multiply operation.
-            // m_operator.DoNekSysLhsEval(w_A, s_A);
-            m_LHS->apply(w_A, s_A);
+            m_LHS->apply(m_w_A, m_s_A);
 
             // <r_{k+1}, w_{k+1}>
-            // vExchange[0] = Vmath::Dot(nLocal, r_A, w_A);
             vExchange[0] = std::inner_product(p_r_A, p_r_A + nloc, p_w_A, 0.);
-
             // <s_{k+1}, w_{k+1}>
-            // vExchange[1] = Vmath::Dot(nLocal, s_A, w_A);
             vExchange[1] = std::inner_product(p_s_A, p_s_A + nloc, p_w_A, 0.);
-
             // <r_{k+1}, r_{k+1}>
-            // m_operator.assembleScatter(r_A, wk, true);
-            // vExchange[2] = Vmath::Dot(nLocal, wk, r_A);
-
-            m_assmbScatr->apply(r_A, wk); // Assembly (communication)
-
-            vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_wk, 0.);
+            m_assmbScatr->apply(m_r_A, m_wk); // Assembly (communication)
+            vExchange[2] = std::inner_product(p_wk, p_wk + nloc, p_r_A, 0.);
 
             // Perform inner-product exchanges
             // m_Comm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
@@ -184,8 +173,10 @@ public:
             totalIterations++;
 
             // Test if norm is within tolerance
-            if (eps < tol * tol * rhsMagnitude)
+            if (eps < m_tol * m_tol * rhsMagnitude)
+            {
                 break;
+            }
             min_resid = std::min(min_resid, eps);
 
             // Compute search direction and solution coefficients
@@ -226,6 +217,14 @@ protected:
         m_LHS;
     std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
         m_precon;
+    Field<TData, FieldState::Coeff> m_w_A;
+    Field<TData, FieldState::Coeff> m_s_A;
+    Field<TData, FieldState::Coeff> m_p_A;
+    Field<TData, FieldState::Coeff> m_r_A;
+    Field<TData, FieldState::Coeff> m_q_A;
+    Field<TData, FieldState::Coeff> m_wk;
+    TData m_tol;
+    size_t m_maxIter;
 };
 
 } // namespace Nektar::Operators::detail

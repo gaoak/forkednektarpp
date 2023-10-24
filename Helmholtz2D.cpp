@@ -317,7 +317,6 @@ int main(int argc, char *argv[])
             FwdTrans<double>::create(Exp)->apply(u_exact_phys, u_exact_coeff);
 
             auto helmholtzOp = Helmholtz<double>::create(Exp);
-            helmholtzOp->SetLambda(0.);
             // diffusion coefficients
             // ** DIFFUSION **
 
