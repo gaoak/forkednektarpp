@@ -19,7 +19,7 @@ class OperatorAssmbScatrImpl<TData, ImplStdMat>
 {
 public:
     OperatorAssmbScatrImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorAssmbScatr<TData>(std::move(expansionList))
+        : OperatorAssmbScatr<TData>(expansionList)
     {
     }
 

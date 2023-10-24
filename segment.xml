@@ -41,4 +41,12 @@
         <E COMPOSITE="C[0]" FIELDS="u" TYPE="MODIFIED" NUMMODES="4"/>
     </EXPANSIONS>
 
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
 </NEKTAR>

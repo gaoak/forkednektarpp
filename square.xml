@@ -27,14 +27,10 @@
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="EQTYPE" VALUE="Helmholtz" />
             <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
         </SOLVERINFO>
         <VARIABLES>
             <V ID="0">u</V>
         </VARIABLES>
-        <FUNCTION NAME="Forcing">
-            <E VAR="u" VALUE="0" />
-        </FUNCTION>
     </CONDITIONS>
 </NEKTAR>

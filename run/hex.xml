@@ -156,8 +156,16 @@
     </GEOMETRY>
 
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="w" TYPE="MODIFIED" />
-        <E COMPOSITE="C[7]" NUMMODES="4" FIELDS="w" TYPE="MODIFIED" />
+        <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u" TYPE="MODIFIED" />
+        <E COMPOSITE="C[7]" NUMMODES="4" FIELDS="u" TYPE="MODIFIED" />
     </EXPANSIONS>
 
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
 </NEKTAR>

@@ -59,4 +59,13 @@
         <E COMPOSITE="C[1]" NUMMODES="7,7" FIELDS="u" BASISTYPE="Modified_A,Modified_A" NUMPOINTS="8,8" POINTSTYPE="GaussLobattoLegendre,GaussLobattoLegendre"/>
     </EXPANSIONS>
 
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
+
 </NEKTAR>
