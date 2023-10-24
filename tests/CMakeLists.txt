@@ -176,6 +176,15 @@ target_include_directories(test_masscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_masscuda PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_assmbscatr test_assmbscatr.cpp)
+target_link_libraries(test_assmbscatr PRIVATE Operators)
+target_link_libraries(test_assmbscatr PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_assmbscatr PRIVATE Boost::unit_test_framework)
+target_include_directories(test_assmbscatr PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_assmbscatr PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_assmbscatr PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_fwdtrans test_fwdtrans.cpp)
 target_link_libraries(test_fwdtrans PRIVATE Operators)
 target_link_libraries(test_fwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
@@ -324,6 +333,12 @@ IF (NEKTAR_USE_CUDA)
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
 ENDIF()
+
+add_test(
+  NAME AssmbScatr
+  COMMAND test_assmbscatr
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
 
 add_test(
   NAME FwdTrans

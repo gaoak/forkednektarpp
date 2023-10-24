@@ -114,4 +114,12 @@
         </COMPOSITE>
         <DOMAIN> C[1] </DOMAIN>
     </GEOMETRY>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
 </NEKTAR>

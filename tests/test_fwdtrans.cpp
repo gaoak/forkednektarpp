@@ -24,7 +24,7 @@ public:
         : InitFields<double, FieldState::Phys, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
-        meshName = "square_fwdtrans.xml";
+        meshName = "square.xml";
     }
 };
 

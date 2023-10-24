@@ -34,4 +34,12 @@
         </COMPOSITE>
         <DOMAIN> C[0,7,8,9] </DOMAIN>
     </GEOMETRY>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
 </NEKTAR>

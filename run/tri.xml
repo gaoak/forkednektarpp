@@ -25,4 +25,12 @@
         <E COMPOSITE="C[6]" NUMMODES="4" FIELDS="u" TYPE="MODIFIED" />
     </EXPANSIONS>
 
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+        </SOLVERINFO>
+        <VARIABLES>
+            <V ID="0">u</V>
+        </VARIABLES>
+    </CONDITIONS>
 </NEKTAR>

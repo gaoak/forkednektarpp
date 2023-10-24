@@ -24,7 +24,7 @@ public:
 
 // Descriptor / traits class for Assembly+scatter to be used by Operator create
 // function
-template <typename TData> struct AssmbScatr
+template <typename TData = default_fp_type> struct AssmbScatr
 {
     using class_name = OperatorAssmbScatr<TData>;
     static const std::string key;
