@@ -22,8 +22,10 @@ class OperatorHelmSolveImpl<TData, ImplStdMat> : public OperatorHelmSolve<TData>
 {
 public:
     OperatorHelmSolveImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmSolve<TData>(std::move(expansionList)),
+        : OperatorHelmSolve<TData>(expansionList),
           m_rhs(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_dir(Field<TData, FieldState::Coeff>::create(
               GetBlockAttributes(FieldState::Coeff, expansionList)))
     {
         m_IProdOp = IProductWRTBase<TData>::create(this->m_expansionList);
@@ -37,6 +39,11 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
+        size_t nloc = in.GetStorage().size();
+        auto *outptr = out.GetStorage().GetCPUPtr();
+        auto *rhsptr = m_rhs.GetStorage().GetCPUPtr();
+        auto *dirptr = m_dir.GetStorage().GetCPUPtr();
+
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
@@ -44,16 +51,24 @@ public:
         m_NeuBCOp->apply(m_rhs);
 
         // Handle Dirichlet BCs
-        m_DirBCOp->apply(out);
+        m_DirBCOp->apply(m_dir);
+        m_HelmOp->apply(m_dir, out); // use out as temporary storage
+        std::transform(rhsptr, rhsptr + nloc, outptr, rhsptr,
+                           [](const TData &rhs, const TData &dir)
+                           { return rhs - dir; });
 
         // Solve for u_hat using Conjugate Gradient
         m_CGOp->apply(m_rhs, out);
+
+        // Add Dirichlet BCs
+        std::transform(outptr, outptr + nloc, dirptr, outptr,
+                           [](const TData &x, const TData &dir)
+                           { return x + dir; });
     }
 
     void setLambda(const TData &lambda)
     {
-        // ** CURRENTLY HELMHOLTZ OPERATOR DOESN'T TAKE LAMBDA !!
-        // m_HelmOp->setLambda(lambda);
+        m_HelmOp->setLambda(lambda);
     }
 
     void setPrecon(const std::shared_ptr<OperatorPrecon<TData>> &precon)
@@ -81,6 +96,7 @@ protected:
     std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
     std::shared_ptr<OperatorHelmholtz<TData>> m_HelmOp;
     Field<TData, FieldState::Coeff> m_rhs;
+    Field<TData, FieldState::Coeff> m_dir;
 };
 
 } // namespace Nektar::Operators::detail

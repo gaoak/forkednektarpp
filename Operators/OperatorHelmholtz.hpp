@@ -30,7 +30,7 @@ public:
         apply(in, out);
     }
 
-    void SetLambda(TData lambda)
+    void setLambda(TData lambda)
     {
         m_lambda = lambda;
     }
