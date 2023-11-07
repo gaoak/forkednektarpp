@@ -19,7 +19,7 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
+    virtual void apply(Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 // Descriptor / traits class for DirBndCond to be used by Operator create

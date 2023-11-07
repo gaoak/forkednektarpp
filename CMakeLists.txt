@@ -43,6 +43,7 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPreconImpl.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
     Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCondImpl.cpp
+    Operators/OperatorRobBndCond.cpp Operators/RobBndCond/RobBndCondImpl.cpp
     Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
     Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
     )

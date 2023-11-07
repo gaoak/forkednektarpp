@@ -10,10 +10,6 @@ using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
-
-void ImposeNeumannConditions(Array<OneD, NekDouble> &arr,
-                             const ContFieldSharedPtr &contfield);
-
 template <typename TData>
 class OperatorNeuBndCondImpl<TData, ImplStdMat>
     : public OperatorNeuBndCond<TData>
@@ -26,20 +22,45 @@ public:
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        // get number of local coeffs
-        auto contField =
+        auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        auto nloc = contField->GetLocalToGlobalMap()->GetNumLocalCoeffs();
+        auto &locToGloMap       = contfield->GetLocalToGlobalMap();
+        auto &bndCondExpansions = contfield->GetBndCondExpansions();
+        auto &bndConditions     = contfield->GetBndConditions();
+        auto &sign = locToGloMap->GetBndCondCoeffsToLocalCoeffsSign();
+        auto &map  = locToGloMap->GetBndCondCoeffsToLocalCoeffsMap();
 
-        // Field -> Array (** Needs changing!)
-        Array<OneD, NekDouble> rhs(nloc, inout.GetStorage().GetCPUPtr());
-
-        // Core of function
-        ImposeNeumannConditions(rhs, contField);
-
-        // Array -> Field (** Needs changing!)
-        std::copy(rhs.data(), rhs.data() + nloc,
-                  inout.GetStorage().GetCPUPtr());
+        size_t bndcnt = 0;
+        auto outptr   = inout.GetStorage().GetCPUPtr();
+        // Add weak boundary conditions to forcing
+        for (size_t i = 0; i < bndCondExpansions.size(); ++i)
+        {
+            if (bndConditions[i]->GetBoundaryConditionType() ==
+                    SpatialDomains::eNeumann ||
+                bndConditions[i]->GetBoundaryConditionType() ==
+                    SpatialDomains::eRobin)
+            {
+                auto &bndcoeff = bndCondExpansions[i]->GetCoeffs();
+                if (locToGloMap->GetSignChange())
+                {
+                    for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
+                         j++)
+                    {
+                        *(outptr + map[bndcnt + j]) +=
+                            sign[bndcnt + j] * bndcoeff[j];
+                    }
+                }
+                else
+                {
+                    for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
+                         j++)
+                    {
+                        *(outptr + map[bndcnt + j]) += bndcoeff[j];
+                    }
+                }
+            }
+            bndcnt += bndCondExpansions[i]->GetNcoeffs();
+        }
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
@@ -53,51 +74,5 @@ public:
     // className - for OperatorFactory
     static std::string className;
 };
-
-// Lifted from ContField.cpp (HelmSolve function)
-void ImposeNeumannConditions(Array<OneD, NekDouble> &arr,
-                             const ContFieldSharedPtr &contfield)
-{
-    auto locToGloMap       = contfield->GetLocalToGlobalMap();
-    auto bndCondExpansions = contfield->GetBndCondExpansions();
-    auto bndConditions     = contfield->GetBndConditions();
-
-    int bndcnt = 0;
-    Array<OneD, NekDouble> sign =
-        locToGloMap->GetBndCondCoeffsToLocalCoeffsSign();
-    const Array<OneD, const int> map =
-        locToGloMap->GetBndCondCoeffsToLocalCoeffsMap();
-    // Add weak boundary conditions to forcing
-    for (size_t i = 0; i < bndCondExpansions.size(); ++i)
-    {
-        if (bndConditions[i]->GetBoundaryConditionType() ==
-                SpatialDomains::eNeumann ||
-            bndConditions[i]->GetBoundaryConditionType() ==
-                SpatialDomains::eRobin)
-        {
-
-            const Array<OneD, const NekDouble> bndcoeff =
-                (bndCondExpansions[i])->GetCoeffs();
-
-            if (locToGloMap->GetSignChange())
-            {
-                for (size_t j = 0; j < (bndCondExpansions[i])->GetNcoeffs();
-                     j++)
-                {
-                    arr[map[bndcnt + j]] += sign[bndcnt + j] * bndcoeff[j];
-                }
-            }
-            else
-            {
-                for (size_t j = 0; j < (bndCondExpansions[i])->GetNcoeffs();
-                     j++)
-                {
-                    arr[map[bndcnt + j]] += bndcoeff[j];
-                }
-            }
-        }
-        bndcnt += bndCondExpansions[i]->GetNcoeffs();
-    }
-}
 
 } // namespace Nektar::Operators::detail
