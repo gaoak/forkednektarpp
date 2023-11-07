@@ -92,7 +92,7 @@ public:
         {
             fixt_explist =
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
-                    session, graph, "DefaultVar", true, false,
+                    session, graph, "u", true, false,
                     Collections::eNoCollection);
         }
 
@@ -100,8 +100,7 @@ public:
         {
             fixt_explist =
                 MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
-                    session, graph, true, "DefaultVar",
-                    Collections::eNoCollection);
+                    session, graph, true, "u", Collections::eNoCollection);
         }
 
         // Generate a blocks definition from the expansion list for each state

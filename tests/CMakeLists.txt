@@ -185,6 +185,15 @@ target_include_directories(test_assmbscatr PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_assmbscatr PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_dirichlet test_dirichlet.cpp)
+target_link_libraries(test_dirichlet PRIVATE Operators)
+target_link_libraries(test_dirichlet PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_dirichlet PRIVATE Boost::unit_test_framework)
+target_include_directories(test_dirichlet PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_dirichlet PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_dirichlet PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_fwdtrans test_fwdtrans.cpp)
 target_link_libraries(test_fwdtrans PRIVATE Operators)
 target_link_libraries(test_fwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
@@ -337,6 +346,12 @@ ENDIF()
 add_test(
   NAME AssmbScatr
   COMMAND test_assmbscatr
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME Dirichlet
+  COMMAND test_dirichlet
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
