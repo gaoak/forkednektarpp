@@ -19,7 +19,8 @@ public:
     }
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+                       Field<TData, FieldState::Coeff> &out,
+                       const bool &zeroDir = false) = 0;
 };
 
 // Descriptor / traits class for Assembly+scatter to be used by Operator create

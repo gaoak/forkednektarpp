@@ -55,7 +55,7 @@ public:
         // Calculate expected result from Nektar++
         auto map = fixt_explist->GetLocalToGlobalMap();
         map->Assemble(incoeff, outcoeff);
-        //Vmath::Zero(map->GetNumGlobalDirBndCoeffs(), outcoeff, 1);
+        // Vmath::Zero(map->GetNumGlobalDirBndCoeffs(), outcoeff, 1);
         map->GlobalToLocal(outcoeff, outcoeff);
 
         // Copy expected result from Array to fixt_expected
@@ -85,7 +85,7 @@ class Seg : public AssmbScatrField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -94,7 +94,7 @@ class Quad : public AssmbScatrField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

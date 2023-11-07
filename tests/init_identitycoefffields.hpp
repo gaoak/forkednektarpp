@@ -51,7 +51,7 @@ class Seg : public IdentityField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -60,7 +60,7 @@ class Quad : public IdentityField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

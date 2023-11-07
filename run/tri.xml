@@ -27,10 +27,19 @@
 
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
         </SOLVERINFO>
+        <PARAMETERS>
+            <P> Lambda    = 1 </P>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
         </VARIABLES>
+        <FUNCTION NAME="Forcing">
+            <E VAR="u" VALUE="-Lambda*(sin(PI*x)*sin(PI*y)-1) - 2*PI*PI*sin(PI*x)*sin(PI*y)" />
+        </FUNCTION>
     </CONDITIONS>
 </NEKTAR>

@@ -77,7 +77,7 @@ class Seg : public BwdTransField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -86,7 +86,7 @@ class Quad : public BwdTransField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

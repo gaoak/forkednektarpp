@@ -27,8 +27,13 @@
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
-            <I PROPERTY="GLOBALSYSSOLN" VALUE="IterativeFull" />
+            <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
+            <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
+            <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
         </SOLVERINFO>
+        <PARAMETERS>
+            <P> IterativeSolverTolerance = 1e-14 </P>
+        </PARAMETERS>
         <VARIABLES>
             <V ID="0">u</V>
         </VARIABLES>

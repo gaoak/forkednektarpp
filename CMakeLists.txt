@@ -145,11 +145,6 @@ target_link_libraries(main Operators)
 target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
 
-add_executable(Helmholtz2D Helmholtz2D.cpp)
-target_link_libraries(Helmholtz2D Operators)
-target_include_directories(Helmholtz2D PRIVATE ${CMAKE_SOURCE_DIR})
-target_compile_definitions(Helmholtz2D PUBLIC ${NEKTAR++_DEFINITIONS})
-
 add_subdirectory(tests)
 
 find_package(Doxygen)

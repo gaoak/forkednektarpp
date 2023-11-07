@@ -78,7 +78,7 @@ class Seg : public IProductWRTBaseField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -87,7 +87,7 @@ class Quad : public IProductWRTBaseField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 
