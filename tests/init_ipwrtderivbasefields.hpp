@@ -96,7 +96,7 @@ class Seg : public IProductWRTDerivBaseField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -105,7 +105,7 @@ class Quad : public IProductWRTDerivBaseField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

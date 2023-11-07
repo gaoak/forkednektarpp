@@ -2,6 +2,7 @@
 
 #include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "OperatorPrecon.hpp"
 
 namespace Nektar::Operators
 {
@@ -27,6 +28,9 @@ public:
     {
         apply(in, out);
     }
+
+    virtual void setPrecon(
+        const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;
 };
 
 // Descriptor / traits class for FwdTrans

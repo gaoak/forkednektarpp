@@ -58,11 +58,12 @@ public:
             auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz,
-                        fixt_explist->GetExp(e)->DetShapeType(),
-                        *(fixt_explist->GetExp(e)), factors);
-                fixt_explist->GetExp(e)->GeneralMatrixOp(incoeffs + offset,
-                        tmp = outcoeffs + offset, mkey);
+                StdRegions::StdMatrixKey mkey(
+                    StdRegions::eHelmholtz,
+                    fixt_explist->GetExp(e)->DetShapeType(),
+                    *(fixt_explist->GetExp(e)), factors);
+                fixt_explist->GetExp(e)->GeneralMatrixOp(
+                    incoeffs + offset, tmp = outcoeffs + offset, mkey);
                 e++;
                 offset += nmTot;
             }
@@ -95,7 +96,7 @@ class Seg : public HelmholtzField
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -104,7 +105,7 @@ class Quad : public HelmholtzField
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

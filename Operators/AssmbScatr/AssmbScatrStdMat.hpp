@@ -21,53 +21,51 @@ public:
     OperatorAssmbScatrImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorAssmbScatr<TData>(expansionList)
     {
+        auto contfield =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        m_assmbMap = contfield->GetLocalToGlobalMap();
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out)
+               Field<TData, FieldState::Coeff> &out,
+               const bool &zeroDir = false)
     {
-        // cast expansion list to continuous field
-        // then retrieve ptr to the assembly map
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        auto assmbMap = contfield->GetLocalToGlobalMap();
+        // Get the solution type
+        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
 
-        // get number of local coeffs
-        auto nloc = assmbMap->GetNumLocalCoeffs();
+        auto nloc = m_assmbMap->GetNumLocalCoeffs();
+        auto nglo = (solnType == eIterativeFull)
+                        ? m_assmbMap->GetNumGlobalCoeffs()
+                        : m_assmbMap->GetNumGlobalBndCoeffs();
+        auto nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
 
         // Field -> Array (** Needs changing!)
         Array<OneD, TData> inArr(nloc, in.GetStorage().GetCPUPtr());
+        Array<OneD, TData> tmpArr(nglo);
         Array<OneD, TData> outArr(nloc);
 
         // Lifted code:
-        bool ZeroDir = true; // set to true in NekLinSysIterCGLoc.cpp
-
-        // Get the solution type
-        GlobalSysSolnType solnType = assmbMap->GetGlobalSysSolnType();
-
         if (solnType == eIterativeFull)
         {
-            assmbMap->Assemble(inArr, outArr);
+            m_assmbMap->Assemble(inArr, tmpArr);
 
-            if (ZeroDir)
+            if (zeroDir)
             {
-                int nDir = assmbMap->GetNumGlobalDirBndCoeffs();
-                Vmath::Zero(nDir, outArr, 1);
+                Vmath::Zero(nDir, tmpArr, 1);
             }
 
-            assmbMap->GlobalToLocal(outArr, outArr);
+            m_assmbMap->GlobalToLocal(tmpArr, outArr);
         }
         else
         {
-            assmbMap->AssembleBnd(inArr, outArr);
+            m_assmbMap->AssembleBnd(inArr, tmpArr);
 
-            if (ZeroDir)
+            if (zeroDir)
             {
-                int nDir = assmbMap->GetNumGlobalDirBndCoeffs();
-                Vmath::Zero(nDir, outArr, 1);
+                Vmath::Zero(nDir, tmpArr, 1);
             }
 
-            assmbMap->GlobalToLocalBnd(outArr, outArr);
+            m_assmbMap->GlobalToLocalBnd(tmpArr, outArr);
         }
 
         // Array -> Field (** Needs changing!)
@@ -85,6 +83,9 @@ public:
 
     // className - for OperatorFactory
     static std::string className;
+
+protected:
+    AssemblyMapCGSharedPtr m_assmbMap;
 };
 
 } // namespace Nektar::Operators::detail

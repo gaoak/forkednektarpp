@@ -7,7 +7,7 @@ namespace Nektar::Operators::detail
 template <>
 std::string OperatorHelmSolveImpl<double, ImplStdMat>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "HelmSolve", OperatorHelmSolveImpl<double, ImplStdMat>::instantiate,
-        "");
+        "HelmSolveStdMat",
+        OperatorHelmSolveImpl<double, ImplStdMat>::instantiate, "...");
 
 } // namespace Nektar::Operators::detail

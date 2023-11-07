@@ -36,7 +36,7 @@ enum class FieldState
     Coeff
 };
 
-using default_fp_type = double;
+using default_fp_type                    = double;
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 /**
@@ -78,7 +78,8 @@ std::vector<BlockAttributes> GetBlockAttributes(
  * @tparam TData  The floating-point representation used by the field.
  * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TData = default_fp_type, FieldState TState = DefaultState> class Field
+template <typename TData = default_fp_type, FieldState TState = DefaultState>
+class Field
 {
 public:
     Field(const Field &) = delete;
@@ -422,8 +423,7 @@ public:
     {
         ASSERTL0(rhs_component < rhs.GetNumComponents(),
                  "rhs_component is out of range!");
-        ASSERTL0(component < GetNumComponents(),
-                 "component is out of range!");
+        ASSERTL0(component < GetNumComponents(), "component is out of range!");
 
         const auto &rhs_blocks = rhs.GetBlocks();
         ASSERTL0(rhs_blocks.size() == block_attributes.size(),

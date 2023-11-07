@@ -241,6 +241,15 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
+add_executable(test_helmsolve test_helmsolve.cpp)
+target_link_libraries(test_helmsolve PRIVATE Operators)
+target_link_libraries(test_helmsolve PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_helmsolve PRIVATE Boost::unit_test_framework)
+target_include_directories(test_helmsolve PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_helmsolve PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_helmsolve PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_test(
   NAME BwdTrans
   COMMAND test_bwdtrans
@@ -394,6 +403,12 @@ add_test(
 add_test(
   NAME Helmholtz
   COMMAND test_helmholtz
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME HelmSolve
+  COMMAND test_helmsolve
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 

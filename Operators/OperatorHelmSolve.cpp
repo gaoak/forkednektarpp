@@ -6,5 +6,6 @@ namespace Nektar::Operators
 // type config
 template <> const std::string HelmSolve<default_fp_type>::key = "HelmSolve";
 
-template <> const std::string HelmSolve<default_fp_type>::default_impl = "";
+template <>
+const std::string HelmSolve<default_fp_type>::default_impl = "StdMat";
 } // namespace Nektar::Operators

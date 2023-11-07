@@ -422,7 +422,7 @@ class Seg : public PhysDerivField1D
 public:
     Seg()
     {
-        meshName = "line.xml";
+        meshName = "run/line.xml";
     }
 };
 
@@ -431,7 +431,7 @@ class Quad : public PhysDerivField2D
 public:
     Quad()
     {
-        meshName = "square.xml";
+        meshName = "run/square.xml";
     }
 };
 

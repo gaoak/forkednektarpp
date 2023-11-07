@@ -1,10 +1,12 @@
 #pragma once
 
 #include "Operators/OperatorConjGrad.hpp"
+#include "Operators/OperatorDirBndCond.hpp"
 #include "Operators/OperatorFwdTrans.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
-#include "Operators/OperatorIdentity.hpp"
 #include "Operators/OperatorMass.hpp"
+#include "Operators/OperatorPrecon.hpp"
+#include "Operators/OperatorRobBndCond.hpp"
 #include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators::detail
@@ -15,33 +17,56 @@ class OperatorFwdTransImpl<TData, ImplStdMat> : public OperatorFwdTrans<TData>
 {
 public:
     OperatorFwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorFwdTrans<TData>(std::move(expansionList)),
-          m_field(Field<TData, FieldState::Coeff>::create(
+        : OperatorFwdTrans<TData>(expansionList),
+          m_rhs(Field<TData, FieldState::Coeff>::create(
+              GetBlockAttributes(FieldState::Coeff, expansionList))),
+          m_dir(Field<TData, FieldState::Coeff>::create(
               GetBlockAttributes(FieldState::Coeff, expansionList)))
     {
-        m_ConjGradOp = ConjGrad<TData>::create(this->m_expansionList);
-        m_PreconOp =
-            Identity<FieldState::Coeff, TData>::create(this->m_expansionList);
-        m_MassOp = Mass<TData>::create(this->m_expansionList);
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::create(this->m_expansionList);
+        m_MassOp  = Mass<TData>::create(this->m_expansionList);
+        m_DirBCOp = DirBndCond<TData>::create(this->m_expansionList);
+        m_RobBCOp = RobBndCond<TData>::create(this->m_expansionList);
+        m_IProdOp = IProductWRTBase<TData>::create(this->m_expansionList);
+        m_CGOp    = ConjGrad<TData>::create(this->m_expansionList);
+        m_CGOp->setLHS(m_MassOp);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        auto blocks =
-            GetBlockAttributes(FieldState::Coeff, this->m_expansionList);
-        m_field = Field<TData, FieldState::Coeff>::create(blocks);
+        size_t nloc  = out.GetStorage().size();
+        auto *outptr = out.GetStorage().GetCPUPtr();
+        auto *rhsptr = m_rhs.GetStorage().GetCPUPtr();
+        auto *dirptr = m_dir.GetStorage().GetCPUPtr();
 
-        // transform physical points f to coefficients f_hat
-        m_IProductWRTBaseOp->apply(in, m_field);
+        // IProductWRT of RHS
+        m_IProdOp->apply(in, m_rhs);
 
-        // set up and apply conjugate gradient
-        // to solve for coefficients u_hat from f_hat
-        m_ConjGradOp->setLHS(m_MassOp);
-        m_ConjGradOp->setPrecon(m_PreconOp);
-        m_ConjGradOp->apply(m_field, out);
+        // Handle Dirichlet BCs
+        m_DirBCOp->apply(m_dir);
+        m_MassOp->apply(m_dir, out); // use out as temporary storage
+        std::transform(rhsptr, rhsptr + nloc, outptr, rhsptr,
+                       [](const TData &rhs, const TData &dir)
+                       { return rhs - dir; });
+
+        // Handle Robin BCs
+        m_RobBCOp->apply(m_dir, m_rhs, true);
+
+        // Solve for u_hat using Conjugate Gradient
+        m_CGOp->apply(m_rhs, out);
+
+        // Add Dirichlet BCs
+        std::transform(outptr, outptr + nloc, dirptr, outptr,
+                       [](const TData &x, const TData &dir)
+                       { return x + dir; });
+    }
+
+    void setPrecon(
+        const std::shared_ptr<OperatorPrecon<TData>> &precon) override
+    {
+        m_CGOp->setPrecon(precon);
+
+        precon->configure(m_MassOp);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
@@ -56,11 +81,13 @@ public:
     static std::string className;
 
 protected:
-    std::shared_ptr<OperatorIdentity<TData, FieldState::Coeff>> m_PreconOp;
-    std::shared_ptr<OperatorConjGrad<TData>> m_ConjGradOp;
+    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProdOp;
+    std::shared_ptr<OperatorDirBndCond<TData>> m_DirBCOp;
+    std::shared_ptr<OperatorRobBndCond<TData>> m_RobBCOp;
     std::shared_ptr<OperatorMass<TData>> m_MassOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    Field<TData, FieldState::Coeff> m_field;
+    std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;
+    Field<TData, FieldState::Coeff> m_rhs;
+    Field<TData, FieldState::Coeff> m_dir;
 };
 
 } // namespace Nektar::Operators::detail
