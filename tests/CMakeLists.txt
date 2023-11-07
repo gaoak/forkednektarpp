@@ -194,6 +194,24 @@ target_include_directories(test_dirichlet PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_dirichlet PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+add_executable(test_nullprecon test_nullprecon.cpp)
+target_link_libraries(test_nullprecon PRIVATE Operators)
+target_link_libraries(test_nullprecon PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_nullprecon PRIVATE Boost::unit_test_framework)
+target_include_directories(test_nullprecon PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_nullprecon PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_nullprecon PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+add_executable(test_diagprecon test_diagprecon.cpp)
+target_link_libraries(test_diagprecon PRIVATE Operators)
+target_link_libraries(test_diagprecon PRIVATE ${NEKTAR++_LIBRARIES})
+target_link_libraries(test_diagprecon PRIVATE Boost::unit_test_framework)
+target_include_directories(test_diagprecon PRIVATE "${CMAKE_SOURCE_DIR}")
+target_include_directories(test_diagprecon PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+target_compile_definitions(test_diagprecon PRIVATE
+    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
 add_executable(test_fwdtrans test_fwdtrans.cpp)
 target_link_libraries(test_fwdtrans PRIVATE Operators)
 target_link_libraries(test_fwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
@@ -352,6 +370,18 @@ add_test(
 add_test(
   NAME Dirichlet
   COMMAND test_dirichlet
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME NullPrecon
+  COMMAND test_nullprecon
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+add_test(
+  NAME DiagPrecon
+  COMMAND test_diagprecon
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
