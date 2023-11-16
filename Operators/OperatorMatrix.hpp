@@ -20,7 +20,7 @@ public:
     }
 
     virtual size_t size()               = 0;
-    virtual void fill(const TData *src) = 0;
+    virtual void fill(std::vector<TData> src) = 0;
     virtual std::string toString()      = 0;
 };
 
