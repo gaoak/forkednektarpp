@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
     {
         matData[i * (matSize + 1)] = i;
     }
-    matOp->fill(matData.data());
+    matOp->fill(matData);
 
     //    std::cout << "Matrix = \n" << matOp->toString() << "\n";
 
@@ -970,6 +970,68 @@ int main(int argc, char *argv[])
                     std::cout << *(outptr++) << " ";
                 }
                 std::cout << std::endl;
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
+
+    // Test Matrix CUDA implementation
+#ifdef NEKTAR_USE_CUDA
+    {
+        std::cout << "Matrix (CUDA) test starts" << std::endl;
+
+        auto matOp = Operators::Matrix<double, FieldState::Coeff>::create(
+            explist, "CUDA");
+        auto matSize = matOp->size();
+        std::vector<double> matData(matSize * matSize, 0);
+        for (int i = 0; i < matSize; ++i)
+        {
+            matData[i * (matSize + 1)] = i;
+        }
+        matOp->fill(matData);
+        //std::cout << "Matrix = \n" << matOp->toString() << "\n";
+
+        auto matInCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+        auto matOutCoeff =
+            Field<double, FieldState::Coeff>::create<MemoryRegionCUDA>(
+                blocks_coeff);
+
+        // Assign input values from the CPU.
+        std::cout << "Initial shape: " << std::endl;
+        auto *inptr =
+            matInCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : matInCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    *(inptr) = 1;
+                    std::cout << *(inptr) << " ";
+                    *(inptr++);
+                }
+            }
+        }
+        std::cout << std::endl;
+
+        matOp->apply(matInCoeff, matOutCoeff);
+
+        // Check output values.
+        std::cout << "Out:" << std::endl;
+        auto *outptr =
+            matOutCoeff.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
+        for (auto const &block : matOutCoeff.GetBlocks())
+        {
+            for (size_t el = 0; el < block.num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                {
+                    std::cout << *(outptr++) << " ";
+                }
             }
             std::cout << std::endl;
         }

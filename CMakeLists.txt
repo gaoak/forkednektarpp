@@ -60,7 +60,8 @@ if (NEKTAR_USE_CUDA)
                    Operators/IProductWRTBase/IProductWRTBaseCUDA.cu 
                    Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu 
                    Operators/PhysDeriv/PhysDerivCUDA.cu
-		   Operators/Identity/IdentityCUDA.cu 
+                   Operators/Identity/IdentityCUDA.cu
+                   Operators/Matrix/MatrixCUDA.cu 
                    Operators/Mass/MassCUDA.cu 
                    Operators/Helmholtz/HelmholtzCUDA.cu)
 endif()

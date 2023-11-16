@@ -32,9 +32,9 @@ public:
         return m_size;
     }
 
-    void fill(const TData *src)
+    void fill(std::vector<TData> src)
     {
-        std::copy(src, src + (m_size * m_size), m_matrix.begin());
+    	std::copy(src.begin(), src.end(), m_matrix.begin());
     }
 
     std::string toString()
