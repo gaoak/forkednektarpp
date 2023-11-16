@@ -18,7 +18,7 @@ class OperatorNullPreconImpl<TData, ImplStdMat>
 {
 public:
     OperatorNullPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorNullPrecon<TData>(std::move(expansionList))
+        : OperatorNullPrecon<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);

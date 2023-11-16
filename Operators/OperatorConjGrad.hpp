@@ -14,7 +14,7 @@ public:
     virtual ~OperatorConjGrad() = default;
 
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(std::move(expansionList))
+        : Operator<TData>(expansionList)
     {
     }
 

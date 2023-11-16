@@ -16,7 +16,7 @@ class OperatorDirBndCondImpl<TData, ImplStdMat>
 {
 public:
     OperatorDirBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorDirBndCond<TData>(std::move(expansionList))
+        : OperatorDirBndCond<TData>(expansionList)
     {
     }
 

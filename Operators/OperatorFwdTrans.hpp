@@ -53,7 +53,7 @@ template <typename TData = default_fp_type> struct FwdTrans
 
 namespace detail
 {
-// declare class for implementation of FwdTrans matrix operator
+// Template for implementation of FwdTrans matrix operator
 template <typename TData, typename Op> class OperatorFwdTransImpl;
 } // namespace detail
 

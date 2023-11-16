@@ -140,12 +140,6 @@ target_link_libraries(Operators PUBLIC ${NEKTAR++_LIBRARIES} ${NEKTAR++_TP_LIBRA
 target_include_directories(Operators PRIVATE "${CMAKE_SOURCE_DIR}")
 target_compile_definitions(Operators PUBLIC ${NEKTAR++_DEFINITIONS})
 
-set(TEST_SRC main.cpp)
-add_executable(main ${TEST_SRC})
-target_link_libraries(main Operators)
-target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}")
-target_compile_definitions(main PUBLIC ${NEKTAR++_DEFINITIONS})
-
 add_subdirectory(tests)
 
 find_package(Doxygen)

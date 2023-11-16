@@ -7,6 +7,7 @@ namespace Nektar::Operators::detail
 template <>
 std::string OperatorConjGradImpl<double, ImplStdMat>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        "ConjGrad", OperatorConjGradImpl<double, ImplStdMat>::instantiate, "");
+        "ConjGrad", OperatorConjGradImpl<double, ImplStdMat>::instantiate,
+        "...");
 
 } // namespace Nektar::Operators::detail

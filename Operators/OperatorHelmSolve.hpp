@@ -11,7 +11,6 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
-
 public:
     virtual ~OperatorHelmSolve() = default;
 

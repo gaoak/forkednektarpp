@@ -19,13 +19,13 @@ public:
     {
     }
 
-    virtual size_t size()               = 0;
+    virtual size_t size()                     = 0;
     virtual void fill(std::vector<TData> src) = 0;
-    virtual std::string toString()      = 0;
+    virtual std::string toString()            = 0;
 };
 
 // Descriptor / traits class for Matrix to be used by Operator create function
-template <typename TData, FieldState TFieldState> struct Matrix
+template <FieldState TFieldState, typename TData> struct Matrix
 {
     using class_name = OperatorMatrix<TData, TFieldState>;
     static const std::string key;
@@ -37,7 +37,7 @@ template <typename TData, FieldState TFieldState> struct Matrix
         const MultiRegions::ExpListSharedPtr &expansionList,
         std::string pKey = "")
     {
-        return Operator<TData>::template create<Matrix<TData, TFieldState>>(
+        return Operator<TData>::template create<Matrix<TFieldState, TData>>(
             expansionList, pKey);
     }
 };

@@ -12,7 +12,7 @@ class OperatorMassImpl<TData, ImplStdMat> : public OperatorMass<TData>
 {
 public:
     OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(std::move(expansionList)),
+        : OperatorMass<TData>(expansionList),
           m_field(Field<TData, FieldState::Phys>::create(
               GetBlockAttributes(FieldState::Phys, expansionList)))
     {

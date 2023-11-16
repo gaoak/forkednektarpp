@@ -15,13 +15,14 @@ public:
     virtual ~OperatorIdentity() = default;
 
     OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, TFieldState, TFieldState>(
-              std::move(expansionList))
+        : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
     {
     }
 
     virtual void apply(Field<TData, TFieldState> &in,
-                       Field<TData, TFieldState> &out) = 0;
+                       Field<TData, TFieldState> &out) override
+    {
+    }
 
     virtual void operator()(Field<TData, TFieldState> &in,
                             Field<TData, TFieldState> &out)

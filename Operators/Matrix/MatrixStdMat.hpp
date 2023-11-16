@@ -14,7 +14,7 @@ class OperatorMatrixImpl<TData, TFieldState, ImplStdMat>
 {
 public:
     OperatorMatrixImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMatrix<TData, TFieldState>(std::move(expansionList))
+        : OperatorMatrix<TData, TFieldState>(expansionList)
     {
         // get size of the matrix from the blocks given by state and
         // expansionlist
@@ -34,7 +34,7 @@ public:
 
     void fill(std::vector<TData> src)
     {
-    	std::copy(src.begin(), src.end(), m_matrix.begin());
+        std::copy(src.begin(), src.end(), m_matrix.begin());
     }
 
     std::string toString()

@@ -15,7 +15,7 @@ public:
     virtual ~OperatorDiagPrecon() = default;
 
     OperatorDiagPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorPrecon<TData>(std::move(expansionList))
+        : OperatorPrecon<TData>(expansionList)
     {
     }
 };

@@ -8,6 +8,6 @@ template <>
 std::string OperatorAssmbScatrImpl<double, ImplStdMat>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "AssmbScatr", OperatorAssmbScatrImpl<double, ImplStdMat>::instantiate,
-        "");
+        "...");
 
 } // namespace Nektar::Operators::detail

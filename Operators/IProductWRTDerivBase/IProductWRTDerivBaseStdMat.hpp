@@ -12,7 +12,7 @@ class OperatorIProductWRTDerivBaseImpl<TData, ImplStdMat>
 public:
     OperatorIProductWRTDerivBaseImpl(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIProductWRTDerivBase<TData>(std::move(expansionList))
+        : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         size_t nTotElmts = this->m_expansionList->GetNumElmts();
         size_t nDim      = this->m_expansionList->GetShapeDimension();
@@ -194,8 +194,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
-            OperatorIProductWRTDerivBaseImpl<TData, ImplStdMat>>(
-            std::move(expansionList));
+            OperatorIProductWRTDerivBaseImpl<TData, ImplStdMat>>(expansionList);
     }
 
     static std::string className;

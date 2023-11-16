@@ -10,7 +10,7 @@ std::string OperatorMatrixImpl<double, FieldState::Coeff,
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "MatrixCoeff",
         OperatorMatrixImpl<double, FieldState::Coeff, ImplStdMat>::instantiate,
-        "");
+        "...");
 
 template <>
 std::string OperatorMatrixImpl<double, FieldState::Phys,
@@ -18,5 +18,5 @@ std::string OperatorMatrixImpl<double, FieldState::Phys,
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "MatrixPhys",
         OperatorMatrixImpl<double, FieldState::Phys, ImplStdMat>::instantiate,
-        "");
+        "...");
 } // namespace Nektar::Operators::detail

@@ -8,6 +8,6 @@ template <>
 std::string OperatorNeuBndCondImpl<double, ImplStdMat>::className =
     GetOperatorFactory<default_fp_type>().RegisterCreatorFunction(
         "NeuBndCond", OperatorNeuBndCondImpl<double, ImplStdMat>::instantiate,
-        "");
+        "...");
 
 } // namespace Nektar::Operators::detail
