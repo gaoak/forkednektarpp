@@ -16,7 +16,7 @@ using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-BOOST_FIXTURE_TEST_CASE(dirichlet2d_p7_allbcs, Helmholtz2D_P7_AllBCs)
+BOOST_FIXTURE_TEST_CASE(dirichlet1d_seg, Helmholtz1D_Seg)
 {
     Configure();
     auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");
@@ -31,7 +31,67 @@ BOOST_FIXTURE_TEST_CASE(dirichlet2d_p7_allbcs, Helmholtz2D_P7_AllBCs)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(dirichlet3d_hex_allbcs_p6, Helmholtz3D_Hex_AllBCs_P6)
+BOOST_FIXTURE_TEST_CASE(dirichlet2d_tri_quad, Helmholtz2D_Tri_Quad)
+{
+    Configure();
+    auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");
+    DirBndCondOp->apply(*fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(dirichlet3d_hex, Helmholtz3D_Hex)
+{
+    Configure();
+    auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");
+    DirBndCondOp->apply(*fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(dirichlet3d_prism, Helmholtz3D_Prism)
+{
+    Configure();
+    auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");
+    DirBndCondOp->apply(*fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(dirichlet3d_pyr, Helmholtz3D_Pyr)
+{
+    Configure();
+    auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");
+    DirBndCondOp->apply(*fixt_out);
+    ExpectedSolution(fixt_expected->GetBlocks(),
+                     fixt_expected->GetStorage().GetCPUPtr());
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    boost::test_tools::output_test_stream output;
+    {
+        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(dirichlet3d_tet, Helmholtz3D_Tet)
 {
     Configure();
     auto DirBndCondOp = DirBndCond<>::create(fixt_explist, "");

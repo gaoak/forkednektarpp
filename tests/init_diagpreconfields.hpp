@@ -90,110 +90,56 @@ public:
     }
 };
 
-class Seg : public DiagPreconField
+class Helmholtz1D_Seg : public DiagPreconField
 {
 public:
-    Seg()
+    Helmholtz1D_Seg()
     {
-        meshName = "run/line.xml";
+        meshName = "run/Helmholtz1D_P8.xml";
     }
 };
 
-class Quad : public DiagPreconField
+class Helmholtz2D_Tri_Quad : public DiagPreconField
 {
 public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
-
-class Tri : public DiagPreconField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
-
-class SquareAllElements : public DiagPreconField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
-
-class Hex : public DiagPreconField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
-
-class Prism : public DiagPreconField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
-
-class Pyr : public DiagPreconField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
-
-class Tet : public DiagPreconField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
-
-class CubePrismHex : public DiagPreconField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
-
-class CubeAllElements : public DiagPreconField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
-
-class Helmholtz2D_P7_AllBCs : public DiagPreconField
-{
-public:
-    Helmholtz2D_P7_AllBCs()
+    Helmholtz2D_Tri_Quad()
     {
         meshName = "run/Helmholtz2D_P7_AllBCs.xml";
     }
 };
 
-class Helmholtz3D_Hex_AllBCs_P6 : public DiagPreconField
+class Helmholtz3D_Hex : public DiagPreconField
 {
 public:
-    Helmholtz3D_Hex_AllBCs_P6()
+    Helmholtz3D_Hex()
     {
-        meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
+        meshName = "run/Helmholtz3D_Hex_Heterogeneous.xml";
+    }
+};
+
+class Helmholtz3D_Prism : public DiagPreconField
+{
+public:
+    Helmholtz3D_Prism()
+    {
+        meshName = "run/Helmholtz3D_Prism_VarP.xml";
+    }
+};
+
+class Helmholtz3D_Pyr : public DiagPreconField
+{
+public:
+    Helmholtz3D_Pyr()
+    {
+        meshName = "run/Helmholtz3D_Pyr_VarP.xml";
+    }
+};
+
+class Helmholtz3D_Tet : public DiagPreconField
+{
+public:
+    Helmholtz3D_Tet()
+    {
+        meshName = "run/Helmholtz3D_Tet_VarP.xml";
     }
 };

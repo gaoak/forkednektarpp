@@ -173,14 +173,6 @@ public:
                                 {
                                     if (MisMatchcnt == 0)
                                     {
-                                        std::cout
-                                            << "Mismatch in block " << bl
-                                            << " at metaBlock " << metaBlock
-                                            << " and coefficient " << coeff
-                                            << " and vector element " << k
-                                            << " with value " << *store
-                                            << " and " << *rhs_store
-                                            << std::endl;
                                         isMatched = false;
                                     }
                                     MisMatchcnt++;
