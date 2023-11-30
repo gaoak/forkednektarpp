@@ -14,7 +14,7 @@ public:
     virtual ~OperatorIProductWRTBase() = default;
 
     OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(std::move(expansionList))
+        : Operator<TData>(expansionList)
     {
     }
 
@@ -45,7 +45,7 @@ template <typename TData = default_fp_type> struct IProductWRTBase
         std::string pKey = "")
     {
         return Operator<TData>::template create<IProductWRTBase<TData>>(
-            std::move(expansionList), pKey);
+            expansionList, pKey);
     }
 };
 

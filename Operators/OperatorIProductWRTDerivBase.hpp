@@ -16,7 +16,7 @@ public:
 
     OperatorIProductWRTDerivBase(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : Operator<TData>(std::move(expansionList))
+        : Operator<TData>(expansionList)
     {
     }
 
@@ -48,7 +48,7 @@ template <typename TData = default_fp_type> struct IProductWRTDerivBase
         std::string pKey = "")
     {
         return Operator<TData>::template create<IProductWRTDerivBase<TData>>(
-            std::move(expansionList), pKey);
+            expansionList, pKey);
     }
 };
 

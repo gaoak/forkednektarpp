@@ -19,7 +19,7 @@ class OperatorDiagPreconImpl<TData, ImplStdMat>
 {
 public:
     OperatorDiagPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorDiagPrecon<TData>(std::move(expansionList))
+        : OperatorDiagPrecon<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);

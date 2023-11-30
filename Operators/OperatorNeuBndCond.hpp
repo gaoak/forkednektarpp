@@ -10,7 +10,6 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorNeuBndCond : public Operator<TData>
 {
-
 public:
     virtual ~OperatorNeuBndCond() = default;
 
@@ -20,6 +19,11 @@ public:
     }
 
     virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
+
+    virtual void operator()(Field<TData, FieldState::Coeff> &inout)
+    {
+        apply(inout);
+    }
 };
 
 // Descriptor / traits class for NeuBndCond to be used by Operator create

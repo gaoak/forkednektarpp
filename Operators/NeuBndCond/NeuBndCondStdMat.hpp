@@ -16,7 +16,7 @@ class OperatorNeuBndCondImpl<TData, ImplStdMat>
 {
 public:
     OperatorNeuBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorNeuBndCond<TData>(std::move(expansionList))
+        : OperatorNeuBndCond<TData>(expansionList)
     {
     }
 

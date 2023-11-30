@@ -11,7 +11,7 @@ class OperatorIdentityImpl<TData, TFieldState, ImplStdMat>
 {
 public:
     OperatorIdentityImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIdentity<TData, TFieldState>(std::move(expansionList))
+        : OperatorIdentity<TData, TFieldState>(expansionList)
     {
     }
 

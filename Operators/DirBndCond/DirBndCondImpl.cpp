@@ -8,6 +8,6 @@ template <>
 std::string OperatorDirBndCondImpl<double, ImplStdMat>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
         "DirBndCond", OperatorDirBndCondImpl<double, ImplStdMat>::instantiate,
-        "");
+        "...");
 
 } // namespace Nektar::Operators::detail

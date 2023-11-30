@@ -18,7 +18,7 @@ class OperatorIdentityImpl<TData, TFieldState, ImplCUDA>
 {
 public:
     OperatorIdentityImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIdentity<TData, TFieldState>(std::move(expansionList))
+        : OperatorIdentity<TData, TFieldState>(expansionList)
     {
     }
 
@@ -62,8 +62,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
-            OperatorIdentityImpl<TData, TFieldState, ImplCUDA>>(
-            std::move(expansionList));
+            OperatorIdentityImpl<TData, TFieldState, ImplCUDA>>(expansionList);
     }
 
     static std::string className;

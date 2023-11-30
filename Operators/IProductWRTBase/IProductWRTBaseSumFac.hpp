@@ -13,7 +13,7 @@ class OperatorIProductWRTBaseImpl<TData, ImplSumFac>
 public:
     OperatorIProductWRTBaseImpl(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIProductWRTBase<TData>(std::move(expansionList))
+        : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise jacobian.
         size_t jacSize = Operator<TData>::GetGeometricFactorSize();
@@ -75,7 +75,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorIProductWRTBaseImpl<TData, ImplSumFac>>(
-            std::move(expansionList));
+            expansionList);
     }
 
     static std::string className;

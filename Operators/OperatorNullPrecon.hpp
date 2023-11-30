@@ -15,7 +15,7 @@ public:
     virtual ~OperatorNullPrecon() = default;
 
     OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorPrecon<TData>(std::move(expansionList))
+        : OperatorPrecon<TData>(expansionList)
     {
     }
 };

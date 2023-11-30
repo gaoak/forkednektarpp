@@ -22,7 +22,9 @@ public:
     }
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+                       Field<TData, FieldState::Coeff> &out) override
+    {
+    }
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)

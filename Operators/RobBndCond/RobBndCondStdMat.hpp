@@ -16,7 +16,7 @@ class OperatorRobBndCondImpl<TData, ImplStdMat>
 {
 public:
     OperatorRobBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorRobBndCond<TData>(std::move(expansionList))
+        : OperatorRobBndCond<TData>(expansionList)
     {
     }
 

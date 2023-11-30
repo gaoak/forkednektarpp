@@ -18,7 +18,7 @@ class OperatorMatrixImpl<TData, TFieldState, ImplCUDA>
 {
 public:
     OperatorMatrixImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMatrix<TData, TFieldState>(std::move(expansionList))
+        : OperatorMatrix<TData, TFieldState>(expansionList)
     {
         // get size of the matrix from the blocks given by state and
         // expansionlist
@@ -108,8 +108,7 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
-            OperatorMatrixImpl<TData, TFieldState, ImplCUDA>>(
-            std::move(expansionList));
+            OperatorMatrixImpl<TData, TFieldState, ImplCUDA>>(expansionList);
     }
 
     static std::string className;
