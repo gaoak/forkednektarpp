@@ -6,7 +6,7 @@
 namespace Nektar::Operators
 {
 
-// Matrix operator base class
+// Dirichlet boundary condition operator base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorDirBndCond : public Operator<TData>
 {

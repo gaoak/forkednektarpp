@@ -7,7 +7,7 @@
 namespace Nektar::Operators
 {
 
-// Matrix operator base class
+// HelmSolve operator base class
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {

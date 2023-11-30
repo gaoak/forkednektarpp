@@ -134,110 +134,57 @@ public:
     }
 };
 
-class Seg : public HelmSolveField
+class Helmholtz1D_Seg : public HelmSolveField
 {
 public:
-    Seg()
+    Helmholtz1D_Seg()
     {
-        meshName = "run/line.xml";
+        meshName = "run/Helmholtz1D_P8.xml";
     }
 };
 
-class Quad : public HelmSolveField
+class Helmholtz2D_Tri_Quad : public HelmSolveField
 {
 public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
-
-class Tri : public HelmSolveField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
-
-class SquareAllElements : public HelmSolveField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
-
-class Hex : public HelmSolveField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
-
-class Prism : public HelmSolveField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
-
-class Pyr : public HelmSolveField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
-
-class Tet : public HelmSolveField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
-
-class CubePrismHex : public HelmSolveField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
-
-class CubeAllElements : public HelmSolveField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
-
-class Helmholtz2D_P7_AllBCs : public HelmSolveField
-{
-public:
-    Helmholtz2D_P7_AllBCs()
+    Helmholtz2D_Tri_Quad()
     {
         meshName = "run/Helmholtz2D_P7_AllBCs.xml";
     }
 };
 
-class Helmholtz3D_Hex_AllBCs_P6 : public HelmSolveField
+class Helmholtz3D_Hex : public HelmSolveField
 {
 public:
-    Helmholtz3D_Hex_AllBCs_P6()
+    Helmholtz3D_Hex()
     {
-        meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
+        meshName = "run/Helmholtz3D_Hex_Heterogeneous.xml";
     }
 };
+
+class Helmholtz3D_Prism : public HelmSolveField
+{
+public:
+    Helmholtz3D_Prism()
+    {
+        meshName = "run/Helmholtz3D_Prism_VarP.xml";
+    }
+};
+
+class Helmholtz3D_Pyr : public HelmSolveField
+{
+public:
+    Helmholtz3D_Pyr()
+    {
+        meshName = "run/Helmholtz3D_Pyr_VarP.xml";
+    }
+};
+
+class Helmholtz3D_Tet : public HelmSolveField
+{
+public:
+    Helmholtz3D_Tet()
+    {
+        meshName = "run/Helmholtz3D_Tet_VarP.xml";
+    }
+};
+
