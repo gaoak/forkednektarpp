@@ -36,9 +36,11 @@ public:
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
+                                               m_maxIter, 5000);
+        contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
+                                               m_tol, 1.0E-09);
         m_assmbMap   = contfield->GetLocalToGlobalMap();
-        m_tol        = m_assmbMap->GetIterativeTolerance();
-        m_maxIter    = m_assmbMap->GetMaxIterations();
         m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
         m_robBndCond = RobBndCond<TData>::create(this->m_expansionList);
         m_p_A = std::make_unique<TData[]>(m_assmbMap->GetNumLocalCoeffs());
@@ -133,21 +135,25 @@ public:
 
             // Compute new search direction p_k, q_k
             std::transform(p_p_A, p_p_A + nloc, p_w_A, p_p_A,
-                           [&beta](const TData &pElem, const TData &wElem)
-                           { return beta * pElem + wElem; });
+                           [&beta](const TData &pElem, const TData &wElem) {
+                               return beta * pElem + wElem;
+                           });
             std::transform(p_q_A, p_q_A + nloc, p_s_A, p_q_A,
-                           [&beta](const TData &qElem, const TData &sElem)
-                           { return beta * qElem + sElem; });
+                           [&beta](const TData &qElem, const TData &sElem) {
+                               return beta * qElem + sElem;
+                           });
 
             // Update solution x_{k+1}
             std::transform(p_p_A, p_p_A + nloc, p_out, p_out,
-                           [&alpha](const TData &pElem, const TData &xElem)
-                           { return alpha * pElem + xElem; });
+                           [&alpha](const TData &pElem, const TData &xElem) {
+                               return alpha * pElem + xElem;
+                           });
 
             // Update residual vector r_{k+1}
             std::transform(p_q_A, p_q_A + nloc, p_r_A, p_r_A,
-                           [&alpha](const TData &qElem, const TData &rElem)
-                           { return -alpha * qElem + rElem; });
+                           [&alpha](const TData &qElem, const TData &rElem) {
+                               return -alpha * qElem + rElem;
+                           });
 
             // Apply preconditioner
             m_precon->apply(m_r_A, m_w_A);

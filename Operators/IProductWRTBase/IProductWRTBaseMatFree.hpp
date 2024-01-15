@@ -31,9 +31,8 @@ public:
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
-               const TData lambda) override
+               [[maybe_unused]] const TData lambda) override
     {
-        boost::ignore_unused(lambda);
         // check alignment
         if (in.GetAlignment() != vec_t::alignment)
         {

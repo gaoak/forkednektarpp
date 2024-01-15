@@ -26,7 +26,7 @@ public:
 
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out,
-                            bool APPEND = false)
+                            [[maybe_unused]] bool APPEND = false)
     {
         apply(in, out);
     }

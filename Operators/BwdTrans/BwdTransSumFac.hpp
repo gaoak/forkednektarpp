@@ -13,8 +13,8 @@ public:
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Phys> &out) override
+    void apply([[maybe_unused]] Field<TData, FieldState::Coeff> &in,
+               [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
     {
         std::cout << "Op bwd trans sum fac\n";
     }

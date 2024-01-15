@@ -21,8 +21,9 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Phys> &out) override
+    virtual void apply(
+        [[maybe_unused]] Field<TData, FieldState::Coeff> &in,
+        [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
     {
     }
 

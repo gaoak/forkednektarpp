@@ -54,9 +54,9 @@ struct BlockAttributes
     }
 
     size_t num_elements;
-    size_t num_padding_elements;
     size_t num_pts;
     size_t block_size; // (num_elements + num_padding_elements) * num_pts
+    size_t num_padding_elements;
 };
 
 /**

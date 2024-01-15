@@ -37,7 +37,6 @@ public:
         size_t nGlobal = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
                                   : m_assmbMap->GetNumGlobalBndCoeffs();
         size_t nDir    = m_assmbMap->GetNumGlobalDirBndCoeffs();
-        size_t nNonDir = nGlobal - nDir;
         size_t nLocal  = in.GetStorage().size();
 
         auto *diag_ptr = m_diag.get();
@@ -69,8 +68,6 @@ public:
         size_t nLocal  = m_assmbMap->GetNumLocalCoeffs();
         size_t nGlobal = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
                                   : m_assmbMap->GetNumGlobalBndCoeffs();
-        size_t nDir    = m_assmbMap->GetNumGlobalDirBndCoeffs();
-        size_t nNonDir = nGlobal - nDir;
 
         Array<OneD, TData> diag(nLocal, 0.0);
 

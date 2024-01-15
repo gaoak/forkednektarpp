@@ -19,8 +19,8 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, TFieldState> &in,
-                       Field<TData, TFieldState> &out) override
+    virtual void apply([[maybe_unused]] Field<TData, TFieldState> &in,
+                       [[maybe_unused]] Field<TData, TFieldState> &out) override
     {
     }
 

@@ -35,7 +35,6 @@ public:
         size_t nGlobal = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
                                   : m_assmbMap->GetNumGlobalBndCoeffs();
         size_t nDir    = m_assmbMap->GetNumGlobalDirBndCoeffs();
-        size_t nNonDir = nGlobal - nDir;
         size_t ncoeffs = in.GetStorage().size();
 
         auto *in_ptr  = in.GetStorage().GetCPUPtr();
@@ -53,10 +52,9 @@ public:
     }
 
     void configure(
-        const std::shared_ptr<
+        [[maybe_unused]] const std::shared_ptr<
             OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
     {
-        boost::ignore_unused(op);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
