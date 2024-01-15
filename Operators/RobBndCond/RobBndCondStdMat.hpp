@@ -29,7 +29,7 @@ public:
         auto *outptr = out.GetStorage().GetCPUPtr();
         Array<OneD, NekDouble> inarray(ncoeffs, inptr);
         Array<OneD, NekDouble> robin(ncoeffs, 0.0);
-        auto *robptr     = robin.get();
+        auto *robinptr   = robin.get();
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
         for (auto &r : robinBCInfo) // add robin mass matrix
         {
@@ -46,15 +46,15 @@ public:
         }
         if (negflag)
         {
-            std::transform(robin.get(), robin.get() + ncoeffs, outptr, outptr,
-                           [](const TData &rob, const TData &out)
-                           { return out - rob; });
+            std::transform(
+                robinptr, robinptr + ncoeffs, outptr, outptr,
+                [](const TData &rob, const TData &out) { return out - rob; });
         }
         else
         {
-            std::transform(robin.get(), robin.get() + ncoeffs, outptr, outptr,
-                           [](const TData &rob, const TData &out)
-                           { return out + rob; });
+            std::transform(
+                robinptr, robinptr + ncoeffs, outptr, outptr,
+                [](const TData &rob, const TData &out) { return out + rob; });
         }
     }
 

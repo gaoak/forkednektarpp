@@ -22,9 +22,8 @@ public:
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
-               const TData lambda = 1.0) override
+               [[maybe_unused]] const TData lambda = 1.0) override
     {
-        boost::ignore_unused(lambda);
         auto const *inptr = in.GetStorage().GetCPUPtr();
         auto *outptr      = out.GetStorage().GetCPUPtr();
 
@@ -40,7 +39,6 @@ public:
             auto shapeType      = this->m_expansionList->GetExp(exp_idx)
                                  ->GetStdExp()
                                  ->DetShapeType();
-            auto nqTot = expPtr->GetTotPoints();
             auto nmTot = expPtr->GetNcoeffs();
 
             switch (shapeType)

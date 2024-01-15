@@ -56,12 +56,10 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
 NEK_FORCE_INLINE void PhysDeriv2DKernel(
     const int nq0, const int nq1, const size_t outdim,
-    const std::vector<vec_t, allocator<vec_t>> &Z0,
-    const std::vector<vec_t, allocator<vec_t>> &Z1, const vec_t *df_ptr,
-    vec_t::scalarType *out[3])
+    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &Z0,
+    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &Z1,
+    const vec_t *df_ptr, vec_t::scalarType *out[3])
 {
-    boost::ignore_unused(Z0, Z1);
-
     auto ndf = 2 * outdim;
     vec_t df_tmp[6];
 
@@ -136,16 +134,15 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
 NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const int nq0, const int nq1, const int nq2,
-    const std::vector<vec_t, allocator<vec_t>> &Z0,
-    const std::vector<vec_t, allocator<vec_t>> &Z1,
-    const std::vector<vec_t, allocator<vec_t>> &Z2, const vec_t *df_ptr,
-    std::vector<vec_t, allocator<vec_t>> &wsp0, // Tets only
-    std::vector<vec_t, allocator<vec_t>> &wsp1, // Tets only
+    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &Z0,
+    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &Z1,
+    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &Z2,
+    const vec_t *df_ptr,
+    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &wsp0, // Tets only
+    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &wsp1, // Tets only
     vec_t::scalarType *out_d0, vec_t::scalarType *out_d1,
     vec_t::scalarType *out_d2)
 {
-    boost::ignore_unused(Z0, Z1, Z2, wsp0, wsp1);
-
     constexpr auto ndf = 9;
     vec_t df_tmp[ndf];
 
@@ -449,14 +446,11 @@ NEK_FORCE_INLINE static void PhysDerivTensor3DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
-NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(const size_t nq0,
-                                                  const size_t nq1,
-                                                  const size_t nq2,
-                                                  size_t &wsp1Size,
-                                                  size_t &wsp2Size)
+NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
+    [[maybe_unused]] const size_t nq0, [[maybe_unused]] const size_t nq1,
+    [[maybe_unused]] const size_t nq2, [[maybe_unused]] size_t &wsp1Size,
+    [[maybe_unused]] size_t &wsp2Size)
 {
-    boost::ignore_unused(SHAPE_TYPE, nq0, nq1, nq2, wsp1Size, wsp2Size);
-
     // Check preconditions
     ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nq0 == nq1 &&
               nq0 == nq2) ||

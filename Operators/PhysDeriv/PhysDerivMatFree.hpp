@@ -251,10 +251,9 @@ private:
         const auto nqTot   = nq0 * nq1;
         const auto nqBlock = nqTot * vec_t::width;
 
-        const auto nCoord     = output.size();
-        const auto ndf        = 2 * nCoord;
-        constexpr int max_ndf = 2 * 3;
-        int dfsize            = ndf;
+        const auto nCoord = output.size();
+        const auto ndf    = 2 * nCoord;
+        int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
@@ -306,9 +305,8 @@ private:
         constexpr auto nqTot   = nq0 * nq1;
         constexpr auto nqBlock = nqTot * vec_t::width;
 
-        constexpr auto ndf    = 2 * nCoord;
-        constexpr int max_ndf = 2 * 3;
-        int dfsize            = ndf;
+        constexpr auto ndf = 2 * nCoord;
+        int dfsize         = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
