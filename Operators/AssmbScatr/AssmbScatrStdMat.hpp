@@ -24,52 +24,70 @@ public:
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         m_assmbMap = contfield->GetLocalToGlobalMap();
+
+        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
+        auto nglo                  = (solnType == eIterativeFull)
+                                         ? m_assmbMap->GetNumGlobalCoeffs()
+                                         : m_assmbMap->GetNumGlobalBndCoeffs();
+
+        m_tmp = Array<OneD, TData>(nglo);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false)
     {
+
+        // Lifted code:
+        Assemble(in, m_tmp);
+
+        if (zeroDir)
+        {
+            auto nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
+            Vmath::Zero(nDir, m_tmp, 1);
+        }
+
+        GlobalToLocal(m_tmp, out);
+    }
+
+    void Assemble(Field<TData, FieldState::Coeff> &in,
+                  Array<OneD, TData> outarray)
+    {
         // Get the solution type
         GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
 
         auto nloc = m_assmbMap->GetNumLocalCoeffs();
-        auto nglo = (solnType == eIterativeFull)
-                        ? m_assmbMap->GetNumGlobalCoeffs()
-                        : m_assmbMap->GetNumGlobalBndCoeffs();
-        auto nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
+        Array<OneD, TData> inarray(nloc, in.GetStorage().GetCPUPtr());
 
-        // Field -> Array (** Needs changing!)
-        Array<OneD, TData> inArr(nloc, in.GetStorage().GetCPUPtr());
-        Array<OneD, TData> tmpArr(nglo);
-        Array<OneD, TData> outArr(nloc);
-
-        // Lifted code:
         if (solnType == eIterativeFull)
         {
-            m_assmbMap->Assemble(inArr, tmpArr);
-
-            if (zeroDir)
-            {
-                Vmath::Zero(nDir, tmpArr, 1);
-            }
-
-            m_assmbMap->GlobalToLocal(tmpArr, outArr);
+            m_assmbMap->Assemble(inarray, outarray);
         }
         else
         {
-            m_assmbMap->AssembleBnd(inArr, tmpArr);
+            m_assmbMap->AssembleBnd(inarray, outarray);
+        }
+    }
 
-            if (zeroDir)
-            {
-                Vmath::Zero(nDir, tmpArr, 1);
-            }
+    void GlobalToLocal(Array<OneD, TData> inarray,
+                       Field<TData, FieldState::Coeff> &out)
+    {
+        // Get the solution type
+        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
 
-            m_assmbMap->GlobalToLocalBnd(tmpArr, outArr);
+        auto nloc = m_assmbMap->GetNumLocalCoeffs();
+        Array<OneD, TData> outarray(nloc);
+
+        if (solnType == eIterativeFull)
+        {
+            m_assmbMap->GlobalToLocal(inarray, outarray);
+        }
+        else
+        {
+            m_assmbMap->GlobalToLocalBnd(inarray, outarray);
         }
 
-        // Array -> Field (** Needs changing!)
-        std::copy(outArr.data(), outArr.data() + nloc,
+        std::copy(outarray.data(), outarray.data() + nloc,
                   out.GetStorage().GetCPUPtr());
     }
 
@@ -86,6 +104,7 @@ public:
 
 protected:
     AssemblyMapCGSharedPtr m_assmbMap;
+    Array<OneD, TData> m_tmp;
 };
 
 } // namespace Nektar::Operators::detail

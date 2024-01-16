@@ -31,6 +31,12 @@ public:
         cudaMalloc((void **)&m_matrix, sizeof(TData) * m_size * m_size);
     }
 
+    ~OperatorMatrixImpl()
+    {
+        cudaFree(m_matrix);
+        m_matrix = nullptr;
+    }
+
     size_t size()
     {
         return m_size;

@@ -11,11 +11,6 @@
 
 BOOST_AUTO_TEST_SUITE(TestAssmbScatr)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
 BOOST_FIXTURE_TEST_CASE(assmbscatr_seg, Seg)
 {
     Configure();
@@ -41,6 +36,7 @@ BOOST_FIXTURE_TEST_CASE(assmbscatr_quad, Quad)
         ExpectedSolution(fixt_expected->GetBlocks(),
                          fixt_expected->GetStorage().GetCPUPtr());
         BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+        boost::test_tools::output_test_stream output;
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
                          fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
     }

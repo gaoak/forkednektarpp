@@ -1,23 +1,23 @@
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestIdentityCUDA
+#define BOOST_TEST_MODULE TestAssmbScatrCUDA
 #include <boost/test/tools/output_test_stream.hpp>
 #include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorIdentity.hpp"
-#include "init_identityphysfields.hpp"
+#include "Operators/OperatorAssmbScatr.hpp"
+#include "init_assmbscatrfields.hpp"
 
-BOOST_AUTO_TEST_SUITE(TestIdentityCUDA)
+BOOST_AUTO_TEST_SUITE(TestAssmbScatrCUDA)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_seg, Seg)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -29,13 +29,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_quad, Quad)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -47,13 +47,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_tri, Tri)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -65,13 +65,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_square_all_elements, SquareAllElements)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -83,13 +83,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_hex, Hex)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -101,13 +101,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_prism, Prism)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -119,13 +119,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_pyr, Pyr)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -137,13 +137,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_tet, Tet)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -155,13 +155,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_cube_prism_hex, CubePrismHex)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
@@ -173,13 +173,13 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_cube_all_elements, CubeAllElements)
+BOOST_FIXTURE_TEST_CASE(assmbscatrcuda_cube_all_elements, CubeAllElements)
 {
     Configure();
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Phys>::create(fixt_explist, "CUDA")
+    AssmbScatr<>::create(fixt_explist, "CUDA")
         ->apply(*fixtcuda_in, *fixtcuda_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());

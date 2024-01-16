@@ -185,6 +185,17 @@ target_include_directories(test_assmbscatr PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_assmbscatr PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_assmbscatrcuda test_assmbscatrcuda.cpp)
+    target_link_libraries(test_assmbscatrcuda PRIVATE Operators)
+    target_link_libraries(test_assmbscatrcuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_assmbscatrcuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_assmbscatrcuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_assmbscatrcuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_assmbscatrcuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_dirichlet test_dirichlet.cpp)
 target_link_libraries(test_dirichlet PRIVATE Operators)
 target_link_libraries(test_dirichlet PRIVATE ${NEKTAR++_LIBRARIES})
@@ -375,6 +386,14 @@ add_test(
   COMMAND test_assmbscatr
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME AssmbScatrCUDA
+      COMMAND test_assmbscatrcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME Dirichlet

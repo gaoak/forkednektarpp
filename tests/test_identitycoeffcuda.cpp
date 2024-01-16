@@ -14,7 +14,6 @@ BOOST_AUTO_TEST_SUITE(TestIdentityCUDA)
 BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -33,7 +32,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
 BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -52,7 +50,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
 BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -71,7 +68,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
 BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -90,7 +86,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
 BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -109,7 +104,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
 BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -128,7 +122,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
 BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -147,7 +140,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
 BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -166,7 +158,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
 BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
@@ -185,7 +176,6 @@ BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
 BOOST_FIXTURE_TEST_CASE(identitycuda_cube_all_elements, CubeAllElements)
 {
     Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
     SetTestCase(
         fixtcuda_in->GetBlocks(),
         fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
