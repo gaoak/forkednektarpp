@@ -20,7 +20,7 @@ using namespace Nektar;
  * @struct InitFields
  *
  * A test fixture responsible for making available input and output
- * Field objects.  The structure constructor (destrucor) is called
+ * Field objects.  The structure constructor (destructor) is called
  * before (after) each call to BOOST_FIXTURE_TEST_CASE(<test name>,
  * InitFields) macro.
  *
