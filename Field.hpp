@@ -135,8 +135,8 @@ public:
 
         bool isMatched = true;
 
-        TData *store     = GetStorage().GetCPUPtr();
-        TData *rhs_store = rhs.GetStorage().GetCPUPtr();
+        TData *store     = m_storage->GetCPUPtr();
+        TData *rhs_store = rhs.m_storage->GetCPUPtr();
 
         for (size_t component = 0; component < GetNumComponents(); ++component)
         {
@@ -426,8 +426,8 @@ public:
         size_t scalar_field_size = GetFieldSize();
 
         const TData *rhs_ptr =
-            rhs.GetStorage().GetCPUPtr() + rhs_component * scalar_field_size;
-        TData *ptr = GetStorage().GetCPUPtr() + component * scalar_field_size;
+            rhs.m_storage->GetCPUPtr() + rhs_component * scalar_field_size;
+        TData *ptr = m_storage->GetCPUPtr() + component * scalar_field_size;
 
         for (auto const &block : block_attributes)
         {
