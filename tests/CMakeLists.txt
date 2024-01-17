@@ -205,6 +205,17 @@ target_include_directories(test_dirichlet PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_dirichlet PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_dirichletcuda test_dirichletcuda.cpp)
+    target_link_libraries(test_dirichletcuda PRIVATE Operators)
+    target_link_libraries(test_dirichletcuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_dirichletcuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_dirichletcuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_dirichletcuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_dirichletcuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_nullprecon test_nullprecon.cpp)
 target_link_libraries(test_nullprecon PRIVATE Operators)
 target_link_libraries(test_nullprecon PRIVATE ${NEKTAR++_LIBRARIES})
@@ -411,6 +422,14 @@ add_test(
   COMMAND test_dirichlet
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME DirichletCUDA
+      COMMAND test_dirichletcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME NullPrecon

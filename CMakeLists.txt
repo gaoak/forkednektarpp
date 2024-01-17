@@ -67,7 +67,7 @@ if (NEKTAR_USE_CUDA)
                    Operators/AssmbScatr/AssmbScatrCUDA.cu 
                    Operators/NullPrecon/NullPreconCUDA.cu 
                    #Operators/DiagPrecon/DiagPreconCUDA.cu
-                   #Operators/DirBndCond/DirBndCondCUDA.cu
+                   Operators/DirBndCond/DirBndCondCUDA.cu
                    #Operators/NeuBndCond/NeuBndCondCUDA.cu
                    #Operators/RobBndCond/RobBndCondCUDA.cu
                    #Operators/ConjGrad/ConjGradCUDA.cu
