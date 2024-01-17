@@ -214,6 +214,17 @@ target_include_directories(test_nullprecon PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_nullprecon PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_nullpreconcuda test_nullpreconcuda.cpp)
+    target_link_libraries(test_nullpreconcuda PRIVATE Operators)
+    target_link_libraries(test_nullpreconcuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_nullpreconcuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_nullpreconcuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_nullpreconcuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_nullpreconcuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_diagprecon test_diagprecon.cpp)
 target_link_libraries(test_diagprecon PRIVATE Operators)
 target_link_libraries(test_diagprecon PRIVATE ${NEKTAR++_LIBRARIES})
@@ -242,7 +253,7 @@ target_compile_definitions(test_helmholtz PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
 IF (NEKTAR_USE_CUDA)
-    add_executable(test_helmholtzcuda test_physderivcuda.cpp)
+    add_executable(test_helmholtzcuda test_helmholtzcuda.cpp)
     target_link_libraries(test_helmholtzcuda PRIVATE Operators)
     target_link_libraries(test_helmholtzcuda PRIVATE ${NEKTAR++_LIBRARIES})
     target_link_libraries(test_helmholtzcuda PRIVATE Boost::unit_test_framework)
@@ -406,6 +417,14 @@ add_test(
   COMMAND test_nullprecon
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME NullPreconCUDA
+      COMMAND test_nullpreconcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME DiagPrecon

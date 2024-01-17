@@ -11,10 +11,6 @@
 
 BOOST_AUTO_TEST_SUITE(TestNullPrecon)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
 
 BOOST_FIXTURE_TEST_CASE(nullprecon_seg, Helmholtz1D_Seg)
 {

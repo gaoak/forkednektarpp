@@ -32,21 +32,21 @@ set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 set(SRC Field.cpp Operators/Operator.cpp 
     Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp 
     Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
-    Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
-    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
-    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGradImpl.cpp
-    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTransImpl.cpp
-    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatrImpl.cpp
-    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCondImpl.cpp
+    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
     Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
-    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolveImpl.cpp
+    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
+    Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
+    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
+    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatrImpl.cpp
     Operators/OperatorNullPrecon.cpp Operators/NullPrecon/NullPreconImpl.cpp
     Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPreconImpl.cpp
-    Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
+    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCondImpl.cpp
     Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCondImpl.cpp
     Operators/OperatorRobBndCond.cpp Operators/RobBndCond/RobBndCondImpl.cpp
-    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
-    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
+    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGradImpl.cpp
+    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTransImpl.cpp
+    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolveImpl.cpp
+    Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
     )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
@@ -56,15 +56,25 @@ endif()
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu Operators/BwdTrans/BwdTransCUDA.cu 
+    set(SRC ${SRC} MemoryRegionCUDA.cu 
+                   Operators/BwdTrans/BwdTransCUDA.cu 
                    Operators/IProductWRTBase/IProductWRTBaseCUDA.cu 
                    Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu 
                    Operators/PhysDeriv/PhysDerivCUDA.cu
                    Operators/Identity/IdentityCUDA.cu
-                   Operators/Matrix/MatrixCUDA.cu 
                    Operators/Mass/MassCUDA.cu
+                   Operators/Helmholtz/HelmholtzCUDA.cu
                    Operators/AssmbScatr/AssmbScatrCUDA.cu 
-                   Operators/Helmholtz/HelmholtzCUDA.cu)
+                   Operators/NullPrecon/NullPreconCUDA.cu 
+                   #Operators/DiagPrecon/DiagPreconCUDA.cu
+                   #Operators/DirBndCond/DirBndCondCUDA.cu
+                   #Operators/NeuBndCond/NeuBndCondCUDA.cu
+                   #Operators/RobBndCond/RobBndCondCUDA.cu
+                   #Operators/ConjGrad/ConjGradCUDA.cu
+                   #Operators/FwdTrans/FwdTransCUDA.cu
+                   #Operators/HelmSolve/HelmSolveCUDA.cu 
+                   Operators/Matrix/MatrixCUDA.cu 
+       )
 endif()
 
 if (NEKTAR_USE_SIMD)
@@ -150,7 +160,9 @@ add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile
 TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wall -Wextra)
 IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # For GNU compilers add pedantic warnings
-    TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wpedantic)
+    IF (NOT NEKTAR_USE_CUDA)
+        TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wpedantic)
+    ENDIF()
     TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wnon-virtual-dtor)
 ENDIF()
 # Temporarily disable warnings about comparing signed and unsigned
