@@ -67,7 +67,7 @@ void IProductWRTBaseSumFacSegKernel(
     }
 
     // Deallocating memory
-    delete wsp;
+    delete[] wsp;
 }
 
 template <typename TData>
@@ -181,8 +181,8 @@ void IProductWRTBaseSumFacQuadKernel(
         }
     }
 
-    delete wsp;
-    delete tmp;
+    delete[] wsp;
+    delete[] tmp;
 }
 
 template <typename TData>
@@ -340,8 +340,8 @@ void IProductWRTBaseSumFacHexKernel(
         }
     }
 
-    delete wsp;
-    delete wsp1;
-    delete wsp2;
+    delete[] wsp;
+    delete[] wsp1;
+    delete[] wsp2;
 }
 } // namespace Nektar::Operators::detail
