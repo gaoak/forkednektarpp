@@ -144,3 +144,15 @@ add_subdirectory(tests)
 
 find_package(Doxygen)
 add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile)
+
+# Turn-on warnings
+TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wall -Wextra)
+IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    # For GNU compilers add pedantic warnings
+    TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wpedantic)
+    TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wnon-virtual-dtor)
+ENDIF()
+# Temporarily disable warnings about comparing signed and unsigned
+TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wno-sign-compare)
+# Temporarily disable warnings about narrowing of data types
+TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wno-narrowing -Wno-conversion)

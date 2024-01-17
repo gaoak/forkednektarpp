@@ -39,7 +39,6 @@ public:
             auto shapeType      = this->m_expansionList->GetExp(exp_idx)
                                  ->GetStdExp()
                                  ->DetShapeType();
-            auto nmTot = expPtr->GetNcoeffs();
 
             switch (shapeType)
             {
@@ -61,6 +60,8 @@ public:
                     IProductWRTBaseSumFacHexKernel(inptr, outptr, expPtr, m_jac,
                                                    numElmts, jac_idx);
                     break;
+                default:
+                    std::cout << "Only Seg, Quad, or Hex implemented so far" << std::endl;
             }
 
             inptr += in.GetBlocks()[block_idx].block_size;
