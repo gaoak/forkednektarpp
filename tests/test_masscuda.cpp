@@ -11,11 +11,6 @@
 
 BOOST_AUTO_TEST_SUITE(TestMassCUDA)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
 BOOST_FIXTURE_TEST_CASE(masscuda_seg, Seg)
 {
     Configure();

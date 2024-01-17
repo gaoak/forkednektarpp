@@ -1,13 +1,11 @@
 #pragma once
 
 #include "Field.hpp"
+
+#include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorNullPrecon.hpp"
-#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
-#include <MultiRegions/ContField.h>
 
 using namespace Nektar;
-using namespace Nektar::MultiRegions;
-using namespace Nektar::SpatialDomains;
 
 namespace Nektar::Operators::detail
 {
@@ -20,35 +18,13 @@ public:
     OperatorNullPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorNullPrecon<TData>(expansionList)
     {
-        auto contfield =
-            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        m_assmbMap = contfield->GetLocalToGlobalMap();
+        m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        GlobalSysSolnType solvertype = m_assmbMap->GetGlobalSysSolnType();
-
-        bool isFull = solvertype == eIterativeFull ? true : false;
-
-        size_t nGlobal = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
-                                  : m_assmbMap->GetNumGlobalBndCoeffs();
-        size_t nDir    = m_assmbMap->GetNumGlobalDirBndCoeffs();
-        size_t ncoeffs = in.GetStorage().size();
-
-        auto *in_ptr  = in.GetStorage().GetCPUPtr();
-        auto *out_ptr = out.GetStorage().GetCPUPtr();
-
-        Array<OneD, TData> wk(nGlobal, 0.0);
-        Array<OneD, TData> pIn(ncoeffs, in_ptr);
-        Array<OneD, TData> pOut(ncoeffs, 0.0);
-        (isFull) ? m_assmbMap->Assemble(pIn, wk)
-                 : m_assmbMap->AssembleBnd(pIn, wk);
-        std::fill(wk.get(), wk.get() + nDir, 0.0);
-        (isFull) ? m_assmbMap->GlobalToLocal(wk, pOut)
-                 : m_assmbMap->GlobalToLocalBnd(wk, pOut);
-        std::copy(pOut.get(), pOut.get() + ncoeffs, out_ptr);
+        m_assmbScatr->apply(in, out, true);
     }
 
     void configure(
@@ -69,7 +45,7 @@ public:
     static std::string className;
 
 protected:
-    AssemblyMapCGSharedPtr m_assmbMap;
+    std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatr;
 };
 
 } // namespace Nektar::Operators::detail

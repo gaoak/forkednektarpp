@@ -37,14 +37,12 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false)
     {
-
-        // Lifted code:
         Assemble(in, m_tmp);
 
         if (zeroDir)
         {
             auto nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
-            Vmath::Zero(nDir, m_tmp, 1);
+            Vmath::Zero(nDir, m_tmp.get(), 1);
         }
 
         GlobalToLocal(m_tmp, out);
@@ -57,7 +55,23 @@ public:
         GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
 
         auto nloc = m_assmbMap->GetNumLocalCoeffs();
-        Array<OneD, TData> inarray(nloc, in.GetStorage().GetCPUPtr());
+        Array<OneD, TData> inarray(nloc);
+
+        // Copy data from input field
+        auto *inarrptr = inarray.data();
+        auto *inptr    = in.GetStorage().GetCPUPtr();
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = in.GetBlocks()[block_idx].block_size;
+            auto nElmts = in.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = in.GetBlocks()[block_idx].num_pts;
+
+            std::copy(inptr, inptr + nElmts * nmTot, inarrptr);
+
+            inarrptr += nElmts * nmTot;
+            inptr += nSize;
+        }
 
         if (solnType == eIterativeFull)
         {
@@ -87,8 +101,21 @@ public:
             m_assmbMap->GlobalToLocalBnd(inarray, outarray);
         }
 
-        std::copy(outarray.data(), outarray.data() + nloc,
-                  out.GetStorage().GetCPUPtr());
+        // Copy data to output field
+        auto *outarrptr = outarray.data();
+        auto *outptr    = out.GetStorage().GetCPUPtr();
+        for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = out.GetBlocks()[block_idx].block_size;
+            auto nElmts = out.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = out.GetBlocks()[block_idx].num_pts;
+
+            std::copy(outarrptr, outarrptr + nElmts * nmTot, outptr);
+
+            outarrptr += nElmts * nmTot;
+            outptr += nSize;
+        }
     }
 
     // instantiation function for CreatorFunction in OperatorFactory

@@ -15,6 +15,8 @@ using namespace Nektar;
 using namespace Nektar::Operators;
 using namespace Nektar::MultiRegions;
 
+using vec_t = tinysimd::simd<double>;
+
 namespace Nektar::Operators::detail
 {
 
@@ -25,9 +27,13 @@ public:
     OperatorHelmSolveImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmSolve<TData>(expansionList),
           m_rhs(Field<TData, FieldState::Coeff>::create(
-              GetBlockAttributes(FieldState::Coeff, expansionList))),
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
           m_dir(Field<TData, FieldState::Coeff>::create(
-              GetBlockAttributes(FieldState::Coeff, expansionList)))
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment))
     {
         m_IProdOp = IProductWRTBase<TData>::create(this->m_expansionList);
         m_DirBCOp = DirBndCond<TData>::create(this->m_expansionList);
@@ -56,9 +62,9 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(m_dir);
         m_HelmOp->apply(m_dir, out); // use out as temporary storage
-        std::transform(rhsptr, rhsptr + nloc, outptr, rhsptr,
-                       [](const TData &rhs, const TData &dir)
-                       { return rhs - dir; });
+        std::transform(
+            rhsptr, rhsptr + nloc, outptr, rhsptr,
+            [](const TData &rhs, const TData &dir) { return rhs - dir; });
 
         // Handle Robin BCs
         m_RobBCOp->apply(m_dir, m_rhs, true);
@@ -67,9 +73,9 @@ public:
         m_CGOp->apply(m_rhs, out);
 
         // Add Dirichlet BCs
-        std::transform(outptr, outptr + nloc, dirptr, outptr,
-                       [](const TData &x, const TData &dir)
-                       { return x + dir; });
+        std::transform(
+            outptr, outptr + nloc, dirptr, outptr,
+            [](const TData &x, const TData &dir) { return x + dir; });
     }
 
     void setLambda(const TData &lambda)

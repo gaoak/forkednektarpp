@@ -37,14 +37,29 @@ public:
         size_t nGlobal = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
                                   : m_assmbMap->GetNumGlobalBndCoeffs();
         size_t nDir    = m_assmbMap->GetNumGlobalDirBndCoeffs();
-        size_t nLocal  = in.GetStorage().size();
+        size_t nLocal  = m_assmbMap->GetNumLocalCoeffs();
 
         auto *diag_ptr = m_diag.get();
-        auto *in_ptr   = in.GetStorage().GetCPUPtr();
-        auto *out_ptr  = out.GetStorage().GetCPUPtr();
+
+        // Copy data from input field
+        Array<OneD, TData> pIn(nLocal, 0.0);
+        auto *inarrptr = pIn.data();
+        auto *inptr    = in.GetStorage().GetCPUPtr();
+
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = in.GetBlocks()[block_idx].block_size;
+            auto nElmts = in.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = in.GetBlocks()[block_idx].num_pts;
+
+            std::copy(inptr, inptr + nElmts * nmTot, inarrptr);
+
+            inarrptr += nElmts * nmTot;
+            inptr += nSize;
+        }
 
         Array<OneD, TData> wk(nGlobal, 0.0);
-        Array<OneD, TData> pIn(nLocal, in_ptr);
         Array<OneD, TData> pOut(nLocal, 0.0);
         (isFull) ? m_assmbMap->Assemble(pIn, wk)
                  : m_assmbMap->AssembleBnd(pIn, wk);
@@ -54,7 +69,23 @@ public:
         std::fill(wk.get(), wk.get() + nDir, 0.0);
         (isFull) ? m_assmbMap->GlobalToLocal(wk, pOut)
                  : m_assmbMap->GlobalToLocalBnd(wk, pOut);
-        std::copy(pOut.get(), pOut.get() + nLocal, out_ptr);
+
+        // Copy data to output field
+        auto *outarrptr = pOut.data();
+        auto *outptr    = out.GetStorage().GetCPUPtr();
+
+        for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = out.GetBlocks()[block_idx].block_size;
+            auto nElmts = out.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = out.GetBlocks()[block_idx].num_pts;
+
+            std::copy(outarrptr, outarrptr + nElmts * nmTot, outptr);
+
+            outarrptr += nElmts * nmTot;
+            outptr += nSize;
+        }
     }
 
     void configure(
