@@ -51,11 +51,13 @@ public:
                Field<TData, FieldState::Coeff> &out) override
     {
         // get number of local coeffs (=size of in/out fields)
-        size_t nloc = in.GetStorage().size();
+        size_t nloc = m_assmbMap->GetNumLocalCoeffs();
 
         // store pointers to temporary fields
-        auto *p_in  = in.GetStorage().GetCPUPtr();
-        auto *p_out = out.GetStorage().GetCPUPtr();
+        Array<OneD, TData> inArr(nloc, 0.0);
+        Array<OneD, TData> outArr(nloc, 0.0);
+        auto *p_in  = inArr.get();
+        auto *p_out = outArr.get();
         auto *p_w_A = m_w_A.GetStorage().GetCPUPtr();
         auto *p_s_A = m_s_A.GetStorage().GetCPUPtr();
         auto *p_r_A = m_r_A.GetStorage().GetCPUPtr();
@@ -64,7 +66,6 @@ public:
         auto *p_q_A = m_q_A.get();
 
         // set the fields to zero
-        std::fill(p_out, p_out + nloc, 0.0);
         std::fill(p_w_A, p_w_A + nloc, 0.0);
         std::fill(p_s_A, p_s_A + nloc, 0.0);
         std::fill(p_wk, p_wk + nloc, 0.0);
@@ -80,6 +81,23 @@ public:
         TData mu;
         TData eps;
         std::array<TData, 3> vExchange{0.0, 0.0, 0.0};
+
+        // Copy data from input field
+        auto *inarrptr = inArr.data();
+        auto *inptr    = in.GetStorage().GetCPUPtr();
+
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = in.GetBlocks()[block_idx].block_size;
+            auto nElmts = in.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = in.GetBlocks()[block_idx].num_pts;
+
+            std::copy(inptr, inptr + nElmts * nmTot, inarrptr);
+
+            inarrptr += nElmts * nmTot;
+            inptr += nSize;
+        }
 
         // copy RHS into initial residual
         std::copy(p_in, p_in + nloc, p_r_A);
@@ -196,6 +214,23 @@ public:
             beta  = rho_new / rho;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
+        }
+
+        // Copy data to output field
+        auto *outarrptr = outArr.data();
+        auto *outptr    = out.GetStorage().GetCPUPtr();
+
+        for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = out.GetBlocks()[block_idx].block_size;
+            auto nElmts = out.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = out.GetBlocks()[block_idx].num_pts;
+
+            std::copy(outarrptr, outarrptr + nElmts * nmTot, outptr);
+
+            outarrptr += nElmts * nmTot;
+            outptr += nSize;
         }
     }
 

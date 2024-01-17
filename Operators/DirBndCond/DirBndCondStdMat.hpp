@@ -32,8 +32,7 @@ public:
         auto nloc  = locToGloMap->GetNumLocalCoeffs();
 
         size_t bndcnt = 0;
-        auto outptr   = out.GetStorage().GetCPUPtr();
-        std::fill(outptr, outptr + nloc, 0.0);
+        Array<OneD, TData> outarr(nloc, 0.0);
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==
@@ -45,7 +44,7 @@ public:
                     for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
                          j++)
                     {
-                        *(outptr + map[bndcnt + j]) =
+                        outarr[map[bndcnt + j]] =
                             sign[bndcnt + j] * bndcoeff[j];
                     }
                 }
@@ -54,7 +53,7 @@ public:
                     for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
                          j++)
                     {
-                        *(outptr + map[bndcnt + j]) = bndcoeff[j];
+                        outarr[map[bndcnt + j]] = bndcoeff[j];
                     }
                 }
             }
@@ -67,23 +66,39 @@ public:
 
         for (auto &it : ParallelDirBndSign)
         {
-            *(outptr + it) *= -1;
+            outarr[it] *= -1;
         }
 
-        Array<OneD, NekDouble> arr(nloc, outptr);
+        Array<OneD, NekDouble> arr(nloc, outarr.data());
         locToGloMap->UniversalAbsMaxBnd(arr);
-        std::copy(arr.get(), arr.get() + nloc, outptr);
+        std::copy(arr.get(), arr.get() + nloc, outarr.data());
 
         for (auto &it : ParallelDirBndSign)
         {
-            *(outptr + it) *= -1;
+            outarr[it] *= -1;
         }
 
         auto &copyLocalDirDofs = locToGloMap->GetCopyLocalDirDofs();
         for (auto &it : copyLocalDirDofs)
         {
-            *(outptr + std::get<0>(it)) =
-                *(outptr + std::get<1>(it)) * std::get<2>(it);
+            outarr[std::get<0>(it)] = outarr[std::get<1>(it)] * std::get<2>(it);
+        }
+
+        // Copy data to output field
+        auto *outarrptr = outarr.data();
+        auto *outptr    = out.GetStorage().GetCPUPtr();
+
+        for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
+             ++block_idx)
+        {
+            auto nSize  = out.GetBlocks()[block_idx].block_size;
+            auto nElmts = out.GetBlocks()[block_idx].num_elements;
+            auto nmTot  = out.GetBlocks()[block_idx].num_pts;
+
+            std::copy(outarrptr, outarrptr + nElmts * nmTot, outptr);
+
+            outarrptr += nElmts * nmTot;
+            outptr += nSize;
         }
     }
 
