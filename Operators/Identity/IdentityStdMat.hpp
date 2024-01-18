@@ -5,6 +5,7 @@
 namespace Nektar::Operators::detail
 {
 
+// Identity matrix implementation
 template <typename TData, FieldState TFieldState>
 class OperatorIdentityImpl<TData, TFieldState, ImplStdMat>
     : public OperatorIdentity<TData, TFieldState>
@@ -21,11 +22,7 @@ public:
         size_t N  = in.GetStorage().size();
         auto pIn  = in.GetStorage().GetCPUPtr();
         auto pOut = out.GetStorage().GetCPUPtr();
-
-        for (size_t i = 0; i < N; ++i)
-        {
-            *(pOut++) = *(pIn++);
-        }
+        std::copy(pIn, pIn + N, pOut);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
