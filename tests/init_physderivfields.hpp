@@ -66,12 +66,12 @@ public:
         Array<OneD, NekDouble> outphys2 = NullNekDouble1DArray;
 
         // Set test case
-        SetTestCase(blocks, inphys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *ptr = outphys.get();
         for (auto const &block : blocks)
         {
@@ -182,7 +182,7 @@ public:
         Array<OneD, NekDouble> outphys2 = NullNekDouble1DArray;
 
         // Set test case
-        SetTestCase(blocks, inphys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
@@ -326,7 +326,7 @@ public:
             outphys1 + fixt_explist->GetTotPoints();
 
         // Set test case
-        SetTestCase(blocks, inphys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);

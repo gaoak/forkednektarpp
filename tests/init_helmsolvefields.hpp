@@ -33,7 +33,7 @@ public:
 
         double *xptr = x.get(), *yptr = y.get(), *zptr = z.get(),
                *fceptr = fce.get();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -102,7 +102,7 @@ public:
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set test case
-        SetTestCase(blocks, inphys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         StdRegions::ConstFactorMap factors;
@@ -112,7 +112,7 @@ public:
                 : 1.0;
         fixt_explist->HelmSolve(inphys, outcoeffs, factors);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *coeffptr = outcoeffs.get();
         for (auto const &block : blocks)
         {

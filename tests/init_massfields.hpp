@@ -16,7 +16,7 @@ public:
     void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
                      bool padding = true)
     {
-        for (auto const &block : fixt_in->GetBlocks())
+        for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -46,13 +46,13 @@ public:
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs());
 
         // Set test case
-        SetTestCase(blocks, incoeffs.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), incoeffs.get(), false);
 
         // Calculate expected result from Nektar++
         fixt_explist->BwdTrans(incoeffs, bwdtrans);
         fixt_explist->IProductWRTBase(bwdtrans, outcoeffs);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *coeffptr = outcoeffs.get();
         for (auto const &block : blocks)
         {

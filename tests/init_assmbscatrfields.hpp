@@ -21,7 +21,7 @@ public:
     void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
                      bool padding = true)
     {
-        for (auto const &block : fixt_in->GetBlocks())
+        for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -50,7 +50,7 @@ public:
         Array<OneD, NekDouble> outcoeff(fixt_explist->GetNcoeffs());
 
         // Set test case
-        SetTestCase(blocks, incoeff.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), incoeff.get(), false);
 
         // Calculate expected result from Nektar++
         auto map = fixt_explist->GetLocalToGlobalMap();
@@ -58,7 +58,7 @@ public:
         // Vmath::Zero(map->GetNumGlobalDirBndCoeffs(), outcoeff, 1);
         map->GlobalToLocal(outcoeff, outcoeff);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *ptr = outcoeff.get();
         for (auto const &block : blocks)
         {
