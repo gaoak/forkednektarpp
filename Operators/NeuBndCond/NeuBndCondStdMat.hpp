@@ -34,8 +34,8 @@ public:
         auto ncoeffs = m_assmbMap->GetNumLocalCoeffs();
 
         // Copy data from input field
-        Array<OneD, NekDouble> outarr(ncoeffs, 0.0);
-        auto *inarrptr = outarr.data();
+        Array<OneD, NekDouble> inoutarr(ncoeffs);
+        auto *inarrptr = inoutarr.data();
         auto *inptr    = inout.GetStorage().GetCPUPtr();
 
         for (size_t block_idx = 0; block_idx < inout.GetBlocks().size();
@@ -66,7 +66,7 @@ public:
                     for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
                          j++)
                     {
-                        outarr[map[bndcnt + j]] +=
+                        inoutarr[map[bndcnt + j]] +=
                             sign[bndcnt + j] * bndcoeff[j];
                     }
                 }
@@ -75,7 +75,7 @@ public:
                     for (size_t j = 0; j < bndCondExpansions[i]->GetNcoeffs();
                          j++)
                     {
-                        outarr[map[bndcnt + j]] += bndcoeff[j];
+                        inoutarr[map[bndcnt + j]] += bndcoeff[j];
                     }
                 }
             }
@@ -83,7 +83,7 @@ public:
         }
 
         // Copy data to output field
-        auto *outarrptr = outarr.data();
+        auto *outarrptr = inoutarr.data();
         auto *outptr    = inout.GetStorage().GetCPUPtr();
 
         for (size_t block_idx = 0; block_idx < inout.GetBlocks().size();
