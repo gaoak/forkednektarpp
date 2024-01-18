@@ -216,6 +216,17 @@ IF (NEKTAR_USE_CUDA)
         -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 ENDIF()
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_neumanncuda test_neumanncuda.cpp)
+    target_link_libraries(test_neumanncuda PRIVATE Operators)
+    target_link_libraries(test_neumanncuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_neumanncuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_neumanncuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_neumanncuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_neumanncuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_nullprecon test_nullprecon.cpp)
 target_link_libraries(test_nullprecon PRIVATE Operators)
 target_link_libraries(test_nullprecon PRIVATE ${NEKTAR++_LIBRARIES})
@@ -427,6 +438,14 @@ IF (NEKTAR_USE_CUDA)
     add_test(
       NAME DirichletCUDA
       COMMAND test_dirichletcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME NeumannCUDA
+      COMMAND test_neumanncuda
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
 ENDIF()
