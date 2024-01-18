@@ -19,7 +19,7 @@ public:
     {
         for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
         {
-            for (auto const &block : fixt_in->GetBlocks())
+            for (auto const &block : blocks)
             {
                 for (size_t el = 0; el < block.num_elements; ++el)
                 {
@@ -50,7 +50,7 @@ public:
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set test case
-        SetTestCase(blocks, inphys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         Array<OneD, Array<OneD, NekDouble>> inphysarray(
@@ -69,7 +69,7 @@ public:
         }
         fixt_explist->IProductWRTDerivBase(inphysarray, outcoeffs);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *ptr = outcoeffs.get();
         for (auto const &block : blocks)
         {

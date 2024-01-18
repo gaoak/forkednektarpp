@@ -12,11 +12,6 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmSolve)
 
-using namespace std;
-using namespace Nektar::Operators;
-using namespace Nektar::LibUtilities;
-using namespace Nektar;
-
 BOOST_FIXTURE_TEST_CASE(helmsolve_seg, Helmholtz1D_Seg)
 {
     Configure();

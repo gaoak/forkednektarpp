@@ -24,7 +24,7 @@ public:
         // Calculate expected result from Nektar++
         fixt_explist->ImposeDirichletConditions(outcoeffs);
 
-        // Copy expected result from Array to fixt_expected
+        // Copy expected result from Array to pointer
         double *coeffptr = outcoeffs.get();
         for (auto const &block : blocks)
         {

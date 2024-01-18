@@ -24,8 +24,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_seg, Seg)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
     }
 }
 
@@ -42,8 +43,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_quad, Quad)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
     }
 }
 
@@ -60,8 +62,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_tri, Tri)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
     }
 }
 
@@ -78,8 +81,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_square_all_elements, SquareAllElements)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -96,8 +100,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_hex, Hex)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -114,8 +119,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_prism, Prism)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -132,8 +138,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_pyr, Pyr)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -150,8 +157,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_tet, Tet)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -168,8 +176,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_cube_prism_hex, CubePrismHex)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 
@@ -186,8 +195,9 @@ BOOST_FIXTURE_TEST_CASE(physderivcuda_cube_all_elements, CubeAllElements)
     BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixtcuda_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
+        OutputIfNotMatch(
+            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
+            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
 }
 

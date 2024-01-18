@@ -16,7 +16,7 @@ public:
     void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
                      bool padding = true)
     {
-        for (auto const &block : fixt_in->GetBlocks())
+        for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -41,8 +41,8 @@ public:
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
                           double *inptr)
     {
-        // Copy expected result to fixt_expected
-        SetTestCase(blocks, fixt_expected->GetStorage().GetCPUPtr());
+        // Copy expected result to pointer
+        SetTestCase(blocks, inptr);
     }
 };
 
