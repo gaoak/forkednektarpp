@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Field.hpp"
-#include "Operators/AssmbScatr/AssmbScatrStdMat.hpp"
+#include "Operators/AssmbScatr/AssmbScatrCUDA.hpp"
+#include "Operators/DiagPrecon/DiagPreconCUDAKernels.cuh"
 #include "Operators/OperatorDiagPrecon.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
@@ -16,8 +17,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorDiagPreconImpl<TData, ImplStdMat>
-    : public OperatorDiagPrecon<TData>
+class OperatorDiagPreconImpl<TData, ImplCUDA> : public OperatorDiagPrecon<TData>
 {
 public:
     OperatorDiagPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)
@@ -34,12 +34,22 @@ public:
         m_nLocal    = m_assmbMap->GetNumLocalCoeffs();
         m_nDir      = m_assmbMap->GetNumGlobalDirBndCoeffs();
 
-        m_wk   = Array<OneD, TData>(m_nGlobal, 0.0);
-        m_diag = Array<OneD, TData>(m_nGlobal, 0.0);
+        cudaMalloc((void **)&m_wk, sizeof(TData) * m_nGlobal);
+        cudaMalloc((void **)&m_diag, sizeof(TData) * m_nGlobal);
 
         m_assmbScatr =
-            std::static_pointer_cast<OperatorAssmbScatrImpl<TData, ImplStdMat>>(
-                AssmbScatr<TData>::create(this->m_expansionList));
+            std::static_pointer_cast<OperatorAssmbScatrImpl<TData, ImplCUDA>>(
+                AssmbScatr<TData>::create(this->m_expansionList, "CUDA"));
+
+        // Determine CUDA grid parameters.
+        m_gridSize = m_nGlobal / m_blockSize;
+        m_gridSize += (m_nGlobal % m_blockSize == 0) ? 0 : 1;
+    }
+
+    ~OperatorDiagPreconImpl(void)
+    {
+        cudaFree(m_wk);
+        cudaFree(m_diag);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -47,11 +57,10 @@ public:
     {
         m_assmbScatr->Assemble(in, m_wk);
 
-        std::transform(m_wk.get() + m_nDir, m_wk.get() + m_nGlobal,
-                       m_diag.get() + m_nDir, m_wk.get() + m_nDir,
-                       [](TData in, TData diag) { return in / diag; });
+        DiagPreconKernel<<<m_gridSize, m_blockSize>>>(m_nGlobal, m_nDir, m_diag,
+                                                      m_wk);
 
-        std::fill(m_wk.get(), m_wk.get() + m_nDir, 0.0);
+        cudaMemset(m_wk, 0, sizeof(TData) * m_nDir);
 
         m_assmbScatr->GlobalToLocal(m_wk, out);
     }
@@ -95,19 +104,23 @@ public:
         }
 
         // Assembly
+        Array<OneD, TData> tmp(m_nGlobal, 0.0);
         for (size_t i = 0; i < m_nLocal; ++i)
         {
             size_t gid1 = m_assmbMap->GetLocalToGlobalMap(i);
-            m_diag[gid1] += diag[i];
+            tmp[gid1] += diag[i];
         }
-        m_assmbMap->UniversalAssemble(m_diag);
+        m_assmbMap->UniversalAssemble(tmp);
+
+        cudaMemcpy(m_diag, tmp.get(), sizeof(TData) * m_nGlobal,
+                   cudaMemcpyHostToDevice);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorDiagPreconImpl<TData, ImplStdMat>>(
+        return std::make_unique<OperatorDiagPreconImpl<TData, ImplCUDA>>(
             expansionList);
     }
 
@@ -115,13 +128,15 @@ public:
     static std::string className;
 
 protected:
-    std::shared_ptr<OperatorAssmbScatrImpl<TData, ImplStdMat>> m_assmbScatr;
+    std::shared_ptr<OperatorAssmbScatrImpl<TData, ImplCUDA>> m_assmbScatr;
     AssemblyMapCGSharedPtr m_assmbMap;
-    Array<OneD, TData> m_diag;
-    Array<OneD, TData> m_wk;
+    TData *m_diag;
+    TData *m_wk;
     size_t m_nGlobal;
     size_t m_nLocal;
     size_t m_nDir;
+    size_t m_gridSize;
+    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

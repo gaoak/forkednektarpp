@@ -245,6 +245,17 @@ target_include_directories(test_diagprecon PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_diagprecon PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_diagpreconcuda test_diagpreconcuda.cpp)
+    target_link_libraries(test_diagpreconcuda PRIVATE Operators)
+    target_link_libraries(test_diagpreconcuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_diagpreconcuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_diagpreconcuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_diagpreconcuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_diagpreconcuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_fwdtrans test_fwdtrans.cpp)
 target_link_libraries(test_fwdtrans PRIVATE Operators)
 target_link_libraries(test_fwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
@@ -450,6 +461,14 @@ add_test(
   COMMAND test_diagprecon
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME DiagPreconCUDA
+      COMMAND test_diagpreconcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME FwdTrans
