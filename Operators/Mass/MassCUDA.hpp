@@ -18,8 +18,6 @@ public:
               Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
                   GetBlockAttributes(FieldState::Phys, expansionList)))
     {
-        auto nCoord = this->m_expansionList->GetCoordim(0);
-
         m_BwdTransOp = BwdTrans<>::create(this->m_expansionList, "CUDA");
         m_IProductWRTBaseOp =
             IProductWRTBase<>::create(this->m_expansionList, "CUDA");
@@ -44,12 +42,10 @@ public:
 
     static std::string className;
 
-private:
+protected:
     std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
     Field<TData, FieldState::Phys> m_field;
-    size_t m_blockSize = 32;
-    size_t m_gridSize;
 };
 
 } // namespace Nektar::Operators::detail

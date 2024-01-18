@@ -1,8 +1,6 @@
 #pragma once
 
 #include <numeric>
-
-#include "Field.hpp"
 #include "Operators/OperatorMatrix.hpp"
 
 namespace Nektar::Operators::detail
