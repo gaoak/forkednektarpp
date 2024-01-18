@@ -2,7 +2,6 @@
 
 #include "Operators/OperatorAssmbScatr.hpp"
 
-#include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
 
@@ -25,37 +24,35 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         m_assmbMap = contfield->GetLocalToGlobalMap();
 
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
-        auto nglo                  = (solnType == eIterativeFull)
-                                         ? m_assmbMap->GetNumGlobalCoeffs()
-                                         : m_assmbMap->GetNumGlobalBndCoeffs();
+        m_solnType = m_assmbMap->GetGlobalSysSolnType();
+        m_nloc     = m_assmbMap->GetNumLocalCoeffs();
+        m_nglo     = (m_solnType == eIterativeFull)
+                         ? m_assmbMap->GetNumGlobalCoeffs()
+                         : m_assmbMap->GetNumGlobalBndCoeffs();
+        m_ndir     = m_assmbMap->GetNumGlobalDirBndCoeffs();
 
-        m_tmp = Array<OneD, TData>(nglo);
+        m_glo = Array<OneD, TData>(m_nglo);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false)
     {
-        Assemble(in, m_tmp);
+        Assemble(in, m_glo);
 
+        // Zeroing Dirichlet BC
         if (zeroDir)
         {
-            auto nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
-            Vmath::Zero(nDir, m_tmp.get(), 1);
+            Vmath::Zero(m_ndir, m_glo.get(), 1);
         }
 
-        GlobalToLocal(m_tmp, out);
+        GlobalToLocal(m_glo, out);
     }
 
     void Assemble(Field<TData, FieldState::Coeff> &in,
                   Array<OneD, TData> outarray)
     {
-        // Get the solution type
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
-
-        auto nloc = m_assmbMap->GetNumLocalCoeffs();
-        Array<OneD, TData> inarray(nloc);
+        Array<OneD, TData> inarray(m_nloc);
 
         // Copy data from input field
         auto *inarrptr = inarray.data();
@@ -73,7 +70,7 @@ public:
             inptr += nSize;
         }
 
-        if (solnType == eIterativeFull)
+        if (m_solnType == eIterativeFull)
         {
             m_assmbMap->Assemble(inarray, outarray);
         }
@@ -86,13 +83,9 @@ public:
     void GlobalToLocal(Array<OneD, TData> inarray,
                        Field<TData, FieldState::Coeff> &out)
     {
-        // Get the solution type
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
+        Array<OneD, TData> outarray(m_nloc);
 
-        auto nloc = m_assmbMap->GetNumLocalCoeffs();
-        Array<OneD, TData> outarray(nloc);
-
-        if (solnType == eIterativeFull)
+        if (m_solnType == eIterativeFull)
         {
             m_assmbMap->GlobalToLocal(inarray, outarray);
         }
@@ -131,7 +124,11 @@ public:
 
 protected:
     AssemblyMapCGSharedPtr m_assmbMap;
-    Array<OneD, TData> m_tmp;
+    GlobalSysSolnType m_solnType;
+    Array<OneD, TData> m_glo;
+    size_t m_nloc;
+    size_t m_nglo;
+    size_t m_ndir;
 };
 
 } // namespace Nektar::Operators::detail
