@@ -1,7 +1,8 @@
+#pragma once
+
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/OperatorAssmbScatr.hpp"
-#include "Operators/OperatorHelper.cuh"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
@@ -24,21 +25,20 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         m_assmbMap = contfield->GetLocalToGlobalMap();
 
-        // Get the solution type
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
-        auto nloc                  = m_assmbMap->GetNumLocalCoeffs();
-        auto nglo                  = (solnType == eIterativeFull)
-                                         ? m_assmbMap->GetNumGlobalCoeffs()
-                                         : m_assmbMap->GetNumGlobalBndCoeffs();
+        m_solnType = m_assmbMap->GetGlobalSysSolnType();
+        m_nloc     = m_assmbMap->GetNumLocalCoeffs();
+        m_nglo     = (m_solnType == eIterativeFull)
+                         ? m_assmbMap->GetNumGlobalCoeffs()
+                         : m_assmbMap->GetNumGlobalBndCoeffs();
+        m_ndir     = m_assmbMap->GetNumGlobalDirBndCoeffs();
 
-        // Memory allocation for tmp pointer
-        cudaMalloc((void **)&m_tmpptr, sizeof(TData) * nglo);
-        cudaMemset(m_tmpptr, 0.0, sizeof(TData) * nglo);
+        // Memory allocation for global space pointer
+        cudaMalloc((void **)&m_gloptr, sizeof(TData) * m_nglo);
 
         // Memory allocation for assemble pointer
-        cudaMalloc((void **)&m_assmbptr, sizeof(int) * nloc);
+        cudaMalloc((void **)&m_assmbptr, sizeof(int) * m_nloc);
         auto assmbptr = m_assmbMap->GetLocalToGlobalMap().get();
-        cudaMemcpy(m_assmbptr, assmbptr, sizeof(int) * nloc,
+        cudaMemcpy(m_assmbptr, assmbptr, sizeof(int) * m_nloc,
                    cudaMemcpyHostToDevice);
 
         m_signChange = m_assmbMap->AssemblyMap::GetSignChange();
@@ -46,23 +46,20 @@ public:
         if (m_signChange)
         {
             // Memory allocation for sign pointer
-            cudaMalloc((void **)&m_signptr, sizeof(TData) * nloc);
+            cudaMalloc((void **)&m_signptr, sizeof(TData) * m_nloc);
             auto signptr = m_assmbMap->GetLocalToGlobalSign().get();
-            cudaMemcpy(m_signptr, signptr, sizeof(TData) * nloc,
+            cudaMemcpy(m_signptr, signptr, sizeof(TData) * m_nloc,
                        cudaMemcpyHostToDevice);
         }
     }
 
     ~OperatorAssmbScatrImpl()
     {
-        cudaFree(m_tmpptr);
+        cudaFree(m_gloptr);
         cudaFree(m_assmbptr);
-        m_tmpptr   = nullptr;
-        m_assmbptr = nullptr;
         if (m_signChange)
         {
             cudaFree(m_signptr);
-            m_signptr = nullptr;
         }
     }
 
@@ -70,16 +67,15 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false)
     {
-        Assemble(in, m_tmpptr);
+        Assemble(in, m_gloptr);
 
         // Zeroing Dirichlet BC
         if (zeroDir)
         {
-            size_t nDir = m_assmbMap->GetNumGlobalDirBndCoeffs();
-            cudaMemset(m_tmpptr, 0.0, sizeof(TData) * nDir);
+            cudaMemset(m_gloptr, 0, sizeof(TData) * m_ndir);
         }
 
-        GlobalToLocal(m_tmpptr, out);
+        GlobalToLocal(m_gloptr, out);
     }
 
     void Assemble(Field<TData, FieldState::Coeff> &in, TData *outptr)
@@ -87,10 +83,10 @@ public:
         auto const *inptr =
             in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
 
-        // Get the solution type
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
+        // Zero output
+        cudaMemset(outptr, 0, sizeof(TData) * m_nglo);
 
-        if (solnType == eIterativeFull)
+        if (m_solnType == eIterativeFull)
         {
             // Initialise index
             size_t expIdx = 0;
@@ -102,7 +98,7 @@ public:
                 // Determine shape and type of the element.
                 auto const expPtr = this->m_expansionList->GetExp(expIdx);
                 auto nElmts       = in.GetBlocks()[block_idx].num_elements;
-                auto numPts       = expPtr->GetNcoeffs();
+                auto ncoeff       = expPtr->GetNcoeffs();
 
                 // Deterime CUDA grid parameters.
                 m_gridSize = nElmts / m_blockSize;
@@ -111,17 +107,17 @@ public:
                 if (m_signChange)
                 {
                     AssembleKernel<<<m_gridSize, m_blockSize>>>(
-                        numPts, nElmts, offset, m_assmbptr, m_signptr, inptr,
+                        ncoeff, nElmts, offset, m_assmbptr, m_signptr, inptr,
                         outptr);
                 }
                 else
                 {
                     AssembleKernel<<<m_gridSize, m_blockSize>>>(
-                        numPts, nElmts, offset, m_assmbptr, inptr, outptr);
+                        ncoeff, nElmts, offset, m_assmbptr, inptr, outptr);
                 }
 
                 // Increment pointer and index for next element type.
-                offset += numPts * nElmts;
+                offset += ncoeff * nElmts;
                 expIdx += nElmts;
             }
         }
@@ -131,10 +127,10 @@ public:
     {
         auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
 
-        // Get the solution type
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
+        // Zero output
+        cudaMemset(outptr, 0, sizeof(TData) * m_nloc);
 
-        if (solnType == eIterativeFull)
+        if (m_solnType == eIterativeFull)
         {
             // Initialise index
             size_t expIdx = 0;
@@ -146,7 +142,7 @@ public:
                 // Determine shape and type of the element.
                 auto const expPtr = this->m_expansionList->GetExp(expIdx);
                 auto nElmts       = out.GetBlocks()[block_idx].num_elements;
-                auto numPts       = expPtr->GetNcoeffs();
+                auto ncoeff       = expPtr->GetNcoeffs();
 
                 // Deterime CUDA grid parameters.
                 m_gridSize = nElmts / m_blockSize;
@@ -155,17 +151,17 @@ public:
                 if (m_signChange)
                 {
                     GlobalToLocalKernel<<<m_gridSize, m_blockSize>>>(
-                        numPts, nElmts, offset, m_assmbptr, m_signptr, inptr,
+                        ncoeff, nElmts, offset, m_assmbptr, m_signptr, inptr,
                         outptr);
                 }
                 else
                 {
                     GlobalToLocalKernel<<<m_gridSize, m_blockSize>>>(
-                        numPts, nElmts, offset, m_assmbptr, inptr, outptr);
+                        ncoeff, nElmts, offset, m_assmbptr, inptr, outptr);
                 }
 
                 // Increment pointer and index for next element type.
-                offset += numPts * nElmts;
+                offset += ncoeff * nElmts;
                 expIdx += nElmts;
             }
         }
@@ -184,10 +180,14 @@ public:
 
 protected:
     AssemblyMapCGSharedPtr m_assmbMap;
-    TData *m_tmpptr;
+    GlobalSysSolnType m_solnType;
+    TData *m_gloptr;
     bool m_signChange;
     TData *m_signptr;
     int *m_assmbptr;
+    size_t m_nloc;
+    size_t m_nglo;
+    size_t m_ndir;
     size_t m_gridSize;
     size_t m_blockSize = 32;
 };
