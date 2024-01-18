@@ -1,3 +1,5 @@
+#pragma once
+
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/Matrix/MatrixCUDAKernels.cuh"
 #include "Operators/OperatorHelper.cuh"
@@ -5,11 +7,6 @@
 
 namespace Nektar::Operators::detail
 {
-
-template <typename TData>
-void MatrixKernel(const size_t gridSize, const size_t blockSize,
-                  const size_t numPts, const size_t nElmts, const size_t size,
-                  const TData *mat, const TData *in, TData *out);
 
 // Matrix implementation
 template <typename TData, FieldState TFieldState>
@@ -34,7 +31,6 @@ public:
     ~OperatorMatrixImpl()
     {
         cudaFree(m_matrix);
-        m_matrix = nullptr;
     }
 
     size_t size()
@@ -99,8 +95,8 @@ public:
             m_gridSize = nElmts / m_blockSize;
             m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
 
-            MatrixKernel(m_gridSize, m_blockSize, numPts, nElmts, m_size,
-                         m_matrix, inptr, outptr);
+            MatrixKernel<<<m_gridSize, m_blockSize>>>(numPts, nElmts, m_size,
+                                                      m_matrix, inptr, outptr);
 
             // Increment pointer and index for next element type.
             inptr += numPts * nElmts;
@@ -125,14 +121,5 @@ private:
     size_t m_gridSize;
     size_t m_blockSize = 32;
 };
-
-template <typename TData>
-void MatrixKernel(const size_t gridSize, const size_t blockSize,
-                  const size_t numPts, const size_t nElmts, const size_t size,
-                  const TData *mat, const TData *in, TData *out)
-{
-    MatrixKernel<TData>
-        <<<gridSize, blockSize>>>(numPts, nElmts, size, mat, in, out);
-}
 
 } // namespace Nektar::Operators::detail
