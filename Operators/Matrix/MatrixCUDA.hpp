@@ -50,7 +50,7 @@ public:
         std::vector<TData> matrix_print(m_size * m_size);
         // Copy device memory to host memory for printing
         cudaMemcpy(matrix_print.data(), m_matrix,
-                   m_size * m_size * sizeof(float), cudaMemcpyDeviceToHost);
+                   m_size * m_size * sizeof(TData), cudaMemcpyDeviceToHost);
 
         auto pMat = matrix_print.cbegin();
         std::string str;

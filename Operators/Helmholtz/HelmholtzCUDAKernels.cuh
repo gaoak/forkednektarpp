@@ -1,98 +1,78 @@
 namespace Nektar::Operators::detail
 {
+
 template <typename TData>
-__global__ void DiffusionCoeff1DKernel(const size_t nq0, const size_t nelmt,
+__global__ void DiffusionCoeff1DKernel(const size_t nsize,
                                        const TData *diffCoeff, TData *deriv0)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    if (i >= nsize)
     {
         return;
     }
 
-    // Assign pointers.
-    TData *derivptr = deriv0 + nq0 * e;
-
-    for (size_t i = 0; i < nq0; i++)
-    {
-        derivptr[i] *= diffCoeff[0];
-    }
+    deriv0[i] *= diffCoeff[0];
 }
 
 template <typename TData>
-__global__ void DiffusionCoeff2DKernel(const size_t nq0, const size_t nq1,
-                                       const size_t nelmt,
+__global__ void DiffusionCoeff2DKernel(const size_t nsize,
                                        const TData *diffCoeff, TData *deriv0,
                                        TData *deriv1)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    __shared__ TData s_diffCoeff[4];
 
-    if (e >= nelmt)
+    size_t ind = threadIdx.x;
+    if (ind < 4)
+    {
+        s_diffCoeff[ind] = diffCoeff[ind];
+    }
+
+    __syncthreads();
+
+    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (i >= nsize)
     {
         return;
     }
 
-    constexpr size_t ncoord = 2;
+    TData deriv[2] = {deriv0[i], deriv1[i]};
 
-    // Assign pointers.
-    TData **derivptr = new TData *[ncoord];
-    derivptr[0]      = deriv0 + nq0 * nq1 * e;
-    derivptr[1]      = deriv1 + nq0 * nq1 * e;
-
-    for (size_t j = 0, cnt = 0; j < nq1; j++)
-    {
-        for (size_t i = 0; i < nq0; i++)
-        {
-            TData deriv[2] = {derivptr[0][cnt], derivptr[1][cnt]};
-            for (size_t d = 0; d < ncoord; d++)
-            {
-                derivptr[d][cnt] = diffCoeff[d * ncoord + 0] * deriv[0] +
-                                   diffCoeff[d * ncoord + 1] * deriv[1];
-            }
-            cnt++;
-        }
-    }
+    deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1];
+    deriv1[i] = s_diffCoeff[2] * deriv[0] + s_diffCoeff[3] * deriv[1];
 }
 
 template <typename TData>
-__global__ void DiffusionCoeff3DKernel(const size_t nq0, const size_t nq1,
-                                       const size_t nq2, const size_t nelmt,
-                                       TData *diffCoeff, TData *deriv0,
-                                       TData *deriv1, TData *deriv2)
+__global__ void DiffusionCoeff3DKernel(const size_t nsize, TData *diffCoeff,
+                                       TData *deriv0, TData *deriv1,
+                                       TData *deriv2)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    __shared__ TData s_diffCoeff[9];
 
-    if (e >= nelmt)
+    size_t ind = threadIdx.x;
+    if (ind < 9)
+    {
+        s_diffCoeff[ind] = diffCoeff[ind];
+    }
+
+    __syncthreads();
+
+    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (i >= nsize)
     {
         return;
     }
 
-    constexpr size_t ncoord = 3;
+    TData deriv[3] = {deriv0[i], deriv1[i], deriv2[i]};
 
-    // Assign pointers.
-    TData **derivptr = new TData *[ncoord];
-    derivptr[0]      = deriv0 + nq0 * nq1 * nq2 * e;
-    derivptr[1]      = deriv1 + nq0 * nq1 * nq2 * e;
-    derivptr[2]      = deriv2 + nq0 * nq1 * nq2 * e;
-
-    for (size_t k = 0, cnt = 0; k < nq2; k++)
-    {
-        for (size_t j = 0; j < nq1; j++)
-        {
-            for (size_t i = 0; i < nq0; i++)
-            {
-                TData deriv[3] = {derivptr[0][cnt], derivptr[1][cnt],
-                                  derivptr[2][cnt]};
-                for (size_t d = 0; d < ncoord; d++)
-                {
-                    derivptr[d][cnt] = diffCoeff[d * ncoord + 0] * deriv[0] +
-                                       diffCoeff[d * ncoord + 1] * deriv[1] +
-                                       diffCoeff[d * ncoord + 2] * deriv[2];
-                }
-                cnt++;
-            }
-        }
-    }
+    deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1] +
+                s_diffCoeff[2] * deriv[2];
+    deriv1[i] = s_diffCoeff[3] * deriv[0] + s_diffCoeff[4] * deriv[1] +
+                s_diffCoeff[5] * deriv[2];
+    deriv2[i] = s_diffCoeff[6] * deriv[0] + s_diffCoeff[7] * deriv[1] +
+                s_diffCoeff[8] * deriv[2];
 }
+
 } // namespace Nektar::Operators::detail

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Operators/BwdTrans/BwdTransStdMat.hpp"
 #include "Operators/IProductWRTBase/IProductWRTBaseStdMat.hpp"
 #include "Operators/IProductWRTDerivBase/IProductWRTDerivBaseStdMat.hpp"

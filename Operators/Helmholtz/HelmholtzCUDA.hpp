@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Operators/BwdTrans/BwdTransCUDA.hpp"
 #include "Operators/Helmholtz/HelmholtzCUDAKernels.cuh"
 #include "Operators/IProductWRTBase/IProductWRTBaseCUDA.hpp"
@@ -42,6 +44,11 @@ public:
                    sizeof(TData) * nCoord * nCoord, cudaMemcpyHostToDevice);
     }
 
+    ~OperatorHelmholtzImpl(void)
+    {
+        cudaFree(m_diffCoeff);
+    }
+
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
@@ -68,7 +75,6 @@ public:
             deriv.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
         auto *derivptr1 = derivptr0 + deriv.GetFieldSize();
         auto *derivptr2 = derivptr1 + deriv.GetFieldSize();
-        std::vector<TData *> derivptr{derivptr0, derivptr1, derivptr2};
 
         // Initialize index.
         size_t expIdx = 0;
@@ -83,38 +89,33 @@ public:
             auto nqTot        = expPtr->GetTotPoints();
 
             // Determine CUDA grid parameters.
-            m_gridSize = nElmts / m_blockSize;
-            m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+            m_gridSize = (nElmts * nqTot) / m_blockSize;
+            m_gridSize += ((nElmts * nqTot) % m_blockSize == 0) ? 0 : 1;
 
             // Multiply by diffusion coefficient.
             if (nCoord == 1)
             {
-                auto nq0 = expPtr->GetNumPoints(0);
                 DiffusionCoeff1DKernel<<<m_gridSize, m_blockSize>>>(
-                    nq0, nElmts, m_diffCoeff, derivptr[0]);
+                    nqTot * nElmts, m_diffCoeff, derivptr0);
+                derivptr0 += nqTot * nElmts;
             }
             else if (nCoord == 2)
             {
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
                 DiffusionCoeff2DKernel<<<m_gridSize, m_blockSize>>>(
-                    nq0, nq1, nElmts, m_diffCoeff, derivptr[0], derivptr[1]);
+                    nqTot * nElmts, m_diffCoeff, derivptr0, derivptr1);
+                derivptr0 += nqTot * nElmts;
+                derivptr1 += nqTot * nElmts;
             }
             else
             {
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-                auto nq2 = expPtr->GetNumPoints(2);
                 DiffusionCoeff3DKernel<<<m_gridSize, m_blockSize>>>(
-                    nq0, nq1, nq2, nElmts, m_diffCoeff, derivptr[0],
-                    derivptr[1], derivptr[2]);
+                    nqTot * nElmts, m_diffCoeff, derivptr0, derivptr1,
+                    derivptr2);
+                derivptr0 += nqTot * nElmts;
+                derivptr1 += nqTot * nElmts;
+                derivptr2 += nqTot * nElmts;
             }
 
-            // Increment pointer and index for next element type.
-            for (size_t d = 0; d < nCoord; d++)
-            {
-                derivptr[d] += nqTot * nElmts;
-            }
             expIdx += nElmts;
         }
     }
