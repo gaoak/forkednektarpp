@@ -21,8 +21,9 @@ __global__ void DirBndCondKernel(const size_t nsize, const int *offsetptr,
 
     if (bctypeptr[i] == eDirichlet)
     {
-        int offset = offsetptr[i];
-        for (size_t j = 0; j < ncoeffptr[i]; j++)
+        size_t offset = offsetptr[i];
+        size_t ncoeff = ncoeffptr[i];
+        for (size_t j = 0; j < ncoeff; j++)
         {
             outptr[mapptr[offset + j]] = inptr[offset + j];
         }
@@ -45,8 +46,9 @@ __global__ void DirBndCondKernel(const size_t nsize, const int *offsetptr,
 
     if (bctypeptr[i] == eDirichlet)
     {
-        int offset = offsetptr[i];
-        for (size_t j = 0; j < ncoeffptr[i]; j++)
+        size_t offset = offsetptr[i];
+        size_t ncoeff = ncoeffptr[i];
+        for (size_t j = 0; j < ncoeff; j++)
         {
             outptr[mapptr[offset + j]] =
                 signptr[offset + j] * inptr[offset + j];

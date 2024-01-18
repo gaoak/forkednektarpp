@@ -43,6 +43,9 @@ __global__ void PhysDerivSegKernel(const size_t nq0, const size_t ncoord,
             inoutptr[d - 1][j] = inoutptr[0][j] * dfptr[d - 1][dfindex];
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -92,6 +95,9 @@ __global__ void PhysDerivQuadKernel(const size_t nq0, const size_t nq1,
             }
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -149,6 +155,9 @@ __global__ void PhysDerivTriKernel(const size_t nq0, const size_t nq1,
             }
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -204,6 +213,9 @@ __global__ void PhysDerivHexKernel(const size_t nq0, const size_t nq1,
             }
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -307,6 +319,11 @@ __global__ void PhysDerivTetKernel(const size_t nq0, const size_t nq1,
             }
         }
     }
+
+    delete[] wsp0;
+    delete[] wsp1;
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -368,6 +385,9 @@ __global__ void PhysDerivPrismKernel(
             }
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
@@ -433,6 +453,9 @@ __global__ void PhysDerivPyrKernel(const size_t nq0, const size_t nq1,
             }
         }
     }
+
+    delete[] inoutptr;
+    delete[] dfptr;
 }
 
 template <typename TData>

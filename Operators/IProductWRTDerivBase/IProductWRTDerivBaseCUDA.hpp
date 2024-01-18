@@ -94,6 +94,8 @@ public:
 
     ~OperatorIProductWRTDerivBaseImpl(void)
     {
+        size_t nCoord = this->m_expansionList->GetCoordim(0);
+
         DeallocateDataCUDA<TData>(m_basis);
         DeallocateDataCUDA<TData>(m_dbasis);
         DeallocateDataCUDA<TData>(m_weight);
@@ -101,6 +103,15 @@ public:
         DeallocateDataCUDA<TData>(m_D);
         cudaFree(m_jac);
         cudaFree(m_derivFac);
+        cudaFree(m_wsp0);
+        if (nCoord > 1)
+        {
+            cudaFree(m_wsp1);
+        }
+        if (nCoord > 2)
+        {
+            cudaFree(m_wsp2);
+        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
