@@ -4,6 +4,17 @@ find_package(
   COMPONENTS unit_test_framework
 )
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_cudakernels test_cudakernels.cu)
+    target_link_libraries(test_cudakernels PRIVATE Operators)
+    target_link_libraries(test_cudakernels PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_cudakernels PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_cudakernels PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_cudakernels PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_cudakernels PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_bwdtrans test_bwdtrans.cpp)
 target_link_libraries(test_bwdtrans PRIVATE Operators)
 target_link_libraries(test_bwdtrans PRIVATE ${NEKTAR++_LIBRARIES})
@@ -304,6 +315,14 @@ target_include_directories(test_helmsolve PRIVATE "${CMAKE_SOURCE_DIR}")
 target_include_directories(test_helmsolve PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_helmsolve PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME CUDAKernels
+      COMMAND test_cudakernels
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME BwdTrans
