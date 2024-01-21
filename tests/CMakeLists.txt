@@ -178,14 +178,16 @@ target_include_directories(test_mass PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_mass PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
-add_executable(test_masscuda test_masscuda.cpp)
-target_link_libraries(test_masscuda PRIVATE Operators)
-target_link_libraries(test_masscuda PRIVATE ${NEKTAR++_LIBRARIES})
-target_link_libraries(test_masscuda PRIVATE Boost::unit_test_framework)
-target_include_directories(test_masscuda PRIVATE "${CMAKE_SOURCE_DIR}")
-target_include_directories(test_masscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
-target_compile_definitions(test_masscuda PRIVATE
-    -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_masscuda test_masscuda.cpp)
+    target_link_libraries(test_masscuda PRIVATE Operators)
+    target_link_libraries(test_masscuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_masscuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_masscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_masscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_masscuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
 
 add_executable(test_assmbscatr test_assmbscatr.cpp)
 target_link_libraries(test_assmbscatr PRIVATE Operators)
