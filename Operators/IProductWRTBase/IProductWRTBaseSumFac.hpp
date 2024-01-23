@@ -44,24 +44,42 @@ public:
             {
                 // Segment
                 case LibUtilities::Seg:
-                    std::cout << "Sumfac-Seg" << std::endl;
                     IProductWRTBaseSumFacSegKernel(inptr, outptr, expPtr, m_jac,
+                                                   numElmts, jac_idx);
+                    break;
+                // Triangles
+                case LibUtilities::Tri:
+                    IProductWRTBaseSumFacTriKernel(inptr, outptr, expPtr, m_jac,
                                                    numElmts, jac_idx);
                     break;
                 // Quads
                 case LibUtilities::Quad:
-                    std::cout << "Sumfac-Quad" << std::endl;
                     IProductWRTBaseSumFacQuadKernel(inptr, outptr, expPtr,
                                                     m_jac, numElmts, jac_idx);
                     break;
+                // Tet
+                case LibUtilities::Tet:
+                    IProductWRTBaseSumFacTetKernel(inptr, outptr, expPtr, m_jac,
+                                                   numElmts, jac_idx);
+                    break;
+                // Pyr
+                case LibUtilities::Pyr:
+                    IProductWRTBaseSumFacPyrKernel(inptr, outptr, expPtr, m_jac,
+                                                   numElmts, jac_idx);
+                    break;
+                // Prism
+                case LibUtilities::Prism:
+                    IProductWRTBaseSumFacPrismKernel(inptr, outptr, expPtr,
+                                                     m_jac, numElmts, jac_idx);
+                    break;
                 // Hexes
                 case LibUtilities::Hex:
-                    std::cout << "Sumfac-Hex" << std::endl;
                     IProductWRTBaseSumFacHexKernel(inptr, outptr, expPtr, m_jac,
                                                    numElmts, jac_idx);
                     break;
                 default:
-                    std::cout << "Only Seg, Quad, or Hex implemented so far" << std::endl;
+                    std::cout << "shapetype not implemented" << std::endl;
+
             }
 
             inptr += in.GetBlocks()[block_idx].block_size;

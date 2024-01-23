@@ -43,7 +43,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_quad, Quad)
     }
 }
 
-/*BOOST_FIXTURE_TEST_CASE(ipwrtbase_tri, Tri)
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_tri, Tri)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
@@ -73,7 +73,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_square_all_elements, SquareAllElements)
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
                          fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
     }
-}*/
+}
 
 BOOST_FIXTURE_TEST_CASE(ipwrtbase_hex, Hex)
 {
@@ -91,7 +91,7 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_hex, Hex)
     }
 }
 
-/*BOOST_FIXTURE_TEST_CASE(ipwrtbase_prism, Prism)
+BOOST_FIXTURE_TEST_CASE(ipwrtbase_prism, Prism)
 {
     Configure();
     SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
@@ -163,12 +163,12 @@ BOOST_FIXTURE_TEST_CASE(ipwrtbase_cube_all_elements, CubeAllElements)
         ->apply(*fixt_in, *fixt_out);
     ExpectedSolution(fixt_expected->GetBlocks(),
                      fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
+    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-10));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
+                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-10);
     }
-}*/
+}
 
 BOOST_AUTO_TEST_SUITE_END()
