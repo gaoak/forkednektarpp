@@ -27,13 +27,25 @@ public:
         apply(in, out);
     }
 
-    virtual void setLHS(
-        const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
-                                             FieldState::Coeff>> &ptr) = 0;
 
-    virtual void setPrecon(
-        const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
-                                             FieldState::Coeff>> &ptr) = 0;
+    void setLHS(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
+                                                     FieldState::Coeff>> &ptr)
+    {
+        m_LHS = ptr;
+    }
+
+    void setPrecon(
+        const std::shared_ptr<
+            OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr)
+    {
+        m_precon = ptr;
+    }
+
+protected:
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+        m_LHS;
+    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+        m_precon;
 };
 
 // Descriptor / traits class for ConjGrad to be used by Operator create function

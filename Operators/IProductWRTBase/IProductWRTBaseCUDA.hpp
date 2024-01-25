@@ -100,9 +100,8 @@ public:
             auto deformed     = expPtr->GetMetricInfo()->GetGtype() ==
                             SpatialDomains::eDeformed;
 
-            // Deterime CUDA grid parameters.
-            m_gridSize = nElmts / m_blockSize;
-            m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+            // Deterime CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==

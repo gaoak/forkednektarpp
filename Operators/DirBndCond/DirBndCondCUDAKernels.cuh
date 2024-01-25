@@ -14,19 +14,18 @@ __global__ void DirBndCondKernel(const size_t nsize, const int *offsetptr,
 {
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (i >= nsize)
+    while (i < nsize)
     {
-        return;
-    }
-
-    if (bctypeptr[i] == eDirichlet)
-    {
-        size_t offset = offsetptr[i];
-        size_t ncoeff = ncoeffptr[i];
-        for (size_t j = 0; j < ncoeff; j++)
+        if (bctypeptr[i] == eDirichlet)
         {
-            outptr[mapptr[offset + j]] = inptr[offset + j];
+            size_t offset = offsetptr[i];
+            size_t ncoeff = ncoeffptr[i];
+            for (size_t j = 0; j < ncoeff; j++)
+            {
+                outptr[mapptr[offset + j]] = inptr[offset + j];
+            }
         }
+        i += blockDim.x * gridDim.x;
     }
 }
 
@@ -39,20 +38,19 @@ __global__ void DirBndCondKernel(const size_t nsize, const int *offsetptr,
 {
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (i >= nsize)
+    while (i < nsize)
     {
-        return;
-    }
-
-    if (bctypeptr[i] == eDirichlet)
-    {
-        size_t offset = offsetptr[i];
-        size_t ncoeff = ncoeffptr[i];
-        for (size_t j = 0; j < ncoeff; j++)
+        if (bctypeptr[i] == eDirichlet)
         {
-            outptr[mapptr[offset + j]] =
-                signptr[offset + j] * inptr[offset + j];
+            size_t offset = offsetptr[i];
+            size_t ncoeff = ncoeffptr[i];
+            for (size_t j = 0; j < ncoeff; j++)
+            {
+                outptr[mapptr[offset + j]] =
+                    signptr[offset + j] * inptr[offset + j];
+            }
         }
+        i += blockDim.x * gridDim.x;
     }
 }
 
@@ -63,12 +61,11 @@ __global__ void LocalDirBndCondKernel(const size_t nsize, const int *id0ptr,
 {
     size_t i = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (i >= nsize)
+    while (i < nsize)
     {
-        return;
+        outptr[id0ptr[i]] = outptr[id1ptr[i]] * signptr[i];
+        i += blockDim.x * gridDim.x;
     }
-
-    outptr[id0ptr[i]] = outptr[id1ptr[i]] * signptr[i];
 }
 
 } // namespace Nektar::Operators::detail

@@ -70,9 +70,9 @@ if (NEKTAR_USE_CUDA)
                    Operators/DirBndCond/DirBndCondCUDA.cu
                    Operators/NeuBndCond/NeuBndCondCUDA.cu
                    #Operators/RobBndCond/RobBndCondCUDA.cu
-                   #Operators/ConjGrad/ConjGradCUDA.cu
-                   #Operators/FwdTrans/FwdTransCUDA.cu
-                   #Operators/HelmSolve/HelmSolveCUDA.cu 
+                   Operators/ConjGrad/ConjGradCUDA.cu
+                   Operators/FwdTrans/FwdTransCUDA.cu
+                   Operators/HelmSolve/HelmSolveCUDA.cu 
                    Operators/Matrix/MatrixCUDA.cu 
        )
 endif()

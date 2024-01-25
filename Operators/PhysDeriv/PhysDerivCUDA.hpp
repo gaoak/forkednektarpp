@@ -1,3 +1,5 @@
+# pragma once
+
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/OperatorHelper.cuh"
 #include "Operators/OperatorPhysDeriv.hpp"
@@ -101,9 +103,8 @@ public:
             auto deformed     = expPtr->GetMetricInfo()->GetGtype() ==
                             SpatialDomains::eDeformed;
 
-            // Determine CUDA grid parameters.
-            m_gridSize = nElmts / m_blockSize;
-            m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+            // Determine CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)

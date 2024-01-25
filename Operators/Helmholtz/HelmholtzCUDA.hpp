@@ -88,9 +88,8 @@ public:
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
 
-            // Determine CUDA grid parameters.
-            m_gridSize = (nElmts * nqTot) / m_blockSize;
-            m_gridSize += ((nElmts * nqTot) % m_blockSize == 0) ? 0 : 1;
+            // Deterime CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nqTot * nElmts, m_blockSize);
 
             // Multiply by diffusion coefficient.
             if (nCoord == 1)
@@ -138,8 +137,8 @@ private:
     Field<TData, FieldState::Phys> m_bwd;
     Field<TData, FieldState::Phys> m_deriv;
     TData *m_diffCoeff;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
-    size_t m_gridSize;
 };
 
 } // namespace Nektar::Operators::detail

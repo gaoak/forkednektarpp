@@ -289,6 +289,17 @@ target_include_directories(test_fwdtrans PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_fwdtrans PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
 
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_fwdtranscuda test_fwdtranscuda.cpp)
+    target_link_libraries(test_fwdtranscuda PRIVATE Operators)
+    target_link_libraries(test_fwdtranscuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_fwdtranscuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_fwdtranscuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_fwdtranscuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_fwdtranscuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
+
 add_executable(test_helmholtz test_helmholtz.cpp)
 target_link_libraries(test_helmholtz PRIVATE Operators)
 target_link_libraries(test_helmholtz PRIVATE ${NEKTAR++_LIBRARIES})
@@ -317,6 +328,17 @@ target_include_directories(test_helmsolve PRIVATE "${CMAKE_SOURCE_DIR}")
 target_include_directories(test_helmsolve PRIVATE ${NEKTAR++_INCLUDE_DIRS})
 target_compile_definitions(test_helmsolve PRIVATE
     -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+
+IF (NEKTAR_USE_CUDA)
+    add_executable(test_helmsolvecuda test_helmsolvecuda.cpp)
+    target_link_libraries(test_helmsolvecuda PRIVATE Operators)
+    target_link_libraries(test_helmsolvecuda PRIVATE ${NEKTAR++_LIBRARIES})
+    target_link_libraries(test_helmsolvecuda PRIVATE Boost::unit_test_framework)
+    target_include_directories(test_helmsolvecuda PRIVATE "${CMAKE_SOURCE_DIR}")
+    target_include_directories(test_helmsolvecuda PRIVATE ${NEKTAR++_INCLUDE_DIRS})
+    target_compile_definitions(test_helmsolvecuda PRIVATE
+        -DTEST_PATH="${CMAKE_SOURCE_DIR}")
+ENDIF()
 
 IF (NEKTAR_USE_CUDA)
     add_test(
@@ -516,11 +538,27 @@ add_test(
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME FwdTransCUDA
+      COMMAND test_fwdtranscuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
+
 add_test(
   NAME Helmholtz
   COMMAND test_helmholtz
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
+
+IF (NEKTAR_USE_CUDA)
+    add_test(
+      NAME HelmholtzCUDA
+      COMMAND test_helmholtzcuda
+      WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    )
+ENDIF()
 
 add_test(
   NAME HelmSolve
@@ -530,8 +568,8 @@ add_test(
 
 IF (NEKTAR_USE_CUDA)
     add_test(
-      NAME HelmholtzCUDA
-      COMMAND test_helmholtzcuda
+      NAME HelmSolveCUDA
+      COMMAND test_helmsolvecuda
       WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     )
 ENDIF()

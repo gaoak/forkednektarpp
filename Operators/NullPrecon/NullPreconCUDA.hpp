@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Field.hpp"
-
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorNullPrecon.hpp"
 

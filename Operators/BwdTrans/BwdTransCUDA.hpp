@@ -1,3 +1,5 @@
+#pragma once
+
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/BwdTrans/BwdTransCUDAKernels.cuh"
 #include "Operators/OperatorBwdTrans.hpp"
@@ -90,9 +92,8 @@ public:
             auto nqTot        = expPtr->GetTotPoints();
             auto shape        = expPtr->DetShapeType();
 
-            // Deterime CUDA grid parameters.
-            m_gridSize = nElmts / m_blockSize;
-            m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+            // Deterime CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==

@@ -9,17 +9,16 @@ __global__ void AssembleKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        atomicAdd(outptr + assmbptr[index + i],
-                  signptr[index + i] * inptr[index + i]);
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            atomicAdd(outptr + assmbptr[index + i],
+                      signptr[index + i] * inptr[index + i]);
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 
@@ -31,16 +30,15 @@ __global__ void AssembleKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        atomicAdd(outptr + assmbptr[index + i], sign * inptr[index + i]);
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            atomicAdd(outptr + assmbptr[index + i], sign * inptr[index + i]);
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 
@@ -51,16 +49,15 @@ __global__ void AssembleKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        atomicAdd(outptr + assmbptr[index + i], inptr[index + i]);
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            atomicAdd(outptr + assmbptr[index + i], inptr[index + i]);
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 
@@ -72,16 +69,15 @@ __global__ void GlobalToLocalKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        outptr[index + i] = signptr[index + i] * inptr[assmbptr[index + i]];
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            outptr[index + i] = signptr[index + i] * inptr[assmbptr[index + i]];
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 
@@ -93,16 +89,15 @@ __global__ void GlobalToLocalKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        outptr[index + i] = sign * inptr[assmbptr[index + i]];
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            outptr[index + i] = sign * inptr[assmbptr[index + i]];
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 
@@ -113,16 +108,15 @@ __global__ void GlobalToLocalKernel(const size_t ncoeff, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        size_t index = offset + e * ncoeff;
 
-    size_t index = offset + e * ncoeff;
-
-    for (size_t i = 0; i < ncoeff; i++)
-    {
-        outptr[index + i] = inptr[assmbptr[index + i]];
+        for (size_t i = 0; i < ncoeff; i++)
+        {
+            outptr[index + i] = inptr[assmbptr[index + i]];
+        }
+        e += blockDim.x * gridDim.x;
     }
 }
 

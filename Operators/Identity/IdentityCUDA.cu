@@ -2,6 +2,8 @@
 
 namespace Nektar::Operators::detail
 {
+
+// Register implementation with Operator Factory
 template <>
 std::string OperatorIdentityImpl<double, FieldState::Coeff,
                                  ImplCUDA>::className =
@@ -9,10 +11,7 @@ std::string OperatorIdentityImpl<double, FieldState::Coeff,
         "IdentityCoeffCUDA",
         OperatorIdentityImpl<double, FieldState::Coeff, ImplCUDA>::instantiate,
         "...");
-}
 
-namespace Nektar::Operators::detail
-{
 template <>
 std::string OperatorIdentityImpl<double, FieldState::Phys,
                                  ImplCUDA>::className =
@@ -20,4 +19,4 @@ std::string OperatorIdentityImpl<double, FieldState::Phys,
         "IdentityPhysCUDA",
         OperatorIdentityImpl<double, FieldState::Phys, ImplCUDA>::instantiate,
         "...");
-}
+} // namespace Nektar::Operators::detail

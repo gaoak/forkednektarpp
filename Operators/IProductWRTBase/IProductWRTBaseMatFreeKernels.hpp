@@ -9,7 +9,7 @@ using vec_t = simd<NekDouble>;
 
 template <bool SCALE, bool APPEND>
 NEK_FORCE_INLINE static void ScaleAppend(vec_t &store, vec_t &pos,
-                                         NekDouble scale)
+                                         [[maybe_unused]] NekDouble scale)
 {
     if constexpr (SCALE && APPEND)
     {

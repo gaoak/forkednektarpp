@@ -8,6 +8,11 @@
 namespace Nektar::Operators
 {
 
+static size_t GetCUDAGridSize(size_t ndata, size_t blockSize)
+{
+    return (ndata + blockSize - 1) / blockSize;
+}
+
 template <typename TData>
 using DataMap =
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>>;
