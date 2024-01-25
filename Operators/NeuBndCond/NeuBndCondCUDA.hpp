@@ -2,6 +2,7 @@
 
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/NeuBndCond/NeuBndCondCUDAKernels.cuh"
+#include "Operators/OperatorHelper.cuh"
 #include "Operators/OperatorNeuBndCond.hpp"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
@@ -85,6 +86,9 @@ public:
         cudaMalloc((void **)&m_coeff, sizeof(TData) * coeff.size());
         cudaMemcpy(m_coeff, coeff.get(), sizeof(TData) * coeff.size(),
                    cudaMemcpyHostToDevice);
+
+        // Deterime CUDA grid parameters.
+        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
     }
 
     ~OperatorNeuBndCondImpl(void)
@@ -105,10 +109,6 @@ public:
         // Copy memory to GPU, if necessary and get raw pointers.
         auto *inoutptr =
             inout.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-
-        // Deterime CUDA grid parameters.
-        m_gridSize = m_bndExpSize / m_blockSize;
-        m_gridSize += (m_bndExpSize % m_blockSize == 0) ? 0 : 1;
 
         if (m_signChange)
         {
@@ -144,7 +144,7 @@ protected:
     int *m_map;
     int *m_ncoeff;
     int *m_offset;
-    size_t m_gridSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
 

@@ -3,6 +3,7 @@
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/DirBndCond/DirBndCondCUDAKernels.cuh"
 #include "Operators/OperatorDirBndCond.hpp"
+#include "Operators/OperatorHelper.cuh"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
@@ -133,9 +134,8 @@ public:
         // Copy memory to GPU, if necessary and get raw pointers.
         auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
 
-        // Deterime CUDA grid parameters.
-        m_gridSize = m_bndExpSize / m_blockSize;
-        m_gridSize += (m_bndExpSize % m_blockSize == 0) ? 0 : 1;
+        // Deterime CUDA grid size.
+        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
 
         if (m_signChange)
         {
@@ -168,9 +168,9 @@ public:
         //     outarr[it] *= -1;
         // }
 
-        // Deterime CUDA grid parameters.
-        m_gridSize = m_localDirSize / m_blockSize;
-        m_gridSize += (m_localDirSize % m_blockSize == 0) ? 0 : 1;
+        // Deterime CUDA grid size.
+        m_gridSize = GetCUDAGridSize(m_localDirSize, m_blockSize);
+
         LocalDirBndCondKernel<TData><<<m_gridSize, m_blockSize>>>(
             m_localDirSize, m_locid0, m_locid1, m_locsign, outptr);
     }
@@ -199,7 +199,7 @@ protected:
     int *m_locid0;
     int *m_locid1;
     TData *m_locsign;
-    size_t m_gridSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
 

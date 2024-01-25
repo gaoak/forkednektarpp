@@ -37,10 +37,6 @@ public:
 
     // className - for OperatorFactory
     static std::string className;
-
-protected:
-    size_t m_gridSize;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

@@ -7,7 +7,6 @@
 namespace Nektar::Operators::detail
 {
 
-// standard matrix implementation
 template <typename TData>
 class OperatorMassImpl<TData, ImplCUDA> : public OperatorMass<TData>
 {

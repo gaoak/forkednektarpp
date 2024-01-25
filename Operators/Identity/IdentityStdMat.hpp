@@ -19,10 +19,10 @@ public:
     void apply(Field<TData, TFieldState> &in,
                Field<TData, TFieldState> &out) override
     {
-        size_t N  = in.GetStorage().size();
-        auto pIn  = in.GetStorage().GetCPUPtr();
-        auto pOut = out.GetStorage().GetCPUPtr();
-        std::copy(pIn, pIn + N, pOut);
+        size_t N    = in.GetStorage().size();
+        auto inptr  = in.GetStorage().GetCPUPtr();
+        auto outptr = out.GetStorage().GetCPUPtr();
+        std::copy(inptr, inptr + N, outptr);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory

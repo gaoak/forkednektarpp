@@ -3,6 +3,7 @@
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/OperatorHelper.cuh"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
@@ -100,9 +101,8 @@ public:
                 auto nElmts       = in.GetBlocks()[block_idx].num_elements;
                 auto ncoeff       = expPtr->GetNcoeffs();
 
-                // Deterime CUDA grid parameters.
-                m_gridSize = nElmts / m_blockSize;
-                m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+                // Deterime CUDA grid size.
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
                 if (m_signChange)
                 {
@@ -144,9 +144,8 @@ public:
                 auto nElmts       = out.GetBlocks()[block_idx].num_elements;
                 auto ncoeff       = expPtr->GetNcoeffs();
 
-                // Deterime CUDA grid parameters.
-                m_gridSize = nElmts / m_blockSize;
-                m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+                // Deterime CUDA grid size.
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
                 if (m_signChange)
                 {
@@ -188,7 +187,7 @@ protected:
     size_t m_nloc;
     size_t m_nglo;
     size_t m_ndir;
-    size_t m_gridSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
 

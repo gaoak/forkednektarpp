@@ -144,7 +144,8 @@ class Helmholtz2D_Tri_Quad : public FwdTransField
 public:
     Helmholtz2D_Tri_Quad()
     {
-        meshName = "run/Helmholtz2D_P7_AllBCs.xml";
+        //meshName = "run/Helmholtz2D_P7_AllBCs.xml";
+        meshName = "run/Helmholtz2D_varP.xml";
     }
 };
 

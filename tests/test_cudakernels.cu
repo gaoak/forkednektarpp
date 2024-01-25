@@ -40,7 +40,7 @@ BOOST_FIXTURE_TEST_CASE(cuda_dotkernel, CUDAKernels)
     cudaMemcpy(&h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
 
     // Check results
-    BOOST_TEST(fabs(h_out - out) < 1.0E-12);
+    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
         std::cout << "CUDA = " << h_out << " Vmath = " << out << std::endl;

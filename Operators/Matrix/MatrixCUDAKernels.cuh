@@ -7,21 +7,20 @@ __global__ void MatrixKernel(const size_t numPts, const size_t nelmt,
 {
     size_t e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        const TData *matrix = mat + e * numPts;
+        const TData *inptr  = in + e * numPts;
+        TData *outptr       = out + e * numPts;
 
-    const TData *matrix = mat + e * numPts;
-    const TData *inptr  = in + e * numPts;
-    TData *outptr       = out + e * numPts;
-
-    for (size_t j = 0; j < size * size; j += size)
-    {
-        for (size_t i = 0; i < numPts; ++i)
+        for (size_t j = 0; j < size * size; j += size)
         {
-            outptr[i] += inptr[i] * matrix[j + i];
+            for (size_t i = 0; i < numPts; ++i)
+            {
+                outptr[i] += inptr[i] * matrix[j + i];
+            }
         }
+        e += blockDim.x * gridDim.x;
     }
 }
 

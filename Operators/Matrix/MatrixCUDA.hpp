@@ -91,9 +91,8 @@ public:
                                     ? expPtr->GetNcoeffs()
                                     : expPtr->GetTotPoints();
 
-            // Deterime CUDA grid parameters.
-            m_gridSize = nElmts / m_blockSize;
-            m_gridSize += (nElmts % m_blockSize == 0) ? 0 : 1;
+            // Deterime CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
             MatrixKernel<<<m_gridSize, m_blockSize>>>(numPts, nElmts, m_size,
                                                       m_matrix, inptr, outptr);
@@ -118,7 +117,7 @@ public:
 private:
     size_t m_size;
     TData *m_matrix;
-    size_t m_gridSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
 

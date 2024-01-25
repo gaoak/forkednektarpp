@@ -2,7 +2,7 @@
 
 #include "Field.hpp"
 #include "Operators/AssmbScatr/AssmbScatrCUDA.hpp"
-#include "Operators/DiagPrecon/DiagPreconCUDAKernels.cuh"
+#include "Operators/CUDAMathKernels.cuh"
 #include "Operators/OperatorDiagPrecon.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
@@ -41,9 +41,8 @@ public:
             std::static_pointer_cast<OperatorAssmbScatrImpl<TData, ImplCUDA>>(
                 AssmbScatr<TData>::create(this->m_expansionList, "CUDA"));
 
-        // Determine CUDA grid parameters.
-        m_gridSize = m_nGlobal / m_blockSize;
-        m_gridSize += (m_nGlobal % m_blockSize == 0) ? 0 : 1;
+        // Deterime CUDA grid size.
+        m_gridSize = GetCUDAGridSize(m_nGlobal - m_nDir, m_blockSize);
     }
 
     ~OperatorDiagPreconImpl(void)
@@ -57,8 +56,8 @@ public:
     {
         m_assmbScatr->Assemble(in, m_wk);
 
-        DiagPreconKernel<<<m_gridSize, m_blockSize>>>(m_nGlobal, m_nDir, m_diag,
-                                                      m_wk);
+        vdivKernel<<<m_gridSize, m_blockSize>>>(
+            m_nGlobal - m_nDir, m_wk + m_nDir, m_diag + m_nDir, m_wk + m_nDir);
 
         cudaMemset(m_wk, 0, sizeof(TData) * m_nDir);
 
@@ -69,38 +68,43 @@ public:
         const std::shared_ptr<
             OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
     {
-        auto robBCOp = RobBndCond<TData>::create(this->m_expansionList);
+        // auto robBCOp = RobBndCond<TData>::create(this->m_expansionList,
+        // "CUDA");
 
         Array<OneD, TData> diag(m_nLocal);
 
         // create unit vector field to extract diagonal
         Field<TData, FieldState::Coeff> unit_vec =
-            Field<TData, FieldState::Coeff>::create(
+            Field<TData, FieldState::Coeff>::template create<MemoryRegionCUDA>(
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
 
         // create action field to receive column action from unit vector
         Field<TData, FieldState::Coeff> action =
-            Field<TData, FieldState::Coeff>::create(
+            Field<TData, FieldState::Coeff>::template create<MemoryRegionCUDA>(
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
 
-        auto *uvec_ptr = unit_vec.GetStorage().GetCPUPtr();
-        auto *actn_ptr = action.GetStorage().GetCPUPtr();
-        auto *diag_ptr = diag.get();
+        auto *uvec_ptr =
+            unit_vec.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *actn_ptr =
+            action.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
 
+        TData init = 1.0;
         for (size_t i = 0; i < m_nLocal; ++i)
         {
             // set ith term in unit vector to be 1
-            *uvec_ptr = 1.0;
+            cudaMemcpy(uvec_ptr + i, &init, sizeof(TData),
+                       cudaMemcpyHostToDevice);
 
             // apply operator to unit vector and store in action field
             op->apply(unit_vec, action);
-            robBCOp->apply(unit_vec, action);
+            // robBCOp->apply(unit_vec, action);
 
             // copy ith row term from the action field to get ith diagonal
-            *(diag_ptr++) = *(actn_ptr++);
+            cudaMemcpy(diag.get() + i, actn_ptr + i, sizeof(TData),
+                       cudaMemcpyDeviceToHost);
 
             // reset ith term in unit vector to be 0
-            *(uvec_ptr++) = 0.0;
+            cudaMemset(uvec_ptr + i, 0, sizeof(TData));
         }
 
         // Assembly
@@ -135,7 +139,7 @@ protected:
     size_t m_nGlobal;
     size_t m_nLocal;
     size_t m_nDir;
-    size_t m_gridSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
 
