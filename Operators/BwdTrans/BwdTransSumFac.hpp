@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Operators/OperatorBwdTrans.hpp"
 
 namespace Nektar::Operators::detail

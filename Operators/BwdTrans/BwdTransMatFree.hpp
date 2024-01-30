@@ -1,11 +1,12 @@
-#include <LibUtilities/Foundations/Basis.h>
+#pragma once
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Foundations/Basis.h>
+#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "BwdTransMatFreeKernels.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
-#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 namespace Nektar::Operators::detail
 {

@@ -1,5 +1,8 @@
-#include "Operators/OperatorBwdTrans.hpp"
+#pragma once
+
 #include <StdRegions/StdExpansion.h>
+
+#include "Operators/OperatorBwdTrans.hpp"
 
 namespace Nektar::Operators::detail
 {
