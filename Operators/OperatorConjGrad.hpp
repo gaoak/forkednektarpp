@@ -27,7 +27,6 @@ public:
         apply(in, out);
     }
 
-
     void setLHS(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
                                                      FieldState::Coeff>> &ptr)
     {

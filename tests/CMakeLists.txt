@@ -1,4 +1,8 @@
 find_package(
+  MPI
+)
+
+find_package(
   Boost
   REQUIRED
   COMPONENTS unit_test_framework
@@ -541,11 +545,19 @@ IF (NEKTAR_USE_CUDA)
     )
 ENDIF()
 
-add_test(
-  NAME FwdTrans
-  COMMAND test_fwdtrans
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-)
+IF (${MPI_FOUND})
+  add_test(
+    NAME FwdTrans
+    COMMAND mpirun -np 2 "${CMAKE_BINARY_DIR}/tests/test_fwdtrans"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+ELSE()
+    add_test(
+    NAME FwdTrans
+    COMMAND test_fwdtrans
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+ENDIF()
 
 IF (NEKTAR_USE_CUDA)
     add_test(
@@ -569,11 +581,19 @@ IF (NEKTAR_USE_CUDA)
     )
 ENDIF()
 
-add_test(
-  NAME HelmSolve
-  COMMAND test_helmsolve
-  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-)
+IF (${MPI_FOUND})
+  add_test(
+    NAME HelmSolve
+    COMMAND mpirun -np 2 "${CMAKE_BINARY_DIR}/tests/test_helmsolve"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+ELSE()
+  add_test(
+    NAME HelmSolve
+    COMMAND test_helmsolve
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  )
+ENDIF()
 
 IF (NEKTAR_USE_CUDA)
     add_test(

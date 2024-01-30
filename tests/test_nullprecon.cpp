@@ -11,7 +11,6 @@
 
 BOOST_AUTO_TEST_SUITE(TestNullPrecon)
 
-
 BOOST_FIXTURE_TEST_CASE(nullprecon_seg, Helmholtz1D_Seg)
 {
     Configure();

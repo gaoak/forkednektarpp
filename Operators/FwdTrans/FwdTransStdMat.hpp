@@ -50,9 +50,9 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_MassOp->apply(out, m_tmp);
-        std::transform(rhsptr, rhsptr + nloc, tmpptr, rhsptr,
-                       [](const TData &rhs, const TData &dir)
-                       { return rhs - dir; });
+        std::transform(
+            rhsptr, rhsptr + nloc, tmpptr, rhsptr,
+            [](const TData &rhs, const TData &dir) { return rhs - dir; });
 
         // Handle Robin BCs
         m_RobBCOp->apply(out, m_rhs, true);
@@ -61,9 +61,9 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
-        std::transform(outptr, outptr + nloc, tmpptr, outptr,
-                       [](const TData &x, const TData &diff)
-                       { return x + diff; });
+        std::transform(
+            outptr, outptr + nloc, tmpptr, outptr,
+            [](const TData &x, const TData &diff) { return x + diff; });
     }
 
     void setPrecon(

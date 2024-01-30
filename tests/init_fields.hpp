@@ -96,7 +96,6 @@ public:
                     session, graph, "u", true, false,
                     Collections::eNoCollection);
         }
-
         else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
         {
             fixt_explist =

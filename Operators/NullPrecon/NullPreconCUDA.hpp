@@ -9,8 +9,7 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-class OperatorNullPreconImpl<TData, ImplCUDA>
-    : public OperatorNullPrecon<TData>
+class OperatorNullPreconImpl<TData, ImplCUDA> : public OperatorNullPrecon<TData>
 {
 public:
     OperatorNullPreconImpl(const MultiRegions::ExpListSharedPtr &expansionList)

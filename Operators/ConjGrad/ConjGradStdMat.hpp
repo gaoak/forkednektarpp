@@ -41,6 +41,7 @@ public:
                                                m_maxIter, 5000);
         contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
                                                m_tol, 1.0E-09);
+        m_rowComm    = contfield->GetSession()->GetComm()->GetRowComm();
         m_nloc       = contfield->GetLocalToGlobalMap()->GetNumLocalCoeffs();
         m_assmbScatr = AssmbScatr<TData>::create(this->m_expansionList);
         m_robBndCond = RobBndCond<TData>::create(this->m_expansionList);
@@ -51,6 +52,12 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
+        if (m_rowComm->GetSize() > 1 && m_rowComm->GetRank() == 0)
+        {
+            std::cout << "Solve ConjGrad with " << m_rowComm->GetSize()
+                      << " processors" << std::endl;
+        }
+
         // Store pointers to temporary fields
         Array<OneD, TData> inArr(m_nloc, 0.0);
         Array<OneD, TData> outArr(m_nloc, 0.0);
@@ -79,7 +86,7 @@ public:
         TData rho_new;
         TData mu;
         TData eps;
-        std::array<TData, 3> vExchange{0.0, 0.0, 0.0};
+        Array<OneD, TData> vExchange(3, 0.0);
 
         // Copy data from input field
         auto *inarrptr = inArr.data();
@@ -106,14 +113,14 @@ public:
         vExchange[2] = std::inner_product(p_wk, p_wk + m_nloc, p_r_A, 0.0);
 
         // Perform inner-product exchanges
-        // m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
+        m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
         eps = vExchange[2];
 
         // Calculate rhs magnitude
         m_assmbScatr->apply(m_r_A, m_wk);
         rhsMagnitude = std::inner_product(p_in, p_in + m_nloc, p_wk, 0.0);
-        // m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
+        m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // If input residual is less than tolerance skip solve.
@@ -134,7 +141,7 @@ public:
         vExchange[0] = std::inner_product(p_r_A, p_r_A + m_nloc, p_w_A, 0.0);
         vExchange[1] = std::inner_product(p_s_A, p_s_A + m_nloc, p_w_A, 0.0);
 
-        // m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
+        m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
         rho             = vExchange[0];
         mu              = vExchange[1];
@@ -151,23 +158,27 @@ public:
 
             // Compute new search direction p_k
             std::transform(p_p_A, p_p_A + m_nloc, p_w_A, p_p_A,
-                           [&beta](const TData &pElem, const TData &wElem)
-                           { return beta * pElem + wElem; });
+                           [&beta](const TData &pElem, const TData &wElem) {
+                               return beta * pElem + wElem;
+                           });
 
             // Compute new search direction q_k
             std::transform(p_q_A, p_q_A + m_nloc, p_s_A, p_q_A,
-                           [&beta](const TData &qElem, const TData &sElem)
-                           { return beta * qElem + sElem; });
+                           [&beta](const TData &qElem, const TData &sElem) {
+                               return beta * qElem + sElem;
+                           });
 
             // Update solution x_{k+1}
             std::transform(p_p_A, p_p_A + m_nloc, p_out, p_out,
-                           [&alpha](const TData &pElem, const TData &xElem)
-                           { return alpha * pElem + xElem; });
+                           [&alpha](const TData &pElem, const TData &xElem) {
+                               return alpha * pElem + xElem;
+                           });
 
             // Update residual vector r_{k+1}
             std::transform(p_q_A, p_q_A + m_nloc, p_r_A, p_r_A,
-                           [&alpha](const TData &qElem, const TData &rElem)
-                           { return -alpha * qElem + rElem; });
+                           [&alpha](const TData &qElem, const TData &rElem) {
+                               return -alpha * qElem + rElem;
+                           });
 
             // Apply preconditioner
             this->m_precon->apply(m_r_A, m_w_A);
@@ -191,7 +202,7 @@ public:
             vExchange[2] = std::inner_product(p_wk, p_wk + m_nloc, p_r_A, 0.0);
 
             // Perform inner-product exchanges
-            // m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
+            m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
             rho_new = vExchange[0];
             mu      = vExchange[1];
@@ -244,6 +255,7 @@ public:
     static std::string className;
 
 protected:
+    LibUtilities::CommSharedPtr m_rowComm;
     std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatr;
     std::shared_ptr<OperatorRobBndCond<TData>> m_robBndCond;
     Field<TData, FieldState::Coeff> m_w_A;
