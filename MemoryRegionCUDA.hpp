@@ -42,10 +42,10 @@ public:
     void operator=(MemoryRegionCUDA &&rhs)
     {
         MemoryRegionCPU<TData>::operator=(std::move(rhs));
-        m_device     = rhs.m_device;
-        m_size       = rhs.m_size;
-        rhs.m_device = nullptr;
-        rhs.m_size   = 0;
+        m_device                        = rhs.m_device;
+        m_size                          = rhs.m_size;
+        rhs.m_device                    = nullptr;
+        rhs.m_size                      = 0;
     }
 
     virtual TData *GetCPUPtr() override

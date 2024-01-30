@@ -148,7 +148,7 @@ class Helmholtz2D_Tri_Quad : public HelmSolveField
 public:
     Helmholtz2D_Tri_Quad()
     {
-        //meshName = "run/Helmholtz2D_P7_AllBCs.xml";
+        // meshName = "run/Helmholtz2D_P7_AllBCs.xml";
         meshName = "run/Helmholtz2D_varP.xml";
     }
 };
@@ -188,4 +188,3 @@ public:
         meshName = "run/Helmholtz3D_Tet_VarP.xml";
     }
 };
-

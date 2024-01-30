@@ -222,8 +222,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TData>>(
@@ -252,8 +253,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TData>>(
