@@ -1,5 +1,8 @@
-#include "Operators/OperatorPhysDeriv.hpp"
+#pragma once
+
 #include <StdRegions/StdExpansion.h>
+
+#include "Operators/OperatorPhysDeriv.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -62,10 +65,8 @@ public:
     {
         // Initialize pointers.
         auto const *inptr = in.GetStorage().GetCPUPtr();
-        auto *outptr0     = out.GetStorage().GetCPUPtr();
-        auto *outptr1     = outptr0 + out.GetFieldSize();
-        auto *outptr2     = outptr1 + out.GetFieldSize();
-        std::vector<TData *> outptr{outptr0, outptr1, outptr2};
+        auto *outptr      = out.GetStorage().GetCPUPtr();
+        auto nSize        = out.GetFieldSize();
 
         // Initialize index.
         size_t expIdx  = 0;
@@ -113,39 +114,38 @@ public:
                 {
                     Vmath::Vmul(nqTot * nElmts,
                                 m_derivFac[i * nDim].get() + dfindex, 1,
-                                deriv[0].get(), 1, outptr[i], 1);
+                                deriv[0].get(), 1, outptr + i * nSize, 1);
                     for (size_t d = 1; d < nDim; d++)
                     {
                         Vmath::Vvtvp(nqTot * nElmts,
                                      m_derivFac[i * nDim + d].get() + dfindex,
-                                     1, deriv[d].get(), 1, outptr[i], 1,
-                                     outptr[i], 1);
+                                     1, deriv[d].get(), 1, outptr + i * nSize,
+                                     1, outptr + i * nSize, 1);
                     }
-                    outptr[i] += (nPadElmts + nElmts) * nqTot;
                 }
+                outptr += (nPadElmts + nElmts) * nqTot;
                 dfindex += nqTot * nElmts;
             }
             else
             {
-                for (size_t i = 0; i < nCoord; i++)
+                for (size_t e = 0; e < nElmts; ++e)
                 {
-                    for (size_t e = 0; e < nElmts; ++e)
+                    for (size_t i = 0; i < nCoord; i++)
                     {
                         Vmath::Smul(nqTot, m_derivFac[i * nDim][dfindex + e],
-                                    deriv[0].get() + e * nqTot, 1, outptr[i],
-                                    1);
+                                    deriv[0].get() + e * nqTot, 1,
+                                    outptr + i * nSize, 1);
                         for (size_t d = 1; d < nDim; d++)
                         {
-                            Vmath::Svtvp(nqTot,
-                                         m_derivFac[i * nDim + d][dfindex + e],
-                                         deriv[d].get() + e * nqTot, 1,
-                                         outptr[i], 1, outptr[i], 1);
+                            Vmath::Svtvp(
+                                nqTot, m_derivFac[i * nDim + d][dfindex + e],
+                                deriv[d].get() + e * nqTot, 1,
+                                outptr + i * nSize, 1, outptr + i * nSize, 1);
                         }
-                        outptr[i] += nqTot;
                     }
-                    // skip padding elements
-                    outptr[i] += nPadElmts * nqTot;
+                    outptr += nqTot;
                 }
+                outptr += nPadElmts * nqTot;
                 dfindex += nElmts;
             }
             inptr += (nPadElmts + nElmts) * nqTot;

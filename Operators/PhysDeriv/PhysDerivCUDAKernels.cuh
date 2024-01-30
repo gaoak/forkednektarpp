@@ -1,602 +1,782 @@
+#pragma once
+
 namespace Nektar::Operators::detail
 {
-template <typename TData, bool DEFORMED>
-__global__ void PhysDerivSegKernel(const size_t nq0, const size_t ncoord,
-                                   const size_t nelmt, const size_t dfSize,
-                                   TData *df, TData *inout0, TData *inout1,
-                                   TData *inout2)
-{
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (e >= nelmt)
-    {
-        return;
-    }
-
-    size_t ndf = ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * e);
-    if (ncoord > 1)
-    {
-        inoutptr[1] = inout1 + (nq0 * e);
-    }
-    if (ncoord > 2)
-    {
-        inoutptr[2] = inout2 + (nq0 * e);
-    }
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * e : e;
-    }
-
-    // Compute derivative.
-    for (size_t j = 0; j < nq0; ++j)
-    {
-        size_t dfindex = DEFORMED ? j : 0;
-        for (size_t d = ndf; d > 0; d--)
-        {
-            inoutptr[d - 1][j] = inoutptr[0][j] * dfptr[d - 1][dfindex];
-        }
-    }
-
-    delete[] inoutptr;
-    delete[] dfptr;
-}
 
 template <typename TData, bool DEFORMED>
-__global__ void PhysDerivQuadKernel(const size_t nq0, const size_t nq1,
-                                    const size_t ncoord, const size_t nelmt,
-                                    const size_t dfSize, TData *df,
-                                    TData *inout0, TData *inout1, TData *inout2)
+__global__ void PhysDeriv1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict df, TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * e;
 
-    auto ndf = 2 * ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * e);
-    if (ncoord > 2)
-    {
-        inoutptr[2] = inout2 + (nq0 * nq1 * e);
-    }
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * e : e;
-    }
-
-    // Compute derivative.
-    for (size_t j = 0, cnt_ji = 0; j < nq1; ++j)
-    {
-        for (size_t i = 0; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int i = 0; i < nq0; ++i)
         {
-            TData d0 = inoutptr[0][cnt_ji];
-            TData d1 = inoutptr[1][cnt_ji];
+            unsigned int index   = offset + i;
+            unsigned int dfindex = DEFORMED ? index : e;
 
-            size_t dfindex = DEFORMED ? cnt_ji : 0;
-            for (size_t d = 0; d < ncoord; d++)
+            TData d0 = inout[index];
+            for (unsigned int d = 0; d < ncoord; d++)
             {
-                inoutptr[d][cnt_ji] =
-                    d0 * dfptr[2 * d][dfindex] + d1 * dfptr[2 * d + 1][dfindex];
+                inout[index + d * nSize] = d0 * df[dfindex + d * dfSize];
             }
         }
-    }
 
-    delete[] inoutptr;
-    delete[] dfptr;
+        e += blockDim.x * gridDim.x;
+    }
 }
 
 template <typename TData, bool DEFORMED>
-__global__ void PhysDerivTriKernel(const size_t nq0, const size_t nq1,
-                                   const size_t ncoord, const size_t nelmt,
-                                   const TData *Z0, const TData *Z1,
-                                   const size_t dfSize, TData *df,
-                                   TData *inout0, TData *inout1, TData *inout2)
+__global__ void PhysDeriv1DKernel_QP(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict df, TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = blockIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * e;
 
-    auto ndf = 2 * ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * e);
-    if (ncoord > 2)
-    {
-        inoutptr[2] = inout2 + (nq0 * nq1 * e);
-    }
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * e : e;
-    }
-
-    // Compute derivative.
-    for (int j = 0, cnt_ji = 0; j < nq1; ++j)
-    {
-        TData xfrm0 = 2.0 / (1.0 - Z1[j]);
-        for (int i = 0; i < nq0; ++i, ++cnt_ji)
+        for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
         {
-            TData d0 = inoutptr[0][cnt_ji];
-            TData d1 = inoutptr[1][cnt_ji];
+            unsigned int index   = offset + i;
+            unsigned int dfindex = DEFORMED ? index : e;
 
-            // Moving from standard to collapsed coordinates.
-            TData xfrm1 = 0.5 * (1.0 + Z0[i]);
-            d0 *= xfrm0;
-            d1 += d0 * xfrm1;
-
-            // Multiply by derivative factors.
-            size_t dfindex = DEFORMED ? cnt_ji : 0;
-            for (size_t d = 0; d < ncoord; d++)
+            TData d0 = inout[index];
+            for (unsigned int d = 0; d < ncoord; d++)
             {
-                inoutptr[d][cnt_ji] =
-                    d0 * dfptr[2 * d][dfindex] + d1 * dfptr[2 * d + 1][dfindex];
+                inout[index + d * nSize] = d0 * df[dfindex + d * dfSize];
             }
         }
-    }
 
-    delete[] inoutptr;
-    delete[] dfptr;
+        e += gridDim.x;
+    }
 }
 
-template <typename TData, bool DEFORMED>
-__global__ void PhysDerivHexKernel(const size_t nq0, const size_t nq1,
-                                   const size_t nq2, const size_t ncoord,
-                                   const size_t nelmt, const size_t dfSize,
-                                   TData *df, TData *inout0, TData *inout1,
-                                   TData *inout2)
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    extern __shared__ TData shared[];
+    TData *s_xfrm0, *s_xfrm1;
 
-    if (e >= nelmt)
+    // Copy to shared memory.
+    if constexpr (SHAPETYPE == LibUtilities::Tri)
     {
-        return;
-    }
+        s_xfrm0 = shared;
+        s_xfrm1 = s_xfrm0 + nq1;
 
-    size_t ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * nq2 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * nq2 * e);
-    inoutptr[2]      = inout2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Compute derivative.
-    for (size_t k = 0, cnt_ijk = 0; k < nq2; ++k)
-    {
-        for (size_t j = 0; j < nq1; ++j)
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq1)
         {
-            for (size_t i = 0; i < nq0; ++i, ++cnt_ijk)
+            s_xfrm0[sIndex] = 2.0 / (1.0 - Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_xfrm1[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * e;
+
+        for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
+        {
+            for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
             {
-                TData tmp[] = {inoutptr[0][cnt_ijk], inoutptr[1][cnt_ijk],
-                               inoutptr[2][cnt_ijk]};
+                unsigned int index   = offset + cnt_ji;
+                unsigned int dfindex = DEFORMED ? index : e;
+
+                TData d0 = inout[index];
+                TData d1 = inout[index + nSize];
+
+                // Moving from standard to collapsed coordinates.
+                if constexpr (SHAPETYPE == LibUtilities::Tri)
+                {
+                    d0 *= s_xfrm0[j];
+                    d1 += d0 * s_xfrm1[i];
+                }
 
                 // Multiply by derivative factors.
-                size_t dfindex = DEFORMED ? cnt_ijk : 0;
-                for (size_t d = 0; d < ncoord; ++d)
+                for (unsigned int d = 0; d < ncoord; d++)
                 {
-                    TData sum = 0.0;
-                    for (size_t n = 0; n < ncoord; ++n)
-                    {
-                        sum += tmp[n] * dfptr[d * ncoord + n][dfindex];
-                    }
-                    inoutptr[d][cnt_ijk] = sum;
+                    inout[index + d * nSize] =
+                        d0 * df[dfindex + (2 * d) * dfSize] +
+                        d1 * df[dfindex + (2 * d + 1) * dfSize];
                 }
             }
         }
-    }
 
-    delete[] inoutptr;
-    delete[] dfptr;
+        e += blockDim.x * gridDim.x;
+    }
 }
 
-template <typename TData, bool DEFORMED>
-__global__ void PhysDerivTetKernel(const size_t nq0, const size_t nq1,
-                                   const size_t nq2, const size_t ncoord,
-                                   const size_t nelmt, const TData *Z0,
-                                   const TData *Z1, const TData *Z2,
-                                   const size_t dfSize, TData *df,
-                                   TData *inout0, TData *inout1, TData *inout2)
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void PhysDeriv2DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    TData xfrm0, xfrm1;
 
-    if (e >= nelmt)
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * nq1 * e;
 
-    size_t ndf = 3 * ncoord;
-
-    // Allocate workspace memory.
-    TData *wsp0 = new TData[nq0 * nq1 * nq2];
-    TData *wsp1 = new TData[nq0 * nq1 * nq2];
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * nq2 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * nq2 * e);
-    inoutptr[2]      = inout2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Moving from standard to collapsed coordinates.
-    for (int k = 0, eta0 = 0; k < nq2; ++k)
-    {
-        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-        for (int j = 0; j < nq1; ++j)
+        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
         {
-            TData xfrm_eta1 = 2.0 / (1.0 - Z1[j]);
-            TData xfrm      = xfrm_eta1 * xfrm_eta2;
-            for (int i = 0; i < nq0; ++i, ++eta0)
+            if constexpr (SHAPETYPE == LibUtilities::Tri)
             {
-                inoutptr[0][eta0] *= xfrm;
-                wsp0[eta0] = inoutptr[0][eta0];
+                xfrm0 = 2.0 / (1.0 - Z1[j]);
             }
-        }
-    }
 
-    for (int k = 0, eta0 = 0; k < nq2; ++k)
-    {
-        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-        for (int j = 0; j < nq1; ++j)
-        {
-            for (int i = 0; i < nq0; ++i, ++eta0)
+            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
             {
-                TData xfrm_eta0   = 0.5 * (1.0 + Z0[i]);
-                wsp0[eta0]        = xfrm_eta0 * wsp0[eta0];
-                wsp1[eta0]        = xfrm_eta2 * inoutptr[1][eta0];
-                inoutptr[1][eta0] = wsp0[eta0] + wsp1[eta0];
-            }
-        }
-    }
+                unsigned int cnt_ji  = nq0 * j + i;
+                unsigned int index   = offset + cnt_ji;
+                unsigned int dfindex = DEFORMED ? index : e;
 
-    for (int k = 0, eta0 = 0; k < nq2; ++k)
-    {
-        for (int j = 0; j < nq1; ++j)
-        {
-            TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-            for (int i = 0; i < nq0; ++i, ++eta0)
-            {
-                inoutptr[2][eta0] += wsp0[eta0] + wsp1[eta0] * xfrm_eta1;
-            }
-        }
-    }
+                TData d0 = inout[index];
+                TData d1 = inout[index + nSize];
 
-    // Compute derivative.
-    for (size_t k = 0, cnt_ijk = 0; k < nq2; ++k)
-    {
-        for (size_t j = 0; j < nq1; ++j)
-        {
-            for (size_t i = 0; i < nq0; ++i, ++cnt_ijk)
-            {
-                TData tmp[] = {inoutptr[0][cnt_ijk], inoutptr[1][cnt_ijk],
-                               inoutptr[2][cnt_ijk]};
+                // Moving from standard to collapsed coordinates.
+                if constexpr (SHAPETYPE == LibUtilities::Tri)
+                {
+                    xfrm1 = 0.5 * (1.0 + Z0[i]);
+                    d0 *= xfrm0;
+                    d1 += d0 * xfrm1;
+                }
 
                 // Multiply by derivative factors.
-                size_t dfindex = DEFORMED ? cnt_ijk : 0;
-                for (size_t d = 0; d < ncoord; ++d)
+                for (unsigned int d = 0; d < ncoord; d++)
                 {
-                    TData sum = 0.0;
-                    for (size_t n = 0; n < ncoord; ++n)
-                    {
-                        sum += tmp[n] * dfptr[d * ncoord + n][dfindex];
-                    }
-                    inoutptr[d][cnt_ijk] = sum;
+                    inout[index + d * nSize] =
+                        d0 * df[dfindex + (2 * d) * dfSize] +
+                        d1 * df[dfindex + (2 * d + 1) * dfSize];
                 }
             }
         }
-    }
 
-    delete[] wsp0;
-    delete[] wsp1;
-    delete[] inoutptr;
-    delete[] dfptr;
+        e += gridDim.x;
+    }
 }
 
-template <typename TData, bool DEFORMED>
-__global__ void PhysDerivPrismKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2, const size_t ncoord,
-    const size_t nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
-    const size_t dfSize, TData *df, TData *inout0, TData *inout1, TData *inout2)
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void PhysDeriv3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict Z2,
+    const TData *__restrict df, TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    extern __shared__ TData shared[];
+    TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
 
-    if (e >= nelmt)
+    // Copy to shared memory.
+    if constexpr (SHAPETYPE == LibUtilities::Tet)
     {
-        return;
-    }
+        s_xfrm_eta0  = shared;
+        s_xfrm_eta1  = s_xfrm_eta0 + nq0;
+        s_xfrm_eta1m = s_xfrm_eta1 + nq1;
+        s_xfrm_eta2  = s_xfrm_eta1m + nq1;
 
-    size_t ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * nq2 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * nq2 * e);
-    inoutptr[2]      = inout2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Compute derivative.
-    for (size_t k = 0, cnt_ijk = 0; k < nq2; ++k)
-    {
-        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-        for (size_t j = 0; j < nq1; ++j)
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq0)
         {
-            for (size_t i = 0; i < nq0; ++i, ++cnt_ijk)
+            s_xfrm_eta0[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_xfrm_eta1[sIndex] = 0.5 * (1.0 + Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_xfrm_eta1m[sIndex] = 2.0 / (1.0 - Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_xfrm_eta2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+    {
+        s_xfrm_eta0 = shared;
+        s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_xfrm_eta0[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_xfrm_eta2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    {
+        s_xfrm_eta0 = shared;
+        s_xfrm_eta1 = s_xfrm_eta0 + nq0;
+        s_xfrm_eta2 = s_xfrm_eta1 + nq1;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_xfrm_eta0[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_xfrm_eta1[sIndex] = 0.5 * (1.0 + Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_xfrm_eta2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+
+    constexpr unsigned int ncoord = 3;
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * nq2 * e;
+
+        // Moving from standard to collapsed coordinates.
+        if constexpr (SHAPETYPE == LibUtilities::Tet)
+        {
+            for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
             {
-                TData d0 = inoutptr[0][cnt_ijk];
-                TData d1 = inoutptr[1][cnt_ijk];
-                TData d2 = inoutptr[2][cnt_ijk];
+                for (unsigned int j = 0; j < nq1; ++j)
+                {
+                    TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
+                    for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                    {
+                        unsigned int index = offset + cnt_kji;
 
-                // Chain-rule for eta_0 and eta_2.
-                TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                d0 *= xfrm_eta2;
-                d2 += xfrm_eta0 * d0;
-
-                // Multiply by derivative factors.
-                size_t dfindex       = DEFORMED ? cnt_ijk : 0;
-                inoutptr[0][cnt_ijk] = d0 * dfptr[0][dfindex] +
-                                       d1 * dfptr[1][dfindex] +
-                                       d2 * dfptr[2][dfindex];
-                inoutptr[1][cnt_ijk] = d0 * dfptr[3][dfindex] +
-                                       d1 * dfptr[4][dfindex] +
-                                       d2 * dfptr[5][dfindex];
-                inoutptr[2][cnt_ijk] = d0 * dfptr[6][dfindex] +
-                                       d1 * dfptr[7][dfindex] +
-                                       d2 * dfptr[8][dfindex];
+                        TData tmp0   = xfrm * inout[index];
+                        TData tmp1   = s_xfrm_eta0[i] * tmp0;
+                        TData tmp2   = s_xfrm_eta2[k] * inout[index + nSize];
+                        inout[index] = tmp0;
+                        inout[index + nSize] = tmp1 + tmp2;
+                        inout[index + 2 * nSize] +=
+                            tmp1 + s_xfrm_eta1[j] * tmp2;
+                    }
+                }
             }
         }
-    }
 
-    delete[] inoutptr;
-    delete[] dfptr;
+        for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
+        {
+            for (unsigned int j = 0; j < nq1; ++j)
+            {
+                for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                {
+                    unsigned int index   = offset + cnt_kji;
+                    unsigned int dfindex = DEFORMED ? index : e;
+
+                    TData d0 = inout[index];
+                    TData d1 = inout[index + nSize];
+                    TData d2 = inout[index + 2 * nSize];
+
+                    // Chain-rule for eta_0 and eta_2.
+                    if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    {
+                        d0 *= s_xfrm_eta2[k];
+                        d2 += s_xfrm_eta0[i] * d0;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        d0 *= s_xfrm_eta2[k];
+                        d1 *= s_xfrm_eta2[k];
+                        d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
+                    }
+
+                    // Multiply by derivative factors.
+                    for (unsigned int d = 0; d < ncoord; d++)
+                    {
+                        inout[index + d * nSize] =
+                            d0 * df[dfindex + (3 * d) * dfSize] +
+                            d1 * df[dfindex + (3 * d + 1) * dfSize] +
+                            d2 * df[dfindex + (3 * d + 2) * dfSize];
+                    }
+                }
+            }
+        }
+
+        e += blockDim.x * gridDim.x;
+    }
 }
 
-template <typename TData, bool DEFORMED>
-__global__ void PhysDerivPyrKernel(const size_t nq0, const size_t nq1,
-                                   const size_t nq2, const size_t ncoord,
-                                   const size_t nelmt, const TData *Z0,
-                                   const TData *Z1, const TData *Z2,
-                                   const size_t dfSize, TData *df,
-                                   TData *inout0, TData *inout1, TData *inout2)
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void PhysDeriv3DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict Z2,
+    const TData *__restrict df, TData *__restrict inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
-    if (e >= nelmt)
+    constexpr unsigned int ncoord = 3;
+
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * nq1 * nq2 * e;
 
-    size_t ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inoutptr = new TData *[ncoord];
-    inoutptr[0]      = inout0 + (nq0 * nq1 * nq2 * e);
-    inoutptr[1]      = inout1 + (nq0 * nq1 * nq2 * e);
-    inoutptr[2]      = inout2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Compute derivative.
-    for (size_t k = 0, cnt_ijk = 0; k < nq2; ++k)
-    {
-        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-        for (size_t j = 0; j < nq1; ++j)
+        // Moving from standard to collapsed coordinates.
+        if constexpr (SHAPETYPE == LibUtilities::Tet)
         {
-            TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-            for (size_t i = 0; i < nq0; ++i, ++cnt_ijk)
+            for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
             {
-                TData d0 = inoutptr[0][cnt_ijk];
-                TData d1 = inoutptr[1][cnt_ijk];
-                TData d2 = inoutptr[2][cnt_ijk];
+                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+                {
+                    xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
+                    xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
+                    TData xfrm = xfrm_eta1m * xfrm_eta2;
+                    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                    {
+                        unsigned int index =
+                            offset + nq0 * nq1 * k + nq0 * j + i;
 
-                // Chain-rule for eta_0 and eta_2.
-                TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                d0 *= xfrm_eta2;
-                d1 *= xfrm_eta2;
-                d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
+                        xfrm_eta0            = 0.5 * (1.0 + Z0[i]);
+                        TData tmp0           = xfrm * inout[index];
+                        TData tmp1           = xfrm_eta0 * tmp0;
+                        TData tmp2           = xfrm_eta2 * inout[index + nSize];
+                        inout[index]         = tmp0;
+                        inout[index + nSize] = tmp1 + tmp2;
+                        inout[index + 2 * nSize] += tmp1 + xfrm_eta1 * tmp2;
+                    }
+                }
+            }
 
-                // Multiply by derivative factors.
-                size_t dfindex       = DEFORMED ? cnt_ijk : 0;
-                inoutptr[0][cnt_ijk] = d0 * dfptr[0][dfindex] +
-                                       d1 * dfptr[1][dfindex] +
-                                       d2 * dfptr[2][dfindex];
-                inoutptr[1][cnt_ijk] = d0 * dfptr[3][dfindex] +
-                                       d1 * dfptr[4][dfindex] +
-                                       d2 * dfptr[5][dfindex];
-                inoutptr[2][cnt_ijk] = d0 * dfptr[6][dfindex] +
-                                       d1 * dfptr[7][dfindex] +
-                                       d2 * dfptr[8][dfindex];
+            __syncthreads();
+        }
+
+        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+        {
+            if constexpr (SHAPETYPE == LibUtilities::Prism ||
+                          SHAPETYPE == LibUtilities::Pyr)
+            {
+                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+            }
+
+            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+            {
+                if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                {
+                    xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
+                }
+
+                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                {
+                    unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int index   = offset + cnt_kji;
+                    unsigned int dfindex = DEFORMED ? index : e;
+
+                    TData d0 = inout[index];
+                    TData d1 = inout[index + nSize];
+                    TData d2 = inout[index + 2 * nSize];
+
+                    if constexpr (SHAPETYPE == LibUtilities::Prism ||
+                                  SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                    }
+
+                    // Chain-rule for eta_0 and eta_2.
+                    if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    {
+                        d0 *= xfrm_eta2;
+                        d2 += xfrm_eta0 * d0;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        d0 *= xfrm_eta2;
+                        d1 *= xfrm_eta2;
+                        d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
+                    }
+
+                    // Multiply by derivative factors.
+                    for (unsigned int d = 0; d < ncoord; d++)
+                    {
+                        inout[index + d * nSize] =
+                            d0 * df[dfindex + (3 * d) * dfSize] +
+                            d1 * df[dfindex + (3 * d + 1) * dfSize] +
+                            d2 * df[dfindex + (3 * d + 2) * dfSize];
+                    }
+                }
             }
         }
-    }
 
-    delete[] inoutptr;
-    delete[] dfptr;
+        e += gridDim.x;
+    }
 }
 
 template <typename TData>
-__global__ void PhysDerivTensor1DKernel(const size_t nq0, const size_t nelmt,
-                                        const TData *D0, const TData *in,
-                                        TData *out0)
+__global__ void PhysDerivTensor1DKernel(const unsigned int nq0,
+                                        const unsigned int nelmt,
+                                        const TData *__restrict D0,
+                                        const TData *__restrict in,
+                                        TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    extern __shared__ TData shared[];
+    TData *s_D0 = shared;
 
-    if (e >= nelmt)
+    // Copy to shared memory.
+    unsigned int sIndex = threadIdx.x;
+    while (sIndex < nq0 * nq0)
     {
-        return;
+        s_D0[sIndex] = D0[sIndex];
+        sIndex += blockDim.x;
     }
 
-    // Assign pointers.
-    const TData *inptr = in + (nq0 * e);
-    TData *outptr0     = out0 + (nq0 * e);
+    __syncthreads();
 
-    // Direction 1
-    for (size_t i = 0; i < nq0; ++i)
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
     {
-        TData sum = 0.0;
-        for (size_t k = 0; k < nq0; ++k)
+        unsigned int offset = nq0 * e;
+
+        for (unsigned int i = 0; i < nq0; ++i)
         {
-            sum += D0[k * nq0 + i] * inptr[k];
+            TData sum = 0.0;
+            for (unsigned int q = 0; q < nq0; ++q)
+            {
+                sum += s_D0[q * nq0 + i] * in[offset + q];
+            }
+            out[offset + i] = sum;
         }
-        outptr0[i] = sum;
+
+        e += blockDim.x * gridDim.x;
     }
 }
 
 template <typename TData>
-__global__ void PhysDerivTensor2DKernel(const size_t nq0, const size_t nq1,
-                                        const size_t nelmt, const TData *D0,
-                                        const TData *D1, const TData *in,
-                                        TData *out0, TData *out1)
+__global__ void PhysDerivTensor1DKernel_QP(const unsigned int nq0,
+                                           const unsigned int nelmt,
+                                           const TData *__restrict D0,
+                                           const TData *__restrict in,
+                                           TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = blockIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * e;
 
-    // Assign pointers.
-    const TData *inptr = in + (nq0 * nq1 * e);
-    TData *outptr0     = out0 + (nq0 * nq1 * e);
-    TData *outptr1     = out1 + (nq0 * nq1 * e);
-
-    // Direction 1
-    for (size_t i = 0; i < nq0; ++i)
-    {
-        for (size_t j = 0; j < nq1; ++j)
+        for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
         {
             TData sum = 0.0;
-            for (size_t k = 0; k < nq0; ++k)
+            for (unsigned int q = 0; q < nq0; ++q)
             {
-                sum += D0[k * nq0 + i] * inptr[j * nq0 + k];
+                sum += D0[q * nq0 + i] * in[offset + q];
             }
-            outptr0[j * nq0 + i] = sum;
+            out[offset + i] = sum;
         }
-    }
 
-    // Direction 2
-    for (size_t i = 0; i < nq0; ++i)
-    {
-        for (size_t j = 0; j < nq1; ++j)
-        {
-            TData sum = 0.0;
-            for (size_t k = 0; k < nq1; ++k)
-            {
-                sum += D1[k * nq1 + j] * inptr[k * nq0 + i];
-            }
-            outptr1[j * nq0 + i] = sum;
-        }
+        e += gridDim.x;
     }
 }
 
 template <typename TData>
-__global__ void PhysDerivTensor3DKernel(const size_t nq0, const size_t nq1,
-                                        const size_t nq2, const size_t nelmt,
-                                        const TData *D0, const TData *D1,
-                                        const TData *D2, const TData *in,
-                                        TData *out0, TData *out1, TData *out2)
+__global__ void PhysDerivTensor2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nSize, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict in,
+    TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    extern __shared__ TData shared[];
+    TData *s_D0 = shared;
+    TData *s_D1 = s_D0 + nq0 * nq0;
 
-    if (e >= nelmt)
+    // Copy to shared memory.
+    unsigned int sIndex = threadIdx.x;
+    while (sIndex < nq0 * nq0)
     {
-        return;
+        s_D0[sIndex] = D0[sIndex];
+        sIndex += blockDim.x;
     }
 
-    // Assign pointers.
-    const TData *inptr = in + (nq0 * nq1 * nq2 * e);
-    TData *outptr0     = out0 + (nq0 * nq1 * nq2 * e);
-    TData *outptr1     = out1 + (nq0 * nq1 * nq2 * e);
-    TData *outptr2     = out2 + (nq0 * nq1 * nq2 * e);
-
-    // Direction 1
-    for (size_t i = 0; i < nq0; ++i)
+    sIndex = threadIdx.x;
+    while (sIndex < nq1 * nq1)
     {
-        for (size_t j = 0; j < nq1 * nq2; ++j)
-        {
-            TData sum = 0.0;
-            for (size_t k = 0; k < nq0; ++k)
-            {
-                sum += D0[k * nq0 + i] * inptr[j * nq0 + k];
-            }
-            outptr0[j * nq0 + i] = sum;
-        }
+        s_D1[sIndex] = D1[sIndex];
+        sIndex += blockDim.x;
     }
 
-    // Direction 2
-    for (size_t block = 0; block < nq2; ++block)
+    __syncthreads();
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
     {
-        size_t start = block * nq0 * nq1;
-        for (size_t i = 0; i < nq0; ++i)
+        unsigned int offset = nq0 * nq1 * e;
+
+        for (unsigned int j = 0; j < nq1; ++j)
         {
-            for (size_t j = 0; j < nq1; ++j)
+            for (unsigned int i = 0; i < nq0; ++i)
             {
+                unsigned int cnt_ji = nq0 * j + i;
+
+                // Direction 1
                 TData sum = 0.0;
-                for (size_t k = 0; k < nq1; ++k)
+                for (unsigned int q = 0; q < nq0; ++q)
                 {
-                    sum += D1[k * nq1 + j] * inptr[start + k * nq0 + i];
+                    sum += s_D0[q * nq0 + i] * in[offset + nq0 * j + q];
                 }
-                outptr1[start + j * nq0 + i] = sum;
-            }
-        }
-    }
+                out[offset + cnt_ji] = sum;
 
-    // Direction 3
-    for (size_t i = 0; i < nq0 * nq1; ++i)
-    {
-        for (size_t j = 0; j < nq2; ++j)
-        {
-            TData sum = 0.0;
-            for (size_t k = 0; k < nq2; ++k)
-            {
-                sum += D2[k * nq2 + j] * inptr[k * nq0 * nq1 + i];
+                // Direction 2
+                sum = 0.0;
+                for (unsigned int q = 0; q < nq1; ++q)
+                {
+                    sum += s_D1[q * nq1 + j] * in[offset + nq0 * q + i];
+                }
+                out[offset + cnt_ji + nSize] = sum;
             }
-            outptr2[j * nq0 * nq1 + i] = sum;
         }
+
+        e += blockDim.x * gridDim.x;
     }
 }
+
+template <typename TData>
+__global__ void PhysDerivTensor2DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const unsigned int nSize, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict in,
+    TData *__restrict out)
+{
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * e;
+
+        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+        {
+            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+            {
+                unsigned int cnt_ji = nq0 * j + i;
+
+                // Direction 1
+                TData sum = 0.0;
+                for (unsigned int q = 0; q < nq0; ++q)
+                {
+                    sum += D0[q * nq0 + i] * in[offset + nq0 * j + q];
+                }
+                out[offset + cnt_ji] = sum;
+
+                // Direction 2
+                sum = 0.0;
+                for (unsigned int q = 0; q < nq1; ++q)
+                {
+                    sum += D1[q * nq1 + j] * in[offset + nq0 * q + i];
+                }
+                out[offset + cnt_ji + nSize] = sum;
+            }
+        }
+
+        e += gridDim.x;
+    }
+}
+
+template <typename TData>
+__global__ void PhysDerivTensor3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const unsigned int nSize,
+    const TData *__restrict D0, const TData *__restrict D1,
+    const TData *__restrict D2, const TData *__restrict in,
+    TData *__restrict out)
+{
+    extern __shared__ TData shared[];
+    TData *s_D0 = shared;
+    TData *s_D1 = s_D0 + nq0 * nq0;
+    TData *s_D2 = s_D1 + nq1 * nq1;
+
+    // Copy to shared memory.
+    unsigned int sIndex = threadIdx.x;
+    while (sIndex < nq0 * nq0)
+    {
+        s_D0[sIndex] = D0[sIndex];
+        sIndex += blockDim.x;
+    }
+
+    sIndex = threadIdx.x;
+    while (sIndex < nq1 * nq1)
+    {
+        s_D1[sIndex] = D1[sIndex];
+        sIndex += blockDim.x;
+    }
+
+    sIndex = threadIdx.x;
+    while (sIndex < nq2 * nq2)
+    {
+        s_D2[sIndex] = D2[sIndex];
+        sIndex += blockDim.x;
+    }
+
+    __syncthreads();
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * nq2 * e;
+
+        for (unsigned int k = 0; k < nq2; k++)
+        {
+            unsigned int cnt_k = nq0 * nq1 * k;
+            for (unsigned int j = 0; j < nq1; j++)
+            {
+                unsigned int cnt_kj = cnt_k + nq0 * j;
+                for (unsigned int i = 0; i < nq0; i++)
+                {
+                    unsigned int cnt_ji  = nq0 * j + i;
+                    unsigned int cnt_kji = cnt_k + cnt_ji;
+
+                    // Direction 1
+                    TData sum = 0.0;
+                    for (unsigned int q = 0; q < nq0; ++q)
+                    {
+                        sum += s_D0[q * nq0 + i] * in[offset + cnt_kj + q];
+                    }
+                    out[offset + cnt_kji] = sum;
+
+                    // Direction 2
+                    sum = 0.0;
+                    for (unsigned int q = 0; q < nq1; ++q)
+                    {
+                        sum += s_D1[q * nq1 + j] *
+                               in[offset + cnt_k + nq0 * q + i];
+                    }
+                    out[offset + cnt_kji + nSize] = sum;
+
+                    // Direction 3
+                    sum = 0.0;
+                    for (unsigned int q = 0; q < nq2; ++q)
+                    {
+                        sum += s_D2[q * nq2 + k] *
+                               in[offset + nq0 * nq1 * q + cnt_ji];
+                    }
+                    out[offset + cnt_kji + 2 * nSize] = sum;
+                }
+            }
+        }
+
+        e += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData>
+__global__ void PhysDerivTensor3DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const unsigned int nSize,
+    const TData *__restrict D0, const TData *__restrict D1,
+    const TData *__restrict D2, const TData *__restrict in,
+    TData *__restrict out)
+{
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * nq2 * e;
+
+        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+        {
+            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+            {
+                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                {
+                    unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+
+                    // Direction 1
+                    TData sum = 0.0;
+                    for (unsigned int q = 0; q < nq0; ++q)
+                    {
+                        sum += D0[q * nq0 + i] *
+                               in[offset + nq0 * nq1 * k + nq0 * j + q];
+                    }
+                    out[offset + cnt_kji] = sum;
+
+                    // Direction 2
+                    sum = 0.0;
+                    for (unsigned int q = 0; q < nq1; ++q)
+                    {
+                        sum += D1[q * nq1 + j] *
+                               in[offset + nq0 * nq1 * k + nq0 * q + i];
+                    }
+                    out[offset + cnt_kji + nSize] = sum;
+
+                    // Direction 3
+                    sum = 0.0;
+                    for (unsigned int q = 0; q < nq2; ++q)
+                    {
+                        sum += D2[q * nq2 + k] *
+                               in[offset + nq0 * nq1 * q + nq0 * j + i];
+                    }
+                    out[offset + cnt_kji + 2 * nSize] = sum;
+                }
+            }
+        }
+
+        e += gridDim.x;
+    }
+}
+
 } // namespace Nektar::Operators::detail
