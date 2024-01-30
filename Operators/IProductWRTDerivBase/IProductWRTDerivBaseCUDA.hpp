@@ -6,33 +6,35 @@
 #include "Operators/OperatorHelper.cuh"
 #include "Operators/OperatorIProductWRTDerivBase.hpp"
 
+#define FLAG_QP false
+
 namespace Nektar::Operators::detail
 {
 
 template <typename TData, bool DEFORMED = false>
-void IProductWRTDerivBase1DKernel(const size_t gridSize, const size_t blockSize,
-                                  const size_t nq0, const size_t nCoord,
-                                  const size_t nElmts, const size_t dfSize,
-                                  TData *df, TData *in0, TData *in1, TData *in2,
-                                  TData *out0);
+void IProductWRTDerivBase1DKernel(
+    const unsigned int gridSize, const unsigned int blockSize,
+    const unsigned int nq0, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *df, const TData *in, TData *out);
 
 template <typename TData, bool DEFORMED = false>
-void IProductWRTDerivBase2DKernel(const size_t gridSize, const size_t blockSize,
-                                  LibUtilities::ShapeType shapetype,
-                                  const size_t nq0, const size_t nq1,
-                                  const size_t nCoord, const size_t nElmts,
-                                  const TData *Z0, const TData *Z1,
-                                  const size_t dfSize, TData *df, TData *in0,
-                                  TData *in1, TData *in2, TData *out0,
-                                  TData *out1);
+void IProductWRTDerivBase2DKernel(
+    const unsigned int gridSize, const unsigned int blockSize,
+    LibUtilities::ShapeType shapetype, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *Z0, const TData *Z1,
+    const TData *df, const TData *in, TData *out);
 
 template <typename TData, bool DEFORMED = false>
 void IProductWRTDerivBase3DKernel(
-    const size_t gridSize, const size_t blockSize,
-    LibUtilities::ShapeType shapetype, const size_t nq0, const size_t nq1,
-    const size_t nq2, const size_t nCoord, const size_t nElmts, const TData *Z0,
-    const TData *Z1, const TData *Z2, const size_t dfSize, TData *df,
-    TData *in0, TData *in1, TData *in2, TData *out0, TData *out1, TData *out2);
+    const unsigned int gridSize, const unsigned int blockSize,
+    LibUtilities::ShapeType shapetype, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *Z0, const TData *Z1,
+    const TData *Z2, const TData *df, const TData *in, TData *out);
 
 // IProductWRTDerivBase implementation
 template <typename TData>
@@ -82,22 +84,12 @@ public:
         m_D = GetDerivativeDataCUDA<TData>(expansionList);
 
         // Initialize workspace memory.
-        auto ndata = this->m_expansionList->GetTotPoints();
-        cudaMalloc((void **)&m_wsp0, sizeof(TData) * ndata);
-        if (nCoord > 1)
-        {
-            cudaMalloc((void **)&m_wsp1, sizeof(TData) * ndata);
-        }
-        if (nCoord > 2)
-        {
-            cudaMalloc((void **)&m_wsp2, sizeof(TData) * ndata);
-        }
+        auto nStorage = this->m_expansionList->GetTotPoints();
+        cudaMalloc((void **)&m_wsp, sizeof(TData) * nStorage * nCoord);
     }
 
     ~OperatorIProductWRTDerivBaseImpl(void)
     {
-        size_t nCoord = this->m_expansionList->GetCoordim(0);
-
         DeallocateDataCUDA<TData>(m_basis);
         DeallocateDataCUDA<TData>(m_dbasis);
         DeallocateDataCUDA<TData>(m_weight);
@@ -105,45 +97,20 @@ public:
         DeallocateDataCUDA<TData>(m_D);
         cudaFree(m_jac);
         cudaFree(m_derivFac);
-        cudaFree(m_wsp0);
-        if (nCoord > 1)
-        {
-            cudaFree(m_wsp1);
-        }
-        if (nCoord > 2)
-        {
-            cudaFree(m_wsp2);
-        }
+        cudaFree(m_wsp);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
-        if (!APPEND) // Zero output (temporary solution)
-        {
-            auto *tmpptr =
-                out.template GetStorage<MemoryRegionCUDA>().GetCPUPtr();
-            for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
-                 ++block_idx)
-            {
-                for (size_t i = 0; i < out.GetBlocks()[block_idx].block_size;
-                     i++)
-                {
-                    *(tmpptr++) = 0.0;
-                }
-            }
-        }
-
         // Copy memory to GPU, if necessary and get raw pointers.
-        auto *inptr0 = in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto *inptr1 = inptr0 + in.GetFieldSize();
-        auto *inptr2 = inptr1 + in.GetFieldSize();
-        std::vector<TData *> inptr{inptr0, inptr1, inptr2};
+        auto *inptr  = in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
         auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        std::vector<TData *> wspptr{m_wsp0, m_wsp1, m_wsp2};
-        auto jacptr = m_jac;
-        auto dfptr  = m_derivFac;
+        auto jacptr  = m_jac;
+        auto dfptr   = m_derivFac;
+        auto wspptr  = m_wsp;
+        auto nSize   = in.GetFieldSize();
 
         // Initialize index.
         size_t expIdx = 0;
@@ -151,6 +118,13 @@ public:
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             3, LibUtilities::NullBasisKey);
+
+        // Zero output.
+        if (!APPEND)
+        {
+            size_t ndata = out.template GetStorage<MemoryRegionCUDA>().size();
+            cudaMemset(outptr, 0, sizeof(TData) * ndata);
+        }
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
@@ -167,7 +141,7 @@ public:
                             SpatialDomains::eDeformed;
 
             // Deterime CUDA grid size.
-            m_gridSize = GetCUDAGridSize(nElmts,  m_blockSize);
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
 
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
@@ -190,20 +164,20 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase1DKernel<TData, true>(
-                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, m_dfSize,
-                        dfptr, inptr[0], inptr[1], inptr[2], wspptr[0]);
+                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
+                        m_dfSize, dfptr, inptr, wspptr);
                     IProductWRTBase1DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, nm0, nq0, nElmts, dbasis0, w0,
-                        jacptr, wspptr[0], outptr);
+                        jacptr, wspptr, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase1DKernel<TData, false>(
-                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, m_dfSize,
-                        dfptr, inptr[0], inptr[1], inptr[2], wspptr[0]);
+                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
+                        m_dfSize, dfptr, inptr, wspptr);
                     IProductWRTBase1DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, nm0, nq0, nElmts, dbasis0, w0,
-                        jacptr, wspptr[0], outptr);
+                        jacptr, wspptr, outptr);
                 }
             }
             else if (nDim == 2)
@@ -226,31 +200,29 @@ public:
                 {
                     IProductWRTDerivBase2DKernel<TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, Z0, Z1, m_dfSize, dfptr, inptr[0], inptr[1],
-                        inptr[2], wspptr[0], wspptr[1]);
+                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, wspptr);
                     IProductWRTBase2DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
                         nElmts, correct, dbasis0, basis1, w0, w1, jacptr,
-                        wspptr[0], outptr);
+                        wspptr, outptr);
                     IProductWRTBase2DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
                         nElmts, correct, basis0, dbasis1, w0, w1, jacptr,
-                        wspptr[1], outptr);
+                        wspptr + nSize, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase2DKernel<TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, Z0, Z1, m_dfSize, dfptr, inptr[0], inptr[1],
-                        inptr[2], wspptr[0], wspptr[1]);
+                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, wspptr);
                     IProductWRTBase2DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
                         nElmts, correct, dbasis0, basis1, w0, w1, jacptr,
-                        wspptr[0], outptr);
+                        wspptr, outptr);
                     IProductWRTBase2DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
                         nElmts, correct, basis0, dbasis1, w0, w1, jacptr,
-                        wspptr[1], outptr);
+                        wspptr + nSize, outptr);
                 }
             }
             else if (nDim == 3)
@@ -280,50 +252,47 @@ public:
                 {
                     IProductWRTDerivBase3DKernel<TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nCoord,
-                        nElmts, Z0, Z1, Z2, m_dfSize, dfptr, inptr[0], inptr[1],
-                        inptr[2], wspptr[0], wspptr[1], wspptr[2]);
+                        nElmts, nSize, m_dfSize, Z0, Z1, Z2, dfptr, inptr,
+                        wspptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, dbasis0, basis1, basis2, w0, w1,
-                        w2, jacptr, wspptr[0], outptr);
+                        w2, jacptr, wspptr, outptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, dbasis1, basis2, w0, w1,
-                        w2, jacptr, wspptr[1], outptr);
+                        w2, jacptr, wspptr + nSize, outptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, basis1, dbasis2, w0, w1,
-                        w2, jacptr, wspptr[2], outptr);
+                        w2, jacptr, wspptr + 2 * nSize, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase3DKernel<TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nCoord,
-                        nElmts, Z0, Z1, Z2, m_dfSize, dfptr, inptr[0], inptr[1],
-                        inptr[2], wspptr[0], wspptr[1], wspptr[2]);
+                        nElmts, nSize, m_dfSize, Z0, Z1, Z2, dfptr, inptr,
+                        wspptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, dbasis0, basis1, basis2, w0, w1,
-                        w2, jacptr, wspptr[0], outptr);
+                        w2, jacptr, wspptr, outptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, dbasis1, basis2, w0, w1,
-                        w2, jacptr, wspptr[1], outptr);
+                        w2, jacptr, wspptr + nSize, outptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, basis1, dbasis2, w0, w1,
-                        w2, jacptr, wspptr[2], outptr);
+                        w2, jacptr, wspptr + 2 * nSize, outptr);
                 }
             }
 
             // Increment pointer and index for next element type.
             jacptr += deformed ? nqTot * nElmts : nElmts;
             dfptr += deformed ? nqTot * nElmts : nElmts;
-            for (size_t d = 0; d < nDim; d++)
-            {
-                inptr[d] += nqTot * nElmts;
-                wspptr[d] += nqTot * nElmts;
-            }
+            inptr += nqTot * nElmts;
+            wspptr += nqTot * nElmts;
             outptr += nmTot * nElmts;
             expIdx += nElmts;
         }
@@ -339,7 +308,7 @@ public:
     static std::string className;
 
 private:
-    TData *m_wsp0, *m_wsp1, *m_wsp2;
+    TData *m_wsp;
     TData *m_derivFac;
     TData *m_jac;
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_basis;
@@ -350,77 +319,155 @@ private:
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_D;
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_Z;
     size_t m_dfSize;
+    size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
-    size_t m_gridSize;
 };
 
 template <typename TData, bool DEFORMED>
-void IProductWRTDerivBase1DKernel(const size_t gridSize, const size_t blockSize,
-                                  const size_t nq0, const size_t nCoord,
-                                  const size_t nElmts, const size_t dfSize,
-                                  TData *df, TData *in0, TData *in1, TData *in2,
-                                  TData *out0)
+void IProductWRTDerivBase1DKernel(
+    const unsigned int gridSize, const unsigned int blockSize,
+    const unsigned int nq0, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *df, const TData *in, TData *out)
 {
-    IProductWRTDerivBaseSegKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
-        nq0, nCoord, nElmts, dfSize, df, in0, in1, in2, out0);
+    if (!FLAG_QP)
+    {
+        IProductWRTDerivBase1DKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
+            nq0, nCoord, nElmts, nSize, dfSize, df, in, out);
+    }
+    else
+    {
+        IProductWRTDerivBase1DKernel_QP<TData, DEFORMED>
+            <<<gridSize, dim3(32)>>>(nq0, nCoord, nElmts, nSize, dfSize, df, in,
+                                     out);
+    }
 }
 
 template <typename TData, bool DEFORMED>
-void IProductWRTDerivBase2DKernel(const size_t gridSize, const size_t blockSize,
-                                  LibUtilities::ShapeType shapetype,
-                                  const size_t nq0, const size_t nq1,
-                                  const size_t nCoord, const size_t nElmts,
-                                  const TData *Z0, const TData *Z1,
-                                  const size_t dfSize, TData *df, TData *in0,
-                                  TData *in1, TData *in2, TData *out0,
-                                  TData *out1)
+void IProductWRTDerivBase2DKernel(
+    const unsigned int gridSize, const unsigned int blockSize,
+    LibUtilities::ShapeType shapetype, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *Z0, const TData *Z1,
+    const TData *df, const TData *in, TData *out)
 {
     if (shapetype == LibUtilities::Quad)
     {
-        IProductWRTDerivBaseQuadKernel<TData, DEFORMED>
-            <<<gridSize, blockSize>>>(nq0, nq1, nCoord, nElmts, dfSize, df, in0,
-                                      in1, in2, out0, out1);
+        if (!FLAG_QP)
+        {
+            IProductWRTDerivBase2DKernel<TData, LibUtilities::Quad, DEFORMED>
+                <<<gridSize, blockSize>>>(nq0, nq1, nCoord, nElmts, nSize,
+                                          dfSize, nullptr, nullptr, df, in,
+                                          out);
+        }
+        else
+        {
+            IProductWRTDerivBase2DKernel_QP<TData, LibUtilities::Quad, DEFORMED>
+                <<<gridSize, dim3(8, 8)>>>(nq0, nq1, nCoord, nElmts, nSize,
+                                           dfSize, nullptr, nullptr, df, in,
+                                           out);
+        }
     }
     else if (shapetype == LibUtilities::Tri)
     {
-        IProductWRTDerivBaseTriKernel<TData, DEFORMED>
-            <<<gridSize, blockSize>>>(nq0, nq1, nCoord, nElmts, Z0, Z1, dfSize,
-                                      df, in0, in1, in2, out0, out1);
+        if (!FLAG_QP)
+        {
+            unsigned int nshared = sizeof(TData) * (nq0 + nq1);
+            IProductWRTDerivBase2DKernel<TData, LibUtilities::Tri, DEFORMED>
+                <<<gridSize, blockSize, nshared>>>(nq0, nq1, nCoord, nElmts,
+                                                   nSize, dfSize, Z0, Z1, df,
+                                                   in, out);
+        }
+        else
+        {
+            IProductWRTDerivBase2DKernel_QP<TData, LibUtilities::Tri, DEFORMED>
+                <<<gridSize, dim3(8, 8)>>>(nq0, nq1, nCoord, nElmts, nSize,
+                                           dfSize, Z0, Z1, df, in, out);
+        }
     }
 }
 
 template <typename TData, bool DEFORMED>
 void IProductWRTDerivBase3DKernel(
-    const size_t gridSize, const size_t blockSize,
-    LibUtilities::ShapeType shapetype, const size_t nq0, const size_t nq1,
-    const size_t nq2, const size_t nCoord, const size_t nElmts, const TData *Z0,
-    const TData *Z1, const TData *Z2, const size_t dfSize, TData *df,
-    TData *in0, TData *in1, TData *in2, TData *out0, TData *out1, TData *out2)
+    const unsigned int gridSize, const unsigned int blockSize,
+    LibUtilities::ShapeType shapetype, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nCoord,
+    const unsigned int nElmts, const unsigned int nSize,
+    const unsigned int dfSize, const TData *Z0, const TData *Z1,
+    const TData *Z2, const TData *df, const TData *in, TData *out)
 {
     if (shapetype == LibUtilities::Hex)
     {
-        IProductWRTDerivBaseHexKernel<TData, DEFORMED>
-            <<<gridSize, blockSize>>>(nq0, nq1, nq2, nCoord, nElmts, dfSize, df,
-                                      in0, in1, in2, out0, out1, out2);
+        if (!FLAG_QP)
+        {
+            IProductWRTDerivBase3DKernel<TData, LibUtilities::Hex, DEFORMED>
+                <<<gridSize, blockSize>>>(nq0, nq1, nq2, nCoord, nElmts, nSize,
+                                          dfSize, nullptr, nullptr, nullptr, df,
+                                          in, out);
+        }
+        else
+        {
+            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Hex, DEFORMED>
+                <<<gridSize, dim3(4, 4, 4)>>>(nq0, nq1, nq2, nCoord, nElmts,
+                                              nSize, dfSize, nullptr, nullptr,
+                                              nullptr, df, in, out);
+        }
     }
     else if (shapetype == LibUtilities::Tet)
     {
-        IProductWRTDerivBaseTetKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
-            nq0, nq1, nq2, nCoord, nElmts, Z0, Z1, Z2, dfSize, df, in0, in1,
-            in2, out0, out1, out2);
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        IProductWRTDerivBasePyrKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
-            nq0, nq1, nq2, nCoord, nElmts, Z0, Z1, Z2, dfSize, df, in0, in1,
-            in2, out0, out1, out2);
+        if (!FLAG_QP)
+        {
+            unsigned int nshared = sizeof(TData) * (nq0 + 2 * nq1 + nq2);
+            IProductWRTDerivBase3DKernel<TData, LibUtilities::Tet, DEFORMED>
+                <<<gridSize, blockSize, nshared>>>(nq0, nq1, nq2, nCoord,
+                                                   nElmts, nSize, dfSize, Z0,
+                                                   Z1, Z2, df, in, out);
+        }
+        else
+        {
+            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Tet, DEFORMED>
+                <<<gridSize, dim3(4, 4, 4)>>>(nq0, nq1, nq2, nCoord, nElmts,
+                                              nSize, dfSize, Z0, Z1, Z2, df, in,
+                                              out);
+        }
     }
     else if (shapetype == LibUtilities::Prism)
     {
-        IProductWRTDerivBasePrismKernel<TData, DEFORMED>
-            <<<gridSize, blockSize>>>(nq0, nq1, nq2, nCoord, nElmts, Z0, Z2,
-                                      dfSize, df, in0, in1, in2, out0, out1,
-                                      out2);
+        if (!FLAG_QP)
+        {
+            unsigned int nshared = sizeof(TData) * (nq0 + nq2);
+            IProductWRTDerivBase3DKernel<TData, LibUtilities::Prism, DEFORMED>
+                <<<gridSize, blockSize, nshared>>>(nq0, nq1, nq2, nCoord,
+                                                   nElmts, nSize, dfSize, Z0,
+                                                   nullptr, Z2, df, in, out);
+        }
+        else
+        {
+            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Prism,
+                                            DEFORMED>
+                <<<gridSize, dim3(4, 4, 4)>>>(nq0, nq1, nq2, nCoord, nElmts,
+                                              nSize, dfSize, Z0, nullptr, Z2,
+                                              df, in, out);
+        }
+    }
+    else if (shapetype == LibUtilities::Pyr)
+    {
+        if (!FLAG_QP)
+        {
+            unsigned int nshared = sizeof(TData) * (nq0 + nq1 + nq2);
+            IProductWRTDerivBase3DKernel<TData, LibUtilities::Pyr, DEFORMED>
+                <<<gridSize, blockSize, nshared>>>(nq0, nq1, nq2, nCoord,
+                                                   nElmts, nSize, dfSize, Z0,
+                                                   Z1, Z2, df, in, out);
+        }
+        else
+        {
+            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Pyr, DEFORMED>
+                <<<gridSize, dim3(4, 4, 4)>>>(nq0, nq1, nq2, nCoord, nElmts,
+                                              nSize, dfSize, Z0, Z1, Z2, df, in,
+                                              out);
+        }
     }
 }
 
