@@ -47,6 +47,7 @@ set(SRC Field.cpp Operators/Operator.cpp
     Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTransImpl.cpp
     Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolveImpl.cpp
     Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
+    Operators/OperatorAddTraceIntegral.cpp Operators/AddTraceIntegral/AddTraceIntegralImpl.cpp
     )
 
 if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
