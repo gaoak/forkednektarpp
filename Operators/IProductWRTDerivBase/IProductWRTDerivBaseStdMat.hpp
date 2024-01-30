@@ -1,5 +1,8 @@
-#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#pragma once
+
 #include <StdRegions/StdExpansion.h>
+
+#include "Operators/OperatorIProductWRTDerivBase.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -44,7 +47,7 @@ public:
                 size_t nmTot = expPtr->GetNcoeffs();
                 auto &matPtr = m_matPtr[basisKeys];
                 matPtr       = Array<OneD, Array<OneD, TData>>(nDim);
-                Array<OneD, NekDouble> tmp(nqTot), t;
+                Array<OneD, TData> tmp(nqTot), t;
                 for (size_t d = 0; d < nDim; ++d)
                 {
                     // Get IProductWRTDerivBase matrix.
@@ -61,12 +64,8 @@ public:
         }
 
         // Initialize workspace memory.
-        auto ndata = this->m_expansionList->GetTotPoints();
-        m_wsp      = Array<OneD, Array<OneD, NekDouble>>(3);
-        for (size_t i = 0; i < nDim; ++i)
-        {
-            m_wsp[i] = Array<OneD, NekDouble>(ndata);
-        }
+        auto nStorage = this->m_expansionList->GetTotPoints();
+        m_wsp         = Array<OneD, TData>(nStorage * nDim);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -74,13 +73,11 @@ public:
                bool APPEND = false) override
     {
         // Copy memory to GPU, if necessary and get raw pointers.
-        auto *inptr0 = in.GetStorage().GetCPUPtr();
-        auto *inptr1 = inptr0 + in.GetFieldSize();
-        auto *inptr2 = inptr1 + in.GetFieldSize();
-        std::vector<TData *> inptr{inptr0, inptr1, inptr2};
-        auto *outptr = out.GetStorage().GetCPUPtr();
-        std::vector<TData *> wspptr{m_wsp[0].get(), m_wsp[1].get(),
-                                    m_wsp[2].get()};
+        auto *inptr   = in.GetStorage().GetCPUPtr();
+        auto *outptr  = out.GetStorage().GetCPUPtr();
+        auto *wspptr  = m_wsp.get();
+        auto nSize    = in.GetFieldSize();
+        auto nStorage = this->m_expansionList->GetTotPoints();
 
         // Initialize index.
         size_t expIdx = 0;
@@ -111,12 +108,14 @@ public:
                 for (size_t d = 0; d < nDim; ++d)
                 {
                     Vmath::Vmul(nqTot * nElmts, m_derivFac[d].get() + dfIdx, 1,
-                                inptr[0], 1, wspptr[d], 1);
+                                inptr, 1, wspptr + d * nStorage, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
                         Vmath::Vvtvp(nqTot * nElmts,
                                      m_derivFac[d + i * nDim].get() + dfIdx, 1,
-                                     inptr[i], 1, wspptr[d], 1, wspptr[d], 1);
+                                     inptr + i * nSize, 1,
+                                     wspptr + d * nStorage, 1,
+                                     wspptr + d * nStorage, 1);
                     }
                 }
             }
@@ -127,14 +126,15 @@ public:
                     for (size_t d = 0; d < nDim; ++d)
                     {
                         Vmath::Smul(nqTot, m_derivFac[d][dfIdx + e],
-                                    inptr[0] + e * nqTot, 1,
-                                    wspptr[d] + e * nqTot, 1);
+                                    inptr + e * nqTot, 1,
+                                    wspptr + d * nStorage + e * nqTot, 1);
                         for (size_t i = 1; i < nCoord; ++i)
                         {
-                            Vmath::Svtvp(
-                                nqTot, m_derivFac[d + i * nDim][dfIdx + e],
-                                inptr[i] + e * nqTot, 1, wspptr[d] + e * nqTot,
-                                1, wspptr[d] + e * nqTot, 1);
+                            Vmath::Svtvp(nqTot,
+                                         m_derivFac[d + i * nDim][dfIdx + e],
+                                         inptr + i * nSize + e * nqTot, 1,
+                                         wspptr + d * nStorage + e * nqTot, 1,
+                                         wspptr + d * nStorage + e * nqTot, 1);
                         }
                     }
                 }
@@ -146,7 +146,8 @@ public:
                 for (size_t d = 0; d < nDim; ++d)
                 {
                     Vmath::Vmul(nqTot * nElmts, m_jac.get() + jacIdx, 1,
-                                wspptr[d], 1, wspptr[d], 1);
+                                wspptr + d * nStorage, 1, wspptr + d * nStorage,
+                                1);
                 }
             }
             else
@@ -156,8 +157,8 @@ public:
                     for (size_t d = 0; d < nDim; ++d)
                     {
                         Vmath::Smul(nqTot, m_jac[jacIdx + e],
-                                    wspptr[d] + e * nqTot, 1,
-                                    wspptr[d] + e * nqTot, 1);
+                                    wspptr + d * nStorage + e * nqTot, 1,
+                                    wspptr + d * nStorage + e * nqTot, 1);
                     }
                 }
             }
@@ -176,15 +177,13 @@ public:
             {
                 TData alpha = (d == 0 && !APPEND) ? 0.0 : 1.0;
                 Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nmTot, wspptr[d], nqTot, alpha,
-                            outptr, nmTot);
-
-                // Increment pointer and index for next element type.
-                inptr[d] += in.GetBlocks()[block_idx].block_size;
-                wspptr[d] += nqTot * nElmts;
+                            matPtr[d].get(), nmTot, wspptr + d * nStorage,
+                            nqTot, alpha, outptr, nmTot);
             }
             jacIdx += deformed ? nqTot * nElmts : nElmts;
             dfIdx += deformed ? nqTot * nElmts : nElmts;
+            wspptr += nqTot * nElmts;
+            inptr += in.GetBlocks()[block_idx].block_size;
             outptr += out.GetBlocks()[block_idx].block_size;
             expIdx += nElmts;
         }
@@ -205,7 +204,7 @@ private:
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;
-    Array<OneD, Array<OneD, TData>> m_wsp;
+    Array<OneD, TData> m_wsp;
 };
 
 } // namespace Nektar::Operators::detail

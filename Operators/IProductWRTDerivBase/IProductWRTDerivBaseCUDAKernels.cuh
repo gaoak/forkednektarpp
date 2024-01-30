@@ -1,419 +1,453 @@
+#pragma once
+
 namespace Nektar::Operators::detail
 {
-template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBaseSegKernel(const size_t nq0,
-                                              const size_t ncoord,
-                                              const size_t nelmt,
-                                              const size_t dfSize, TData *df,
-                                              TData *in0, TData *in1,
-                                              TData *in2, TData *out0)
-{
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (e >= nelmt)
-    {
-        return;
-    }
-
-    size_t ndf = ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * e);
-    if (ncoord > 1)
-    {
-        inptr[1] = in1 + (nq0 * e);
-    }
-    if (ncoord > 2)
-    {
-        inptr[2] = in2 + (nq0 * e);
-    }
-
-    TData *outptr0 = out0 + (nq0 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t i = 0; i < nq0; ++i)
-    {
-        size_t dfindex = DEFORMED ? i : 0;
-        outptr0[i]     = dfptr[0][dfindex] * inptr[0][i];
-        for (size_t d = 1; d < ncoord; ++d)
-        {
-            outptr0[i] += (dfptr[d][dfindex] * inptr[d][i]);
-        }
-    }
-    delete[] inptr;
-    delete[] dfptr;
-}
 
 template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBaseQuadKernel(
-    const size_t nq0, const size_t nq1, const size_t ncoord, const size_t nelmt,
-    const size_t dfSize, TData *df, TData *in0, TData *in1, TData *in2,
-    TData *out0, TData *out1)
+__global__ void IProductWRTDerivBase1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict df, const TData *__restrict in,
+    TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * e;
 
-    const auto ndf = 2 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * e);
-    if (ncoord > 2)
-    {
-        inptr[2] = in2 + (nq0 * nq1 * e);
-    }
-
-    TData *outptr0 = out0 + (nq0 * nq1 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t i = 0; i < nq0 * nq1; ++i)
-    {
-        size_t dfindex = DEFORMED ? i : 0;
-        outptr0[i]     = dfptr[0][dfindex] * inptr[0][i];
-        outptr1[i]     = dfptr[1][dfindex] * inptr[0][i];
-        for (size_t d = 1; d < ncoord; ++d)
+        for (unsigned int i = 0; i < nq0; ++i)
         {
-            outptr0[i] += (dfptr[2 * d][dfindex] * inptr[d][i]);
-            outptr1[i] += (dfptr[2 * d + 1][dfindex] * inptr[d][i]);
-        }
-    }
-    delete[] inptr;
-    delete[] dfptr;
-}
+            unsigned int index   = offset + i;
+            unsigned int dfindex = DEFORMED ? index : e;
 
-template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBaseTriKernel(
-    const size_t nq0, const size_t nq1, const size_t ncoord, const size_t nelmt,
-    const TData *Z0, const TData *Z1, const size_t dfSize, TData *df,
-    TData *in0, TData *in1, TData *in2, TData *out0, TData *out1)
-{
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (e >= nelmt)
-    {
-        return;
-    }
-
-    const auto ndf = 2 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * e);
-    if (ncoord > 2)
-    {
-        inptr[2] = in2 + (nq0 * nq1 * e);
-    }
-
-    TData *outptr0 = out0 + (nq0 * nq1 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t j = 0, cnt_ji = 0; j < nq1; ++j)
-    {
-        TData f0 = 2.0 / (1.0 - Z1[j]);
-        for (size_t i = 0; i < nq0; ++i, ++cnt_ji)
-        {
-            size_t dfindex  = DEFORMED ? cnt_ji : 0;
-            outptr0[cnt_ji] = dfptr[0][dfindex] * inptr[0][cnt_ji];
-            outptr1[cnt_ji] = dfptr[1][dfindex] * inptr[0][cnt_ji];
-            for (size_t d = 1; d < ncoord; ++d)
+            TData sum = 0.0;
+            for (unsigned int d = 0; d < ncoord; ++d)
             {
-                outptr0[cnt_ji] += (dfptr[2 * d][dfindex] * inptr[d][cnt_ji]);
-                outptr1[cnt_ji] +=
-                    (dfptr[2 * d + 1][dfindex] * inptr[d][cnt_ji]);
+                sum += df[dfindex + d * dfSize] * in[index + d * nSize];
             }
-
-            // Multiply by geometric factors
-            TData f1 = 0.5 * (1.0 + Z0[i]);
-            outptr0[cnt_ji] += outptr1[cnt_ji] * f1;
-            outptr0[cnt_ji] *= f0;
+            out[index] = sum;
         }
+
+        e += blockDim.x * gridDim.x;
     }
-    delete[] inptr;
-    delete[] dfptr;
 }
 
 template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBaseHexKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2, const size_t ncoord,
-    const size_t nelmt, const size_t dfSize, TData *df, TData *in0, TData *in1,
-    TData *in2, TData *out0, TData *out1, TData *out2)
+__global__ void IProductWRTDerivBase1DKernel_QP(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict df, const TData *__restrict in,
+    TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = blockIdx.x;
 
-    if (e >= nelmt)
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * e;
 
-    const auto ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * nq2 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * nq2 * e);
-    inptr[2]      = in2 + (nq0 * nq1 * nq2 * e);
-
-    TData *outptr0 = out0 + (nq0 * nq1 * nq2 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * nq2 * e);
-    TData *outptr2 = out2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t i = 0; i < nq0 * nq1 * nq2; ++i)
-    {
-        size_t dfindex = DEFORMED ? i : 0;
-        outptr0[i]     = dfptr[0][dfindex] * inptr[0][i];
-        outptr1[i]     = dfptr[1][dfindex] * inptr[0][i];
-        outptr2[i]     = dfptr[2][dfindex] * inptr[0][i];
-        for (size_t d = 1; d < ncoord; ++d)
+        for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
         {
-            outptr0[i] += (dfptr[3 * d][dfindex] * inptr[d][i]);
-            outptr1[i] += (dfptr[3 * d + 1][dfindex] * inptr[d][i]);
-            outptr2[i] += (dfptr[3 * d + 2][dfindex] * inptr[d][i]);
-        }
-    }
-    delete[] inptr;
-    delete[] dfptr;
-}
+            unsigned int index   = offset + i;
+            unsigned int dfindex = DEFORMED ? index : e;
 
-template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBaseTetKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2, const size_t ncoord,
-    const size_t nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
-    const size_t dfSize, TData *df, TData *in0, TData *in1, TData *in2,
-    TData *out0, TData *out1, TData *out2)
-{
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (e >= nelmt)
-    {
-        return;
-    }
-
-    const auto ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * nq2 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * nq2 * e);
-    inptr[2]      = in2 + (nq0 * nq1 * nq2 * e);
-
-    TData *outptr0 = out0 + (nq0 * nq1 * nq2 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * nq2 * e);
-    TData *outptr2 = out2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t k = 0, cnt_kji = 0; k < nq2; ++k)
-    {
-        TData f2 = 2.0 / (1.0 - Z2[k]);
-        for (size_t j = 0; j < nq1; ++j)
-        {
-            TData f3 = 0.5 * (1.0 + Z1[j]);
-            TData f0 = 2.0 * f2 / (1.0 - Z1[j]);
-            for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
+            TData sum = 0.0;
+            for (unsigned int d = 0; d < ncoord; ++d)
             {
-                size_t dfindex   = DEFORMED ? cnt_kji : 0;
-                outptr0[cnt_kji] = dfptr[0][dfindex] * inptr[0][cnt_kji];
-                outptr1[cnt_kji] = dfptr[1][dfindex] * inptr[0][cnt_kji];
-                outptr2[cnt_kji] = dfptr[2][dfindex] * inptr[0][cnt_kji];
-                for (size_t d = 1; d < ncoord; ++d)
+                sum += df[dfindex + d * dfSize] * in[index + d * nSize];
+            }
+            out[index] = sum;
+        }
+
+        e += gridDim.x;
+    }
+}
+
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void IProductWRTDerivBase2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out)
+{
+    extern __shared__ TData shared[];
+    TData *s_f0, *s_f1;
+
+    // Copy to shared memory.
+    if constexpr (SHAPETYPE == LibUtilities::Tri)
+    {
+        s_f0 = shared;
+        s_f1 = s_f0 + nq1;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_f0[sIndex] = 2.0 / (1.0 - Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_f1[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * e;
+
+        for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
+        {
+            for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
+            {
+                unsigned int index   = offset + cnt_ji;
+                unsigned int dfindex = DEFORMED ? index : e;
+
+                TData sum1 = 0.0, sum2 = 0.0;
+                for (unsigned int d = 0; d < ncoord; ++d)
                 {
-                    outptr0[cnt_kji] +=
-                        (dfptr[3 * d][dfindex] * inptr[d][cnt_kji]);
-                    outptr1[cnt_kji] +=
-                        (dfptr[3 * d + 1][dfindex] * inptr[d][cnt_kji]);
-                    outptr2[cnt_kji] +=
-                        (dfptr[3 * d + 2][dfindex] * inptr[d][cnt_kji]);
+                    sum1 += (df[dfindex + (2 * d) * dfSize] *
+                             in[index + d * nSize]);
+                    sum2 += (df[dfindex + (2 * d + 1) * dfSize] *
+                             in[index + d * nSize]);
                 }
 
-                // Multiply by geometric factors
-                TData f1 = 0.5 * (1.0 + Z0[i]);
-                outptr0[cnt_kji] += (outptr1[cnt_kji] + outptr2[cnt_kji]) * f1;
-                outptr0[cnt_kji] *= f0;
-                outptr1[cnt_kji] += outptr2[cnt_kji] * f3;
-                outptr1[cnt_kji] *= f2;
+                if constexpr (SHAPETYPE == LibUtilities::Quad)
+                {
+                    out[index]         = sum1;
+                    out[index + nSize] = sum2;
+                }
+                else if constexpr (SHAPETYPE == LibUtilities::Tri)
+                {
+                    out[index]         = (sum1 + sum2 * s_f1[i]) * s_f0[j];
+                    out[index + nSize] = sum2;
+                }
             }
         }
+
+        e += blockDim.x * gridDim.x;
     }
-    delete[] inptr;
-    delete[] dfptr;
 }
 
-template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBasePrismKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2, const size_t ncoord,
-    const size_t nelmt, const TData *Z0, const TData *Z2, const size_t dfSize,
-    TData *df, TData *in0, TData *in1, TData *in2, TData *out0, TData *out1,
-    TData *out2)
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void IProductWRTDerivBase2DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nSize,
+    const unsigned int dfSize, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    TData f0, f1;
 
-    if (e >= nelmt)
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
     {
-        return;
-    }
+        unsigned int offset = nq0 * nq1 * e;
 
-    const auto ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * nq2 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * nq2 * e);
-    inptr[2]      = in2 + (nq0 * nq1 * nq2 * e);
-
-    TData *outptr0 = out0 + (nq0 * nq1 * nq2 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * nq2 * e);
-    TData *outptr2 = out2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t k = 0, cnt_kji = 0; k < nq2; ++k)
-    {
-        TData f0 = 2.0 / (1.0 - Z2[k]);
-        for (size_t j = 0; j < nq1; ++j)
+        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
         {
-            for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
+            if constexpr (SHAPETYPE == LibUtilities::Tri)
             {
-                size_t dfindex   = DEFORMED ? cnt_kji : 0;
-                outptr0[cnt_kji] = dfptr[0][dfindex] * inptr[0][cnt_kji];
-                outptr1[cnt_kji] = dfptr[1][dfindex] * inptr[0][cnt_kji];
-                outptr2[cnt_kji] = dfptr[2][dfindex] * inptr[0][cnt_kji];
-                for (size_t d = 1; d < ncoord; ++d)
+                f0 = 2.0 / (1.0 - Z1[j]);
+            }
+
+            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+            {
+                unsigned int cnt_ji  = nq0 * j + i;
+                unsigned int index   = offset + cnt_ji;
+                unsigned int dfindex = DEFORMED ? index : e;
+
+                TData sum1 = 0.0, sum2 = 0.0;
+                for (unsigned int d = 0; d < ncoord; ++d)
                 {
-                    outptr0[cnt_kji] +=
-                        (dfptr[3 * d][dfindex] * inptr[d][cnt_kji]);
-                    outptr1[cnt_kji] +=
-                        (dfptr[3 * d + 1][dfindex] * inptr[d][cnt_kji]);
-                    outptr2[cnt_kji] +=
-                        (dfptr[3 * d + 2][dfindex] * inptr[d][cnt_kji]);
+                    sum1 += (df[dfindex + (2 * d) * dfSize] *
+                             in[index + d * nSize]);
+                    sum2 += (df[dfindex + (2 * d + 1) * dfSize] *
+                             in[index + d * nSize]);
                 }
 
-                // Multiply by geometric factors
-                TData f1 = 0.5 * (1.0 + Z0[i]);
-                outptr0[cnt_kji] += outptr2[cnt_kji] * f1;
-                outptr0[cnt_kji] *= f0;
-            }
-        }
-    }
-    delete[] inptr;
-    delete[] dfptr;
-}
-
-template <typename TData, bool DEFORMED>
-__global__ void IProductWRTDerivBasePyrKernel(
-    const size_t nq0, const size_t nq1, const size_t nq2, const size_t ncoord,
-    const size_t nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
-    const size_t dfSize, TData *df, TData *in0, TData *in1, TData *in2,
-    TData *out0, TData *out1, TData *out2)
-{
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (e >= nelmt)
-    {
-        return;
-    }
-
-    const auto ndf = 3 * ncoord;
-
-    // Assign pointers.
-    TData **inptr = new TData *[ncoord];
-    inptr[0]      = in0 + (nq0 * nq1 * nq2 * e);
-    inptr[1]      = in1 + (nq0 * nq1 * nq2 * e);
-    inptr[2]      = in2 + (nq0 * nq1 * nq2 * e);
-
-    TData *outptr0 = out0 + (nq0 * nq1 * nq2 * e);
-    TData *outptr1 = out1 + (nq0 * nq1 * nq2 * e);
-    TData *outptr2 = out2 + (nq0 * nq1 * nq2 * e);
-
-    TData **dfptr = new TData *[ndf];
-    for (size_t d = 0; d < ndf; d++)
-    {
-        dfptr[d] = df + d * dfSize;
-        dfptr[d] += DEFORMED ? nq0 * nq1 * nq2 * e : e;
-    }
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    for (size_t k = 0, cnt_kji = 0; k < nq2; ++k)
-    {
-        TData f0 = 2.0 / (1.0 - Z2[k]);
-        for (size_t j = 0; j < nq1; ++j)
-        {
-            TData f2 = 0.5 * (1.0 + Z1[j]);
-            for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
-            {
-                size_t dfindex   = DEFORMED ? cnt_kji : 0;
-                outptr0[cnt_kji] = dfptr[0][dfindex] * inptr[0][cnt_kji];
-                outptr1[cnt_kji] = dfptr[1][dfindex] * inptr[0][cnt_kji];
-                outptr2[cnt_kji] = dfptr[2][dfindex] * inptr[0][cnt_kji];
-                for (size_t d = 1; d < ncoord; ++d)
+                // Moving from standard to collapsed coordinates.
+                if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    outptr0[cnt_kji] +=
-                        (dfptr[3 * d][dfindex] * inptr[d][cnt_kji]);
-                    outptr1[cnt_kji] +=
-                        (dfptr[3 * d + 1][dfindex] * inptr[d][cnt_kji]);
-                    outptr2[cnt_kji] +=
-                        (dfptr[3 * d + 2][dfindex] * inptr[d][cnt_kji]);
+                    f1 = 0.5 * (1.0 + Z0[i]);
                 }
 
-                // Multiply by geometric factors
-                TData f1 = 0.5 * (1.0 + Z0[i]);
-                outptr0[cnt_kji] += outptr2[cnt_kji] * f1;
-                outptr0[cnt_kji] *= f0;
-                outptr1[cnt_kji] += outptr2[cnt_kji] * f2;
-                outptr1[cnt_kji] *= f0;
+                if constexpr (SHAPETYPE == LibUtilities::Quad)
+                {
+                    out[index]         = sum1;
+                    out[index + nSize] = sum2;
+                }
+                else if constexpr (SHAPETYPE == LibUtilities::Tri)
+                {
+                    out[index]         = (sum1 + sum2 * f1) * f0;
+                    out[index + nSize] = sum2;
+                }
             }
         }
+
+        e += gridDim.x;
     }
-    delete[] inptr;
-    delete[] dfptr;
 }
+
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void IProductWRTDerivBase3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict Z0, const TData *__restrict Z1,
+    const TData *__restrict Z2, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out)
+{
+    extern __shared__ TData shared[];
+    TData *s_f0, *s_f1, *s_f2, *s_f3;
+
+    // Copy to shared memory.
+    if constexpr (SHAPETYPE == LibUtilities::Tet)
+    {
+        s_f0 = shared;
+        s_f1 = s_f0 + nq1;
+        s_f2 = s_f1 + nq0;
+        s_f3 = s_f2 + nq2;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_f0[sIndex] = 2.0 / (1.0 - Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_f1[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_f2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_f3[sIndex] = 0.5 * (1.0 + Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+    {
+        s_f1 = shared;
+        s_f2 = s_f1 + nq0;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_f1[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_f2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    {
+        s_f1 = shared;
+        s_f2 = s_f1 + nq0;
+        s_f3 = s_f2 + nq2;
+
+        unsigned int sIndex = threadIdx.x;
+        while (sIndex < nq0)
+        {
+            s_f1[sIndex] = 0.5 * (1.0 + Z0[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq2)
+        {
+            s_f2[sIndex] = 2.0 / (1.0 - Z2[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        sIndex = threadIdx.x;
+        while (sIndex < nq1)
+        {
+            s_f3[sIndex] = 0.5 * (1.0 + Z1[sIndex]);
+            sIndex += blockDim.x;
+        }
+
+        __syncthreads();
+    }
+
+    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * nq2 * e;
+
+        for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
+        {
+            for (unsigned int j = 0; j < nq1; ++j)
+            {
+                for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                {
+                    unsigned int index   = offset + cnt_kji;
+                    unsigned int dfindex = DEFORMED ? index : e;
+
+                    TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
+                    for (unsigned int d = 0; d < ncoord; ++d)
+                    {
+                        sum1 += (df[dfindex + (3 * d) * dfSize] *
+                                 in[index + d * nSize]);
+                        sum2 += (df[dfindex + (3 * d + 1) * dfSize] *
+                                 in[index + d * nSize]);
+                        sum3 += (df[dfindex + (3 * d + 2) * dfSize] *
+                                 in[index + d * nSize]);
+                    }
+
+                    if constexpr (SHAPETYPE == LibUtilities::Hex)
+                    {
+                        out[index]             = sum1;
+                        out[index + nSize]     = sum2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Tet)
+                    {
+                        out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
+                                     s_f2[k] * s_f0[j];
+                        out[index + nSize] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    {
+                        out[index]         = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                        out[index + nSize] = sum2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        out[index]         = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                        out[index + nSize] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                        out[index + 2 * nSize] = sum3;
+                    }
+                }
+            }
+        }
+
+        e += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+__global__ void IProductWRTDerivBase3DKernel_QP(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nSize, const unsigned int dfSize,
+    const TData *__restrict Z0, const TData *__restrict Z1,
+    const TData *__restrict Z2, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out)
+{
+    TData f0, f1, f2, f3;
+
+    unsigned int e = blockIdx.x;
+
+    while (e < nelmt)
+    {
+        unsigned int offset = nq0 * nq1 * nq2 * e;
+
+        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+        {
+            if constexpr (SHAPETYPE == LibUtilities::Tet ||
+                          SHAPETYPE == LibUtilities::Prism ||
+                          SHAPETYPE == LibUtilities::Pyr)
+            {
+                f2 = 2.0 / (1.0 - Z2[k]);
+            }
+
+            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+            {
+                if constexpr (SHAPETYPE == LibUtilities::Tet ||
+                              SHAPETYPE == LibUtilities::Pyr)
+                {
+                    f3 = 0.5 * (1.0 + Z1[j]);
+                }
+                else if constexpr (SHAPETYPE == LibUtilities::Tet)
+                {
+                    f0 = 2.0 * f2 / (1.0 - Z1[j]);
+                }
+
+                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                {
+                    unsigned int index   = offset + nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int dfindex = DEFORMED ? index : e;
+
+                    TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
+                    for (unsigned int d = 0; d < ncoord; ++d)
+                    {
+                        sum1 += (df[dfindex + (3 * d) * dfSize] *
+                                 in[index + d * nSize]);
+                        sum2 += (df[dfindex + (3 * d + 1) * dfSize] *
+                                 in[index + d * nSize]);
+                        sum3 += (df[dfindex + (3 * d + 2) * dfSize] *
+                                 in[index + d * nSize]);
+                    }
+
+                    if constexpr (SHAPETYPE == LibUtilities::Tet ||
+                                  SHAPETYPE == LibUtilities::Prism ||
+                                  SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        f1 = 0.5 * (1.0 + Z0[i]);
+                    }
+
+                    if constexpr (SHAPETYPE == LibUtilities::Hex)
+                    {
+                        out[index]             = sum1;
+                        out[index + nSize]     = sum2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Tet)
+                    {
+                        out[index] = (sum1 + (sum2 + sum3) * f1) * f2 * f0;
+                        out[index + nSize]     = (sum2 + sum3 * f3) * f2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    {
+                        out[index]             = (sum1 + sum3 * f1) * f2;
+                        out[index + nSize]     = sum2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    {
+                        out[index]             = (sum1 + sum3 * f1) * f2;
+                        out[index + nSize]     = (sum2 + sum3 * f3) * f2;
+                        out[index + 2 * nSize] = sum3;
+                    }
+                }
+            }
+        }
+
+        e += gridDim.x;
+    }
+}
+
 } // namespace Nektar::Operators::detail
