@@ -6,6 +6,7 @@
 
 #include "Field.hpp"
 #include <MultiRegions/ContField.h>
+#include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
 
 #ifdef NEKTAR_USE_CUDA
@@ -93,6 +94,14 @@ public:
             fixt_explist =
                 MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
                     session, graph, "u", true, false,
+                    Collections::eNoCollection);
+        }
+
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::DisContField>)
+        {
+            fixt_explist =
+                MemoryManager<MultiRegions::DisContField>::AllocateSharedPtr(
+                    session, graph, "u", true, true,
                     Collections::eNoCollection);
         }
 
