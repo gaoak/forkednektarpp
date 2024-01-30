@@ -78,20 +78,41 @@ public:
         auto *actn_ptr = action.GetStorage().GetCPUPtr();
         auto *diag_ptr = diag.get();
 
-        for (size_t i = 0; i < m_nLocal; ++i)
+        size_t expIdx = 0;
+        for (size_t block_idx = 0; block_idx < unit_vec.GetBlocks().size();
+             ++block_idx)
         {
-            // set ith term in unit vector to be 1
-            *uvec_ptr = 1.0;
+            // Determine shape and type of the element.
+            auto const expPtr = this->m_expansionList->GetExp(expIdx);
+            auto nElmts       = unit_vec.GetBlocks()[block_idx].num_elements;
+            auto nmTot        = expPtr->GetNcoeffs();
 
-            // apply operator to unit vector and store in action field
-            op->apply(unit_vec, action);
-            robBCOp->apply(unit_vec, action);
+            for (size_t i = 0; i < nmTot; ++i)
+            {
+                for (size_t j = 0; j < nElmts; ++j)
+                {
+                    // set ith term in unit vector to be 1
+                    uvec_ptr[j * nmTot + i] = 1.0;
+                }
 
-            // copy ith row term from the action field to get ith diagonal
-            *(diag_ptr++) = *(actn_ptr++);
+                // apply operator to unit vector and store in action field
+                op->apply(unit_vec, action);
+                robBCOp->apply(unit_vec, action);
 
-            // reset ith term in unit vector to be 0
-            *(uvec_ptr++) = 0.0;
+                for (size_t j = 0; j < nElmts; ++j)
+                {
+                    // copy ith row term from the action field to get ith
+                    // diagonal
+                    diag_ptr[j * nmTot + i] = actn_ptr[j * nmTot + i];
+
+                    // reset ith term in unit vector to be 0
+                    uvec_ptr[j * nmTot + i] = 0.0;
+                }
+            }
+            uvec_ptr += unit_vec.GetBlocks()[block_idx].block_size;
+            diag_ptr += unit_vec.GetBlocks()[block_idx].block_size;
+            actn_ptr += unit_vec.GetBlocks()[block_idx].block_size;
+            expIdx += nElmts;
         }
 
         // Assembly
