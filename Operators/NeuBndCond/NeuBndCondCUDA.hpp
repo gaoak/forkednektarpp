@@ -1,13 +1,13 @@
 #pragma once
 
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
+#include <MultiRegions/ContField.h>
+#include <SpatialDomains/Conditions.h>
+
 #include "MemoryRegionCUDA.hpp"
 #include "Operators/NeuBndCond/NeuBndCondCUDAKernels.cuh"
 #include "Operators/OperatorHelper.cuh"
 #include "Operators/OperatorNeuBndCond.hpp"
-
-#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
-#include <MultiRegions/ContField.h>
-#include <SpatialDomains/Conditions.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

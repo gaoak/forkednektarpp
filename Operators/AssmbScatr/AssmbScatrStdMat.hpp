@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Operators/OperatorAssmbScatr.hpp"
-
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
+
+#include "Operators/OperatorAssmbScatr.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

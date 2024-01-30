@@ -1,6 +1,9 @@
+#pragma once
+
+#include <StdRegions/StdExpansion.h>
+
 #include "IProductWRTBaseSumFacKernels.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
-#include <StdRegions/StdExpansion.h>
 
 namespace Nektar::Operators::detail
 {
@@ -79,7 +82,6 @@ public:
                     break;
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
-
             }
 
             inptr += in.GetBlocks()[block_idx].block_size;

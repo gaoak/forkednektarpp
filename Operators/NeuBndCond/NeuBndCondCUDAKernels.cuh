@@ -1,3 +1,5 @@
+#pragma once
+
 #include <SpatialDomains/Conditions.h>
 
 using namespace Nektar;
@@ -7,20 +9,21 @@ namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-__global__ void NeuBndCondKernel(const size_t nsize, const int *offsetptr,
-                                 const BoundaryConditionType *bctypeptr,
-                                 const int *ncoeffptr, const int *mapptr,
-                                 const TData *inptr, TData *outptr)
+__global__ void NeuBndCondKernel(
+    const unsigned int nsize, const int *__restrict offsetptr,
+    const BoundaryConditionType *__restrict bctypeptr,
+    const int *__restrict ncoeffptr, const int *__restrict mapptr,
+    const TData *__restrict inptr, TData *__restrict outptr)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
         if (bctypeptr[i] == eNeumann || bctypeptr[i] == eRobin)
         {
-            size_t offset = offsetptr[i];
-            size_t ncoeff = ncoeffptr[i];
-            for (size_t j = 0; j < ncoeff; j++)
+            unsigned int offset = offsetptr[i];
+            unsigned int ncoeff = ncoeffptr[i];
+            for (unsigned int j = 0; j < ncoeff; j++)
             {
                 outptr[mapptr[offset + j]] += inptr[offset + j];
             }
@@ -30,21 +33,22 @@ __global__ void NeuBndCondKernel(const size_t nsize, const int *offsetptr,
 }
 
 template <typename TData>
-__global__ void NeuBndCondKernel(const size_t nsize, const int *offsetptr,
-                                 const BoundaryConditionType *bctypeptr,
-                                 const int *ncoeffptr, const TData *signptr,
-                                 const int *mapptr, const TData *inptr,
-                                 TData *outptr)
+__global__ void NeuBndCondKernel(
+    const unsigned int nsize, const int *__restrict offsetptr,
+    const BoundaryConditionType *__restrict bctypeptr,
+    const int *__restrict ncoeffptr, const TData *__restrict signptr,
+    const int *__restrict mapptr, const TData *__restrict inptr,
+    TData *__restrict outptr)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
         if (bctypeptr[i] == eNeumann || bctypeptr[i] == eRobin)
         {
-            size_t offset = offsetptr[i];
-            size_t ncoeff = ncoeffptr[i];
-            for (size_t j = 0; j < ncoeff; j++)
+            unsigned int offset = offsetptr[i];
+            unsigned int ncoeff = ncoeffptr[i];
+            for (unsigned int j = 0; j < ncoeff; j++)
             {
                 outptr[mapptr[offset + j]] +=
                     signptr[offset + j] * inptr[offset + j];

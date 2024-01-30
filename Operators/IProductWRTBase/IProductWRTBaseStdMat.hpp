@@ -1,5 +1,8 @@
-#include "Operators/OperatorIProductWRTBase.hpp"
+#pragma once
+
 #include <StdRegions/StdExpansion.h>
+
+#include "Operators/OperatorIProductWRTBase.hpp"
 
 namespace Nektar::Operators::detail
 {

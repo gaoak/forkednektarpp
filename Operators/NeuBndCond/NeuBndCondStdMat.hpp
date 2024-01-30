@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Operators/OperatorNeuBndCond.hpp"
-
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
+
+#include "Operators/OperatorNeuBndCond.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
