@@ -1,12 +1,14 @@
 #pragma once
 
+#include <string>
+
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
-#include <string>
+#include <Operators/OperatorsDeclspec.hpp>
 
 #include "Field.hpp"
-#include <OperatorsDeclspec.hpp>
+
 
 namespace Nektar::Operators
 {

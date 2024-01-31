@@ -18,3 +18,7 @@ ADD_NEKTAR_EXECUTABLE(UnitTests
 
 ADD_TEST(NAME UnitTests COMMAND UnitTests --detect_memory_leaks=0)
 SUBDIRS(LibUtilities LocalRegions Collections MultiRegions SpatialDomains)
+
+if (NEKTAR_BUILD_REDESIGN)
+    SUBDIRS(Operators)
+endif()

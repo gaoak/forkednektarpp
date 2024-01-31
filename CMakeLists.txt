@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.5.1)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.24)
 SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build,
 options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release
 RelWithDebInfo MinSizeRel.")
@@ -27,6 +27,10 @@ ENDIF()
 SET(CMAKE_CXX_STANDARD 17 CACHE STRING "Default value for CXX_STANDARD property of targets")
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_CXX_EXTENSIONS OFF)
+
+# Windows options
+SET(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+SET(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 INCLUDE(CheckLanguage)
 
@@ -189,6 +193,7 @@ OPTION(NEKTAR_BUILD_UNIT_TESTS        "Build unit tests."              ON)
 OPTION(NEKTAR_BUILD_TESTS             "Build regression tests."        ON)
 OPTION(NEKTAR_BUILD_PERFORMANCE_TESTS "Build performance tests."       OFF)
 OPTION(NEKTAR_BUILD_PYTHON            "Build Nektar++ Python bindings" OFF)
+OPTION(NEKTAR_BUILD_REDESIGN          "Build Nektar++ redesign code"   OFF)
 
 # Option to build solver libraries. Hidden if NEKTAR_BUILD_SOLVERS=OFF
 CMAKE_DEPENDENT_OPTION(NEKTAR_BUILD_SOLVER_LIBS
@@ -247,6 +252,40 @@ IF (MSVC)
     # memcmp, etc.
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_DEPRECATE)
 ENDIF()
+
+# Redesign-specific options
+if (NEKTAR_BUILD_REDESIGN)
+    OPTION(NEKTAR_ENABLE_CUDA "Enable CUDA execution" OFF)
+    OPTION(NEKTAR_ENABLE_SERIAL "Enable Serial execution" ON)
+    OPTION(NEKTAR_ENABLE_THREADS "Enable multithreaded execution" OFF)
+
+    if (NEKTAR_ENABLE_CUDA)
+        if (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
+        endif ()
+        enable_language(CUDA)
+        find_package(CUDAToolkit REQUIRED)
+        add_definitions(-DNEKTAR_USE_CUDA)
+
+        set(CUDA_SEPARABLE_COMPILATION ON)
+        set(CUDA_RUNTIME_LIBRARY "Shared")
+        if (NOT DEFINED CMAKE_CUDA_STANDARD)
+            set(CMAKE_CUDA_STANDARD 20)
+            set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+        endif()
+        if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+            set(CMAKE_CUDA_ARCHITECTURES native)
+        endif()
+    endif (NEKTAR_ENABLE_CUDA)
+
+    if (NEKTAR_ENABLE_THREADS)
+        add_definitions(-DNEKTAR_USE_THREADS)
+    endif()
+
+    if (NEKTAR_ENABLE_SERIAL)
+        add_definitions(-DNEKTAR_USE_SERIAL)
+    endif()
+endif()
 
 # Include Nektar++ common macros
 INCLUDE (NektarCommon)
