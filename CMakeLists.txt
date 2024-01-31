@@ -1,23 +1,30 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.24)
 project(Redesign CXX)
+#SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
+#INCLUDE (NektarCommon)
 
-enable_testing()
-
-option(NEKTAR_USE_CUDA "Enable CUDA support" FALSE)
+option(NEKTAR_USE_DEBUG " Enable Graphless execution" OFF)
+option(NEKTAR_USE_SERIAL "Enable Serial execution" ON)
+option(NEKTAR_USE_THREADS "Enable Multithreading execution" ON)
+option(NEKTAR_USE_CUDA "Enable CUDA execution" ON)
+OPTION(NEKTAR_MPI "Use MPI for parallelisation." ON)
 option(NEKTAR_USE_SIMD "Enable SIMD support, if available" TRUE)
+
+if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
+    MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
+endif()
+
+OPTION(NEKTAR_BUILD_DEMOS "Build demonstration codes."     OFF)
+OPTION(NEKTAR_BUILD_TESTS "Build tests."     OFF)
+
+OPTION(NEKTAR_FULL_DEBUG "Enable Full Debugging." ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 75 80 86)
-    # CMake 3.24
-    # set(CMAKE_CUDA_ARCHITECTURES native)
-endif()
-
-# Default install location: build/dist
+INCLUDE(CMakeDependentOption)
 IF (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
         SET(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/dist CACHE PATH "" FORCE)
 ENDIF()
@@ -26,56 +33,43 @@ find_package(Nektar++ REQUIRED)
 include_directories(SYSTEM ${NEKTAR++_INCLUDE_DIRS} ${NEKTAR++_TP_INCLUDE_DIRS})
 link_directories(${NEKTAR++_LIBRARY_DIRS} ${NEKTAR++_TP_LIBRARY_DIRS})
 message(STATUS "Found Nektar++: version ${NEKTAR++_VERSION}")
-
 set(CMAKE_INSTALL_RPATH "${NEKTAR++_LIBRARY_DIRS}")
 
-set(SRC Field.cpp Operators/Operator.cpp 
-    Operators/OperatorBwdTrans.cpp Operators/BwdTrans/BwdTransImpl.cpp 
-    Operators/OperatorIProductWRTBase.cpp Operators/IProductWRTBase/IProductWRTBaseImpl.cpp
-    Operators/OperatorIProductWRTDerivBase.cpp Operators/IProductWRTDerivBase/IProductWRTDerivBaseImpl.cpp
-    Operators/OperatorPhysDeriv.cpp Operators/PhysDeriv/PhysDerivImpl.cpp
-    Operators/OperatorIdentity.cpp Operators/Identity/IdentityImpl.cpp
-    Operators/OperatorMass.cpp Operators/Mass/MassImpl.cpp
-    Operators/OperatorHelmholtz.cpp Operators/Helmholtz/HelmholtzImpl.cpp
-    Operators/OperatorAssmbScatr.cpp Operators/AssmbScatr/AssmbScatrImpl.cpp
-    Operators/OperatorNullPrecon.cpp Operators/NullPrecon/NullPreconImpl.cpp
-    Operators/OperatorDiagPrecon.cpp Operators/DiagPrecon/DiagPreconImpl.cpp
-    Operators/OperatorDirBndCond.cpp Operators/DirBndCond/DirBndCondImpl.cpp
-    Operators/OperatorNeuBndCond.cpp Operators/NeuBndCond/NeuBndCondImpl.cpp
-    Operators/OperatorRobBndCond.cpp Operators/RobBndCond/RobBndCondImpl.cpp
-    Operators/OperatorConjGrad.cpp Operators/ConjGrad/ConjGradImpl.cpp
-    Operators/OperatorFwdTrans.cpp Operators/FwdTrans/FwdTransImpl.cpp
-    Operators/OperatorHelmSolve.cpp Operators/HelmSolve/HelmSolveImpl.cpp
-    Operators/OperatorMatrix.cpp Operators/Matrix/MatrixImpl.cpp
-    Operators/OperatorAddTraceIntegral.cpp Operators/AddTraceIntegral/AddTraceIntegralImpl.cpp
-    )
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-if (NEKTAR_USE_CUDA AND NEKTAR_USE_SIMD)
-    MESSAGE(FATAL_ERROR "Cannot use both SIMD and CUDA")
-endif()
+SET(NEKTAR_LIBRARY_TYPE "SHARED")
 
 if (NEKTAR_USE_CUDA)
     enable_language(CUDA)
+    find_package(CUDAToolkit REQUIRED)
     add_definitions(-DNEKTAR_USE_CUDA)
-    set(SRC ${SRC} MemoryRegionCUDA.cu 
-                   Operators/BwdTrans/BwdTransCUDA.cu 
-                   Operators/IProductWRTBase/IProductWRTBaseCUDA.cu 
-                   Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cu 
-                   Operators/PhysDeriv/PhysDerivCUDA.cu
-                   Operators/Identity/IdentityCUDA.cu
-                   Operators/Mass/MassCUDA.cu
-                   Operators/Helmholtz/HelmholtzCUDA.cu
-                   Operators/AssmbScatr/AssmbScatrCUDA.cu 
-                   Operators/NullPrecon/NullPreconCUDA.cu 
-                   Operators/DiagPrecon/DiagPreconCUDA.cu
-                   Operators/DirBndCond/DirBndCondCUDA.cu
-                   Operators/NeuBndCond/NeuBndCondCUDA.cu
-                   #Operators/RobBndCond/RobBndCondCUDA.cu
-                   Operators/ConjGrad/ConjGradCUDA.cu
-                   Operators/FwdTrans/FwdTransCUDA.cu
-                   Operators/HelmSolve/HelmSolveCUDA.cu 
-                   Operators/Matrix/MatrixCUDA.cu 
-       )
+
+    if(NEKTAR_FULL_DEBUG)
+        add_definitions(-DNEKTAR_CUDA_DEBUG)
+    endif()
+
+    SET(CUDA_SEPARABLE_COMPILATION ON)
+    SET(CUDA_RUNTIME_LIBRARY "SHARED")
+    IF(NOT DEFINED CMAKE_CUDA_STANDARD)
+        SET(CMAKE_CUDA_STANDARD 20) 
+        SET(CMAKE_CUDA_STANDARD_REQUIRED ON) 
+    ENDIF()
+    IF(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        SET(CMAKE_CUDA_ARCHITECTURES native)
+    ENDIF()
+
+endif()
+
+if (NEKTAR_USE_THREADS)
+    add_definitions(-DNEKTAR_USE_THREADS)
+endif()
+
+if (NEKTAR_USE_SERIAL)
+    add_definitions(-DNEKTAR_USE_SERIAL)
+endif()
+
+if (NEKTAR_USE_DEBUG)
+    add_definitions(-DNEKTAR_USE_DEBUG)
 endif()
 
 if (NEKTAR_USE_SIMD)
@@ -83,90 +77,42 @@ if (NEKTAR_USE_SIMD)
     add_compile_options("-march=native")
 endif()
 
-SET(OPERATORS_HEADERS
-    Operators/Operators.hpp
-)
+if (NEKTAR_MPI)
+    FIND_PACKAGE(MPI REQUIRED)
+    INCLUDE_DIRECTORIES(SYSTEM ${MPI_CXX_INCLUDE_PATH} )
+    MESSAGE(STATUS "Found MPI: ${MPI_CXX_LIBRARIES}")
+    add_definitions(-DNEKTAR_USE_MPI)
+endif()
 
-# # Boilerplate cpp implementation files for registering an operator
-# # with the factory. There are individual files for each operator shape
-# # so to reduce compile time timeout failures due to the large number
-# # of template impementations.
-
-# SET(OPERATORS BwdTrans)
-# SET(SHAPES Seg Tri Quad Hex Tet Prism Pyr )
-# SET(DIMENSIONS 1 2 2 3 3 3 3 )
-
-# # Note the commented out code is future simpler code for when cmake 3.17 can
-# # be used on the tester.
-
-# foreach(OPERATOR IN LISTS OPERATORS)
-# #  if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-# #    Remove the code in this part of the conditional once CMake 3.17
-# #    can be used on the CI tester.
-#      foreach(SHAPE IN LISTS SHAPES)
-#         IF( "${SHAPE}" STREQUAL "Seg" )
-# 	    SET(DIMENSION 1)
-#         ELSEIF( "${SHAPE}" STREQUAL "Tri" OR "${SHAPE}" STREQUAL "Quad" )
-# 	    SET(DIMENSION 2)
-# 	ELSE()
-# 	    SET(DIMENSION 3)
-#         ENDIF()
-# #  else()
-# #     Use this code once CMake 3.17 can be used on the CI tester.
-# #     foreach(SHAPE DIMENSION IN ZIP_LISTS SHAPES DIMENSIONS)
-# #  endif()
-
-# 	# Uppercase is used for the #defines in the header files.
-# 	string(TOUPPER ${SHAPE} TYPE)	
-
-#         # INST sets the macro used in NektarExpMacros.h
-#         # The BwdTrans only has regular elements.
-#         IF( "${OPERATOR}" STREQUAL "BwdTrans" )
-#             SET(INST 1)
-#         # All other operators have regular and deformed elements.
-#         ELSE()
-#             SET(INST 2)
-#         ENDIF()
-
-#         # Create the cpp file from the implementation file.
-#         configure_file(Operators/OperatorImp.cpp.in ${OPERATOR}${SHAPE}.cpp)
-
-#         # Add the respective headers and cpp file.
-#         SET(OPERATORS_HEADERS ${OPERATORS_HEADERS}
-#         ${OPERATOR}/${OPERATOR}MatFree.hpp)
-#         SET(OPERATORS_HEADERS ${OPERATORS_HEADERS}
-#         ${OPERATOR}/${OPERATOR}MatFreeKernels.hpp)
-#         SET(SRC ${SRC} ${OPERATORS_SOURCES}
-#             ${CMAKE_CURRENT_BINARY_DIR}/${OPERATOR}${SHAPE}.cpp)
-
-#     endforeach()
-# endforeach()
-
-# add_compile_options("-fsanitize=address,undefined")
-# add_link_options("-fsanitize=address,undefined")
+#INCLUDE (ThirdPartyBoost)
+SET(Boost_USE_STATIC_LIBS OFF)
+IF( WIN32 )
+    # The auto-linking feature has problems with USE_STATIC_LIBS off, so we use
+    # BOOST_ALL_NO_LIB to turn it off.
+    # Several boost libraries headers aren't configured correctly if
+    # USE_STATIC_LIBS is off, so we explicitly say they are dynamic with the
+    # remaining definitions.
+    ADD_DEFINITIONS(-DBOOST_ALL_NO_LIB -DBOOST_PROGRAM_OPTIONS_DYN_LINK -DBOOST_IOSTREAMS_DYN_LINK -DBOOST_THREAD_DYN_LINK)
+ENDIF( )
 
 add_compile_definitions(NEKTAR_FULLDEBUG) # Test ASSERT/WARNING macros
 
-add_library(Operators SHARED ${SRC})
-target_link_libraries(Operators PUBLIC ${NEKTAR++_LIBRARIES} ${NEKTAR++_TP_LIBRARIES})
-target_include_directories(Operators PRIVATE "${CMAKE_SOURCE_DIR}")
-target_compile_definitions(Operators PUBLIC ${NEKTAR++_DEFINITIONS})
-
-add_subdirectory(tests)
+INCLUDE_DIRECTORIES(Operators)
+ADD_SUBDIRECTORY(Operators)
 
 find_package(Doxygen)
 add_custom_target(doc COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_SOURCE_DIR}/Doxyfile)
 
+IF (NEKTAR_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+    add_definitions(-DNEKTAR_TEST_ALL)
+ENDIF (NEKTAR_BUILD_TESTS)
+
 # Turn-on warnings
-TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wall -Wextra)
-IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # For GNU compilers add pedantic warnings
-    IF (NOT NEKTAR_USE_CUDA)
-        TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wpedantic)
-    ENDIF()
-    TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wnon-virtual-dtor)
-ENDIF()
-# Temporarily disable warnings about comparing signed and unsigned
-TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wno-sign-compare)
-# Temporarily disable warnings about narrowing of data types
-TARGET_COMPILE_OPTIONS(Operators PRIVATE -Wno-narrowing -Wno-conversion)
+add_compile_options(
+  $<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:MSVC>:/W4>>
+  $<$<COMPILE_LANGUAGE:CXX>:$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wpedantic -Werror -Wnon-virtual-dtor -Wno-sign-compare -Wno-narrowing -Wno-conversion>>
+)
+
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<$<CXX_COMPILER_ID:MSVC>:/MP>>)

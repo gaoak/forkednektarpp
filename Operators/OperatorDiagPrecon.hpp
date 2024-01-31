@@ -25,8 +25,8 @@ public:
 template <typename TData = default_fp_type> struct DiagPrecon
 {
     using class_name = OperatorDiagPrecon<TData>;
-    static const std::string key;
-    static const std::string default_impl;
+    OPERATORS_EXPORT static const std::string key;
+    OPERATORS_EXPORT static const std::string default_impl;
 
     DiagPrecon() = delete;
 
