@@ -1,0 +1,82 @@
+#pragma once
+
+namespace Nektar::Operators::detail
+{
+
+template <typename TData>
+__global__ void DiffusionCoeff1DKernel(const unsigned int nsize,
+                                       const TData *diffCoeff, TData *deriv0)
+{
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (i < nsize)
+    {
+        deriv0[i] *= diffCoeff[0];
+
+        i += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData>
+__global__ void DiffusionCoeff2DKernel(const unsigned int nsize,
+                                       const TData *diffCoeff, TData *deriv0,
+                                       TData *deriv1)
+{
+    __shared__ TData s_diffCoeff[4];
+
+    // Copy to shared memory.
+    unsigned int ind = threadIdx.x;
+    if (ind < 4)
+    {
+        s_diffCoeff[ind] = diffCoeff[ind];
+    }
+
+    __syncthreads();
+
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (i < nsize)
+    {
+        TData deriv[2] = {deriv0[i], deriv1[i]};
+
+        deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1];
+        deriv1[i] = s_diffCoeff[2] * deriv[0] + s_diffCoeff[3] * deriv[1];
+
+        i += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData>
+__global__ void DiffusionCoeff3DKernel(const unsigned int nsize,
+                                       TData *diffCoeff, TData *deriv0,
+                                       TData *deriv1, TData *deriv2)
+{
+    __shared__ TData s_diffCoeff[9];
+
+    // Copy to shared memory.
+    unsigned int ind = threadIdx.x;
+    if (ind < 9)
+    {
+        s_diffCoeff[ind] = diffCoeff[ind];
+    }
+
+    __syncthreads();
+
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (i < nsize)
+    {
+        TData deriv[3] = {deriv0[i], deriv1[i], deriv2[i]};
+
+        deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1] +
+                    s_diffCoeff[2] * deriv[2];
+        deriv1[i] = s_diffCoeff[3] * deriv[0] + s_diffCoeff[4] * deriv[1] +
+                    s_diffCoeff[5] * deriv[2];
+        deriv2[i] = s_diffCoeff[6] * deriv[0] + s_diffCoeff[7] * deriv[1] +
+                    s_diffCoeff[8] * deriv[2];
+
+        i += blockDim.x * gridDim.x;
+    }
+}
+
+} // namespace Nektar::Operators::detail

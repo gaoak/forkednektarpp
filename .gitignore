@@ -22,3 +22,8 @@ ThirdParty
 *.sublime-workspace
 # CLion build directories
 cmake-build-*
+# Caches and temporary files
+a.out
+.ccls-cache/
+.cache
+*.opt
