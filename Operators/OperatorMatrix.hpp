@@ -28,8 +28,8 @@ public:
 template <FieldState TFieldState, typename TData> struct Matrix
 {
     using class_name = OperatorMatrix<TData, TFieldState>;
-    static const std::string key;
-    static const std::string default_impl;
+    OPERATORS_EXPORT static const std::string key;
+    OPERATORS_EXPORT static const std::string default_impl;
 
     Matrix() = delete;
 

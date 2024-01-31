@@ -29,8 +29,8 @@ public:
 template <typename TData = default_fp_type> struct RobBndCond
 {
     using class_name = OperatorRobBndCond<TData>;
-    static const std::string key;
-    static const std::string default_impl;
+    OPERATORS_EXPORT static const std::string key;
+    OPERATORS_EXPORT static const std::string default_impl;
 
     RobBndCond() = delete;
 

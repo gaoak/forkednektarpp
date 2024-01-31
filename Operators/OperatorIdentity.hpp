@@ -38,8 +38,8 @@ struct Identity
     using class_name = OperatorIdentity<TData, TFieldState>;
     using FieldIn    = Field<TData, TFieldState>;
     using FieldOut   = Field<TData, TFieldState>;
-    static const std::string key;
-    static const std::string default_impl;
+    OPERATORS_EXPORT static const std::string key;
+    OPERATORS_EXPORT static const std::string default_impl;
 
     Identity() = delete;
 

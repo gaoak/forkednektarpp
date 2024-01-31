@@ -6,6 +6,7 @@
 #include <string>
 
 #include "Field.hpp"
+#include <OperatorsDeclspec.hpp>
 
 namespace Nektar::Operators
 {
