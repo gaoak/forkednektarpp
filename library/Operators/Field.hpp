@@ -263,6 +263,12 @@ public:
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TData>>(
             storage_size * num_components, Align);
+
+        // Zero memory
+        std::fill(field.m_storage->GetCPUPtr(),
+                  field.m_storage->GetCPUPtr() + storage_size * num_components,
+                  0);
+
         // Record the alignment
         field.m_alignment = Align;
 
@@ -294,6 +300,12 @@ public:
         // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
         field.m_storage = std::make_unique<TMemoryRegion<TData>>(
             storage_size * num_components, Align);
+
+        // Zero memory
+        std::fill(field.m_storage->GetCPUPtr(),
+                  field.m_storage->GetCPUPtr() + storage_size * num_components,
+                  0);
+
         // Record the alignment
         field.m_alignment = Align;
 

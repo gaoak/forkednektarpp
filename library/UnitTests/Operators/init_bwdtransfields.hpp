@@ -106,92 +106,32 @@ public:
     }
 };
 
-class Seg : public BwdTransField
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public BwdTransField                                          \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public BwdTransField
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST(Seg, "run/line.xml")
 
-class Tri : public BwdTransField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+TEST(Quad, "run/square.xml")
 
-class SquareAllElements : public BwdTransField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST(Tri, "run/tri.xml")
 
-class Hex : public BwdTransField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST(SquareAllElements, "run/square_all_elements.xml")
 
-class Prism : public BwdTransField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST(Hex, "run/hex.xml")
 
-class Pyr : public BwdTransField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+TEST(Prism, "run/prism.xml")
 
-class Tet : public BwdTransField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST(Pyr, "run/pyr.xml")
 
-class CubePrismHex : public BwdTransField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST(Tet, "run/tet.xml")
 
-class CubeAllElements : public BwdTransField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")

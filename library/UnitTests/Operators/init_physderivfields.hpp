@@ -451,92 +451,52 @@ public:
     }
 };
 
-class Seg : public PhysDerivField1D
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST1D(type, filename)                                                 \
+    class type : public PhysDerivField1D                                       \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public PhysDerivField2D
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST1D(Seg, "run/line.xml")
 
-class Tri : public PhysDerivField2D
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+#define TEST2D(type, filename)                                                 \
+    class type : public PhysDerivField2D                                       \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class SquareAllElements : public PhysDerivField2D
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST2D(Quad, "run/square.xml")
 
-class Hex : public PhysDerivField3D
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST2D(Tri, "run/tri.xml")
 
-class Prism : public PhysDerivField3D
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST2D(SquareAllElements, "run/square_all_elements.xml")
 
-class Pyr : public PhysDerivField3D
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+#define TEST3D(type, filename)                                                 \
+    class type : public PhysDerivField3D                                       \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Tet : public PhysDerivField3D
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST3D(Hex, "run/hex.xml")
 
-class CubePrismHex : public PhysDerivField3D
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST3D(Prism, "run/prism.xml")
 
-class CubeAllElements : public PhysDerivField3D
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST3D(Pyr, "run/pyr.xml")
+
+TEST3D(Tet, "run/tet.xml")
+
+TEST3D(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST3D(CubeAllElements, "run/cube_all_elements.xml")

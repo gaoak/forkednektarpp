@@ -80,56 +80,24 @@ public:
     }
 };
 
-class Helmholtz1D_Seg : public DirichletField
-{
-public:
-    Helmholtz1D_Seg()
-    {
-        meshName = "run/Helmholtz1D_P8.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public DirichletField                                         \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Helmholtz2D_Tri_Quad : public DirichletField
-{
-public:
-    Helmholtz2D_Tri_Quad()
-    {
-        meshName = "run/Helmholtz2D_P7_AllBCs.xml";
-    }
-};
+TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
-class Helmholtz3D_Hex : public DirichletField
-{
-public:
-    Helmholtz3D_Hex()
-    {
-        meshName = "run/Helmholtz3D_Hex_Heterogeneous.xml";
-    }
-};
+TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_P7_AllBCs.xml")
 
-class Helmholtz3D_Prism : public DirichletField
-{
-public:
-    Helmholtz3D_Prism()
-    {
-        meshName = "run/Helmholtz3D_Prism_VarP.xml";
-    }
-};
+TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 
-class Helmholtz3D_Pyr : public DirichletField
-{
-public:
-    Helmholtz3D_Pyr()
-    {
-        meshName = "run/Helmholtz3D_Pyr_VarP.xml";
-    }
-};
+TEST(Helmholtz3D_Prism, "run/Helmholtz3D_Prism_VarP.xml")
 
-class Helmholtz3D_Tet : public DirichletField
-{
-public:
-    Helmholtz3D_Tet()
-    {
-        meshName = "run/Helmholtz3D_Tet_VarP.xml";
-    }
-};
+TEST(Helmholtz3D_Pyr, "run/Helmholtz3D_Pyr_VarP.xml")
+
+TEST(Helmholtz3D_Tet, "run/Helmholtz3D_Tet_VarP.xml")

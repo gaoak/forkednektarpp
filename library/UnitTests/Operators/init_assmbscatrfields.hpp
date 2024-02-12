@@ -114,92 +114,32 @@ public:
     }
 };
 
-class Seg : public AssmbScatrField
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public AssmbScatrField                                        \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public AssmbScatrField
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST(Seg, "run/line.xml")
 
-class Tri : public AssmbScatrField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+TEST(Quad, "run/square.xml")
 
-class SquareAllElements : public AssmbScatrField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST(Tri, "run/tri.xml")
 
-class Hex : public AssmbScatrField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST(SquareAllElements, "run/square_all_elements.xml")
 
-class Prism : public AssmbScatrField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST(Hex, "run/hex.xml")
 
-class Pyr : public AssmbScatrField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+TEST(Prism, "run/prism.xml")
 
-class Tet : public AssmbScatrField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST(Pyr, "run/pyr.xml")
 
-class CubePrismHex : public AssmbScatrField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST(Tet, "run/tet.xml")
 
-class CubeAllElements : public AssmbScatrField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")

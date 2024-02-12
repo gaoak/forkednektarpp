@@ -8,8 +8,8 @@
 
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/CUDAMathKernels.cuh"
+#include "MemoryRegionCUDA.hpp"
 #include "init_cudakernels.hpp"
 
 using namespace Nektar::Operators::detail;

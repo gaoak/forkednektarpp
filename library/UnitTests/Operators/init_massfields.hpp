@@ -108,92 +108,32 @@ public:
     }
 };
 
-class Seg : public MassField
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public MassField                                              \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public MassField
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST(Seg, "run/line.xml")
 
-class Tri : public MassField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+TEST(Quad, "run/square.xml")
 
-class SquareAllElements : public MassField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST(Tri, "run/tri.xml")
 
-class Hex : public MassField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST(SquareAllElements, "run/square_all_elements.xml")
 
-class Prism : public MassField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST(Hex, "run/hex.xml")
 
-class Pyr : public MassField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+TEST(Prism, "run/prism.xml")
 
-class Tet : public MassField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST(Pyr, "run/pyr.xml")
 
-class CubePrismHex : public MassField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST(Tet, "run/tet.xml")
 
-class CubeAllElements : public MassField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")
