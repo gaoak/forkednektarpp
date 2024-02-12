@@ -125,92 +125,32 @@ public:
     }
 };
 
-class Seg : public HelmholtzField
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public HelmholtzField                                         \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public HelmholtzField
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST(Seg, "run/line.xml")
 
-class Tri : public HelmholtzField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+TEST(Quad, "run/square.xml")
 
-class SquareAllElements : public HelmholtzField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST(Tri, "run/tri.xml")
 
-class Hex : public HelmholtzField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST(SquareAllElements, "run/square_all_elements.xml")
 
-class Prism : public HelmholtzField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST(Hex, "run/hex.xml")
 
-class Pyr : public HelmholtzField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+TEST(Prism, "run/prism.xml")
 
-class Tet : public HelmholtzField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST(Pyr, "run/pyr.xml")
 
-class CubePrismHex : public HelmholtzField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST(Tet, "run/tet.xml")
 
-class CubeAllElements : public HelmholtzField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")

@@ -55,7 +55,7 @@ public:
      * operator Delete previouisly defined fixt_in (also for CUDA) and re-define
      * input based on TraceExpList
      */
-    void ReConfigure(size_t nin = 1, size_t nout = 1)
+    void ReConfigure(size_t nin = 1, [[maybe_unused]] size_t nout = 1)
     {
         if (fixt_in)
         {
@@ -83,7 +83,7 @@ public:
     void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
                      bool padding = true)
     {
-        for (auto const &block : fixt_in->GetBlocks())
+        for (auto const &block : blocks)
         {
             for (size_t el = 0; el < block.num_elements; ++el)
             {
@@ -114,7 +114,7 @@ public:
         Array<OneD, NekDouble> outFieldcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set test case
-        SetTestCase(blocks, inTracephys.get(), false);
+        SetTestCase(fixt_in->GetBlocks(), inTracephys.get(), false);
 
         // Calculate expected result from Nektar++
         fixt_explist->AddTraceIntegral(inTracephys, outFieldcoeffs);
@@ -141,92 +141,32 @@ public:
     }
 };
 
-class Seg : public AddTraceIntegralField
-{
-public:
-    Seg()
-    {
-        meshName = "run/line.xml";
-    }
-};
+#define TEST(type, filename)                                                   \
+    class type : public AddTraceIntegralField                                  \
+    {                                                                          \
+    public:                                                                    \
+        type()                                                                 \
+        {                                                                      \
+            meshName = filename;                                               \
+        }                                                                      \
+    };
 
-class Quad : public AddTraceIntegralField
-{
-public:
-    Quad()
-    {
-        meshName = "run/square.xml";
-    }
-};
+TEST(Seg, "run/line.xml")
 
-class Tri : public AddTraceIntegralField
-{
-public:
-    Tri()
-    {
-        meshName = "run/tri.xml";
-    }
-};
+TEST(Quad, "run/square.xml")
 
-class SquareAllElements : public AddTraceIntegralField
-{
-public:
-    SquareAllElements()
-    {
-        meshName = "run/square_all_elements.xml";
-    }
-};
+TEST(Tri, "run/tri.xml")
 
-class Hex : public AddTraceIntegralField
-{
-public:
-    Hex()
-    {
-        meshName = "run/hex.xml";
-    }
-};
+TEST(SquareAllElements, "run/square_all_elements.xml")
 
-class Prism : public AddTraceIntegralField
-{
-public:
-    Prism()
-    {
-        meshName = "run/prism.xml";
-    }
-};
+TEST(Hex, "run/hex.xml")
 
-class Pyr : public AddTraceIntegralField
-{
-public:
-    Pyr()
-    {
-        meshName = "run/pyr.xml";
-    }
-};
+TEST(Prism, "run/prism.xml")
 
-class Tet : public AddTraceIntegralField
-{
-public:
-    Tet()
-    {
-        meshName = "run/tet.xml";
-    }
-};
+TEST(Pyr, "run/pyr.xml")
 
-class CubePrismHex : public AddTraceIntegralField
-{
-public:
-    CubePrismHex()
-    {
-        meshName = "run/cube_prismhex.xml";
-    }
-};
+TEST(Tet, "run/tet.xml")
 
-class CubeAllElements : public AddTraceIntegralField
-{
-public:
-    CubeAllElements()
-    {
-        meshName = "run/cube_all_elements.xml";
-    }
-};
+TEST(CubePrismHex, "run/cube_prismhex.xml")
+
+TEST(CubeAllElements, "run/cube_all_elements.xml")

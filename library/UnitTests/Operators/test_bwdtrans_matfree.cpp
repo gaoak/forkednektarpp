@@ -34,8 +34,8 @@
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestBwdTransMatrixFree
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
-#include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
@@ -43,206 +43,44 @@
 #include "Operators/OperatorBwdTrans.hpp"
 #include "init_bwdtransfields.hpp"
 
+#define TEST_BWDTRANS(test_name, test, tol)                                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());  \
+        BwdTrans<>::create(fixt_explist, "StdMat")                             \
+            ->apply(*fixt_in, *fixt_expected);                                 \
+        BwdTrans<>::create(fixt_explist, "MatFree")                            \
+            ->apply(*fixt_in, *fixt_out);                                      \
+        fixt_out->ReshapeStorage<1>();                                         \
+        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),               \
+                             fixt_expected->GetStorage().GetCPUPtr(), tol);    \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestBwdTransMatFree)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_seg, Seg)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_seg, Seg, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_quad, Quad)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_quad, Quad, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_tri, Tri)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_tri, Tri, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_square_all_elements, SquareAllElements)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_square_all_elements, SquareAllElements, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_hex, Hex)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_hex, Hex, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_prism, Prism)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_prism, Prism, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_pyr, Pyr)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_pyr, Pyr, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_tet, Tet)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_tet, Tet, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_cube_prism_hex, CubePrismHex)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-BOOST_FIXTURE_TEST_CASE(bwdtrans_cube_all_elements, CubeAllElements)
-{
-    Configure();
-    SetTestCase(fixt_in->GetBlocks(), fixt_in->GetStorage().GetCPUPtr());
-    // apply StdMat implementation of the BwdTrans operator to define the
-    // expected output
-    BwdTrans<>::create(fixt_explist, "StdMat")->apply(*fixt_in, *fixt_expected);
-    // calculate result from current implementation
-    BwdTrans<>::create(fixt_explist, "MatFree")->apply(*fixt_in, *fixt_out);
-    // reshape fixt_out to scalar
-    fixt_out->ReshapeStorage<1>();
-    // compare
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(fixt_out->GetStorage().GetCPUPtr(),
-                         fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_BWDTRANS(bwdtrans_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

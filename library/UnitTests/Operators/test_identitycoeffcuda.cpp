@@ -34,8 +34,8 @@
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestIdentityCUDA
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
-#include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
@@ -43,196 +43,47 @@
 #include "Operators/OperatorIdentity.hpp"
 #include "init_identitycoefffields.hpp"
 
+#define TEST_IDENTITY(test_name, test, tol)                                    \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase(                                                           \
+            fixtcuda_in->GetBlocks(),                                          \
+            fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr()); \
+        Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")              \
+            ->apply(*fixtcuda_in, *fixtcuda_out);                              \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetStorage().GetCPUPtr());             \
+        BOOST_TEST(fixtcuda_out->compare(*fixt_expected, tol));                \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            OutputIfNotMatch(                                                  \
+                fixtcuda_out->template GetStorage<MemoryRegionCUDA>()          \
+                    .GetCPUPtr(),                                              \
+                fixt_expected->GetStorage().GetCPUPtr(), tol);                 \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestIdentityCUDA)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_seg, Seg)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_seg, Seg, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_quad, Quad)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_quad, Quad, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_tri, Tri)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_tri, Tri, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_square_all_elements, SquareAllElements)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_square_all_elements, SquareAllElements, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_hex, Hex)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_hex, Hex, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_prism, Prism)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_prism, Prism, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_pyr, Pyr)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_pyr, Pyr, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_tet, Tet)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_tet, Tet, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_cube_prism_hex, CubePrismHex)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_cube_prism_hex, CubePrismHex, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(identitycuda_cube_all_elements, CubeAllElements)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    Identity<FieldState::Coeff>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-12));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-12);
-    }
-}
+TEST_IDENTITY(identitycuda_cube_all_elements, CubeAllElements, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -34,8 +34,8 @@
 
 #define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestNullPreconCUDA
+#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
-#include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
@@ -43,120 +43,39 @@
 #include "Operators/OperatorNullPrecon.hpp"
 #include "init_nullpreconfields.hpp"
 
+#define TEST_NULLPRECON(test_name, test, tol)                                  \
+    BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
+    {                                                                          \
+        Configure();                                                           \
+        SetTestCase(                                                           \
+            fixtcuda_in->GetBlocks(),                                          \
+            fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr()); \
+        NullPrecon<>::create(fixt_explist, "CUDA")                             \
+            ->apply(*fixtcuda_in, *fixtcuda_out);                              \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetStorage().GetCPUPtr());             \
+        BOOST_TEST(fixtcuda_out->compare(*fixt_expected, tol));                \
+        boost::test_tools::output_test_stream output;                          \
+        {                                                                      \
+            OutputIfNotMatch(                                                  \
+                fixtcuda_out->template GetStorage<MemoryRegionCUDA>()          \
+                    .GetCPUPtr(),                                              \
+                fixt_expected->GetStorage().GetCPUPtr(), tol);                 \
+        }                                                                      \
+    }
+
 BOOST_AUTO_TEST_SUITE(TestNullPreconCUDA)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_seg, Helmholtz1D_Seg)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_seg, Helmholtz1D_Seg, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_tri_quad, Helmholtz2D_Tri_Quad)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_hex, Helmholtz3D_Hex)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_hex, Helmholtz3D_Hex, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_prism, Helmholtz3D_Prism)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_prism, Helmholtz3D_Prism, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_pyr, Helmholtz3D_Pyr)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_pyr, Helmholtz3D_Pyr, 1.0E-15)
 
-BOOST_FIXTURE_TEST_CASE(nullpreconcuda_tet, Helmholtz3D_Tet)
-{
-    Configure();
-    SetTestCase(
-        fixtcuda_in->GetBlocks(),
-        fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
-    NullPrecon<>::create(fixt_explist, "CUDA")
-        ->apply(*fixtcuda_in, *fixtcuda_out);
-    ExpectedSolution(fixt_expected->GetBlocks(),
-                     fixt_expected->GetStorage().GetCPUPtr());
-    BOOST_TEST(fixtcuda_out->compare(*fixt_expected, 1.0E-15));
-    boost::test_tools::output_test_stream output;
-    {
-        OutputIfNotMatch(
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr(),
-            fixt_expected->GetStorage().GetCPUPtr(), 1.0E-15);
-    }
-}
+TEST_NULLPRECON(nullpreconcuda_tet, Helmholtz3D_Tet, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

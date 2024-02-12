@@ -38,10 +38,10 @@
 #include <type_traits>
 #include <vector>
 
-#include <Operators/Field.hpp>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
+#include <Operators/Field.hpp>
 
 #ifdef NEKTAR_USE_CUDA
 #include "MemoryRegionCUDA.hpp"
