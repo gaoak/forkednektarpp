@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondCUDA.hpp
+// File: DirBndCondCUDA.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -38,22 +38,24 @@
 #include <MultiRegions/ContField.h>
 #include <SpatialDomains/Conditions.h>
 
-#include "MemoryRegionCUDA.hpp"
-#include "Operators/NeuBndCond/NeuBndCondCUDAKernels.cuh"
-#include "Operators/OperatorHelper.cuh"
-#include "Operators/OperatorNeuBndCond.hpp"
+#include "Operators/DirBndCond/DirBndCondCUDAKernels.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
+#include "Operators/OperatorDirBndCond.hpp"
+#include "Operators/OperatorHelper.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
+using namespace Nektar::SpatialDomains;
 
 namespace Nektar::Operators::detail
 {
+
 template <typename TData>
-class OperatorNeuBndCondImpl<TData, ImplCUDA> : public OperatorNeuBndCond<TData>
+class OperatorDirBndCondImpl<TData, ImplCUDA> : public OperatorDirBndCond<TData>
 {
 public:
-    OperatorNeuBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorNeuBndCond<TData>(expansionList)
+    OperatorDirBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorDirBndCond<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -121,48 +123,97 @@ public:
         cudaMemcpy(m_coeff, coeff.get(), sizeof(TData) * coeff.size(),
                    cudaMemcpyHostToDevice);
 
-        // Deterime CUDA grid parameters.
-        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
+        m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
+        Array<OneD, int> locid0(m_localDirSize);
+        Array<OneD, int> locid1(m_localDirSize);
+        Array<OneD, TData> locsign(m_localDirSize);
+        size_t cnt = 0;
+        for (auto &it : assmbMap->GetCopyLocalDirDofs())
+        {
+            locid0[cnt]  = std::get<0>(it);
+            locid1[cnt]  = std::get<1>(it);
+            locsign[cnt] = std::get<2>(it);
+            cnt++;
+        }
+        cudaMalloc((void **)&m_locid0, sizeof(int) * locid0.size());
+        cudaMemcpy(m_locid0, locid0.get(), sizeof(int) * locid0.size(),
+                   cudaMemcpyHostToDevice);
+        cudaMalloc((void **)&m_locid1, sizeof(int) * locid1.size());
+        cudaMemcpy(m_locid1, locid1.get(), sizeof(int) * locid1.size(),
+                   cudaMemcpyHostToDevice);
+        cudaMalloc((void **)&m_locsign, sizeof(TData) * locsign.size());
+        cudaMemcpy(m_locsign, locsign.get(), sizeof(TData) * locsign.size(),
+                   cudaMemcpyHostToDevice);
     }
 
-    ~OperatorNeuBndCondImpl(void)
+    ~OperatorDirBndCondImpl(void)
     {
         if (m_signChange)
         {
             cudaFree(m_sign);
         }
+
         cudaFree(m_map);
         cudaFree(m_offset);
         cudaFree(m_ncoeff);
         cudaFree(m_bctype);
         cudaFree(m_coeff);
+        cudaFree(m_locid0);
+        cudaFree(m_locid1);
+        cudaFree(m_locsign);
     }
 
-    void apply(Field<TData, FieldState::Coeff> &inout) override
+    void apply(Field<TData, FieldState::Coeff> &out) override
     {
         // Copy memory to GPU, if necessary and get raw pointers.
-        auto *inoutptr =
-            inout.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+
+        // Deterime CUDA grid size.
+        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
 
         if (m_signChange)
         {
-            NeuBndCondKernel<TData><<<m_gridSize, m_blockSize>>>(
+            DirBndCondKernel<TData><<<m_gridSize, m_blockSize>>>(
                 m_bndExpSize, m_offset, m_bctype, m_ncoeff, m_sign, m_map,
-                m_coeff, inoutptr);
+                m_coeff, outptr);
         }
         else
         {
-            NeuBndCondKernel<TData><<<m_gridSize, m_blockSize>>>(
-                m_bndExpSize, m_offset, m_bctype, m_ncoeff, m_map, m_coeff,
-                inoutptr);
+            DirBndCondKernel<TData>
+                <<<m_gridSize, m_blockSize>>>(m_bndExpSize, m_offset, m_bctype,
+                                              m_ncoeff, m_map, m_coeff, outptr);
         }
+
+        // communicate local Dirichlet coeffs that are just
+        // touching a dirichlet boundary on another partition
+        // auto &ParallelDirBndSign = locToGloMap->GetParallelDirBndSign();
+
+        // for (auto &it : ParallelDirBndSign)
+        //{
+        //     outarr[it] *= -1;
+        // }
+
+        // Array<OneD, NekDouble> arr(nloc, outarr.data());
+        // locToGloMap->UniversalAbsMaxBnd(arr);
+        // std::copy(arr.get(), arr.get() + nloc, outarr.data());
+
+        // for (auto &it : ParallelDirBndSign)
+        //{
+        //     outarr[it] *= -1;
+        // }
+
+        // Deterime CUDA grid size.
+        m_gridSize = GetCUDAGridSize(m_localDirSize, m_blockSize);
+
+        LocalDirBndCondKernel<TData><<<m_gridSize, m_blockSize>>>(
+            m_localDirSize, m_locid0, m_locid1, m_locsign, outptr);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorNeuBndCondImpl<TData, ImplCUDA>>(
+        return std::make_unique<OperatorDirBndCondImpl<TData, ImplCUDA>>(
             expansionList);
     }
 
@@ -172,12 +223,16 @@ public:
 protected:
     bool m_signChange;
     size_t m_bndExpSize;
+    size_t m_localDirSize;
     BoundaryConditionType *m_bctype;
     TData *m_coeff;
     TData *m_sign;
     int *m_map;
     int *m_ncoeff;
     int *m_offset;
+    int *m_locid0;
+    int *m_locid1;
+    TData *m_locsign;
     size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };

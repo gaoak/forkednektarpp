@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "Field.hpp"
-#include "Operators/AssmbScatr/AssmbScatrCUDA.hpp"
+#include "Operators/AssmbScatr/AssmbScatrCUDA.cuh"
 #include "Operators/CUDAMathKernels.cuh"
 #include "Operators/DiagPrecon/DiagPreconCUDAKernel.cuh"
+#include "Operators/Field.hpp"
 #include "Operators/OperatorDiagPrecon.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>

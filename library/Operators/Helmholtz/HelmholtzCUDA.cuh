@@ -34,12 +34,12 @@
 
 #pragma once
 
-#include "Operators/BwdTrans/BwdTransCUDA.hpp"
+#include "Operators/BwdTrans/BwdTransCUDA.cuh"
 #include "Operators/Helmholtz/HelmholtzCUDAKernels.cuh"
-#include "Operators/IProductWRTBase/IProductWRTBaseCUDA.hpp"
-#include "Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.hpp"
+#include "Operators/IProductWRTBase/IProductWRTBaseCUDA.cuh"
+#include "Operators/IProductWRTDerivBase/IProductWRTDerivBaseCUDA.cuh"
 #include "Operators/OperatorHelmholtz.hpp"
-#include "Operators/PhysDeriv/PhysDerivCUDA.hpp"
+#include "Operators/PhysDeriv/PhysDerivCUDA.cuh"
 
 namespace Nektar::Operators::detail
 {

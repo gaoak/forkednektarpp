@@ -54,9 +54,13 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
         // unroll very small loops
         df_tmp[0] = df_ptr[0];
         if (ndf >= 2)
+        {
             df_tmp[1] = df_ptr[1];
+        }
         if (ndf == 3)
+        {
             df_tmp[2] = df_ptr[2];
+        }
     }
 
     for (int j = 0; j < nq0; ++j)
@@ -65,9 +69,13 @@ NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
         {
             df_tmp[0] = df_ptr[j * ndf]; // load 1x
             if (ndf >= 2)
+            {
                 df_tmp[1] = df_ptr[j * ndf + 1]; // load 1x
+            }
             if (ndf == 3)
+            {
                 df_tmp[2] = df_ptr[j * ndf + 2]; // load 1x
+            }
         }
 
         // Multiply by derivative factors
@@ -116,7 +124,9 @@ NEK_FORCE_INLINE void PhysDeriv2DKernel(
     {
         vec_t xfrm0;
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+        {
             xfrm0 = 2.0 / (1.0 - Z1[j]); // Load 1x
+        }
 
         for (int i = 0; i < nq0; ++i, ++cnt_ji)
         {

@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -47,7 +47,7 @@ class OperatorMass
     : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
-    virtual ~OperatorMass() = default;
+    ~OperatorMass() override = default;
 
     OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
@@ -55,9 +55,8 @@ public:
     {
     }
 
-    virtual void apply(
-        [[maybe_unused]] Field<TData, FieldState::Coeff> &in,
-        [[maybe_unused]] Field<TData, FieldState::Coeff> &out) override
+    void apply([[maybe_unused]] Field<TData, FieldState::Coeff> &in,
+               [[maybe_unused]] Field<TData, FieldState::Coeff> &out) override
     {
     }
 
@@ -87,6 +86,12 @@ template <typename TData = default_fp_type> struct Mass
                                                              pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string Mass<default_fp_type>::key;
+template <> const std::string Mass<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

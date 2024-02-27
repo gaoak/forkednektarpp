@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "MemoryRegionCUDA.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorPhysDeriv.hpp"
 #include "Operators/PhysDeriv/PhysDerivCUDAKernels.cuh"
 

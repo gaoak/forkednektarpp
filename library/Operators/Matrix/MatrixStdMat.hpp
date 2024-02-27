@@ -60,17 +60,17 @@ public:
         m_matrix = std::vector<TData>(m_size * m_size);
     }
 
-    size_t size()
+    size_t size() override
     {
         return m_size;
     }
 
-    void fill(std::vector<TData> src)
+    void fill(std::vector<TData> src) override
     {
         std::copy(src.begin(), src.end(), m_matrix.begin());
     }
 
-    std::string toString()
+    std::string toString() override
     {
         auto pMat = m_matrix.cbegin();
         std::string str;
@@ -79,7 +79,9 @@ public:
             for (size_t j = 0; j < m_size; ++j)
             {
                 if (j > 0)
+                {
                     str += "\t";
+                }
                 str += std::to_string(*(pMat++));
             }
             str += "\n";
@@ -87,7 +89,8 @@ public:
         return str;
     }
 
-    void apply(Field<TData, TFieldState> &in, Field<TData, TFieldState> &out)
+    void apply(Field<TData, TFieldState> &in,
+               Field<TData, TFieldState> &out) override
     {
         auto *pIn    = in.GetStorage().GetCPUPtr();
         auto *pOut   = out.GetStorage().GetCPUPtr();

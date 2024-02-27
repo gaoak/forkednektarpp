@@ -2,7 +2,7 @@
 <NEKTAR>
     <EXPANSIONS>
         <E COMPOSITE="C[1]" NUMMODES="4" FIELDS="u" TYPE="MODIFIED" />
-    </EXPANSIONS>    
+    </EXPANSIONS>
     <GEOMETRY DIM="3" SPACE="3">
         <VERTEX>
             <V ID="0">-1.00000000e+00 0.00000000e+00 0.00000000e+00</V>

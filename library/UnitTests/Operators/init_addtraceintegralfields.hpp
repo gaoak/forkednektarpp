@@ -68,7 +68,7 @@ public:
             Field<double, stateIn>::create(blocks_in, nin, vec_t::alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
 
-#ifdef NEKTAR_USE_CUDA
+#ifdef NEKTAR_ENABLE_CUDA
         if (fixtcuda_in)
         {
             delete fixtcuda_in;

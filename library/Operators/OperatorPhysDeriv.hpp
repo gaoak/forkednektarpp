@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -47,7 +47,7 @@ class OperatorPhysDeriv
     : public OperatorLinear<TData, FieldState::Phys, FieldState::Phys>
 {
 public:
-    virtual ~OperatorPhysDeriv() = default;
+    ~OperatorPhysDeriv() override = default;
 
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, FieldState::Phys, FieldState::Phys>(
@@ -55,9 +55,8 @@ public:
     {
     }
 
-    virtual void apply(
-        [[maybe_unused]] Field<TData, FieldState::Phys> &in,
-        [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
+    void apply([[maybe_unused]] Field<TData, FieldState::Phys> &in,
+               [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
     {
     }
 
@@ -87,6 +86,12 @@ template <typename TData = default_fp_type> struct PhysDeriv
                                                                   pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string PhysDeriv<>::key;
+template <> const std::string PhysDeriv<>::default_impl;
+#endif
 
 namespace detail
 {

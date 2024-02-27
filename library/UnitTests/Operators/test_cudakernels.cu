@@ -1,15 +1,13 @@
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestCUDAMathKernels
 #include <boost/test/tools/output_test_stream.hpp>
-#include <boost/test/unit_test.hpp>
 
 #include <iostream>
 #include <memory>
 
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 
-#include "Operators/CUDAMathKernels.cuh"
 #include "MemoryRegionCUDA.hpp"
+#include "Operators/CUDAMathKernels.cuh"
 #include "init_cudakernels.hpp"
 
 using namespace Nektar::Operators::detail;

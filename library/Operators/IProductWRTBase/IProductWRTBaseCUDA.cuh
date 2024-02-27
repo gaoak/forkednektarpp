@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/IProductWRTBase/IProductWRTBaseCUDAKernels.cuh"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
 
 #define FLAG_QP false

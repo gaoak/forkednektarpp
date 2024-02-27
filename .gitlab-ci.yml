@@ -702,7 +702,7 @@ win10-default-build-and-test:
     - echo $Env:path
     - mkdir build
     - cd build
-    - cmake.exe -DCMAKE_BUILD_TYPE=Debug ..
+    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_BUILD_REDESIGN=ON ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
     - ctest --output-on-failure -C Debug -j8
@@ -747,7 +747,7 @@ win10-mpi-default-build-and-test:
     - echo $Env:path
     - mkdir build
     - cd build
-    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_USE_MPI=ON ..
+    - cmake.exe -DCMAKE_BUILD_TYPE=Debug -DNEKTAR_BUILD_REDESIGN=ON -DNEKTAR_USE_MPI=ON ..
     - cmake.exe --build . --target ALL_BUILD
     - cmake.exe --build . --target INSTALL
     - ctest --output-on-failure -C Debug -j8

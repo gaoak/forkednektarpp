@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "Operator.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ template <typename TData>
 class OperatorAddTraceIntegral : public Operator<TData>
 {
 public:
-    virtual ~OperatorAddTraceIntegral() = default;
+    ~OperatorAddTraceIntegral() override = default;
 
     OperatorAddTraceIntegral(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -80,6 +80,12 @@ template <typename TData = default_fp_type> struct AddTraceIntegral
                                                                   pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string AddTraceIntegral<>::key;
+template <> const std::string AddTraceIntegral<>::default_impl;
+#endif
 
 namespace detail
 {

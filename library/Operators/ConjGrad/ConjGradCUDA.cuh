@@ -44,11 +44,11 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ContField.h>
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/CUDAMathKernels.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorConjGrad.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
 using namespace Nektar;

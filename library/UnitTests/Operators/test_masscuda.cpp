@@ -32,9 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestMassCUDA
-#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>

@@ -47,14 +47,11 @@
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
-namespace Nektar
-{
-namespace MultiRegions
+namespace Nektar::MultiRegions
 {
 class ExpList;
 typedef std::shared_ptr<ExpList> ExpListSharedPtr;
-} // namespace MultiRegions
-} // namespace Nektar
+} // namespace Nektar::MultiRegions
 
 /**
  * @brief Possible states for Field data.
@@ -159,13 +156,19 @@ public:
     bool compare(Field<TData, TState> &rhs, TData tol)
     {
         if (rhs.GetNumComponents() != GetNumComponents())
+        {
             return false;
+        }
 
         const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
         if (rhs_blocks.size() != block_attributes.size())
+        {
             return false;
+        }
         if (rhs.m_curVecWidth != m_curVecWidth)
+        {
             return false;
+        }
 
         bool isMatched = true;
 
@@ -185,9 +188,13 @@ public:
 
                 // Check that each block have the same structure
                 if (num_elements != rhs_blocks[bl].num_elements)
+                {
                     return false;
+                }
                 if (num_pts != rhs_blocks[bl].num_pts)
+                {
                     return false;
+                }
 
                 int MisMatchcnt = 0, total = 0;
 
@@ -376,7 +383,7 @@ public:
         {
             WARNINGL0(false, std::string("Converting backing storage from ") +
                                  typeid(*m_storage).name() + " to " +
-                                 typeid(T).name())
+                                 typeid(T).name());
 
             // This is just here so that the fromCPU method does
             // not need to be declared for MemoryRegionCPU
@@ -412,13 +419,17 @@ public:
     {
         // No reshape required, early return
         if (m_curVecWidth == VectorWidth)
+        {
             return;
+        }
 
         ReshapeToScalar();
 
         // Early return if "scalar" shape is required
         if (VectorWidth == 1)
+        {
             return;
+        }
 
         size_t scalar_field_size = GetFieldSize();
 
@@ -551,7 +562,9 @@ private:
     void ReshapeToScalar()
     {
         if (m_curVecWidth == 1)
+        {
             return;
+        }
 
         size_t scalar_field_size = GetFieldSize();
 

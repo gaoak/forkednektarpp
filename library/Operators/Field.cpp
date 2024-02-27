@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Field.hpp"
+#include "Operators/Field.hpp"
 #include <MultiRegions/ExpList.h>
 
 using namespace Nektar;

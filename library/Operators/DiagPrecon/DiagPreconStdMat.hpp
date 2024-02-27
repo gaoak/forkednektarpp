@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/Field.hpp"
 #include "Operators/AssmbScatr/AssmbScatrStdMat.hpp"
+#include "Operators/Field.hpp"
 #include "Operators/OperatorDiagPrecon.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
@@ -90,9 +90,9 @@ public:
         m_assmbScatr->GlobalToLocal(m_wk, out);
     }
 
-    void configure(
-        const std::shared_ptr<
-            OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
+    void configure(const std::shared_ptr<
+                   OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+                       &op) override
     {
         auto robBCOp = RobBndCond<TData>::create(this->m_expansionList);
 

@@ -59,9 +59,9 @@ public:
         m_assmbScatr->apply(in, out, true);
     }
 
-    void configure(
-        [[maybe_unused]] const std::shared_ptr<
-            OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &op)
+    void configure([[maybe_unused]] const std::shared_ptr<
+                   OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+                       &op) override
     {
     }
 

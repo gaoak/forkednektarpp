@@ -48,7 +48,7 @@ class OperatorLinear : public Operator<TData>
 {
 
 public:
-    virtual ~OperatorLinear() = default;
+    ~OperatorLinear() override = default;
 
     OperatorLinear(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)

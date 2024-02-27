@@ -37,10 +37,10 @@
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/OperatorHelper.hpp"
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

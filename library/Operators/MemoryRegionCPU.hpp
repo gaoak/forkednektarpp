@@ -63,7 +63,8 @@ public:
                     size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         // C++17 aligned new
-        m_host = static_cast<TData*>(::operator new[](n * sizeof(TData), std::align_val_t(alignment)));
+        m_host = static_cast<TData *>(
+            ::operator new[](n * sizeof(TData), std::align_val_t(alignment)));
         m_alignment = alignment;
         m_size      = n;
     }
@@ -80,7 +81,9 @@ public:
     MemoryRegionCPU &operator=(MemoryRegionCPU &&rhs)
     {
         if (m_host)
+        {
             operator delete[](m_host, std::align_val_t(m_alignment));
+        }
 
         m_host      = rhs.m_host;
         m_size      = rhs.m_size;

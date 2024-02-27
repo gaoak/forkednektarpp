@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -45,7 +45,7 @@ namespace Nektar::Operators
 template <typename TData> class OperatorConjGrad : public Operator<TData>
 {
 public:
-    virtual ~OperatorConjGrad() = default;
+    ~OperatorConjGrad() override = default;
 
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
@@ -98,6 +98,12 @@ template <typename TData = default_fp_type> struct ConjGrad
                                                                  pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string ConjGrad<default_fp_type>::key;
+template <> const std::string ConjGrad<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

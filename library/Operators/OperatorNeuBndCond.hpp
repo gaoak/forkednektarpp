@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "Operator.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -45,7 +45,7 @@ namespace Nektar::Operators
 template <typename TData> class OperatorNeuBndCond : public Operator<TData>
 {
 public:
-    virtual ~OperatorNeuBndCond() = default;
+    ~OperatorNeuBndCond() override = default;
 
     OperatorNeuBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
@@ -78,6 +78,12 @@ template <typename TData = default_fp_type> struct NeuBndCond
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string NeuBndCond<default_fp_type>::key;
+template <> const std::string NeuBndCond<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

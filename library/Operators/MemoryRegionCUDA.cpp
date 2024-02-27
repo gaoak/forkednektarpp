@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IdentityCUDA.hpp
+// File: MemoryRegionCUDA.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,45 +32,44 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include <cuda_runtime.h>
 
-#include "MemoryRegionCUDA.hpp"
-#include "Operators/OperatorIdentity.hpp"
+#include "Operators/MemoryRegionCUDA.hpp"
 
-namespace Nektar::Operators::detail
+template <typename TData>
+MemoryRegionCUDA<TData>::MemoryRegionCUDA(size_t n, size_t alignment)
+    : MemoryRegionCPU<TData>(n, alignment)
 {
+    initFromSize(n);
+}
 
-// Identity matrix implementation
-template <typename TData, FieldState TFieldState>
-class OperatorIdentityImpl<TData, TFieldState, ImplCUDA>
-    : public OperatorIdentity<TData, TFieldState>
+template <typename TData> void MemoryRegionCUDA<TData>::initFromSize(size_t n)
 {
-public:
-    OperatorIdentityImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorIdentity<TData, TFieldState>(expansionList)
+    cudaMalloc((void **)&m_device, sizeof(TData) * n);
+    m_size = n;
+}
+
+template <typename TData> MemoryRegionCUDA<TData>::~MemoryRegionCUDA()
+{
+    if (m_device != nullptr)
     {
+        cudaFree(m_device);
+        m_device = nullptr;
     }
+}
 
-    void apply(Field<TData, TFieldState> &in,
-               Field<TData, TFieldState> &out) override
-    {
-        size_t N = in.template GetStorage<MemoryRegionCUDA>().size();
-        auto const *inptr =
-            in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        cudaMemcpy(outptr, inptr, sizeof(TData) * N, cudaMemcpyDeviceToDevice);
-    }
+template <typename TData> void MemoryRegionCUDA<TData>::HostToDevice()
+{
+    cudaMemcpy(m_device, this->m_host, m_size * sizeof(TData),
+               cudaMemcpyHostToDevice);
+    m_ondevice = true;
+}
 
-    // instantiation function for CreatorFunction in OperatorFactory
-    static std::unique_ptr<Operator<TData>> instantiate(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return std::make_unique<
-            OperatorIdentityImpl<TData, TFieldState, ImplCUDA>>(expansionList);
-    }
+template <typename TData> void MemoryRegionCUDA<TData>::DeviceToHost()
+{
+    cudaMemcpy(this->m_host, m_device, m_size * sizeof(TData),
+               cudaMemcpyDeviceToHost);
+    m_ondevice = false;
+}
 
-    // className - for OperatorFactory
-    static std::string className;
-};
-
-} // namespace Nektar::Operators::detail
+template class MemoryRegionCUDA<double>;
