@@ -40,6 +40,7 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <LibUtilities/LinearAlgebra/NekMatrix.hpp>
 #include <iomanip>
+
 namespace Nektar::LibUtilities
 {
 
@@ -210,14 +211,13 @@ public:
     NekSysKey()  = default;
     ~NekSysKey() = default;
 
-    NekDouble m_Tolerance                      = NekConstants::kNekIterativeTol;
-    int m_NekNonlinSysMaxIterations            = 100;
     int m_NekLinSysMaxIterations               = 5000;
-    NekDouble m_NekLinSysTolerance             = m_Tolerance;
+    int m_NekNonlinSysMaxIterations            = 100;
+    NekDouble m_NekLinSysTolerance             = NekConstants::kNekIterativeTol;
+    NekDouble m_NekNonLinSysTolerance          = NekConstants::kNekIterativeTol;
     NekDouble m_NonlinIterTolRelativeL2        = 1.0E-6;
-    NekDouble m_LinSysRelativeTolInNonlin      = 1.0E-2;
     int m_LinSysMaxStorage                     = 100;
-    int m_KrylovMaxHessMatBand                 = 100;
+    int m_KrylovMaxHessMatBand                 = 101;
     bool m_NekLinSysLeftPrecon                 = false;
     bool m_NekLinSysRightPrecon                = true;
     bool m_DifferenceFlag0                     = false;
@@ -244,11 +244,13 @@ public:
             pSession, vRowComm, nDimen, pKey);
         return p;
     }
+
     LIB_UTILITIES_EXPORT NekSys(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
         const NekSysKey &pKey);
     LIB_UTILITIES_EXPORT virtual ~NekSys() = default;
+
     LIB_UTILITIES_EXPORT void InitObject()
     {
         v_InitObject();
@@ -267,16 +269,9 @@ public:
     LIB_UTILITIES_EXPORT int SolveSystem(
         const int nGlobal, const Array<OneD, const NekDouble> &pInput,
         Array<OneD, NekDouble> &pOutput, const int nDir,
-        const NekDouble tol = 1.0E-7, const NekDouble factor = 1.0)
+        const NekDouble factor = 1.0)
     {
-        return v_SolveSystem(nGlobal, pInput, pOutput, nDir, tol, factor);
-    }
-
-    LIB_UTILITIES_EXPORT bool ConvergenceCheck(
-        const int nIteration, const Array<OneD, const NekDouble> &Residual,
-        const NekDouble tol = 1.0E-7)
-    {
-        return v_ConvergenceCheck(nIteration, Residual, tol);
+        return v_SolveSystem(nGlobal, pInput, pOutput, nDir, factor);
     }
 
     LIB_UTILITIES_EXPORT void SetFlagWarnings(bool in)
@@ -284,11 +279,12 @@ public:
         m_FlagWarnings = in;
     }
 
+    LIB_UTILITIES_EXPORT void SetRhsMagnitude(const NekDouble mag)
+    {
+        m_rhs_magnitude = mag;
+    }
+
 protected:
-    /// Maximum iterations
-    int m_maxiter;
-    /// Tolerance of iterative solver.
-    NekDouble m_tolerance;
     /// Communicate.
     LibUtilities::CommSharedPtr m_rowComm;
     /// Whether the iteration has been converged
@@ -302,6 +298,8 @@ protected:
     NekSysOperators m_operator;
     /// The dimension of the system
     int m_SysDimen;
+    /// Dot product of rhs to normalise stopping criterion
+    NekDouble m_rhs_magnitude = NekConstants::kNekUnsetDouble;
 
     virtual void v_InitObject()
     {
@@ -316,20 +314,12 @@ protected:
         [[maybe_unused]] const int nGlobal,
         [[maybe_unused]] const Array<OneD, const NekDouble> &pInput,
         [[maybe_unused]] Array<OneD, NekDouble> &pOutput,
-        [[maybe_unused]] const int nDir, [[maybe_unused]] const NekDouble tol,
+        [[maybe_unused]] const int nDir,
         [[maybe_unused]] const NekDouble factor)
     {
         ASSERTL0(false, "LinSysIterSolver NOT CORRECT.");
         return 0;
     }
-
-    virtual bool v_ConvergenceCheck(
-        const int nIteration, const Array<OneD, const NekDouble> &Residual,
-        const NekDouble tol);
-
-    LIB_UTILITIES_EXPORT virtual void v_NekSysInitialGuess(
-        const Array<OneD, const NekDouble> &pInput,
-        Array<OneD, NekDouble> &pguess);
 };
 } // namespace Nektar::LibUtilities
 #endif

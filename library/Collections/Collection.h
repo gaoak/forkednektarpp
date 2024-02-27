@@ -57,9 +57,13 @@ public:
         std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,
         OperatorImpMap &impTypes);
 
-    COLLECTIONS_EXPORT void CheckFactors(const OperatorType opType,
-                                         StdRegions::FactorMap factors,
-                                         int coll_phys_offset = 0);
+    COLLECTIONS_EXPORT void UpdateFactors(const OperatorType opType,
+                                          StdRegions::FactorMap factors,
+                                          int coll_phys_offset = 0);
+
+    COLLECTIONS_EXPORT void UpdateVarcoeffs(
+        const OperatorType opType,
+        StdRegions::VarCoeffMap &varcoeffs = StdRegions::NullVarCoeffMap);
 
     COLLECTIONS_EXPORT void Initialise(
         const OperatorType opType,
@@ -96,14 +100,14 @@ public:
         return m_geomData;
     }
 
-    inline int GetInputSize(const OperatorType &op)
+    inline int GetInputSize(const OperatorType &op, bool defaultIn = true)
     {
-        return m_ops[op]->GetInputSize();
+        return m_ops[op]->GetInputSize(defaultIn);
     }
 
-    inline int GetOutputSize(const OperatorType &op)
+    inline int GetOutputSize(const OperatorType &op, bool defaultOut = true)
     {
-        return m_ops[op]->GetOutputSize();
+        return m_ops[op]->GetOutputSize(defaultOut);
     }
 
 protected:

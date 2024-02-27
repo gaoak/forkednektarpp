@@ -104,12 +104,16 @@ void DiffusionLDG::v_DiffuseCoeffs(
     const Array<OneD, Array<OneD, NekDouble>> &pFwd,
     const Array<OneD, Array<OneD, NekDouble>> &pBwd)
 {
+    if (fields[0]->GetGraph()->GetMovement()->GetMoveFlag()) // i.e. if
+                                                             // m_ALESolver
+    {
+        fields[0]->GetTrace()->GetNormals(m_traceNormals);
+    }
+
     std::size_t nDim      = fields[0]->GetCoordim(0);
     std::size_t nPts      = fields[0]->GetTotPoints();
     std::size_t nCoeffs   = fields[0]->GetNcoeffs();
     std::size_t nTracePts = fields[0]->GetTrace()->GetTotPoints();
-
-    Array<OneD, NekDouble> tmp{nCoeffs};
 
     TensorOfArray3D<NekDouble> qfield{nDim};
     for (std::size_t j = 0; j < nDim; ++j)
@@ -144,19 +148,26 @@ void DiffusionLDG::v_DiffuseCoeffs(
                      pBwd);
 
     Array<OneD, Array<OneD, NekDouble>> qdbase{nDim};
-
     for (std::size_t i = 0; i < nConvectiveFields; ++i)
     {
         for (std::size_t j = 0; j < nDim; ++j)
         {
             qdbase[j] = viscTensor[j][i];
         }
-        fields[i]->IProductWRTDerivBase(qdbase, tmp);
+        fields[i]->IProductWRTDerivBase(qdbase, outarray[i]);
 
-        Vmath::Neg(nCoeffs, tmp, 1);
-        fields[i]->AddTraceIntegral(traceflux[i], tmp);
+        Vmath::Neg(nCoeffs, outarray[i], 1);
+        fields[i]->AddTraceIntegral(traceflux[i], outarray[i]);
         fields[i]->SetPhysState(false);
-        fields[i]->MultiplyByElmtInvMass(tmp, outarray[i]);
+    }
+
+    if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag()) // i.e. if
+                                                              // m_ALESolver
+    {
+        for (std::size_t i = 0; i < nConvectiveFields; ++i)
+        {
+            fields[i]->MultiplyByElmtInvMass(outarray[i], outarray[i]);
+        }
     }
 }
 
@@ -319,7 +330,10 @@ void DiffusionLDG::ApplyScalarBCs(
                     "WallViscous") ||
                 boost::iequals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
-                    "WallAdiabatic"))
+                    "WallAdiabatic") ||
+                boost::iequals(
+                    fields[var]->GetBndConditions()[i]->GetUserDefined(),
+                    "WallRotational"))
             {
                 Vmath::Vcopy(nBndEdgePts, &Fwd[id2], 1, &penaltyflux[id2], 1);
             }
@@ -457,7 +471,10 @@ void DiffusionLDG::ApplyVectorBCs(
                     "WallViscous") ||
                 boost::iequals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
-                    "WallAdiabatic"))
+                    "WallAdiabatic") ||
+                boost::iequals(
+                    fields[var]->GetBndConditions()[i]->GetUserDefined(),
+                    "WallRotational"))
             {
                 Vmath::Zero(nBndEdgePts, &penaltyflux[id2], 1);
             }

@@ -35,6 +35,8 @@
 #include <ADRSolver/EquationSystems/UnsteadyAdvection.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/ContField.h>
+#include <SolverUtils/Advection/AdvectionWeakDG.h>
+#include <iostream>
 
 using namespace std;
 
@@ -185,18 +187,22 @@ Array<OneD, NekDouble> &UnsteadyAdvection::GetNormalVel(
 {
     // Number of trace (interface) points
     int nTracePts = GetTraceNpoints();
+    int nPts      = m_velocity[0].size();
 
     // Auxiliary variable to compute the normal velocity
-    Array<OneD, NekDouble> tmp(nTracePts);
+    Array<OneD, NekDouble> tmp(nPts), tmp2(nTracePts);
 
     // Reset the normal velocity
     Vmath::Zero(nTracePts, m_traceVn, 1);
 
     for (int i = 0; i < velfield.size(); ++i)
     {
-        m_fields[0]->ExtractTracePhys(velfield[i], tmp);
+        // velocity - grid velocity for ALE before getting trace velocity
+        Vmath::Vsub(nPts, velfield[i], 1, m_gridVelocity[i], 1, tmp, 1);
 
-        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp, 1, m_traceVn, 1,
+        m_fields[0]->ExtractTracePhys(tmp, tmp2);
+
+        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, tmp2, 1, m_traceVn, 1,
                      m_traceVn, 1);
     }
 
@@ -217,22 +223,35 @@ void UnsteadyAdvection::DoOdeRhs(
     // Number of fields (variables of the problem)
     int nVariables = inarray.size();
 
-    // Number of solution points
-    int nSolutionPts = GetNpoints();
-
     LibUtilities::Timer timer;
-    timer.Start();
-    // RHS computation using the new advection base class
-    m_advObject->Advect(nVariables, m_fields, m_velocity, inarray, outarray,
-                        time);
-    timer.Stop();
+    if (m_ALESolver)
+    {
+        timer.Start();
+        Array<OneD, Array<OneD, NekDouble>> tmpIn(nVariables);
+        // If ALE we must take Mu coefficient space to u physical space
+        ALEHelper::ALEDoElmtInvMassBwdTrans(inarray, tmpIn);
+        auto advWeakDGObject =
+            std::dynamic_pointer_cast<SolverUtils::AdvectionWeakDG>(
+                m_advObject);
+        advWeakDGObject->AdvectCoeffs(nVariables, m_fields, m_velocity, tmpIn,
+                                      outarray, time);
+        timer.Stop();
+    }
+    else
+    {
+        timer.Start();
+        m_advObject->Advect(nVariables, m_fields, m_velocity, inarray, outarray,
+                            time);
+        timer.Stop();
+    }
+
     // Elapsed time
     timer.AccumulateRegion("Advect");
 
     // Negate the RHS
     for (int i = 0; i < nVariables; ++i)
     {
-        Vmath::Neg(nSolutionPts, outarray[i], 1);
+        Vmath::Neg(outarray[i].size(), outarray[i], 1);
     }
 
     // Add forcing terms
@@ -256,6 +275,12 @@ void UnsteadyAdvection::DoOdeProjection(
 {
     // Number of fields (variables of the problem)
     int nVariables = inarray.size();
+
+    // Perform ALE movement
+    if (m_ALESolver)
+    {
+        MoveMesh(time, m_traceNormals);
+    }
 
     // Set the boundary conditions
     SetBoundaryConditions(time);
@@ -361,7 +386,12 @@ void UnsteadyAdvection::GetFluxVector(
     {
         for (int j = 0; j < flux[0].size(); ++j)
         {
-            Vmath::Vmul(nq, physfield[i], 1, m_velocity[j], 1, flux[i][j], 1);
+            for (int k = 0; k < nq; ++k)
+            {
+                // If ALE we need to take off the grid velocity
+                flux[i][j][k] =
+                    physfield[i][k] * (m_velocity[j][k] - m_gridVelocity[j][k]);
+            }
         }
     }
 }
@@ -451,4 +481,46 @@ void UnsteadyAdvection::v_GenerateSummary(SolverUtils::SummaryList &s)
         SolverUtils::AddSummaryItem(s, "GJP Stab. JumpScale", m_GJPJumpScale);
     }
 }
+
+bool UnsteadyAdvection::v_PreIntegrate(int step)
+{
+    boost::ignore_unused(step);
+    return false;
+}
+
+void UnsteadyAdvection::v_ExtraFldOutput(
+    std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
+    std::vector<std::string> &variables)
+{
+    bool extraFields;
+    m_session->MatchSolverInfo("OutputExtraFields", "True", extraFields, true);
+
+    if (extraFields && m_ALESolver)
+    {
+        ExtraFldOutputGridVelocity(fieldcoeffs, variables);
+    }
+}
+
+void UnsteadyAdvection::v_ALEInitObject(
+    int spaceDim, Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
+{
+    if (m_projectionType == MultiRegions::eDiscontinuous)
+    {
+        m_spaceDim  = spaceDim;
+        m_fieldsALE = fields;
+
+        // Initialise grid velocities as 0s
+        m_gridVelocity      = Array<OneD, Array<OneD, NekDouble>>(m_spaceDim);
+        m_gridVelocityTrace = Array<OneD, Array<OneD, NekDouble>>(m_spaceDim);
+        for (int i = 0; i < spaceDim; ++i)
+        {
+            m_gridVelocity[i] =
+                Array<OneD, NekDouble>(fields[0]->GetTotPoints(), 0.0);
+            m_gridVelocityTrace[i] = Array<OneD, NekDouble>(
+                fields[0]->GetTrace()->GetTotPoints(), 0.0);
+        }
+    }
+    ALEHelper::InitObject(spaceDim, fields);
+}
+
 } // namespace Nektar

@@ -93,12 +93,13 @@ protected:
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
                       Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble tol, const NekDouble factor) override;
+                      const NekDouble factor) override;
 
 private:
     /// Actual iterative solve-GMRES
     int DoGMRES(const int pNumRows, const Array<OneD, const NekDouble> &pInput,
                 Array<OneD, NekDouble> &pOutput, const int pNumDir);
+
     /// Actual iterative gmres solver for one restart
     NekDouble DoGmresRestart(const bool restarted, const bool truncted,
                              const int nGlobal,
@@ -114,18 +115,21 @@ private:
                    Array<OneD, NekDouble> &Vsingle2,
                    // One line of Hessenburg matrix
                    Array<OneD, NekDouble> &hsingle);
+
     // QR fatorization through Givens rotation
     void DoGivensRotation(const int starttem, const int endtem,
                           const int nGlobal, const int nDir,
                           Array<OneD, NekDouble> &c, Array<OneD, NekDouble> &s,
                           Array<OneD, NekDouble> &hsingle,
                           Array<OneD, NekDouble> &eta);
+
     // Backward calculation to calculate coeficients
     // of least square problem
     // To notice, Hessenburg's columnns and rows are reverse
     void DoBackward(const int number, Array<OneD, Array<OneD, NekDouble>> &A,
                     const Array<OneD, const NekDouble> &b,
                     Array<OneD, NekDouble> &y);
+
     static std::string lookupIds[];
     static std::string def;
 

@@ -47,12 +47,33 @@ ZoneBase::ZoneBase(MovementType type, int indx, int domainID,
     : m_type(type), m_id(indx), m_domainID(domainID), m_domain(domain),
       m_coordDim(coordDim)
 {
-    // Fill elements from domain
     for (auto &comp : domain)
     {
         for (auto &geom : comp.second->m_geomVec)
         {
             m_elements.emplace_back(geom);
+
+            // Fill constituent elements (i.e. faces and edges)
+            switch (geom->GetShapeDim())
+            {
+                case 3:
+                    for (int i = 0; i < geom->GetNumFaces(); ++i)
+                    {
+                        m_constituentElements[2].insert(geom->GetFace(i));
+                    }
+                    /* fall through */
+                case 2:
+                    for (int i = 0; i < geom->GetNumEdges(); ++i)
+                    {
+                        m_constituentElements[1].insert(geom->GetEdge(i));
+                    }
+                    /* fall through */
+                case 1:
+                    m_constituentElements[0].insert(geom);
+                    /* fall through */
+                default:
+                    break;
+            }
         }
     }
 
@@ -179,14 +200,34 @@ void ZoneBase::ClearBoundingBoxes()
 
 NekDouble ZoneRotate::GetAngularVel(NekDouble &time) const
 {
-    return m_angularVelEqn->Evaluate(0, 0, 0, time);
+    NekDouble rampTime = 1;
+    if (time < rampTime)
+    {
+        return m_angularVelEqn->Evaluate(0, 0, 0, time) * time / rampTime;
+    }
+    else
+    {
+        return m_angularVelEqn->Evaluate(0, 0, 0, time);
+    }
 }
 
 // Calculate new location of points using Rodrigues formula
 bool ZoneRotate::v_Move(NekDouble time)
 {
-    // Currently only valid for constant angular velocity
-    NekDouble angle = GetAngularVel(time) * time;
+    // This works for a linear ramp
+    NekDouble rampTime = 1;
+    NekDouble angle;
+    if (time < rampTime)
+    {
+        angle = GetAngularVel(time) * (time / rampTime) / 2;
+    }
+    else
+    {
+        angle = GetAngularVel(rampTime) * rampTime / 2 +
+                GetAngularVel(time) * (time - rampTime);
+    }
+
+    // TODO: I want to integrate m_angularVelEqn up to current time
 
     // Identity matrix
     DNekMat rot(3, 3, 0.0);
@@ -231,13 +272,30 @@ bool ZoneRotate::v_Move(NekDouble time)
     return true;
 }
 
-bool ZoneTranslate::v_Move(NekDouble timeStep)
+std::vector<NekDouble> ZoneTranslate::GetVel(NekDouble &time) const
 {
-    Array<OneD, NekDouble> dist(3, 0.0);
+    std::vector<NekDouble> vel(m_coordDim);
     for (int i = 0; i < m_coordDim; ++i)
     {
-        dist[i] = m_velocity[i] * timeStep;
+        vel[i] = m_velocityEqns[i]->Evaluate(0, 0, 0, time);
     }
+
+    return vel;
+}
+
+std::vector<NekDouble> ZoneTranslate::GetDisp(NekDouble &time)
+{
+    m_disp = std::vector<NekDouble>(m_coordDim);
+    for (int i = 0; i < m_coordDim; ++i)
+    {
+        m_disp[i] = m_displacementEqns[i]->Evaluate(0, 0, 0, time);
+    }
+    return m_disp;
+}
+
+bool ZoneTranslate::v_Move(NekDouble time)
+{
+    auto disp = GetDisp(time);
 
     int cnt = 0;
     for (auto &vert : m_verts)
@@ -247,7 +305,7 @@ bool ZoneTranslate::v_Move(NekDouble timeStep)
 
         for (int i = 0; i < m_coordDim; ++i)
         {
-            newLoc[i] = pnt(i) + dist[i];
+            newLoc[i] = pnt(i) + disp[i];
         }
 
         vert->UpdatePosition(newLoc[0], newLoc[1], newLoc[2]);
@@ -263,7 +321,7 @@ bool ZoneTranslate::v_Move(NekDouble timeStep)
 
             for (int i = 0; i < m_coordDim; ++i)
             {
-                newLoc[i] = pnt(i) + dist[i];
+                newLoc[i] = pnt(i) + disp[i];
             }
 
             vert->UpdatePosition(newLoc[0], newLoc[1], newLoc[2]);
@@ -281,30 +339,15 @@ bool ZoneFixed::v_Move([[maybe_unused]] NekDouble time)
     return false;
 }
 
-bool ZonePrescribe::v_Move(NekDouble time)
+std::vector<NekDouble> ZoneFixed::v_GetDisp() const
 {
-    int cnt = 0;
-    for (auto &vert : m_verts)
+    std::vector<NekDouble> disp(m_coordDim);
+    for (int i = 0; i < m_coordDim; ++i)
     {
-        auto pnt = m_origVerts[cnt++];
-
-        Array<OneD, NekDouble> coords(3, 0.0);
-        vert->GetCoords(coords);
-
-        Array<OneD, NekDouble> newLoc(3, 0.0);
-        newLoc[0] =
-            m_xDeform->Evaluate(coords[0], coords[1], coords[2], time) + pnt(0);
-        newLoc[1] =
-            m_yDeform->Evaluate(coords[0], coords[1], coords[2], time) + pnt(1);
-        newLoc[2] =
-            m_zDeform->Evaluate(coords[0], coords[1], coords[2], time) + pnt(2);
-
-        vert->UpdatePosition(newLoc[0], newLoc[1], newLoc[2]);
+        disp[i] = 0.0;
     }
 
-    ClearBoundingBoxes();
-
-    return true;
+    return disp;
 }
 
 } // namespace Nektar::SpatialDomains

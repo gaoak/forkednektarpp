@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekNonlinSysNewton.h
+// File: NekNonlinSysIterNewton.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -29,33 +29,31 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NekNonlinSysNewton header
+// Description: NekNonlinSysIterNewton header
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_NONLINSYS_NEWTON_H
 #define NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_NEK_NONLINSYS_NEWTON_H
 
-#include <LibUtilities/LinearAlgebra/NekNonlinSys.h>
+#include <LibUtilities/LinearAlgebra/NekNonlinSysIter.h>
 
 namespace Nektar::LibUtilities
 {
 
-class NekNonlinSysNewton;
-
-class NekNonlinSysNewton : public NekNonlinSys
+class NekNonlinSysIterNewton : public NekNonlinSysIter
 {
 public:
     /// Constructor for full direct matrix solve.
-    friend class MemoryManager<NekNonlinSysNewton>;
+    friend class MemoryManager<NekNonlinSysIterNewton>;
 
-    LIB_UTILITIES_EXPORT static NekNonlinSysSharedPtr create(
+    LIB_UTILITIES_EXPORT static NekNonlinSysIterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
         const NekSysKey &pKey)
     {
-        NekNonlinSysSharedPtr p =
-            MemoryManager<NekNonlinSysNewton>::AllocateSharedPtr(
+        NekNonlinSysIterSharedPtr p =
+            MemoryManager<NekNonlinSysIterNewton>::AllocateSharedPtr(
                 pSession, vRowComm, nDimen, pKey);
         p->InitObject();
         return p;
@@ -63,35 +61,26 @@ public:
 
     static std::string className;
 
-    LIB_UTILITIES_EXPORT NekNonlinSysNewton(
+    LIB_UTILITIES_EXPORT NekNonlinSysIterNewton(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::CommSharedPtr &vRowComm, const int nscale,
         const NekSysKey &pKey);
-    LIB_UTILITIES_EXPORT ~NekNonlinSysNewton() override = default;
+    LIB_UTILITIES_EXPORT ~NekNonlinSysIterNewton() override = default;
 
 protected:
-    NekDouble m_SysResNorm0;
-    NekDouble m_SysResNorm;
-
     bool m_InexactNewtonForcing = 0;
     NekDouble m_forcingGamma    = 1.0;
     NekDouble m_forcingAlpha    = 0.5 * (1.0 + sqrt(5.0));
 
     void v_InitObject() override;
 
-    void v_SetSysOperators(const NekSysOperators &in) override;
-
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
                       Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble tol, const NekDouble factor) override;
-
-    bool v_ConvergenceCheck(const int nIteration,
-                            const Array<OneD, const NekDouble> &Residual,
-                            const NekDouble tol) override;
+                      const NekDouble factor) override;
 
 private:
-    NekDouble CalcInexactNewtonForcing(const int &k,
+    NekDouble CalcInexactNewtonForcing(const int &nIteration,
                                        const NekDouble &resnormOld,
                                        const NekDouble &resnorm);
 };

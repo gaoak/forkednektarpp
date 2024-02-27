@@ -387,6 +387,10 @@ public:
     {
         v_Reset();
     }
+
+    /// Reset matrices
+    MULTI_REGIONS_EXPORT void ResetMatrices();
+
     // not sure we really need these in ExpList
     void WriteTecplotHeader(std::ostream &outfile, std::string var = "")
     {
@@ -745,10 +749,6 @@ public:
     inline void PhysDeriv(const int dir,
                           const Array<OneD, const NekDouble> &inarray,
                           Array<OneD, NekDouble> &out_d);
-
-    inline void Curl(Array<OneD, Array<OneD, NekDouble>> &Vel,
-                     Array<OneD, Array<OneD, NekDouble>> &Q);
-
     inline void CurlCurl(Array<OneD, Array<OneD, NekDouble>> &Vel,
                          Array<OneD, Array<OneD, NekDouble>> &Q);
     inline void PhysDirectionalDeriv(
@@ -1044,7 +1044,7 @@ public:
     }
 
 protected:
-    /// Exapnsion type
+    /// Expansion type
     ExpansionType m_expType;
     std::shared_ptr<DNekMat> GenGlobalMatrixFull(
         const GlobalLinSysKey &mkey,
@@ -1498,7 +1498,7 @@ private:
 static ExpList NullExpList;
 static ExpListSharedPtr NullExpListSharedPtr;
 
-// An empty GlobaLinSysManager and GlobalLinSysKey object
+// An empty GlobaLinSysManager object
 static LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys>
     NullGlobalLinSysManager;
 static GlobalLinSysKey NullGlobalLinSysKey(StdRegions::eNoMatrixType);
@@ -1829,14 +1829,6 @@ inline void ExpList::PhysDirectionalDeriv(
 /**
  *
  */
-inline void ExpList::Curl(Array<OneD, Array<OneD, NekDouble>> &Vel,
-                          Array<OneD, Array<OneD, NekDouble>> &Q)
-{
-    v_Curl(Vel, Q);
-}
-/**
- *
- */
 inline void ExpList::CurlCurl(Array<OneD, Array<OneD, NekDouble>> &Vel,
                               Array<OneD, Array<OneD, NekDouble>> &Q)
 {
@@ -2072,7 +2064,6 @@ inline LocalRegions::ExpansionSharedPtr &ExpList::GetExpFromGeomId(int n)
                                             "expansion ID map.")
     return (*m_exp)[it->second];
 }
-
 /**
  * @return  (A const shared pointer to) the local expansion vector #m_exp
  */

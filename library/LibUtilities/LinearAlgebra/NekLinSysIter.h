@@ -38,6 +38,7 @@
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/LinearAlgebra/NekSys.h>
+
 namespace Nektar::LibUtilities
 {
 
@@ -67,6 +68,7 @@ public:
                                                             nDimen, pKey);
         return p;
     }
+
     LIB_UTILITIES_EXPORT NekLinSysIter(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
@@ -75,19 +77,15 @@ public:
 
     LIB_UTILITIES_EXPORT void SetUniversalUniqueMap(
         const Array<OneD, const int> &map);
-    LIB_UTILITIES_EXPORT void setRhsMagnitude(const NekDouble mag)
+
+    LIB_UTILITIES_EXPORT void SetNekLinSysTolerance(const NekDouble in)
     {
-        m_rhs_magnitude = mag;
+        m_NekLinSysTolerance = in;
     }
 
     LIB_UTILITIES_EXPORT void SetNekLinSysMaxIterations(const unsigned int in)
     {
-        m_maxiter = in;
-    }
-
-    LIB_UTILITIES_EXPORT void SetLinSysMaxStorage(const unsigned int in)
-    {
-        m_LinSysMaxStorage = in;
+        m_NekLinSysMaxIterations = in;
     }
 
     LIB_UTILITIES_EXPORT bool IsLocal()
@@ -99,11 +97,11 @@ protected:
     /// Global to universal unique map
     Array<OneD, int> m_map;
 
-    /// Dot product of rhs to normalise stopping criterion
-    NekDouble m_rhs_magnitude = NekConstants::kNekUnsetDouble;
-
-    int m_totalIterations   = 0;
     NekDouble m_prec_factor = 1.0;
+
+    NekDouble m_NekLinSysTolerance;
+    int m_NekLinSysMaxIterations;
+    int m_totalIterations = 0;
 
     // This is the maximum number of solution vectors that can be stored
     // For example, in gmres, it is the max number of Krylov space
@@ -114,14 +112,16 @@ protected:
     // Boolean to identify if iteration acts on local storage
     bool m_isLocal;
 
-    void Set_Rhs_Magnitude(const NekVector<NekDouble> &pIn);
+    void v_InitObject() override;
+
     void Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn);
     void SetUniversalUniqueMap();
 
-    void v_InitObject() override;
+    bool ConvergenceCheck(const Array<OneD, const NekDouble> &Residual);
 
 private:
 };
+
 } // namespace Nektar::LibUtilities
 
 #endif

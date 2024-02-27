@@ -48,8 +48,10 @@ StagnationInflowBC::StagnationInflowBC(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const Array<OneD, Array<OneD, NekDouble>> &pTraceNormals,
+    const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
     const int pSpaceDim, const int bcRegion, const int cnt)
-    : CFSBndCond(pSession, pFields, pTraceNormals, pSpaceDim, bcRegion, cnt)
+    : CFSBndCond(pSession, pFields, pTraceNormals, pGridVelocity, pSpaceDim,
+                 bcRegion, cnt)
 {
     const size_t nvariables = m_fields.size();
     const int expdim        = m_fields[0]->GetGraph()->GetMeshDimension();

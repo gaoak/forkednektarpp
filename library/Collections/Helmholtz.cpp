@@ -64,10 +64,13 @@ protected:
     Helmholtz_Helper()
     {
         // expect input to be number of elements by the number of coefficients
-        m_inputSize = m_numElmt * m_stdExp->GetNcoeffs();
+        m_inputSize      = m_numElmt * m_stdExp->GetNcoeffs();
+        m_inputSizeOther = m_numElmt * m_stdExp->GetTotPoints();
+
         // expect output to be number of elements by the number of coefficients
         // computation is from coeff space to coeff space
-        m_outputSize = m_inputSize;
+        m_outputSize      = m_inputSize;
+        m_outputSizeOther = m_inputSizeOther;
     }
 };
 
@@ -88,13 +91,22 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         unsigned int nmodes = m_expList[0]->GetNcoeffs();
+        unsigned int nphys  = m_expList[0]->GetTotPoints();
         Array<OneD, NekDouble> tmp;
 
         for (int n = 0; n < m_numElmt; ++n)
         {
-            StdRegions::StdMatrixKey mkey(StdRegions::eHelmholtz,
-                                          (m_expList)[n]->DetShapeType(),
-                                          *(m_expList)[n], m_factors);
+            // Restrict varcoeffs to size of element
+            StdRegions::VarCoeffMap varcoeffs = StdRegions::NullVarCoeffMap;
+            if (m_varcoeffs.size())
+            {
+                varcoeffs =
+                    StdRegions::RestrictCoeffMap(m_varcoeffs, n * nphys, nphys);
+            }
+
+            StdRegions::StdMatrixKey mkey(
+                StdRegions::eHelmholtz, (m_expList)[n]->DetShapeType(),
+                *(m_expList)[n], m_factors, varcoeffs);
             m_expList[n]->GeneralMatrixOp(entry0 + n * nmodes,
                                           tmp = entry1 + n * nmodes, mkey);
         }
@@ -108,10 +120,15 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors(StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         m_factors = factors;
+    }
+
+    void UpdateVarcoeffs(StdRegions::VarCoeffMap &varcoeffs) override
+    {
+        m_varcoeffs = varcoeffs;
     }
 
 protected:
@@ -119,6 +136,7 @@ protected:
     int m_coordim;
     vector<StdRegions::StdExpansionSharedPtr> m_expList;
     StdRegions::FactorMap m_factors;
+    StdRegions::VarCoeffMap m_varcoeffs;
 
 private:
     Helmholtz_NoCollection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
@@ -130,7 +148,8 @@ private:
         m_dim     = pCollExp[0]->GetNumBases();
         m_coordim = pCollExp[0]->GetCoordim();
 
-        m_factors = factors;
+        m_factors   = factors;
+        m_varcoeffs = StdRegions::NullVarCoeffMap;
     }
 };
 
@@ -418,8 +437,8 @@ public:
      * @param factors Map of factors
      * @param coll_phys_offset Unused
      */
-    void CheckFactors(StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         // If match previous factors, nothing to do.
         if (m_factors == factors)
@@ -476,12 +495,27 @@ public:
         m_HasVarCoeffDiff = true;
     }
 
+    /**
+     * @brief Check the validity of supplied variable coefficients.
+     * Note that the m_varcoeffs are not implemented for the IterPerExp
+     * operator.
+     * There exists a specialised implementation for variable diffusion in the
+     * above function UpdateFactors.
+     *
+     * @param varcoeffs Map of varcoeffs
+     */
+    void UpdateVarcoeffs(StdRegions::VarCoeffMap &varcoeffs) override
+    {
+        m_varcoeffs = varcoeffs;
+    }
+
 protected:
     Array<TwoD, const NekDouble> m_derivFac;
     Array<OneD, const NekDouble> m_jac;
     int m_dim;
     int m_coordim;
     StdRegions::FactorMap m_factors;
+    StdRegions::VarCoeffMap m_varcoeffs;
     NekDouble m_lambda;
     bool m_HasVarCoeffDiff;
     Array<OneD, Array<OneD, NekDouble>> m_diff;
@@ -510,7 +544,8 @@ private:
         m_lambda          = 1.0;
         m_HasVarCoeffDiff = false;
         m_factors         = StdRegions::NullFactorMap;
-        this->CheckFactors(factors, 0);
+        m_varcoeffs       = StdRegions::NullVarCoeffMap;
+        this->UpdateFactors(factors, 0);
     }
 };
 
@@ -589,8 +624,8 @@ public:
     /**
      *
      */
-    void CheckFactors(StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         if (factors == m_factors)
         {
@@ -668,10 +703,25 @@ public:
         }
     }
 
+    /**
+     * @brief Check the validity of supplied variable coefficients.
+     * Note that the m_varcoeffs are not implemented for the MatrixFree
+     * operator.
+     * There exists a specialised implementation for variable diffusion in the
+     * above function UpdateFactors.
+     *
+     * @param varcoeffs Map of varcoeffs
+     */
+    void UpdateVarcoeffs(StdRegions::VarCoeffMap &varcoeffs) override
+    {
+        m_varcoeffs = varcoeffs;
+    }
+
 private:
     std::shared_ptr<MatrixFree::Helmholtz> m_oper;
     unsigned int m_nmtot;
     StdRegions::FactorMap m_factors;
+    StdRegions::VarCoeffMap m_varcoeffs;
 
     Helmholtz_MatrixFree(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
@@ -713,8 +763,9 @@ private:
         ASSERTL0(m_oper, "Failed to cast pointer.");
 
         // Set factors
-        m_factors = StdRegions::NullFactorMap;
-        this->CheckFactors(factors, 0);
+        m_factors   = StdRegions::NullFactorMap;
+        m_varcoeffs = StdRegions::NullVarCoeffMap;
+        this->UpdateFactors(factors, 0);
     }
 };
 

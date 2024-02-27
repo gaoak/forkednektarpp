@@ -52,9 +52,10 @@ LibUtilities::SessionReaderSharedPtr CreateSession()
 
 const std::string angVelStr = "0.1*t", xEqnStr = "0.1*x - 0.1*t",
                   yEqnStr = "0.1*y^2 - x", zEqnStr = "sqrt(t)";
-const NekPoint<NekDouble> origin      = {1., 2., 3.};
-const DNekVec axis                    = {1., 2., 3.};
-const std::vector<NekDouble> velocity = {1., 1., 2.};
+std::vector<std::string> velocityStr     = {"1.0", "2.0", "3.0"};
+std::vector<std::string> displacementStr = {"1.0", "2.0", "3.0"};
+const NekPoint<NekDouble> origin         = {1., 2., 3.};
+const DNekVec axis                       = {1., 2., 3.};
 
 /// Produce dummy Zone objects, containing empty domain pointers
 SpatialDomains::ZoneBaseShPtr CreateZone(
@@ -83,23 +84,20 @@ SpatialDomains::ZoneBaseShPtr CreateZone(
         break;
         case SpatialDomains::MovementType::eTranslate:
         {
+            Array<OneD, LibUtilities::EquationSharedPtr> velocityEqns(3);
+            Array<OneD, LibUtilities::EquationSharedPtr> displacementEqns(3);
+            for (int i = 0; i < 3; ++i)
+            {
+                velocityEqns[i] = std::make_shared<LibUtilities::Equation>(
+                    interpreter, velocityStr[i]);
+                displacementEqns[i] = std::make_shared<LibUtilities::Equation>(
+                    interpreter, displacementStr[i]);
+            }
+
             return SpatialDomains::ZoneTranslateShPtr(
                 MemoryManager<SpatialDomains::ZoneTranslate>::AllocateSharedPtr(
-                    zoneID, domainID, domain, 3, velocity));
-        }
-        break;
-        case SpatialDomains::MovementType::ePrescribe:
-        {
-            LibUtilities::EquationSharedPtr
-                xEqn = std::make_shared<LibUtilities::Equation>(interpreter,
-                                                                xEqnStr),
-                yEqn = std::make_shared<LibUtilities::Equation>(interpreter,
-                                                                yEqnStr),
-                zEqn = std::make_shared<LibUtilities::Equation>(interpreter,
-                                                                zEqnStr);
-            return SpatialDomains::ZonePrescribeShPtr(
-                MemoryManager<SpatialDomains::ZonePrescribe>::AllocateSharedPtr(
-                    zoneID, domainID, domain, 3, xEqn, yEqn, zEqn));
+                    zoneID, domainID, domain, 3, velocityEqns,
+                    displacementEqns));
         }
         break;
         default:
@@ -121,8 +119,8 @@ SpatialDomains::InterfaceShPtr CreateInterface(int interfaceID,
             MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
     }
     return SpatialDomains::InterfaceShPtr(
-        MemoryManager<SpatialDomains::Interface>::AllocateSharedPtr(interfaceID,
-                                                                    edge));
+        MemoryManager<SpatialDomains::Interface>::AllocateSharedPtr(
+            interfaceID, edge, false));
 }
 
 BOOST_AUTO_TEST_CASE(TestAddGetZones)
@@ -178,8 +176,6 @@ BOOST_AUTO_TEST_CASE(TestWriteMovement)
     SpatialDomains::Movement m;
     m.AddZone(
         CreateZone(SpatialDomains::MovementType::eFixed, 0, 10, interpreter));
-    m.AddZone(CreateZone(SpatialDomains::MovementType::ePrescribe, 2, 12,
-                         interpreter));
     m.AddZone(CreateZone(SpatialDomains::MovementType::eTranslate, 3, 13,
                          interpreter));
     m.AddZone(
@@ -239,25 +235,6 @@ BOOST_AUTO_TEST_CASE(TestWriteMovement)
     BOOST_TEST(err == TIXML_SUCCESS);
     BOOST_TEST(attr == angVelStr);
 
-    // Check the prescribed zone
-    zone = xmlZones->IterateChildren(zone)->ToElement();
-    BOOST_TEST(zone->Value() == "P");
-    err = zone->QueryIntAttribute("ID", &id);
-    BOOST_TEST(err == TIXML_SUCCESS);
-    BOOST_TEST(id == 2);
-    err = zone->QueryStringAttribute("DOMAIN", &attr);
-    BOOST_TEST(err == TIXML_SUCCESS);
-    BOOST_TEST(attr == "D[12]");
-    err = zone->QueryStringAttribute("XDEFORM", &attr);
-    BOOST_TEST(err == TIXML_SUCCESS);
-    BOOST_TEST(attr == xEqnStr);
-    err = zone->QueryStringAttribute("YDEFORM", &attr);
-    BOOST_TEST(err == TIXML_SUCCESS);
-    BOOST_TEST(attr == yEqnStr);
-    err = zone->QueryStringAttribute("ZDEFORM", &attr);
-    BOOST_TEST(err == TIXML_SUCCESS);
-    BOOST_TEST(attr == zEqnStr);
-
     // Check the translating zone
     zone = xmlZones->IterateChildren(zone)->ToElement();
     BOOST_TEST(zone->Value() == "T");
@@ -267,11 +244,24 @@ BOOST_AUTO_TEST_CASE(TestWriteMovement)
     err = zone->QueryStringAttribute("DOMAIN", &attr);
     BOOST_TEST(err == TIXML_SUCCESS);
     BOOST_TEST(attr == "D[13]");
-    err = zone->QueryStringAttribute("VELOCITY", &attr);
+    err = zone->QueryStringAttribute("XVELOCITY", &attr);
     BOOST_TEST(err == TIXML_SUCCESS);
-    vec.clear();
-    ParseUtils::GenerateVector(attr, vec);
-    BOOST_TEST(vec == velocity);
+    BOOST_TEST(attr == velocityStr[0]);
+    err = zone->QueryStringAttribute("YVELOCITY", &attr);
+    BOOST_TEST(err == TIXML_SUCCESS);
+    BOOST_TEST(attr == velocityStr[1]);
+    err = zone->QueryStringAttribute("ZVELOCITY", &attr);
+    BOOST_TEST(err == TIXML_SUCCESS);
+    BOOST_TEST(attr == velocityStr[2]);
+    err = zone->QueryStringAttribute("XDISPLACEMENT", &attr);
+    BOOST_TEST(err == TIXML_SUCCESS);
+    BOOST_TEST(attr == displacementStr[0]);
+    err = zone->QueryStringAttribute("YDISPLACEMENT", &attr);
+    BOOST_TEST(err == TIXML_SUCCESS);
+    BOOST_TEST(attr == displacementStr[1]);
+    err = zone->QueryStringAttribute("ZDISPLACEMENT", &attr);
+    BOOST_TEST(err == TIXML_SUCCESS);
+    BOOST_TEST(attr == displacementStr[2]);
 
     BOOST_TEST(xmlZones->LastChild() == zone);
 

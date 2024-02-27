@@ -55,6 +55,7 @@ NekLinSysIterCG::NekLinSysIterCG(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
+    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-16);
 }
 
 void NekLinSysIterCG::v_InitObject()
@@ -68,11 +69,9 @@ void NekLinSysIterCG::v_InitObject()
 int NekLinSysIterCG::v_SolveSystem(const int nGlobal,
                                    const Array<OneD, const NekDouble> &pInput,
                                    Array<OneD, NekDouble> &pOutput,
-                                   const int nDir, const NekDouble tol,
+                                   const int nDir,
                                    [[maybe_unused]] const NekDouble factor)
 {
-    m_tolerance = max(tol, 1.0E-16);
-
     DoConjugateGradient(nGlobal, pInput, pOutput, nDir);
 
     return m_totalIterations;
@@ -131,19 +130,18 @@ void NekLinSysIterCG::DoConjugateGradient(
 
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
-        NekVector<NekDouble> inGlob(nGlobal, pInput, eWrapper);
-        Set_Rhs_Magnitude(inGlob);
+        Set_Rhs_Magnitude(pInput);
     }
 
     m_totalIterations = 0;
 
     // If input residual is less than tolerance skip solve.
-    if (eps < m_tolerance * m_tolerance * m_rhs_magnitude)
+    if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
     {
         if (m_verbose && m_root)
         {
             cout << "CG iterations made = " << m_totalIterations
-                 << " using tolerance of " << m_tolerance
+                 << " using tolerance of " << m_NekLinSysTolerance
                  << " (error = " << sqrt(eps / m_rhs_magnitude)
                  << ", rhs_mag = " << sqrt(m_rhs_magnitude) << ")" << endl;
         }
@@ -167,12 +165,12 @@ void NekLinSysIterCG::DoConjugateGradient(
     // Continue until convergence
     while (true)
     {
-        if (m_totalIterations > m_maxiter)
+        if (m_totalIterations > m_NekLinSysMaxIterations)
         {
             if (m_root)
             {
                 cout << "CG iterations made = " << m_totalIterations
-                     << " using tolerance of " << m_tolerance
+                     << " using tolerance of " << m_NekLinSysTolerance
                      << " (error = " << sqrt(eps / m_rhs_magnitude)
                      << ", rhs_mag = " << sqrt(m_rhs_magnitude) << ")" << endl;
             }
@@ -217,12 +215,12 @@ void NekLinSysIterCG::DoConjugateGradient(
         m_totalIterations++;
 
         // Test if norm is within tolerance
-        if (eps < m_tolerance * m_tolerance * m_rhs_magnitude)
+        if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
         {
             if (m_verbose && m_root)
             {
                 cout << "CG iterations made = " << m_totalIterations
-                     << " using tolerance of " << m_tolerance
+                     << " using tolerance of " << m_NekLinSysTolerance
                      << " (error = " << sqrt(eps / m_rhs_magnitude)
                      << ", rhs_mag = " << sqrt(m_rhs_magnitude) << ")" << endl;
             }

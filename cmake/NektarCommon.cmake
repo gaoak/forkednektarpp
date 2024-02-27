@@ -319,7 +319,7 @@ MACRO(ADD_NEKPY_LIBRARY name)
     SET_TARGET_PROPERTIES(_${name} PROPERTIES PREFIX "")
     SET_TARGET_PROPERTIES(_${name} PROPERTIES SUFFIX ".so")
     SET_TARGET_PROPERTIES(_${name} PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/NekPy/${name})
+        LIBRARY_OUTPUT_DIRECTORY ${NEKPY_BASE_DIR}/NekPy/${name})
 
     ADD_DEPENDENCIES(_${name} boost-numpy)
 
@@ -343,7 +343,7 @@ MACRO(ADD_NEKPY_LIBRARY name)
     ENDIF()
     SET(TMPOUT "${TMPOUT}from ._${name} import *")
 
-    FILE(WRITE ${CMAKE_BINARY_DIR}/NekPy/${name}/__init__.py ${TMPOUT})
+    FILE(WRITE ${NEKPY_BASE_DIR}/NekPy/${name}/__init__.py ${TMPOUT})
 ENDMACRO()
 
 #

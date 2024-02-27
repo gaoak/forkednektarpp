@@ -98,7 +98,22 @@ Movement::Movement(const LibUtilities::SessionReaderSharedPtr &pSession,
         ASSERTL0(zones == interfaces,
                  "Only one of ZONES or INTERFACES present in the MOVEMENT "
                  "block.")
-
+        // Generate domain box
+        DomainBox();
+        auto comm = pSession->GetComm();
+        // Get DomainBox from all processes
+        if (m_translate)
+        {
+            // auto comm = pSession->GetComm();
+            for (int i = 0; i < 3; ++i)
+            {
+                auto &min = m_DomainBox[i];
+                auto &max = m_DomainBox[i + 3];
+                comm->GetSpaceComm()->AllReduce(min, LibUtilities::ReduceMin);
+                comm->GetSpaceComm()->AllReduce(max, LibUtilities::ReduceMax);
+                m_DomainLength[i] = max - min;
+            }
+        }
         // Don't support interior penalty yet
         if (pSession->DefinesSolverInfo("DiffusionType"))
         {
@@ -264,53 +279,68 @@ void Movement::ReadZones(TiXmlElement *zonesTag, MeshGraph *meshGraph,
         else if (zoneType == "T" || zoneType == "TRANSLATE" ||
                  zoneType == "TRANSLATING")
         {
+            // Read velocity information
             std::string velocityStr;
             err = zonesElement->QueryStringAttribute("VELOCITY", &velocityStr);
-            ASSERTL0(err == TIXML_SUCCESS, "Unable to read direction.");
-            std::vector<NekDouble> velocity;
-            ParseUtils::GenerateVector(velocityStr, velocity);
+            ASSERTL0(err == TIXML_SUCCESS,
+                     "Unable to read VELOCITY for translating zone " +
+                         std::to_string(indx));
+
+            std::vector<std::string> velocityStrSplit;
+            ParseUtils::GenerateVector(velocityStr, velocityStrSplit);
+
+            ASSERTL0(velocityStrSplit.size() >= coordDim,
+                     "VELOCITY dimensions must be greater than or equal to the "
+                     "coordinate dimension for translating zone " +
+                         std::to_string(indx));
+
+            Array<OneD, LibUtilities::EquationSharedPtr> velocityEqns(coordDim);
+            for (int i = 0; i < coordDim; ++i)
+            {
+                velocityEqns[i] =
+                    MemoryManager<LibUtilities::Equation>::AllocateSharedPtr(
+                        pSession->GetInterpreter(), velocityStrSplit[i]);
+            }
+
+            // Read displacement information
+            std::string displacementStr;
+            err = zonesElement->QueryStringAttribute("DISPLACEMENT",
+                                                     &displacementStr);
+            ASSERTL0(err == TIXML_SUCCESS,
+                     "Unable to read DISPLACEMENT for translating zone " +
+                         std::to_string(indx));
+
+            std::vector<std::string> displacementStrSplit;
+            ParseUtils::GenerateVector(displacementStr, displacementStrSplit);
+
+            ASSERTL0(
+                displacementStrSplit.size() >= coordDim,
+                "DISPLACEMENT dimensions must be greater than or equal to the "
+                "coordinate dimension for translating zone " +
+                    std::to_string(indx));
+
+            Array<OneD, LibUtilities::EquationSharedPtr> displacementEqns(
+                coordDim);
+            for (int i = 0; i < coordDim; ++i)
+            {
+                displacementEqns[i] =
+                    MemoryManager<LibUtilities::Equation>::AllocateSharedPtr(
+                        pSession->GetInterpreter(), displacementStrSplit[i]);
+            }
 
             zone = ZoneTranslateShPtr(
                 MemoryManager<ZoneTranslate>::AllocateSharedPtr(
-                    indx, domFind, domain, coordDim, velocity));
+                    indx, domFind, domain, coordDim, velocityEqns,
+                    displacementEqns));
 
-            m_moveFlag = true;
-        }
-        else if (zoneType == "P" || zoneType == "PRESCRIBED")
-        {
-            std::string xDeformStr;
-            err = zonesElement->QueryStringAttribute("XDEFORM", &xDeformStr);
-            ASSERTL0(err == TIXML_SUCCESS, "Unable to read x deform equation.");
-            LibUtilities::EquationSharedPtr xDeformEqn =
-                std::make_shared<LibUtilities::Equation>(
-                    pSession->GetInterpreter(), xDeformStr);
-
-            std::string yDeformStr;
-            err = zonesElement->QueryStringAttribute("YDEFORM", &yDeformStr);
-            ASSERTL0(err == TIXML_SUCCESS, "Unable to read y deform equation.");
-            LibUtilities::EquationSharedPtr yDeformEqn =
-                std::make_shared<LibUtilities::Equation>(
-                    pSession->GetInterpreter(), yDeformStr);
-
-            std::string zDeformStr;
-            err = zonesElement->QueryStringAttribute("ZDEFORM", &zDeformStr);
-            ASSERTL0(err == TIXML_SUCCESS, "Unable to read z deform equation.");
-            LibUtilities::EquationSharedPtr zDeformEqn =
-                std::make_shared<LibUtilities::Equation>(
-                    pSession->GetInterpreter(), zDeformStr);
-
-            zone = ZonePrescribeShPtr(
-                MemoryManager<ZonePrescribe>::AllocateSharedPtr(
-                    indx, domFind, domain, coordDim, xDeformEqn, yDeformEqn,
-                    zDeformEqn));
-
-            m_moveFlag = true;
+            m_moveFlag  = true;
+            m_translate = true;
         }
         else
         {
             WARNINGL0(false, "Zone type '" + zoneType +
                                  "' is unsupported. Valid types are: 'Fixed', "
-                                 "'Rotate', 'Translate', or 'Prescribe'.")
+                                 "'Rotate', or 'Translate'.")
         }
 
         m_zones[indx] = zone;
@@ -336,9 +366,6 @@ void Movement::ReadInterfaces(TiXmlElement *interfacesTag, MeshGraph *meshGraph)
         ASSERTL0(err == TIXML_SUCCESS, "Unable to read interface name.");
         TiXmlElement *sideElement = interfaceElement->FirstChildElement();
 
-        // @TODO: For different interface types have a string attribute type in
-        // @TODO: the INTERFACE element like for NAME above
-
         Array<OneD, InterfaceShPtr> interfaces(2);
         std::vector<int> cnt;
         while (sideElement)
@@ -348,21 +375,25 @@ void Movement::ReadInterfaces(TiXmlElement *interfacesTag, MeshGraph *meshGraph)
                 "In INTERFACE NAME " + name +
                     ", only two sides may be present in each INTERFACE block.")
 
+            // Read ID
             int indx;
             err = sideElement->QueryIntAttribute("ID", &indx);
             ASSERTL0(err == TIXML_SUCCESS, "Unable to read interface ID.");
 
+            // Read boundary
             std::string boundaryStr;
-            int boundaryErr =
-                sideElement->QueryStringAttribute("BOUNDARY", &boundaryStr);
+            err = sideElement->QueryStringAttribute("BOUNDARY", &boundaryStr);
+            ASSERTL0(err == TIXML_SUCCESS,
+                     "Unable to read BOUNDARY in interface " +
+                         std::to_string(indx));
 
             CompositeMap boundaryEdge;
-            std::string indxStr;
-            if (boundaryErr == TIXML_SUCCESS)
-            {
-                indxStr = ReadTag(boundaryStr);
-                meshGraph->GetCompositeList(indxStr, boundaryEdge);
-            }
+            std::string indxStr = ReadTag(boundaryStr);
+            meshGraph->GetCompositeList(indxStr, boundaryEdge);
+
+            // Read SKIPCHECK flag
+            bool skipCheck = false;
+            err = sideElement->QueryBoolAttribute("SKIPCHECK", &skipCheck);
 
             // Sets location in interface pair to 0 for left, and 1 for right
             auto sideElVal = sideElement->ValueStr();
@@ -385,7 +416,7 @@ void Movement::ReadInterfaces(TiXmlElement *interfacesTag, MeshGraph *meshGraph)
 
             interfaces[cnt[cnt.size() - 1]] =
                 InterfaceShPtr(MemoryManager<Interface>::AllocateSharedPtr(
-                    indx, boundaryEdge));
+                    indx, boundaryEdge, skipCheck));
 
             sideElement = sideElement->NextSiblingElement();
         }
@@ -440,24 +471,24 @@ void Movement::WriteMovement(TiXmlElement *root)
             case MovementType::eTranslate:
             {
                 auto translate = std::static_pointer_cast<ZoneTranslate>(z);
-                const std::vector<NekDouble> vel = translate->GetVel();
-                std::stringstream vel_s;
-                vel_s << vel[0] << ", " << vel[1] << ", " << vel[2];
-                e->SetAttribute("VELOCITY", vel_s.str());
-            }
-            break;
-            case MovementType::ePrescribe:
-            {
-                auto prescribe = std::static_pointer_cast<ZonePrescribe>(z);
                 e->SetAttribute(
-                    "XDEFORM",
-                    prescribe->GetXDeformEquation()->GetExpression());
+                    "XVELOCITY",
+                    translate->GetVelocityEquation()[0]->GetExpression());
                 e->SetAttribute(
-                    "YDEFORM",
-                    prescribe->GetYDeformEquation()->GetExpression());
+                    "XDISPLACEMENT",
+                    translate->GetDisplacementEquation()[0]->GetExpression());
                 e->SetAttribute(
-                    "ZDEFORM",
-                    prescribe->GetZDeformEquation()->GetExpression());
+                    "YVELOCITY",
+                    translate->GetVelocityEquation()[1]->GetExpression());
+                e->SetAttribute(
+                    "YDISPLACEMENT",
+                    translate->GetDisplacementEquation()[1]->GetExpression());
+                e->SetAttribute(
+                    "ZVELOCITY",
+                    translate->GetVelocityEquation()[2]->GetExpression());
+                e->SetAttribute(
+                    "ZDISPLACEMENT",
+                    translate->GetDisplacementEquation()[2]->GetExpression());
             }
             break;
             default:
@@ -526,6 +557,7 @@ void Movement::PerformMovement(NekDouble timeStep)
             m_zones[rightId]->GetMoved() = true;
         }
     }
+    m_moved = true;
 }
 
 /// Store a zone object with this Movement data
@@ -546,6 +578,59 @@ void Movement::AddInterface(std::string name, InterfaceShPtr left,
     m_interfaces[std::make_pair(m_interfaces.size(), name)] =
         InterfacePairShPtr(
             MemoryManager<InterfacePair>::AllocateSharedPtr(left, right));
+}
+
+/// Generate domain box for translation mesh
+void Movement::DomainBox()
+{
+    if (m_translate)
+    {
+        // NekDouble minx, miny, minz, maxx, maxy, maxz;
+        Array<OneD, NekDouble> min(3, 0.0), max(3, 0.0);
+        Array<OneD, NekDouble> x(3, 0.0);
+
+        // Find a point in the domian for parallel
+        for (auto &zones : m_zones)
+        {
+            int NumVerts = zones.second->GetOriginalVertex().size();
+            if (NumVerts != 0)
+            {
+                PointGeom p = zones.second->GetOriginalVertex()[0];
+                p.GetCoords(x[0], x[1], x[2]);
+                for (int j = 0; j < 3; ++j)
+                {
+                    min[j] = x[j];
+                    max[j] = x[j];
+                }
+                break;
+            }
+        }
+
+        // loop over all zones and original vertexes
+        for (auto &zones : m_zones)
+        {
+            int NumVerts = zones.second->GetOriginalVertex().size();
+            for (int i = 0; i < NumVerts; ++i)
+            {
+                PointGeom p = zones.second->GetOriginalVertex()[i];
+                p.GetCoords(x[0], x[1], x[2]);
+                for (int j = 0; j < 3; ++j)
+                {
+                    min[j] = (x[j] < min[j] ? x[j] : min[j]);
+                    max[j] = (x[j] > max[j] ? x[j] : max[j]);
+                }
+            }
+        }
+        // save bounding length
+        m_DomainLength = Array<OneD, NekDouble>(3, 0.0);
+        // save bounding box
+        m_DomainBox = Array<OneD, NekDouble>(6, 0.0);
+        for (int j = 0; j < 3; ++j)
+        {
+            m_DomainBox[j]     = min[j];
+            m_DomainBox[j + 3] = max[j];
+        }
+    }
 }
 
 } // namespace Nektar::SpatialDomains

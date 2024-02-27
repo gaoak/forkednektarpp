@@ -180,7 +180,7 @@ void FilterIntegral::v_Initialise(
     auto composites = pFields[0]->GetGraph()->GetComposites();
     size_t meshDim  = pFields[0]->GetGraph()->GetMeshDimension();
 
-    for (size_t i = 0; i < m_compVector.size(); ++i)
+    for (int i = 0; i < m_compVector.size(); ++i)
     {
         // Check composite is present in the rank
         if (composites.find(m_compVector[i][0]) == composites.end())
@@ -232,23 +232,45 @@ void FilterIntegral::v_Initialise(
         // however if the dimension is less we need the expansion of the element
         // containing the global composite geometry and the face/edge local ID
         // within that. 3D mesh -> 2D, 2D -> 1D.
-        else if (meshDim > 1 && dim == meshDim - 1)
+        // @TODO: Restructure with the new dimension independent functions
+        //        and check all is correct with this filter.
+        else if (meshDim == 3 && dim == 2)
         {
             for (size_t j = 0; j < compGeomIds.size(); ++j)
             {
                 LocalRegions::ExpansionSharedPtr exp =
                     (*trace)[geomIdToTraceId[compGeomIds[j]]];
+                LocalRegions::Expansion2DSharedPtr exp2D =
+                    std::dynamic_pointer_cast<LocalRegions::Expansion2D>(exp);
 
                 LocalRegions::ExpansionSharedPtr leftAdjElmtExp =
-                    exp->GetLeftAdjacentElementExp();
-                int leftAdjElmtFace = exp->GetLeftAdjacentElementTrace();
+                    std::dynamic_pointer_cast<LocalRegions::Expansion>(
+                        exp2D->GetLeftAdjacentElementExp());
+                int leftAdjElmtFace = exp2D->GetLeftAdjacentElementTrace();
 
                 tmpCompExp[j] = std::make_pair(leftAdjElmtExp, leftAdjElmtFace);
             }
         }
+        else if (meshDim == 2 && dim == 1)
+        {
+            for (size_t j = 0; j < compGeomIds.size(); ++j)
+            {
+                LocalRegions::ExpansionSharedPtr exp =
+                    (*trace)[geomIdToTraceId[compGeomIds[j]]];
+                LocalRegions::Expansion1DSharedPtr exp1D =
+                    std::dynamic_pointer_cast<LocalRegions::Expansion1D>(exp);
+
+                LocalRegions::ExpansionSharedPtr leftAdjElmtExp =
+                    std::dynamic_pointer_cast<LocalRegions::Expansion>(
+                        exp1D->GetLeftAdjacentElementExp());
+                int leftAdjElmtEdge = exp1D->GetLeftAdjacentElementTrace();
+
+                tmpCompExp[j] = std::make_pair(leftAdjElmtExp, leftAdjElmtEdge);
+            }
+        }
         else
         {
-            NEKERROR(ErrorUtil::efatal,
+            ASSERTL0(false,
                      "FilterIntegral: Only composite dimensions equal to or "
                      "one lower than the mesh dimension are supported.")
         }
@@ -307,20 +329,31 @@ void FilterIntegral::v_Update(
                             m_geomElmtIdToExpId[exp->GetGeom()->GetGlobalID()]);
                         input = exp->Integral(phys + offset);
                     }
-                    else if (meshDim > 1 && dim == meshDim - 1)
+                    else if (meshDim == 3 && dim == 2)
                     {
-                        Array<OneD, NekDouble> tracePhys;
+                        Array<OneD, NekDouble> facePhys;
                         exp->GetTracePhysVals(expPair.second, exp, phys,
-                                              tracePhys);
+                                              facePhys);
                         input =
                             pFields[i]
                                 ->GetTrace()
                                 ->GetExp(exp->GetGeom()->GetTid(expPair.second))
-                                ->Integral(tracePhys);
+                                ->Integral(facePhys);
+                    }
+                    else if (meshDim == 2 && dim == 1)
+                    {
+                        Array<OneD, NekDouble> edgePhys;
+                        exp->GetTracePhysVals(expPair.second, exp, phys,
+                                              edgePhys);
+                        input =
+                            pFields[i]
+                                ->GetTrace()
+                                ->GetExp(exp->GetGeom()->GetTid(expPair.second))
+                                ->Integral(edgePhys);
                     }
                     else
                     {
-                        NEKERROR(ErrorUtil::efatal,
+                        ASSERTL0(false,
                                  "FilterIntegral: Only composite dimensions "
                                  "equal to or one lower than the mesh "
                                  "dimension are supported.")
@@ -350,7 +383,7 @@ void FilterIntegral::v_Update(
 }
 
 /**
- * @brief Finalise the filter.
+ * @brief This is a time-dependent filter.
  */
 void FilterIntegral::v_Finalise(
     [[maybe_unused]] const Array<OneD, const MultiRegions::ExpListSharedPtr>
@@ -363,9 +396,6 @@ void FilterIntegral::v_Finalise(
     }
 }
 
-/**
- * @brief This is a time-dependent filter.
- */
 bool FilterIntegral::v_IsTimeDependent()
 {
     return true;

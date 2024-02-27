@@ -78,7 +78,23 @@ GlobalLinSysPETScFull::GlobalLinSysPETScFull(
     SetUpScatter();
 
     // CONSTRUCT KSP OBJECT
-    SetUpSolver(pLocToGloMap->GetIterativeTolerance());
+    LibUtilities::SessionReaderSharedPtr pSession =
+        m_expList.lock()->GetSession();
+    string variable                    = pLocToGloMap->GetVariable();
+    NekDouble IterativeSolverTolerance = NekConstants::kNekIterativeTol;
+    if (pSession->DefinesGlobalSysSolnInfo(variable,
+                                           "IterativeSolverTolerance"))
+    {
+        IterativeSolverTolerance = boost::lexical_cast<double>(
+            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
+                .c_str());
+    }
+    else if (pSession->DefinesParameter("IterativeSolverTolerance"))
+    {
+        IterativeSolverTolerance =
+            pSession->GetParameter("IterativeSolverTolerance");
+    }
+    SetUpSolver(IterativeSolverTolerance);
 
     // POPULATE MATRIX
     for (n = cnt = 0; n < m_expList.lock()->GetNumElmts(); ++n)

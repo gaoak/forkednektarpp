@@ -14,4 +14,6 @@ mpi-default-dev
 petsc-dev
 python-dev
 python-numpy
+python-pip
+python-setuptools
 rsh-client

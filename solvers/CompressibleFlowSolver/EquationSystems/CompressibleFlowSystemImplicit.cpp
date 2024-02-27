@@ -64,12 +64,6 @@ void CFSImplicit::v_InitObject(bool DeclareFields)
 
     m_session->LoadParameter("nPadding", m_nPadding, 4);
 
-    m_session->LoadParameter("NewtonRelativeIteTol", m_newtonRelativeIteTol,
-                             1.0E-12);
-    WARNINGL0(!m_session->DefinesParameter("NewtonAbsoluteIteTol"),
-              "Please specify NewtonRelativeIteTol instead of "
-              "NewtonAbsoluteIteTol in XML session file");
-
     int ntmp;
     m_session->LoadParameter("AdvectionJacFlag", ntmp, 1);
     m_advectionJacFlag = (ntmp != 0);
@@ -94,8 +88,9 @@ void CFSImplicit::InitialiseNonlinSysSolver()
     {
         SolverType = m_session->GetSolverInfo("NonlinSysIterSolver");
     }
-    ASSERTL0(LibUtilities::GetNekNonlinSysFactory().ModuleExists(SolverType),
-             "NekNonlinSys '" + SolverType + "' is not defined.\n");
+    ASSERTL0(
+        LibUtilities::GetNekNonlinSysIterFactory().ModuleExists(SolverType),
+        "NekNonlinSys '" + SolverType + "' is not defined.\n");
 
     // Create the key to hold settings for nonlin solver
     LibUtilities::NekSysKey key = LibUtilities::NekSysKey();
@@ -103,6 +98,8 @@ void CFSImplicit::InitialiseNonlinSysSolver()
     m_session->LoadParameter("NekLinSysMaxIterations",
                              key.m_NekLinSysMaxIterations, 30);
     m_session->LoadParameter("LinSysMaxStorage", key.m_LinSysMaxStorage, 30);
+    m_session->LoadParameter("LinSysRelativeTolInNonlin",
+                             key.m_NekLinSysTolerance, 5.0E-2);
     m_session->LoadParameter("GMRESMaxHessMatBand", key.m_KrylovMaxHessMatBand,
                              31);
     m_session->MatchSolverInfo("GMRESLeftPrecon", "True",
@@ -112,10 +109,13 @@ void CFSImplicit::InitialiseNonlinSysSolver()
     // Load required NonLinSys parameters:
     m_session->LoadParameter("NekNonlinSysMaxIterations",
                              key.m_NekNonlinSysMaxIterations, 10);
+    m_session->LoadParameter("NewtonRelativeIteTol",
+                             key.m_NekNonLinSysTolerance, 1.0E-12);
+    WARNINGL0(!m_session->DefinesParameter("NewtonAbsoluteIteTol"),
+              "Please specify NewtonRelativeIteTol instead of "
+              "NewtonAbsoluteIteTol in XML session file");
     m_session->LoadParameter("NonlinIterTolRelativeL2",
                              key.m_NonlinIterTolRelativeL2, 1.0E-3);
-    m_session->LoadParameter("LinSysRelativeTolInNonlin",
-                             key.m_LinSysRelativeTolInNonlin, 5.0E-2);
     m_session->LoadSolverInfo("LinSysIterSolverTypeInNonlin",
                               key.m_LinSysIterSolverTypeInNonlin, "GMRES");
 
@@ -138,7 +138,6 @@ void CFSImplicit::InitialiseNonlinSysSolver()
             break;
     }
 
-    // Initialize operator
     LibUtilities::NekSysOperators nekSysOp;
     nekSysOp.DefineNekSysResEval(&CFSImplicit::NonlinSysEvaluatorCoeff1D, this);
     nekSysOp.DefineNekSysLhsEval(&CFSImplicit::MatrixMultiplyMatrixFreeCoeff,
@@ -156,7 +155,7 @@ void CFSImplicit::InitialiseNonlinSysSolver()
     }
 
     // Initialize non-linear system
-    m_nonlinsol = LibUtilities::GetNekNonlinSysFactory().CreateInstance(
+    m_nonlinsol = LibUtilities::GetNekNonlinSysIterFactory().CreateInstance(
         "Newton", m_session, m_comm->GetRowComm(), ntotal, key);
     m_nonlinsol->SetSysOperators(nekSysOp);
 
@@ -449,9 +448,9 @@ void CFSImplicit::DoImplicitSolveCoeff(
         CalcRefValues(inarray);
     }
 
-    NekDouble tol = std::sqrt(m_inArrayNorm) * m_newtonRelativeIteTol;
+    m_nonlinsol->SetRhsMagnitude(m_inArrayNorm);
 
-    m_TotNewtonIts += m_nonlinsol->SolveSystem(ntotal, inarray, out, 0, tol);
+    m_TotNewtonIts += m_nonlinsol->SolveSystem(ntotal, inarray, out, 0);
 
     m_TotLinIts += m_nonlinsol->GetNtotLinSysIts();
 

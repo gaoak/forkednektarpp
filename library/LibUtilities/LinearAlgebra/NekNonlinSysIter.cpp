@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekNonlinSys.cpp
+// File: NekNonlinSysIter.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -29,35 +29,35 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NekNonlinSys definition
+// Description: NekNonlinSysIter definition
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/LinearAlgebra/NekNonlinSys.h>
-
-using namespace std;
+#include <LibUtilities/LinearAlgebra/NekNonlinSysIter.h>
 
 namespace Nektar::LibUtilities
 {
 /**
- * @class  NekNonlinSys
+ * @class  NekNonlinSysIter
  *
  * Solves a nonlinear system using iterative methods.
  */
-NekNonlinSysFactory &GetNekNonlinSysFactory()
+NekNonlinSysIterFactory &GetNekNonlinSysIterFactory()
 {
-    static NekNonlinSysFactory instance;
+    static NekNonlinSysIterFactory instance;
     return instance;
 }
 
-NekNonlinSys::NekNonlinSys(const LibUtilities::SessionReaderSharedPtr &pSession,
-                           const LibUtilities::CommSharedPtr &vRowComm,
-                           const int nDimen, const NekSysKey &pKey)
+NekNonlinSysIter::NekNonlinSysIter(
+    const LibUtilities::SessionReaderSharedPtr &pSession,
+    const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
+    const NekSysKey &pKey)
     : NekSys(pSession, vRowComm, nDimen, pKey)
 {
-    m_maxiter                   = pKey.m_NekNonlinSysMaxIterations;
+    m_NekLinSysTolerance        = pKey.m_NekLinSysTolerance;
+    m_NekNonLinSysTolerance     = pKey.m_NekNonLinSysTolerance;
     m_NonlinIterTolRelativeL2   = pKey.m_NonlinIterTolRelativeL2;
-    m_LinSysRelativeTolInNonlin = pKey.m_LinSysRelativeTolInNonlin;
+    m_NekNonlinSysMaxIterations = pKey.m_NekNonlinSysMaxIterations;
     m_LinSysIterSolverType      = pKey.m_LinSysIterSolverTypeInNonlin;
 
     ASSERTL0(LibUtilities::GetNekLinSysIterFactory().ModuleExists(
@@ -70,9 +70,41 @@ NekNonlinSys::NekNonlinSys(const LibUtilities::SessionReaderSharedPtr &pSession,
     m_linsol->SetFlagWarnings(false);
 }
 
-void NekNonlinSys::v_InitObject()
+void NekNonlinSysIter::v_InitObject()
 {
     NekSys::v_InitObject();
+    m_Residual = Array<OneD, NekDouble>(m_SysDimen, 0.0);
+    m_DeltSltn = Array<OneD, NekDouble>(m_SysDimen, 0.0);
+}
+
+void NekNonlinSysIter::v_SetSysOperators(const NekSysOperators &in)
+{
+    NekSys::v_SetSysOperators(in);
+    m_linsol->SetSysOperators(in);
+}
+
+bool NekNonlinSysIter::ConvergenceCheck(
+    const int nIteration, const Array<OneD, const NekDouble> &Residual)
+{
+    m_SysResNorm = Vmath::Dot(Residual.size(), Residual, Residual);
+    m_rowComm->AllReduce(m_SysResNorm, Nektar::LibUtilities::ReduceSum);
+
+    if (nIteration == 0)
+    {
+        m_SysResNorm0 = m_SysResNorm;
+    }
+
+    NekDouble resratio = m_SysResNorm / m_SysResNorm0;
+    NekDouble tol      = m_NekNonLinSysTolerance;
+    NekDouble restol   = m_NonlinIterTolRelativeL2;
+
+    if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
+    {
+        m_rhs_magnitude = 1.0;
+    }
+
+    return resratio < restol * restol ||
+           m_SysResNorm < tol * tol * m_rhs_magnitude;
 }
 
 } // namespace Nektar::LibUtilities

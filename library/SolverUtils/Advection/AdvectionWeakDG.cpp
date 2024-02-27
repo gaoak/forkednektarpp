@@ -174,11 +174,16 @@ void AdvectionWeakDG::AdvectCoeffs(
         fields[i]->AddTraceIntegral(numflux[i], outarray[i]);
         timer.Stop();
         timer.AccumulateRegion("AdvWeakDG:_AddTraceIntegral", 10);
-
-        timer.Start();
-        fields[i]->MultiplyByElmtInvMass(outarray[i], outarray[i]);
-        timer.Stop();
-        timer.AccumulateRegion("AdvWeakDG:_MultiplyByElmtInvMass", 10);
+    }
+    if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag())
+    {
+        for (int i = 0; i < nConvectiveFields; ++i)
+        {
+            timer.Start();
+            fields[i]->MultiplyByElmtInvMass(outarray[i], outarray[i]);
+            timer.Stop();
+            timer.AccumulateRegion("AdvWeakDG:_MultiplyByElmtInvMass", 10);
+        }
     }
 }
 

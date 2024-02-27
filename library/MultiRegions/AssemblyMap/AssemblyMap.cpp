@@ -124,20 +124,6 @@ AssemblyMap::AssemblyMap(const LibUtilities::SessionReaderSharedPtr &pSession,
         m_preconType = "Diagonal";
     }
 
-    if (pSession->DefinesGlobalSysSolnInfo(variable,
-                                           "IterativeSolverTolerance"))
-    {
-        m_iterativeTolerance = boost::lexical_cast<NekDouble>(
-            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
-                .c_str());
-    }
-    else
-    {
-        pSession->LoadParameter("IterativeSolverTolerance",
-                                m_iterativeTolerance,
-                                NekConstants::kNekIterativeTol);
-    }
-
     if (pSession->DefinesGlobalSysSolnInfo(variable, "AbsoluteTolerance"))
     {
         std::string abstol =
@@ -185,7 +171,6 @@ AssemblyMap::AssemblyMap(
     : m_session(oldLevelMap->m_session), m_comm(oldLevelMap->GetComm()),
       m_hash(0), m_solnType(oldLevelMap->m_solnType),
       m_preconType(oldLevelMap->m_preconType),
-      m_iterativeTolerance(oldLevelMap->m_iterativeTolerance),
       m_successiveRHS(oldLevelMap->m_successiveRHS),
       m_linSysIterSolver(oldLevelMap->m_linSysIterSolver),
       m_gsh(oldLevelMap->m_gsh), m_bndGsh(oldLevelMap->m_bndGsh),
@@ -1360,11 +1345,6 @@ GlobalSysSolnType AssemblyMap::GetGlobalSysSolnType() const
 std::string AssemblyMap::GetPreconType() const
 {
     return m_preconType;
-}
-
-NekDouble AssemblyMap::GetIterativeTolerance() const
-{
-    return m_iterativeTolerance;
 }
 
 bool AssemblyMap::IsAbsoluteTolerance() const

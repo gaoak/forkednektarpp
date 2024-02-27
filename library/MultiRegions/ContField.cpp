@@ -973,7 +973,7 @@ GlobalLinSysKey ContField::v_LinearAdvectionDiffusionReactionSolve(
     }
 
     // Solve the system
-    GlobalLinSysKey key(mtype, m_locToGloMap, factors, pvarcoeff, varfactors);
+    GlobalLinSysKey key(mtype, m_locToGloMap, factors, varcoeff, varfactors);
 
     GlobalSolve(key, wsp, outarray, dirForcing);
 

@@ -337,6 +337,12 @@ public:
                       std::placeholders::_5, std::placeholders::_6);
     }
 
+    SOLVER_UTILS_EXPORT inline void SetGridVelocityTrace(
+        Array<OneD, Array<OneD, NekDouble>> &gridVelocityTrace)
+    {
+        m_gridVelocityTrace = gridVelocityTrace;
+    }
+
 protected:
     /// Params for Ducros sensor
     Array<OneD, NekDouble> m_divVel;
@@ -350,7 +356,7 @@ protected:
     DiffusionFluxCons m_FunctorDiffusionfluxConsTrace;
     SpecialBndTreat m_SpecialBndTreat;
     DiffusionSymmFluxCons m_FunctorSymmetricfluxCons;
-
+    Array<OneD, Array<OneD, NekDouble>> m_gridVelocityTrace;
     NekDouble m_time = 0.0;
 
     SOLVER_UTILS_EXPORT virtual void v_InitObject(

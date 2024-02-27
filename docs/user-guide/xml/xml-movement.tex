@@ -39,8 +39,8 @@ example showing two non-conformal interfaces on a single mesh is below:
 \end{lstlisting}
 
 Zones must have a type specified, at the moment only `FIXED' interfaces are
-supported however in the future there are plans to implement rotating, sliding,
-and prescribed motion using the ALE method. It is important for the zone IDs to
+supported however in the future there are plans to implement rotating and 
+sliding motion using the ALE method. It is important for the zone IDs to
 correspond with the relevant interface IDs present on the zone, that is if there
 is an interface with ID 0 there must also be a zone with ID 0 too. Zone IDs must
 be unique but interfaces can have the same ID, e.g. in the example above zone ID
@@ -62,3 +62,57 @@ Movement Info:
 	- "First":  0 (4 Segments) <-> 1 (6 Segments)
 	- "Second": 1 (6 Segments) <-> 2 (2 Segments)
 \end{lstlisting}
+
+
+\subsection{Sliding Mesh}\label{subsec:Sliding Mesh}
+ALE method is implemented through \inltt{MOVEMENT} and \inltt{ALEHELPER} for sliding 
+mesh with rotating and sliding motion. Zones type can be specified by `ROTATE' and 
+'TRANSLATE' interface. Recently, the ALE method is implemented in \inltt{ADRSolver} 
+and \inltt{CompressibleFlowSolver}, but only support explicit time integration shceme 
+and \inltt{LDG} for diffusion.
+
+An example for the rotationg movement is shown below:
+
+\begin{lstlisting}[style=XMLStyle]
+<MOVEMENT>
+<ZONES>
+    <FIXED ID="0" DOMAIN="D[0]" />
+    <ROTATE ID="1" DOMAIN="D[1]" ORIGIN="0,0.5,0" AXIS="0,0,1" ANGVEL="100"/>
+</ZONES>
+<INTERFACES>
+    <INTERFACE NAME="Circle">
+        <LEFT  ID="0" BOUNDARY="C[405]" />
+        <RIGHT ID="1" BOUNDARY="C[406]"  />
+    </INTERFACE>
+</INTERFACES>
+</MOVEMENT>
+\end{lstlisting}
+
+Here \inltt{ORIGIN} and \inltt{AXIS} are the origin and axis that the zone rotates about, 
+respectively. \inltt{ANGVEL} is the the angular velocity of rotation with degree unit. 
+
+Another example for the translating movement is shown below:
+
+\begin{lstlisting}[style=XMLStyle]
+<MOVEMENT>
+<ZONES>
+    <FIXED ID="0" DOMAIN="D[0]" />
+    <TRANSLATE ID="1" DOMAIN="D[1]" VELOCITY="0,PI*cos(2*PI*t)" DISPLACEMENT="0,0.5*sin(2*PI*t)"/>
+    <FIXED ID="2" DOMAIN="D[2]" />
+</ZONES>
+<INTERFACES>
+    <INTERFACE NAME="Left interface">
+        <LEFT  ID="0" BOUNDARY="C[405]" SKIPCHECK="TRUE"/>
+        <RIGHT ID="1" BOUNDARY="C[406]" SKIPCHECK="TRUE"/>
+    </INTERFACE>
+    <INTERFACE NAME="Right interface">
+        <LEFT  ID="1" BOUNDARY="C[407]" SKIPCHECK="TRUE"/>
+        <RIGHT ID="2" BOUNDARY="C[408]" SKIPCHECK="TRUE"/>
+    </INTERFACE>
+</INTERFACES>
+</MOVEMENT>
+\end{lstlisting}
+
+Here \inltt{VELOCITY} and \inltt{DISPLACEMENT} are the translation velocity and 
+displacement in x,y,z direction. \inltt{SKIPCHECK} is defined to ignore the missing 
+coordinates found check for specific interface.

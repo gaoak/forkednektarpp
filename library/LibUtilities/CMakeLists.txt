@@ -209,8 +209,8 @@ SET(LinearAlgebraHeaders
 ./LinearAlgebra/NekLinSysIterGMRESLoc.h
 ./LinearAlgebra/NekMatrixFwd.hpp
 ./LinearAlgebra/NekMatrix.hpp
-./LinearAlgebra/NekNonlinSys.h
-./LinearAlgebra/NekNonlinSysNewton.h
+./LinearAlgebra/NekNonlinSysIter.h
+./LinearAlgebra/NekNonlinSysIterNewton.h
 ./LinearAlgebra/NekPoint.hpp
 ./LinearAlgebra/NekSys.h
 ./LinearAlgebra/NekTypeDefs.hpp
@@ -241,8 +241,8 @@ SET(LinearAlgebraSources
 ./LinearAlgebra/NekLinSysIterCG.cpp
 ./LinearAlgebra/NekLinSysIterCGLoc.cpp
 ./LinearAlgebra/NekLinSysIterFixedpointJacobi.cpp
-./LinearAlgebra/NekNonlinSys.cpp
-./LinearAlgebra/NekNonlinSysNewton.cpp
+./LinearAlgebra/NekNonlinSysIter.cpp
+./LinearAlgebra/NekNonlinSysIterNewton.cpp
 ./LinearAlgebra/NekSys.cpp
 ./LinearAlgebra/NekVector.cpp
 ./LinearAlgebra/ScaledMatrix.cpp

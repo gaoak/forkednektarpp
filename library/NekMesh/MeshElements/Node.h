@@ -452,11 +452,17 @@ NEKMESH_EXPORT bool IsNodeClose(
  */
 struct NodeHash
 {
+
+    // @TODO: Way of fixing this so it doesn't delete coincident nodes for
+    // non-conformal grids
     std::size_t operator()(NodeSharedPtr const &p) const
     {
         return hash_combine(p->m_x, p->m_y, p->m_z);
     }
 };
+
+// @TODO: Fixed by just hashing based on memory address, I feel like we
+// shouldn't just delete vertices anyway...
 typedef std::unordered_set<NodeSharedPtr, NodeHash> NodeSet;
 } // namespace Nektar::NekMesh
 

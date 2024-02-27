@@ -53,8 +53,10 @@ WallViscousBC::WallViscousBC(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const Array<OneD, Array<OneD, NekDouble>> &pTraceNormals,
+    const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
     const int pSpaceDim, const int bcRegion, const int cnt)
-    : CFSBndCond(pSession, pFields, pTraceNormals, pSpaceDim, bcRegion, cnt)
+    : CFSBndCond(pSession, pFields, pTraceNormals, pGridVelocity, pSpaceDim,
+                 bcRegion, cnt)
 {
     m_diffusionAveWeight = 0.5;
 
@@ -117,7 +119,19 @@ void WallViscousBC::v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
         // V = - Vin
         for (i = 0; i < m_spacedim; i++)
         {
-            Vmath::Neg(nBCEdgePts, &Fwd[i + 1][id2], 1);
+            // V = -Vin
+            // Vmath::Neg(nBCEdgePts, &Fwd[i+1][id2], 1);
+
+            // This now does Vg * rho + Vin
+            // Vmath::Vvtvp(nBCEdgePts, &m_gridVelocityTrace[i][id2], 1,
+            // &Fwd[0][id2], 1, &Fwd[i+1][id2], 1, &Fwd[i+1][id2], 1);
+
+            for (int j = 0; j < nBCEdgePts; ++j)
+            {
+                Fwd[i + 1][id2 + j] =
+                    2 * m_gridVelocityTrace[i][id2 + j] * Fwd[0][id2 + j] -
+                    Fwd[i + 1][id2 + j];
+            }
         }
 
         // Superimpose the perturbation

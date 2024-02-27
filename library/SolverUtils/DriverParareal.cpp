@@ -87,6 +87,9 @@ void DriverParareal::v_Execute([[maybe_unused]] std::ostream &out)
     m_nsteps[m_fineLevel] /= m_numChunks * m_numWindowsPIT;
     m_nsteps[m_coarseLevel] /= m_numChunks * m_numWindowsPIT;
 
+    // Pre-solve for one time-step to initialize preconditioner.
+    UpdateSolution(m_coarseLevel, m_time, 1, 0, 0);
+
     // Start iteration windows.
     m_comm->GetTimeComm()->Block();
     UpdateInitialConditionFromSolver(m_fineLevel);

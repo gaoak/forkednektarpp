@@ -942,10 +942,12 @@ void DriverPFASST::EvaluateSDCResidualNorm(const size_t timeLevel)
  */
 void DriverPFASST::WriteOutput(const size_t step, const NekDouble time)
 {
-    size_t timeLevel           = 0;
-    static size_t IOChkStep    = m_EqSys[0]->GetCheckpointSteps()
-                                     ? m_EqSys[0]->GetCheckpointSteps()
-                                     : m_nsteps[timeLevel];
+    size_t timeLevel = 0;
+    size_t IOChkStep =
+        m_EqSys[timeLevel]->GetSession()->DefinesParameter("IO_CheckSteps")
+            ? m_EqSys[timeLevel]->GetSession()->GetParameter("IO_CheckSteps")
+            : 0;
+    IOChkStep                  = IOChkStep ? IOChkStep : m_nsteps[timeLevel];
     static std::string dirname = m_session->GetSessionName() + ".pit";
 
     if ((step + 1) % IOChkStep == 0)

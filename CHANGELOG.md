@@ -7,11 +7,23 @@ v5.6.0
 - Clean-up Set_Rhs_Magnitude function in NekLinSysIter (!1729)
 - Consistently use template parameters in VmathArray (!1748)
 - Fix issue with CMake and zlib versions >= 1.3.0 (!1744)
+- Add 1D demo and test of h-type convergence for a CG projection. (!1738)
+- Add 2D projection demo and tests following 1D added in MR !1738. (!1762)
+- Update NekPy to more modern packaging (!1747)
+- Tidy up tolerance in NekLinSystIter and NekNonlinSysIter solvers (!1722)
+- Enable varcoeffs for Collections (!1701)
+- Fix misplaced " in Nektar++Config.cmake (!1742)
+- Add conditional updating of elemental Mass and Laplacian matrices for LinearADR matrices (!1766)
+
+
+**NekPy**
+- Add binding to NekPy to check of geometry elements are valid (!1755)
+- Fix PFASST I/O and pre-initialize coarse preconditioner for Parareal (!1749)
+
+**NekMesh**
+- Fix optiKind flags in VarOpti for freenodes that are on more than a single curve / surface (!1597)
 
 v5.5.0
------
-**IncNavierStokesSolver**
-- Fixed issue with substepping when using mixed BCs (!1639)
 ------
 **Library**
 - Fix Nektar++Config.cmake to use MPI_CXX (!1224)
@@ -49,6 +61,7 @@ v5.5.0
 - Remove unused tolerance parameter in NekSys class and subclasses (1708)
 - Avoid repeatly operator assignment in NekNonlinSysNewton class (!1709)
 - Add an exact solution for GetLocCoords of straight-edge quad elements (!1704)
+- Add sliding mesh capability (!1605)
 - Remove MaxIterations parameter from AssemblyMap (!1710)
 - Consistently use relative tolerance for GMRES (!1706)
 - Fix use of absolute tolerance for iterative solvers (!1711)
@@ -84,6 +97,7 @@ v5.5.0
 - Fix segmentation error in IncNavierStokesSolver when AeroForces filter is used (!1726)
 - Added Examples in solvers/IncNavierStokesSolver/Examples, matching with the user-guide (!1723)
 - Extend support for IO timer levels to IncNavierStokesSolver (!1732)
+- Fixed issue with substepping when using mixed BCs (!1639)
 
 **CompressibleFlowSolver**
 - Add three subsonic inflow boundary conditions: EnforceEntropyPresure, EnforceEntropyVelocity, and EnforceEntropyTotalEnthalpy (!1398)
@@ -269,6 +283,19 @@ v5.3.0
 - Added float and restore avx512 back-end for SimdLib (!1387)
 - Fix namespace pollution which causes boost 1.74+ errors (!1389)
 - Fix missing copy assignment operator warnings in clang 13+ (!1391)
+- Add an integral filter for the time-evolution of integrals on composites,
+  supports dimension equal to or one lower than the mesh dimension (!1323)
+- Overload PhysEvaluate to give first derivatives using barycentric
+  interpolation (!1323)
+- Non-conformal interface support (!1323)
+
+**FieldConvert**
+- Added conditional to select the eNearestNeighbour method for 3D interpolation (!1335)
+- Fixed the output field names of WSS module of FieldConvert
+- Added float to scalar and avx2 back-end, disable avx512, sse2, sve (!1255)
+- Change MPI initialisation to allow MPI_Init call outside Nektar++ (!1376)
+- Added float and restore avx512 back-end for SimdLib (!1387)
+- Fix namespace pollution which causes boost 1.74+ errors (!1389)
 - Added checkpoint file writing start time in the checkpoint filter (!1401)
 - Fix boost 1.77 compatibility errors (!1420)
 - Replaced depricated "sprintf" with "std::to_string" (!1406)
@@ -383,6 +410,7 @@ v5.3.0
 - Fix CWIPI test to use DirectFull for projection of received data (!1502)
 
 **NekMesh**
+- Multi domain input/output for Nekpp and HDF5 file formats (!1323)
 - Replace VTK pointers with VTK smart-pointers to avoid memory leaking, when
 exporting in .vtu format (!1386)
 - Preserve CAD face labels and save in to session file as a "NAME=" tag on the composites (!1396)

@@ -90,6 +90,11 @@ public:
         m_params[name] = std::bind(func, obj);
     }
 
+    void SetALEFlag(bool &ALE)
+    {
+        m_ALESolver = ALE;
+    }
+
     void SetParam(std::string name, RSParamFuncType fp)
     {
         m_params[name] = fp;
@@ -152,6 +157,8 @@ protected:
     Array<OneD, Array<OneD, NekDouble>> m_rotMat;
     /// Rotation storage
     Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_rotStorage;
+    /// Flag if using the ALE formulation
+    bool m_ALESolver = false;
 
     SOLVER_UTILS_EXPORT RiemannSolver();
     SOLVER_UTILS_EXPORT RiemannSolver(

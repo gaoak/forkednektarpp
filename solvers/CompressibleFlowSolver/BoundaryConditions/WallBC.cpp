@@ -45,8 +45,10 @@ std::string WallBC::className = GetCFSBndCondFactory().RegisterCreatorFunction(
 WallBC::WallBC(const LibUtilities::SessionReaderSharedPtr &pSession,
                const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
                const Array<OneD, Array<OneD, NekDouble>> &pTraceNormals,
+               const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
                const int pSpaceDim, const int bcRegion, const int cnt)
-    : CFSBndCond(pSession, pFields, pTraceNormals, pSpaceDim, bcRegion, cnt)
+    : CFSBndCond(pSession, pFields, pTraceNormals, pGridVelocity, pSpaceDim,
+                 bcRegion, cnt)
 {
     m_diffusionAveWeight = 0.5;
 }
@@ -83,8 +85,27 @@ void WallBC::v_Apply(Array<OneD, Array<OneD, NekDouble>> &Fwd,
             Vmath::Zero(nBCEdgePts, &Fwd[nVariables - 1][id2], 1);
         }
 
+        // @TODO: Look at paper on this
+        // https://www.researchgate.net/publication/264044118_A_Guide_to_the_Implementation_of_Boundary_Conditions_in_Compact_High-Order_Methods_for_Compressible_Aerodynamics
         // For 2D/3D, define: v* = v - 2(v.n)n
         Array<OneD, NekDouble> tmp(nBCEdgePts, 0.0);
+
+        //@TODO: v - vg here... check nguyen paper, only issue is getting the vg
+        // for the trace in here
+        //@TODO: Update m_traceNormals, might be fine though.
+
+        if (m_fields[0]->GetGraph()->GetMovement()->GetMoveFlag())
+        {
+            for (i = 0; i < m_spacedim; ++i)
+            {
+                // This now does Vg * rho + Vin
+                for (int j = 0; j < nBCEdgePts; ++j)
+                {
+                    Fwd[i + 1][id2 + j] +=
+                        m_gridVelocityTrace[i][id2 + j] * Fwd[0][id2 + j];
+                }
+            }
+        }
 
         // Calculate (v.n)
         for (i = 0; i < m_spacedim; ++i)

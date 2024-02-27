@@ -38,9 +38,6 @@
 #include <CompressibleFlowSolver/ArtificialDiffusion/ArtificialDiffusion.h>
 #include <CompressibleFlowSolver/BoundaryConditions/CFSBndCond.h>
 #include <CompressibleFlowSolver/Misc/VariableConverter.h>
-#include <CompressibleFlowSolver/Preconditioner/PreconCfs.h>
-#include <CompressibleFlowSolver/Preconditioner/PreconCfsOp.h>
-#include <LibUtilities/LinearAlgebra/NekNonlinSys.h>
 #include <LocalRegions/Expansion2D.h>
 #include <LocalRegions/Expansion3D.h>
 #include <MultiRegions/GlobalMatrixKey.h>
@@ -126,6 +123,10 @@ protected:
     void v_GetVelocity(
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, Array<OneD, NekDouble>> &velocity) override;
+
+    void v_ALEInitObject(
+        int spaceDim,
+        Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
 
     void InitialiseParameters();
 

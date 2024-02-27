@@ -52,9 +52,8 @@ class Movement
 {
 public:
     /// Default constructor
-    SPATIAL_DOMAINS_EXPORT Movement()
-    {
-    }
+    SPATIAL_DOMAINS_EXPORT Movement() = default;
+
     /// Constructor to read from XML file
     SPATIAL_DOMAINS_EXPORT Movement(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -76,12 +75,42 @@ public:
         return m_zones;
     }
 
-    // Unused - placeholder for ALE merge request
     SPATIAL_DOMAINS_EXPORT void PerformMovement(NekDouble timeStep);
+
+    inline const bool &GetMoveFlag() const
+    {
+        return m_moveFlag;
+    }
+
+    inline bool &GetCoordExchangeFlag()
+    {
+        return m_coordExchangeFlag;
+    }
+
+    inline const Array<OneD, NekDouble> &GetDomainBox() const
+    {
+        return m_DomainBox;
+    }
+
+    inline const Array<OneD, NekDouble> &GetDomainLength() const
+    {
+        return m_DomainLength;
+    }
+
+    inline const bool &GetMovedFlag() const
+    {
+        return m_moved;
+    }
+
+    inline const bool &GetTranslateFlag() const
+    {
+        return m_translate;
+    }
 
     // Methods for manipulating the MOVEMENT data programatically
     /// Add a zone object to this Movement data.
     SPATIAL_DOMAINS_EXPORT void AddZone(ZoneBaseShPtr zone);
+
     /// Add pair of interfaces to this data
     SPATIAL_DOMAINS_EXPORT void AddInterface(std::string name,
                                              InterfaceShPtr left,
@@ -90,7 +119,13 @@ public:
 protected:
     InterfaceCollection m_interfaces;
     std::map<int, ZoneBaseShPtr> m_zones;
-    bool m_moveFlag = false; // Flags presence of moving zones
+    bool m_moveFlag  = false; // Flags presence of moving zones
+    bool m_translate = false; // Flags for translate
+    bool m_moved     = false; // Flags to check if domain moved
+    bool m_coordExchangeFlag =
+        true; // Flags if missing coordinates need to be calculated
+    Array<OneD, NekDouble> m_DomainBox;    // Domain box
+    Array<OneD, NekDouble> m_DomainLength; // Lenghth of domain
 
 private:
     /// Read zones given TiXmlDocument
@@ -98,6 +133,8 @@ private:
                    const LibUtilities::SessionReaderSharedPtr &pSession);
     /// Read interfaces given TiXmlDocument
     void ReadInterfaces(TiXmlElement *interfacesTag, MeshGraph *meshGraph);
+    /// Calculate length of the domain
+    void DomainBox();
 };
 
 typedef std::shared_ptr<Movement> MovementSharedPtr;

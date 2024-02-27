@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekNonlinSys.h
+// File: NekNonlinSysIter.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -29,7 +29,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NekNonlinSys header
+// Description: NekNonlinSysIter header
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -41,24 +41,24 @@
 
 namespace Nektar::LibUtilities
 {
-class NekNonlinSys;
+class NekNonlinSysIter;
 
-typedef std::shared_ptr<NekNonlinSys> NekNonlinSysSharedPtr;
+typedef std::shared_ptr<NekNonlinSysIter> NekNonlinSysIterSharedPtr;
 
 typedef LibUtilities::NekFactory<
-    std::string, NekNonlinSys, const LibUtilities::SessionReaderSharedPtr &,
+    std::string, NekNonlinSysIter, const LibUtilities::SessionReaderSharedPtr &,
     const LibUtilities::CommSharedPtr &, const int, const NekSysKey &>
-    NekNonlinSysFactory;
-LIB_UTILITIES_EXPORT NekNonlinSysFactory &GetNekNonlinSysFactory();
+    NekNonlinSysIterFactory;
+LIB_UTILITIES_EXPORT NekNonlinSysIterFactory &GetNekNonlinSysIterFactory();
 
-class NekNonlinSys : public NekSys
+class NekNonlinSysIter : public NekSys
 {
 public:
-    LIB_UTILITIES_EXPORT NekNonlinSys(
+    LIB_UTILITIES_EXPORT NekNonlinSysIter(
         const LibUtilities::SessionReaderSharedPtr &pSession,
         const LibUtilities::CommSharedPtr &vRowComm, const int nDimen,
         const NekSysKey &pKey);
-    LIB_UTILITIES_EXPORT ~NekNonlinSys() override = default;
+    LIB_UTILITIES_EXPORT ~NekNonlinSysIter() override = default;
 
     LIB_UTILITIES_EXPORT const Array<OneD, const NekDouble> &GetRefSolution()
         const
@@ -88,15 +88,14 @@ public:
         return m_NtotLinSysIts;
     }
 
-    LIB_UTILITIES_EXPORT void SetNekNonlinSysTolerance(const NekDouble in)
+    LIB_UTILITIES_EXPORT void SetNekLinSysTolerance(const NekDouble in)
     {
-        m_tolerance = in;
+        m_NekLinSysTolerance = in;
     }
 
-    LIB_UTILITIES_EXPORT void SetNekNonlinSysMaxIterations(
-        const unsigned int in)
+    LIB_UTILITIES_EXPORT void SetNekNonlinSysTolerance(const NekDouble in)
     {
-        m_maxiter = in;
+        m_NekNonLinSysTolerance = in;
     }
 
     LIB_UTILITIES_EXPORT void SetNonlinIterTolRelativeL2(const NekDouble in)
@@ -104,21 +103,27 @@ public:
         m_NonlinIterTolRelativeL2 = in;
     }
 
-    LIB_UTILITIES_EXPORT void SetLinSysRelativeTolInNonlin(const NekDouble in)
+    LIB_UTILITIES_EXPORT void SetNekNonlinSysMaxIterations(
+        const unsigned int in)
     {
-        m_LinSysRelativeTolInNonlin = in;
+        m_NekNonlinSysMaxIterations = in;
     }
 
 protected:
+    NekDouble m_SysResNorm0;
+    NekDouble m_SysResNorm;
+
     NekLinSysIterSharedPtr m_linsol;
 
+    NekDouble m_NekLinSysTolerance;
+    NekDouble m_NekNonLinSysTolerance;
     NekDouble m_NonlinIterTolRelativeL2;
-    NekDouble m_LinSysRelativeTolInNonlin;
 
-    std::string m_LinSysIterSolverType;
-
+    int m_NekNonlinSysMaxIterations;
     int m_totalIterations = 0;
     int m_NtotLinSysIts   = 0;
+
+    std::string m_LinSysIterSolverType;
 
     Array<OneD, NekDouble> m_Solution;
     Array<OneD, NekDouble> m_Residual;
@@ -126,6 +131,11 @@ protected:
     Array<OneD, NekDouble> m_SourceVec;
 
     void v_InitObject() override;
+
+    void v_SetSysOperators(const NekSysOperators &in) override;
+
+    bool ConvergenceCheck(const int nIteration,
+                          const Array<OneD, const NekDouble> &Residual);
 
 private:
 };

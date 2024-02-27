@@ -74,7 +74,7 @@ std::string UnsteadySystem::cmdSetStartChkNum =
 UnsteadySystem::UnsteadySystem(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::MeshGraphSharedPtr &pGraph)
-    : EquationSystem(pSession, pGraph)
+    : EquationSystem(pSession, pGraph), SolverUtils::ALEHelper()
 
 {
 }
@@ -85,7 +85,7 @@ UnsteadySystem::UnsteadySystem(
 void UnsteadySystem::v_InitObject(bool DeclareField)
 {
     EquationSystem::v_InitObject(DeclareField);
-
+    v_ALEInitObject(m_spacedim, m_fields);
     m_initialStep = 0;
 
     // Load SolverInfo parameters.
@@ -244,11 +244,20 @@ void UnsteadySystem::v_DoSolve()
     Array<OneD, Array<OneD, NekDouble>> fields(nvariables);
 
     // Order storage to list time-integrated fields first.
+    // @TODO: Refactor to take coeffs (FwdTrans) if boolean flag (in constructor
+    // function) says to.
     for (i = 0; i < nvariables; ++i)
     {
         fields[i] = m_fields[m_intVariables[i]]->UpdatePhys();
         m_fields[m_intVariables[i]]->SetPhysState(false);
     }
+
+    // @TODO: Virtual function that allows to transform the field space, embed
+    // the MultiplyMassMatrix in here.
+    // @TODO: Specify what the fields variables are physical or coefficient,
+    // boolean in UnsteadySystem class...
+
+    v_ALEPreMultiplyMass(fields);
 
     // Initialise time integration scheme.
     m_intScheme->InitializeScheme(m_timestep, fields, m_time, m_ode);
@@ -329,7 +338,9 @@ void UnsteadySystem::v_DoSolve()
 
         // Perform any solver-specific pre-integration steps.
         timer.Start();
-        if (v_PreIntegrate(step))
+        if (v_PreIntegrate(
+                step)) // Could be possible to put a preintegrate step in the
+                       // ALEHelper class, put in the Unsteady Advection class
         {
             break;
         }
@@ -354,18 +365,31 @@ void UnsteadySystem::v_DoSolve()
             cpuTime     = 0.0;
         }
 
-        // Transform data into coefficient space.
-        for (i = 0; i < nvariables; ++i)
+        // @TODO: Another virtual function with this in it based on if ALE or
+        // not.
+        if (m_ALESolver) // Change to advect coeffs, change flag to physical vs
+                         // coefficent space
         {
-            // Copy fields into ExpList::m_phys.
-            m_fields[m_intVariables[i]]->SetPhys(fields[i]);
-            if (v_RequireFwdTrans())
+            SetBoundaryConditions(m_time);
+            ALEHelper::ALEDoElmtInvMass(m_traceNormals, fields, m_time);
+        }
+        else
+        {
+            // Transform data into coefficient space
+            for (i = 0; i < nvariables; ++i)
             {
-                m_fields[m_intVariables[i]]->FwdTransLocalElmt(
-                    m_fields[m_intVariables[i]]->GetPhys(),
-                    m_fields[m_intVariables[i]]->UpdateCoeffs());
+                // copy fields into ExpList::m_phys and assign the new
+                // array to fields
+                m_fields[m_intVariables[i]]->SetPhys(fields[i]);
+                fields[i] = m_fields[m_intVariables[i]]->UpdatePhys();
+                if (v_RequireFwdTrans())
+                {
+                    m_fields[m_intVariables[i]]->FwdTransLocalElmt(
+                        m_fields[m_intVariables[i]]->GetPhys(),
+                        m_fields[m_intVariables[i]]->UpdateCoeffs());
+                }
+                m_fields[m_intVariables[i]]->SetPhysState(false);
             }
-            m_fields[m_intVariables[i]]->SetPhysState(false);
         }
 
         // Perform any solver-specific post-integration steps.
@@ -460,7 +484,7 @@ void UnsteadySystem::v_DoSolve()
         // Write out checkpoint files.
         if ((m_checksteps && !((step + 1) % m_checksteps)) || doCheckTime)
         {
-            if (m_HomogeneousType != eNotHomogeneous)
+            if (m_HomogeneousType != eNotHomogeneous && !m_ALESolver)
             {
                 // Transform to physical space for output.
                 vector<bool> transformed(nfields, false);
@@ -507,26 +531,28 @@ void UnsteadySystem::v_DoSolve()
     v_PrintSummaryStatistics(intTime);
 
     // If homogeneous, transform back into physical space if necessary.
-    if (m_HomogeneousType != eNotHomogeneous)
+    if (!m_ALESolver)
     {
-        for (i = 0; i < nfields; i++)
+        if (m_HomogeneousType != eNotHomogeneous)
         {
-            if (m_fields[i]->GetWaveSpace())
+            for (i = 0; i < nfields; i++)
             {
-                m_fields[i]->SetWaveSpace(false);
-                m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(),
-                                      m_fields[i]->UpdatePhys());
+                if (m_fields[i]->GetWaveSpace())
+                {
+                    m_fields[i]->SetWaveSpace(false);
+                    m_fields[i]->BwdTrans(m_fields[i]->GetCoeffs(),
+                                          m_fields[i]->UpdatePhys());
+                }
+            }
+        }
+        else
+        {
+            for (i = 0; i < nvariables; ++i)
+            {
+                m_fields[m_intVariables[i]]->SetPhysState(true);
             }
         }
     }
-    else
-    {
-        for (i = 0; i < nvariables; ++i)
-        {
-            m_fields[m_intVariables[i]]->SetPhysState(true);
-        }
-    }
-
     // Finalise filters.
     for (auto &x : m_filters)
     {
@@ -596,6 +622,9 @@ void UnsteadySystem::v_DoInitialise(bool dumpInitialConditions)
     CheckForRestartTime(m_time, m_nchk);
     SetBoundaryConditions(m_time);
     SetInitialConditions(m_time, dumpInitialConditions);
+
+    v_UpdateGridVelocity(m_time);
+
     InitializeSteadyState();
 }
 

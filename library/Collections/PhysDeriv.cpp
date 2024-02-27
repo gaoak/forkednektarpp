@@ -190,8 +190,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -338,8 +338,8 @@ public:
         Vmath::Vcopy(m_nOut, m_output[dir], 1, output, 1);
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -546,8 +546,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -677,8 +677,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -831,8 +831,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -996,8 +996,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -1183,8 +1183,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -1399,8 +1399,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -1649,8 +1649,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -1901,8 +1901,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -2157,8 +2157,8 @@ public:
         }
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }

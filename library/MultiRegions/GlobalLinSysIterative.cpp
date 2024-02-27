@@ -70,9 +70,24 @@ GlobalLinSysIterative::GlobalLinSysIterative(
       m_precon(NullPreconditionerSharedPtr), m_totalIterations(0),
       m_useProjection(false), m_numPrevSols(0)
 {
-    m_tolerance           = pLocToGloMap->GetIterativeTolerance();
     m_isAbsoluteTolerance = pLocToGloMap->IsAbsoluteTolerance();
     m_linSysIterSolver    = pLocToGloMap->GetLinSysIterSolver();
+
+    LibUtilities::SessionReaderSharedPtr pSession =
+        m_expList.lock()->GetSession();
+    string variable = pLocToGloMap->GetVariable();
+    if (pSession->DefinesGlobalSysSolnInfo(variable,
+                                           "IterativeSolverTolerance"))
+    {
+        m_tolerance = boost::lexical_cast<double>(
+            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
+                .c_str());
+    }
+    else
+    {
+        pSession->LoadParameter("IterativeSolverTolerance", m_tolerance,
+                                NekConstants::kNekIterativeTol);
+    }
 
     LibUtilities::CommSharedPtr vComm =
         m_expList.lock()->GetComm()->GetRowComm();
@@ -128,15 +143,13 @@ GlobalLinSysIterative::~GlobalLinSysIterative()
  */
 void GlobalLinSysIterative::DoProjection(
     const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const int nDir, const NekDouble tol,
-    const bool isAconjugate)
+    Array<OneD, NekDouble> &pOutput, const int nDir, const bool isAconjugate)
 {
     int numIterations = 0;
     if (0 == m_numPrevSols)
     {
         // no previous solutions found
-        numIterations =
-            m_linsol->SolveSystem(nGlobal, pInput, pOutput, nDir, tol);
+        numIterations = m_linsol->SolveSystem(nGlobal, pInput, pOutput, nDir);
     }
     else
     {
@@ -155,13 +168,13 @@ void GlobalLinSysIterative::DoProjection(
 
         vComm->AllReduce(rhsNorm, Nektar::LibUtilities::ReduceSum);
 
-        if (rhsNorm < tol * tol * m_rhs_magnitude)
+        if (rhsNorm < m_tolerance * m_tolerance * m_rhs_magnitude)
         {
             Vmath::Zero(nNonDir, tmp = pOutput + nDir, 1);
             if (m_verbose && m_root)
             {
                 cout << "No iterations made"
-                     << " using tolerance of " << tol
+                     << " using tolerance of " << m_tolerance
                      << " (error = " << sqrt(rhsNorm / m_rhs_magnitude)
                      << ", rhs_mag = " << sqrt(m_rhs_magnitude) << ")" << endl;
             }
@@ -235,7 +248,7 @@ void GlobalLinSysIterative::DoProjection(
         }
 
         // solve the system with projected rhs
-        numIterations = m_linsol->SolveSystem(nGlobal, pb_s, tmpx_s, nDir, tol);
+        numIterations = m_linsol->SolveSystem(nGlobal, pb_s, tmpx_s, nDir);
 
         // remainder solution + projection of previous solutions
         x = tmpx + px;

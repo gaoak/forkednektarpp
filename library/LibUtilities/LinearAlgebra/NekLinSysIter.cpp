@@ -35,8 +35,6 @@
 
 #include <LibUtilities/LinearAlgebra/NekLinSysIter.h>
 
-using namespace std;
-
 namespace Nektar::LibUtilities
 {
 /**
@@ -56,9 +54,10 @@ NekLinSysIter::NekLinSysIter(
     const NekSysKey &pKey)
     : NekSys(pSession, vRowComm, nDimen, pKey)
 {
-    m_maxiter          = pKey.m_NekLinSysMaxIterations;
-    m_LinSysMaxStorage = pKey.m_LinSysMaxStorage;
-    m_isLocal          = false;
+    m_NekLinSysTolerance     = pKey.m_NekLinSysTolerance;
+    m_NekLinSysMaxIterations = pKey.m_NekLinSysMaxIterations;
+    m_LinSysMaxStorage       = pKey.m_LinSysMaxStorage;
+    m_isLocal                = false;
 }
 
 void NekLinSysIter::v_InitObject()
@@ -82,22 +81,35 @@ void NekLinSysIter::SetUniversalUniqueMap()
     m_map = Array<OneD, int>(m_SysDimen, 1);
 }
 
-void NekLinSysIter::Set_Rhs_Magnitude(const NekVector<NekDouble> &pIn)
+void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn)
 {
     NekDouble vExchange(0.0);
-    vExchange = Vmath::Dot2(pIn.GetDimension(), &pIn[0], &pIn[0], &m_map[0]);
+
+    if (m_isLocal)
+    {
+        Array<OneD, NekDouble> wk(pIn.size());
+        m_operator.DoAssembleLoc(pIn, wk);
+        vExchange = Vmath::Dot(pIn.size(), wk, pIn);
+    }
+    else
+    {
+        vExchange = Vmath::Dot2(pIn.size(), pIn, pIn, m_map);
+    }
+
     m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
     m_rhs_magnitude = (vExchange > 1.0e-6) ? vExchange : 1.0;
 }
 
-void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn)
+bool NekLinSysIter::ConvergenceCheck(
+    const Array<OneD, const NekDouble> &Residual)
 {
-    NekDouble vExchange(0.0);
-    Array<OneD, NekDouble> wk(pIn.size());
-    m_operator.DoAssembleLoc(pIn, wk);
-    vExchange = Vmath::Dot(pIn.size(), wk, pIn);
-    m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
-    m_rhs_magnitude = (vExchange > 1e-6) ? vExchange : 1.0;
+    int ntotal = Residual.size();
+
+    NekDouble SysResNorm = Vmath::Dot(ntotal, Residual, Residual);
+    m_rowComm->AllReduce(SysResNorm, Nektar::LibUtilities::ReduceSum);
+
+    return SysResNorm <
+           m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude;
 }
 
 } // namespace Nektar::LibUtilities

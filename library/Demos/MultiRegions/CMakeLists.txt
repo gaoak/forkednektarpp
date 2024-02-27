@@ -30,6 +30,18 @@ ADD_NEKTAR_EXECUTABLE(Int3DHomo1D
      COMPONENT demos DEPENDS MultiRegions SOURCES Int3DHomo1D.cpp)
 ADD_NEKTAR_EXECUTABLE(SteadyAdvectionDiffusionReaction2D
      COMPONENT demos DEPENDS MultiRegions SOURCES SteadyAdvectionDiffusionReaction2D.cpp)
+ADD_NEKTAR_EXECUTABLE(Project1D
+     COMPONENT demos DEPENDS MultiRegions SOURCES Project1D.cpp)
+ADD_NEKTAR_EXECUTABLE(Project2D
+     COMPONENT demos DEPENDS MultiRegions SOURCES Project2D.cpp)
+
+ADD_NEKTAR_TEST(Project1d4Cont)
+ADD_NEKTAR_TEST(Project1d5Cont)
+ADD_NEKTAR_TEST(Project1d6Cont)
+ADD_NEKTAR_TEST(Project1d7Cont)
+ADD_NEKTAR_TEST(Project1dLocal)
+ADD_NEKTAR_TEST(Project2dQuad)
+ADD_NEKTAR_TEST(Project2dTri)
 
 ADD_NEKTAR_TEST(Helmholtz1D_CG_P8)
 ADD_NEKTAR_TEST(Helmholtz1D_CG_P8_periodic)

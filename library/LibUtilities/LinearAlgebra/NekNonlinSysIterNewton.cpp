@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekNonlinSysNewton.cpp
+// File: NekNonlinSysIterNewton.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -29,52 +29,45 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: NekNonlinSysNewton definition
+// Description: NekNonlinSysIterNewton definition
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/LinearAlgebra/NekNonlinSysNewton.h>
+#include <LibUtilities/LinearAlgebra/NekNonlinSysIterNewton.h>
 
 using namespace std;
 
 namespace Nektar::LibUtilities
 {
 /**
- * @class  NekNonlinSysNewton
+ * @class  NekNonlinSysIterNewton
  *
  * Solves a nonlinear system using iterative methods.
  */
-string NekNonlinSysNewton::className =
-    LibUtilities::GetNekNonlinSysFactory().RegisterCreatorFunction(
-        "Newton", NekNonlinSysNewton::create, "NekNonlinSysNewton solver.");
+string NekNonlinSysIterNewton::className =
+    LibUtilities::GetNekNonlinSysIterFactory().RegisterCreatorFunction(
+        "Newton", NekNonlinSysIterNewton::create,
+        "NekNonlinSysIterNewton solver.");
 
-NekNonlinSysNewton::NekNonlinSysNewton(
+NekNonlinSysIterNewton::NekNonlinSysIterNewton(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const LibUtilities::CommSharedPtr &vRowComm, const int nscale,
     const NekSysKey &pKey)
-    : NekNonlinSys(pSession, vRowComm, nscale, pKey)
+    : NekNonlinSysIter(pSession, vRowComm, nscale, pKey)
 {
 }
 
-void NekNonlinSysNewton::v_InitObject()
+void NekNonlinSysIterNewton::v_InitObject()
 {
-    NekSys::v_InitObject();
-    m_Residual = Array<OneD, NekDouble>(m_SysDimen, 0.0);
-    m_DeltSltn = Array<OneD, NekDouble>(m_SysDimen, 0.0);
-}
-
-void NekNonlinSysNewton::v_SetSysOperators(const NekSysOperators &in)
-{
-    NekSys::v_SetSysOperators(in);
-    m_linsol->SetSysOperators(in);
+    NekNonlinSysIter::v_InitObject();
 }
 
 /**
  *
  **/
-int NekNonlinSysNewton::v_SolveSystem(
+int NekNonlinSysIterNewton::v_SolveSystem(
     const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const int nDir, const NekDouble tol,
+    Array<OneD, NekDouble> &pOutput, const int nDir,
     [[maybe_unused]] const NekDouble factor)
 {
     ASSERTL0(nDir == 0, "nDir != 0 not tested");
@@ -91,11 +84,11 @@ int NekNonlinSysNewton::v_SolveSystem(
 
     NekDouble resnormOld = 0.0;
     int NttlNonlinIte    = 0;
-    for (; NttlNonlinIte < m_maxiter; ++NttlNonlinIte)
+    for (; NttlNonlinIte < m_NekNonlinSysMaxIterations; ++NttlNonlinIte)
     {
         m_operator.DoNekSysResEval(m_Solution, m_Residual);
 
-        m_converged = v_ConvergenceCheck(NttlNonlinIte, m_Residual, tol);
+        m_converged = ConvergenceCheck(NttlNonlinIte, m_Residual);
         if (m_converged)
         {
             break;
@@ -104,15 +97,16 @@ int NekNonlinSysNewton::v_SolveSystem(
         NekDouble LinSysRelativeIteTol =
             CalcInexactNewtonForcing(NttlNonlinIte, resnormOld, m_SysResNorm);
         resnormOld = m_SysResNorm;
-        m_linsol->setRhsMagnitude(m_SysResNorm);
-        int ntmpLinSysIts = m_linsol->SolveSystem(
-            ntotal, m_Residual, m_DeltSltn, 0, LinSysRelativeIteTol);
+        m_linsol->SetRhsMagnitude(m_SysResNorm);
+        m_linsol->SetNekLinSysTolerance(LinSysRelativeIteTol);
+        int ntmpLinSysIts =
+            m_linsol->SolveSystem(ntotal, m_Residual, m_DeltSltn, 0);
         m_NtotLinSysIts += ntmpLinSysIts;
 
         Vmath::Vsub(ntotal, m_Solution, 1, m_DeltSltn, 1, m_Solution, 1);
     }
 
-    if (((!m_converged) || m_verbose) && m_root && m_FlagWarnings)
+    if ((!m_converged || m_verbose) && m_root && m_FlagWarnings)
     {
         int nwidthcolm = 11;
 
@@ -128,36 +122,19 @@ int NekNonlinSysNewton::v_SolveSystem(
     return NttlNonlinIte;
 }
 
-bool NekNonlinSysNewton::v_ConvergenceCheck(
-    const int nIteration, const Array<OneD, const NekDouble> &Residual,
-    const NekDouble tol)
+NekDouble NekNonlinSysIterNewton::CalcInexactNewtonForcing(
+    const int &nIteration, const NekDouble &resnormOld,
+    const NekDouble &resnorm)
 {
-    m_SysResNorm = Vmath::Dot(Residual.size(), Residual, Residual);
-    m_rowComm->AllReduce(m_SysResNorm, Nektar::LibUtilities::ReduceSum);
-
-    if (nIteration == 0)
+    if (nIteration == 0 || !m_InexactNewtonForcing)
     {
-        m_SysResNorm0 = m_SysResNorm;
-    }
-
-    NekDouble resratio = m_SysResNorm / m_SysResNorm0;
-    NekDouble restol   = m_NonlinIterTolRelativeL2;
-
-    return resratio < restol * restol || m_SysResNorm < tol * tol;
-}
-
-NekDouble NekNonlinSysNewton::CalcInexactNewtonForcing(
-    const int &k, const NekDouble &resnormOld, const NekDouble &resnorm)
-{
-    if (k == 0 || !m_InexactNewtonForcing)
-    {
-        return m_LinSysRelativeTolInNonlin;
+        return m_NekLinSysTolerance;
     }
     else
     {
         NekDouble tmpForc =
             m_forcingGamma * pow((resnorm / resnormOld), m_forcingAlpha);
-        return max(min(m_LinSysRelativeTolInNonlin, tmpForc), 1.0E-6);
+        return max(min(m_NekLinSysTolerance, tmpForc), 1.0E-6);
     }
 }
 

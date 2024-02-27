@@ -198,7 +198,23 @@ void GlobalLinSysPETScStaticCond::v_AssembleSchurComplement(
     SetUpScatter();
 
     // CONSTRUCT KSP OBJECT
-    SetUpSolver(pLocToGloMap->GetIterativeTolerance());
+    LibUtilities::SessionReaderSharedPtr pSession =
+        m_expList.lock()->GetSession();
+    string variable                    = pLocToGloMap->GetVariable();
+    NekDouble IterativeSolverTolerance = NekConstants::kNekIterativeTol;
+    if (pSession->DefinesGlobalSysSolnInfo(variable,
+                                           "IterativeSolverTolerance"))
+    {
+        IterativeSolverTolerance = boost::lexical_cast<double>(
+            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
+                .c_str());
+    }
+    else if (pSession->DefinesParameter("IterativeSolverTolerance"))
+    {
+        IterativeSolverTolerance =
+            pSession->GetParameter("IterativeSolverTolerance");
+    }
+    SetUpSolver(IterativeSolverTolerance);
 
     // If we are using the matrix multiplication shell don't try to
     // populate the matrix.

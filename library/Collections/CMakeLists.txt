@@ -21,6 +21,9 @@ SET(COLLECTIONS_HEADERS
   Operator.h      
 )
 
+# The current source dir is needed to get the header files.
+ADD_DEFINITIONS(-DCOLLECTIONS_EXPORTS -I${CMAKE_CURRENT_SOURCE_DIR})
+
 ADD_NEKTAR_LIBRARY(Collections
     SOURCES ${COLLECTIONS_SOURCES}
     HEADERS ${COLLECTIONS_HEADERS}

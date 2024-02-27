@@ -63,6 +63,10 @@ public:
     /// Destructor
     ~UnsteadyAdvectionDiffusion() override = default;
 
+    void v_ALEInitObject(
+        int spaceDim,
+        Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
+
 protected:
     bool m_subSteppingScheme;
 
@@ -105,6 +109,9 @@ protected:
 
     /// PreIntegration step for substepping.
     bool v_PreIntegrate(int step) override;
+
+    void v_ExtraFldOutput(std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
+                          std::vector<std::string> &variables) override;
 
     // SubsStepping methods -> Probably could be set up in separate class
     void SubStepAdvance(int nstep, NekDouble time);

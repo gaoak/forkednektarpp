@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
                 if (cmd.m_pythonTest && !pythonAdded)
                 {
                     // Prepend Python to very start of command.
-                    command = "PYTHONPATH=\"@CMAKE_BINARY_DIR@\" " + command;
+                    command = "PYTHONPATH=\"@NEKPY_BASE_DIR@\" " + command;
                     pythonAdded = true;
                 }
 

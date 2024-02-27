@@ -113,9 +113,7 @@ protected:
     void DoProjection(const int pNumRows,
                       const Array<OneD, const NekDouble> &pInput,
                       Array<OneD, NekDouble> &pOutput, const int pNumDir,
-                      const NekDouble tol, const bool isAconjugate);
-
-    void Set_Rhs_Magnitude(const NekVector<NekDouble> &pIn);
+                      const bool isAconjugate);
 
     virtual void v_UniqueMap() = 0;
 

@@ -55,6 +55,7 @@ NekLinSysIterFixedpointJacobi::NekLinSysIterFixedpointJacobi(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
+    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-16);
 }
 
 /**
@@ -71,19 +72,18 @@ void NekLinSysIterFixedpointJacobi::v_InitObject()
 int NekLinSysIterFixedpointJacobi::v_SolveSystem(
     const int nGlobal, const Array<OneD, const NekDouble> &pRhs,
     Array<OneD, NekDouble> &pSolution, [[maybe_unused]] const int nDir,
-    const NekDouble tol, [[maybe_unused]] const NekDouble factor)
+    [[maybe_unused]] const NekDouble factor)
 {
 
     int niterations = 0;
-    m_tolerance     = max(tol, 1.0E-16);
 
     Array<OneD, NekDouble> pSol0(nGlobal);
     Vmath::Vcopy(nGlobal, pSolution, 1, pSol0, 1);
-    for (int i = 0; i < m_maxiter; ++i)
+    for (int i = 0; i < m_NekLinSysMaxIterations; ++i)
     {
         m_operator.DoNekSysFixPointIte(pRhs, pSol0, pSolution);
         Vmath::Vsub(nGlobal, pSolution, 1, pSol0, 1, pSol0, 1);
-        m_converged = ConvergenceCheck(i, pSol0, m_tolerance);
+        m_converged = ConvergenceCheck(pSol0);
         Vmath::Vcopy(nGlobal, pSolution, 1, pSol0, 1);
         niterations++;
         if (m_converged)

@@ -57,13 +57,16 @@ NekLinSysIterGMRESLoc::NekLinSysIterGMRESLoc(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
+    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-15);
+
     m_NekLinSysLeftPrecon  = pKey.m_NekLinSysLeftPrecon;
     m_NekLinSysRightPrecon = pKey.m_NekLinSysRightPrecon;
 
     m_KrylovMaxHessMatBand = pKey.m_KrylovMaxHessMatBand;
 
-    m_maxrestart = ceil(NekDouble(m_maxiter) / NekDouble(m_LinSysMaxStorage));
-    m_LinSysMaxStorage = min(m_maxiter, m_LinSysMaxStorage);
+    m_maxrestart       = ceil(NekDouble(m_NekLinSysMaxIterations) /
+                        NekDouble(m_LinSysMaxStorage));
+    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, m_LinSysMaxStorage);
 
     m_DifferenceFlag0 = pKey.m_DifferenceFlag0;
     m_DifferenceFlag1 = pKey.m_DifferenceFlag1;
@@ -98,9 +101,8 @@ void NekLinSysIterGMRESLoc::v_InitObject()
 int NekLinSysIterGMRESLoc::v_SolveSystem(
     const int nLocal, const Array<OneD, const NekDouble> &pInput,
     Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir,
-    const NekDouble tol, [[maybe_unused]] const NekDouble factor)
+    [[maybe_unused]] const NekDouble factor)
 {
-    m_tolerance     = max(tol, 1.0E-15);
     int niterations = DoGMRES(nLocal, pInput, pOutput);
 
     return niterations;
@@ -179,7 +181,7 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
             cout << std::scientific << std::setw(nwidthcolm)
                  << std::setprecision(nwidthcolm - 8)
                  << "       GMRES iterations made = " << m_totalIterations
-                 << " using tolerance of " << m_tolerance
+                 << " using tolerance of " << m_NekLinSysTolerance
                  << " (error = " << sqrt(eps * m_prec_factor / m_rhs_magnitude)
                  << ")";
 
@@ -368,8 +370,8 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
         // the last term of eta is not residual
         if ((!truncted) || (nd < m_KrylovMaxHessMatBand))
         {
-            if ((eps <
-                 m_tolerance * m_tolerance * m_rhs_magnitude)) //&& nd > 0)
+            if ((eps < m_NekLinSysTolerance * m_NekLinSysTolerance *
+                           m_rhs_magnitude)) //&& nd > 0)
             {
                 m_converged = true;
             }

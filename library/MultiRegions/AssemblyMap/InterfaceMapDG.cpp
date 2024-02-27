@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "InterfaceMapDG.h"
+#include <LibUtilities/BasicUtils/Timer.h>
 
 namespace Nektar::MultiRegions
 {
@@ -195,17 +196,27 @@ InterfaceMapDG::InterfaceMapDG(
 
 void InterfaceMapDG::ExchangeCoords()
 {
-    auto comm  = m_trace->GetComm()->GetSpaceComm();
+    LibUtilities::Timer timer;
+    timer.Start();
+
+    auto comm  = m_trace->GetComm();
     auto zones = m_movement->GetZones();
 
+    LibUtilities::Timer timer2;
+    timer2.Start();
     for (auto &interfaceTrace : m_localInterfaces)
     {
-        interfaceTrace->CalcLocalMissing();
+        interfaceTrace->CalcLocalMissing(m_movement);
     }
+    timer2.Stop();
+    timer2.AccumulateRegion("InterfaceMapDG::ExchangeCoords local", 1);
 
     // If parallel communication is needed
     if (!m_exchange.empty())
     {
+        LibUtilities::Timer timer3;
+        timer3.Start();
+
         auto requestSend = comm->CreateRequest(m_exchange.size());
         auto requestRecv = comm->CreateRequest(m_exchange.size());
 
@@ -227,7 +238,15 @@ void InterfaceMapDG::ExchangeCoords()
         {
             i->CalcRankDistances();
         }
+
+        timer3.Stop();
+        timer3.AccumulateRegion("InterfaceMapDG::ExchangeCoords parallel", 1);
     }
+
+    m_movement->GetCoordExchangeFlag() = false;
+
+    timer.Stop();
+    timer.AccumulateRegion("InterfaceMapDG::ExchangeCoords");
 }
 
 /**
@@ -240,8 +259,17 @@ void InterfaceMapDG::ExchangeCoords()
  * all coordinates are missing. If local then the same structure as
  * CalcRankDistances is used to minimise computational cost.
  */
-void InterfaceTrace::CalcLocalMissing()
+void InterfaceTrace::CalcLocalMissing(
+    SpatialDomains::MovementSharedPtr movement)
 {
+    // Nuke old missing/found
+    m_missingCoords.clear();
+    m_mapMissingCoordToTrace.clear();
+
+    // Store copy of found coords to optimise search before clearing
+    auto foundLocalCoordsCopy = m_foundLocalCoords;
+    m_foundLocalCoords.clear();
+
     auto childEdge = m_interface->GetEdge();
     // If not flagged 'check local' then all points are missing
     if (!m_checkLocal)
@@ -262,6 +290,11 @@ void InterfaceTrace::CalcLocalMissing()
                 xs[0] = xc[i];
                 xs[1] = yc[i];
                 xs[2] = zc[i];
+
+                if (movement->GetMovedFlag() && movement->GetTranslateFlag())
+                {
+                    DomainCheck(xs, movement);
+                }
 
                 m_missingCoords.emplace_back(xs);
                 m_mapMissingCoordToTrace.emplace_back(offset + i);
@@ -298,6 +331,29 @@ void InterfaceTrace::CalcLocalMissing()
                 xs[1] = yc[i];
                 xs[2] = zc[i];
 
+                if (movement->GetMovedFlag() && movement->GetTranslateFlag())
+                {
+                    DomainCheck(xs, movement);
+                }
+
+                // First search the edge the point was found in last timestep
+                if (foundLocalCoordsCopy.find(offset + i) !=
+                    foundLocalCoordsCopy.end())
+                {
+                    auto edge = m_interface->GetOppInterface()->GetEdge(
+                        foundLocalCoordsCopy[offset + i].first);
+                    NekDouble dist = edge->FindDistance(xs, foundLocCoord);
+
+                    if (dist < NekConstants::kFindDistanceMin)
+                    {
+                        m_foundLocalCoords[offset + i] =
+                            std::make_pair(edge->GetGlobalID(), foundLocCoord);
+                        continue;
+                    }
+                }
+
+                // If not in last timestep edge then loop over all interface
+                // edges
                 auto parentEdge = m_interface->GetOppInterface()->GetEdge();
                 for (auto &edge : parentEdge)
                 {
@@ -328,7 +384,8 @@ void InterfaceTrace::CalcLocalMissing()
     }
 
     // If running in serial there shouldn't be any missing coordinates.
-    if (m_trace->GetComm()->IsSerial())
+    // Unless we flag to ignore this check for this specific interface.
+    if (m_trace->GetComm()->IsSerial() && !m_interface->GetSkipCoordCheck())
     {
         ASSERTL0(m_missingCoords.empty(),
                  "Missing " + std::to_string(m_missingCoords.size()) +
@@ -430,11 +487,15 @@ void InterfaceExchange::SendMissing(
 void InterfaceMapDG::ExchangeTrace(Array<OneD, NekDouble> &Fwd,
                                    Array<OneD, NekDouble> &Bwd)
 {
-    auto comm = m_trace->GetComm()->GetSpaceComm();
-
+    if (m_movement->GetCoordExchangeFlag())
+    {
+        ExchangeCoords();
+    }
+    auto comm = m_trace->GetComm();
     // If no parallel exchange needed we only fill the local traces
     if (m_exchange.empty())
     {
+
         // Fill local interface traces
         for (auto &m_localInterface : m_localInterfaces)
         {
@@ -526,7 +587,7 @@ void InterfaceExchange::SendFwdTrace(
 
     for (auto &i : m_foundRankCoords[m_rank])
     {
-        int traceId = m_trace->GetElmtToExpId(i.second.first);
+        int traceId = m_trace->GetElmtToExpId(i.second.first.second);
         Array<OneD, NekDouble> locCoord = i.second.second;
 
         Array<OneD, NekDouble> edgePhys =
@@ -559,12 +620,24 @@ void InterfaceExchange::SendFwdTrace(
 
 void InterfaceExchange::CalcRankDistances()
 {
+    // Clear old found coordinates
+    auto foundRankCoordsCopy = m_foundRankCoords[m_rank];
+    m_foundRankCoords[m_rank]
+        .clear(); // @TODO: This may cause problems with 2 interfaces and one is
+                  // fixed? With the skip below.
+
     Array<OneD, int> disp(m_recvSize[m_rank].size() + 1, 0.0);
     std::partial_sum(m_recvSize[m_rank].begin(), m_recvSize[m_rank].end(),
                      &disp[1]);
 
     for (int i = 0; i < m_interfaceTraces.size(); ++i)
     {
+        if (!m_zones[m_interfaceTraces[i]->GetInterface()->GetId()]->GetMoved())
+        {
+            // If zone is not moved then skip
+            continue;
+        }
+
         auto localEdge = m_interfaceTraces[i]->GetInterface()->GetEdge();
 
         for (int j = disp[i]; j < disp[i + 1]; j += 3)
@@ -574,6 +647,23 @@ void InterfaceExchange::CalcRankDistances()
             xs[0] = m_recv[j];
             xs[1] = m_recv[j + 1];
             xs[2] = m_recv[j + 2];
+
+            // First search the edge the point was found in last timestep
+            if ((foundRankCoordsCopy.find(j / 3) !=
+                 foundRankCoordsCopy.end()) &&
+                (foundRankCoordsCopy[j / 3].first.first == i))
+            {
+                auto edge = m_interfaceTraces[i]->GetInterface()->GetEdge(
+                    foundRankCoordsCopy[j / 3].first.second);
+                NekDouble dist = edge->FindDistance(xs, foundLocCoord);
+
+                if (dist < NekConstants::kFindDistanceMin)
+                {
+                    m_foundRankCoords[m_rank][j / 3] = std::make_pair(
+                        std::make_pair(i, edge->GetGlobalID()), foundLocCoord);
+                    continue;
+                }
+            }
 
             for (auto &edge : localEdge)
             {
@@ -588,10 +678,41 @@ void InterfaceExchange::CalcRankDistances()
                 if (dist < NekConstants::kFindDistanceMin)
                 {
                     m_foundRankCoords[m_rank][j / 3] = std::make_pair(
-                        edge.second->GetGlobalID(), foundLocCoord);
+                        std::make_pair(i, edge.second->GetGlobalID()),
+                        foundLocCoord);
                     break;
                 }
             }
+        }
+    }
+}
+
+void InterfaceTrace::DomainCheck(Array<OneD, NekDouble> &gloCoord,
+                                 SpatialDomains::MovementSharedPtr movement)
+{
+    // Get current interface id and opposite interface id
+    int id    = m_interface->GetId();
+    int oppid = m_interface->GetOppInterface()->GetId();
+
+    // Get displacement of the current interface and the opposite interface
+    auto zones   = movement->GetZones();
+    auto disp    = zones[id]->v_GetDisp();
+    auto oppdisp = zones[oppid]->v_GetDisp();
+
+    // Get domain length and domian box
+    auto box    = movement->GetDomainBox();
+    auto length = movement->GetDomainLength();
+
+    // update coordinates by add or minus domian length
+    for (int i = 0; i < disp.size(); i++)
+    {
+        if (oppdisp[i] - disp[i] < 0 && gloCoord[i] > box[i + 3] + oppdisp[i])
+        {
+            gloCoord[i] = gloCoord[i] - length[i];
+        }
+        if (oppdisp[i] - disp[i] > 0 && gloCoord[i] < box[i] + oppdisp[i])
+        {
+            gloCoord[i] = gloCoord[i] + length[i];
         }
     }
 }

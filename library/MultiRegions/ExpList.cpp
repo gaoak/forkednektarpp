@@ -180,7 +180,7 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     const SpatialDomains::ExpansionInfoMap &expansions =
         graph->GetExpansionInfo(var);
 
-    // Initialise Expansionn Vector
+    // Initialise Expansion Vector
     InitialiseExpVector(expansions);
 
     // Setup phys coeff space
@@ -1596,7 +1596,8 @@ void ExpList::InitialiseExpVector(
                          "Dimension of basis key is greater than 3");
         }
 
-        // Assign next id
+        // Assign next id and fill the global id -> exp id map
+        m_elmtToExpId[exp->GetGeom()->GetGlobalID()] = id;
         exp->SetElmtId(id++);
 
         // Add the expansion
@@ -2421,7 +2422,7 @@ void ExpList::GeneralMatrixOp(const GlobalMatrixKey &gkey,
 {
     int nvarcoeffs = gkey.GetNVarCoeffs();
 
-    if ((nvarcoeffs == 0) && (gkey.GetMatrixType() == StdRegions::eHelmholtz))
+    if (gkey.GetMatrixType() == StdRegions::eHelmholtz)
     {
         // initialise if required
         if (m_collections.size() &&
@@ -2434,14 +2435,25 @@ void ExpList::GeneralMatrixOp(const GlobalMatrixKey &gkey,
             }
             m_collectionsDoInit[Collections::eHelmholtz] = false;
         }
-        else
+
+        // Update factors and varoeffs
+        for (int i = 0; i < m_collections.size(); ++i)
         {
-            for (int i = 0; i < m_collections.size(); ++i)
+            m_collections[i].UpdateFactors(Collections::eHelmholtz,
+                                           gkey.GetConstFactors(),
+                                           m_coll_phys_offset[i]);
+
+            // Restrict varcoeffs to collection size and update
+            StdRegions::VarCoeffMap varcoeffs;
+            if (nvarcoeffs)
             {
-                m_collections[i].CheckFactors(Collections::eHelmholtz,
-                                              gkey.GetConstFactors(),
-                                              m_coll_phys_offset[i]);
+                varcoeffs = StdRegions::RestrictCoeffMap(
+                    gkey.GetVarCoeffs(), m_coll_phys_offset[i],
+                    m_collections[i].GetInputSize(Collections::eHelmholtz,
+                                                  false));
             }
+            m_collections[i].UpdateVarcoeffs(Collections::eHelmholtz,
+                                             varcoeffs);
         }
 
         Array<OneD, NekDouble> tmp;
@@ -3048,6 +3060,9 @@ void ExpList::v_Reset()
     LibUtilities::NekManager<LocalRegions::MatrixKey, DNekScalBlkMat,
                              LocalRegions::MatrixKey::opLess>::ClearManager();
 
+    // Reset block matrix map
+    m_blockMat->clear();
+
     // Loop over all elements and reset geometry information.
     for (int i = 0; i < m_exp->size(); ++i)
     {
@@ -3060,6 +3075,21 @@ void ExpList::v_Reset()
     {
         (*m_exp)[i]->Reset();
     }
+
+    CreateCollections(Collections::eNoImpType); // @TODO: Might need to pass in
+                                                // correct type here
+}
+
+void ExpList::ResetMatrices()
+{
+    // Reset matrix managers.
+    LibUtilities::NekManager<LocalRegions::MatrixKey, DNekScalMat,
+                             LocalRegions::MatrixKey::opLess>::ClearManager();
+    LibUtilities::NekManager<LocalRegions::MatrixKey, DNekScalBlkMat,
+                             LocalRegions::MatrixKey::opLess>::ClearManager();
+
+    // Reset block matrix map
+    m_blockMat->clear();
 }
 
 /**
@@ -5675,8 +5705,8 @@ void ExpList::v_PhysInterp1DScaled([[maybe_unused]] const NekDouble scale,
     for (int i = 0; i < m_collections.size(); ++i)
 
     {
-        m_collections[i].CheckFactors(Collections::ePhysInterp1DScaled, factors,
-                                      m_coll_phys_offset[i]);
+        m_collections[i].UpdateFactors(Collections::ePhysInterp1DScaled,
+                                       factors, m_coll_phys_offset[i]);
     }
     LIKWID_MARKER_START("v_PhysInterp1DScaled");
     timer.Start();

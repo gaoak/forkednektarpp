@@ -62,6 +62,7 @@ public:
         p->InitObject();
         return p;
     }
+
     static std::string className;
 
     LIB_UTILITIES_EXPORT NekLinSysIterFixedpointJacobi(
@@ -76,7 +77,7 @@ protected:
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
                       Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble tol, const NekDouble factor) override;
+                      const NekDouble factor) override;
 
 private:
 };

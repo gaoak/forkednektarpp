@@ -48,9 +48,11 @@ CFSBndCond::CFSBndCond(
     const LibUtilities::SessionReaderSharedPtr &pSession,
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const Array<OneD, Array<OneD, NekDouble>> &pTraceNormals,
+    const Array<OneD, Array<OneD, NekDouble>> &pGridVelocity,
     const int pSpaceDim, const int bcRegion, const int cnt)
     : m_session(pSession), m_fields(pFields), m_traceNormals(pTraceNormals),
-      m_spacedim(pSpaceDim), m_bcRegion(bcRegion), m_offset(cnt)
+      m_gridVelocityTrace(pGridVelocity), m_spacedim(pSpaceDim),
+      m_bcRegion(bcRegion), m_offset(cnt)
 {
     m_velInf = Array<OneD, NekDouble>(m_spacedim, 0.0);
     m_session->LoadParameter("Gamma", m_gamma, 1.4);
@@ -71,6 +73,10 @@ CFSBndCond::CFSBndCond(
                                                                     m_spacedim);
 
     m_diffusionAveWeight = 1.0;
+
+    // Load parameter for the wall rotational BC
+    // @TODO: Move LoadParameter in to WallRotationalBC.cpp
+    m_session->LoadParameter("AngVel", m_angVel, 0);
 }
 
 /**

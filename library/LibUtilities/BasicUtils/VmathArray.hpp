@@ -84,7 +84,7 @@ void Vmul(int n, const Array<OneD, const T> &x, [[maybe_unused]] const int incx,
 }
 
 template <class T>
-void Vmul(int n, const Array<TwoD, NekDouble>::const_reference &x,
+void Vmul(int n, const typename Array<TwoD, T>::const_reference &x,
           const int incx, const Array<OneD, const T> &y, const int incy,
           Array<OneD, T> &z, const int incz)
 {
@@ -297,7 +297,7 @@ void Vvtvp(int n, const Array<OneD, const T> &w,
 
 /// \brief  Vvtvp (vector times vector plus vector): z = w*x + y
 template <class T>
-void Vvtvp(int n, const Array<TwoD, NekDouble>::const_reference &w,
+void Vvtvp(int n, const typename Array<TwoD, T>::const_reference &w,
            const int incw, const Array<OneD, const T> &x, const int incx,
            const Array<OneD, const T> &y, const int incy, Array<OneD, T> &z,
            const int incz)

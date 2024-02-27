@@ -16,6 +16,8 @@ patch
 petsc-openmpi-devel
 ptscotch-openmpi-devel
 python3-devel
+python3-pip
+python3-setuptools
 scotch-devel
 tetgen-devel
 tinyxml-devel

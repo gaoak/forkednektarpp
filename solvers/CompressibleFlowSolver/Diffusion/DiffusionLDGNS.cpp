@@ -69,12 +69,15 @@ void DiffusionLDGNS::v_InitObject(
 
     m_diffDim = m_spaceDim - nDim;
 
-    m_traceVel     = Array<OneD, Array<OneD, NekDouble>>{m_spaceDim};
-    m_traceNormals = Array<OneD, Array<OneD, NekDouble>>{m_spaceDim};
+    m_traceVel = Array<OneD, Array<OneD, NekDouble>>{
+        m_spaceDim}; // @TODO: What is this trace vel used for???
+    m_traceNormals      = Array<OneD, Array<OneD, NekDouble>>{m_spaceDim};
+    m_gridVelocityTrace = Array<OneD, Array<OneD, NekDouble>>{m_spaceDim};
     for (std::size_t i = 0; i < m_spaceDim; ++i)
     {
-        m_traceVel[i]     = Array<OneD, NekDouble>{nTracePts, 0.0};
-        m_traceNormals[i] = Array<OneD, NekDouble>{nTracePts};
+        m_traceVel[i]          = Array<OneD, NekDouble>{nTracePts, 0.0};
+        m_traceNormals[i]      = Array<OneD, NekDouble>{nTracePts};
+        m_gridVelocityTrace[i] = Array<OneD, NekDouble>{nTracePts, 0.0};
     }
     pFields[0]->GetTrace()->GetNormals(m_traceNormals);
 
@@ -235,6 +238,13 @@ void DiffusionLDGNS::v_DiffuseCoeffs(
     const Array<OneD, Array<OneD, NekDouble>> &pFwd,
     const Array<OneD, Array<OneD, NekDouble>> &pBwd)
 {
+
+    if (fields[0]->GetGraph()->GetMovement()->GetMoveFlag()) // i.e. if
+                                                             // m_ALESolver
+    {
+        fields[0]->GetTrace()->GetNormals(m_traceNormals);
+    }
+
     std::size_t nDim      = fields[0]->GetCoordim(0);
     std::size_t nPts      = fields[0]->GetTotPoints();
     std::size_t nCoeffs   = fields[0]->GetNcoeffs();
@@ -280,7 +290,6 @@ void DiffusionLDGNS::v_DiffuseCoeffs(
     // Note: derivativesO1 is not used in DiffuseTraceFlux
     DiffuseTraceFlux(fields, inarray, m_viscTensor, derivativesO1, viscousFlux,
                      pFwd, pBwd);
-
     Array<OneD, NekDouble> tmpOut{nCoeffs};
     Array<OneD, Array<OneD, NekDouble>> tmpIn{nDim};
 
@@ -298,7 +307,10 @@ void DiffusionLDGNS::v_DiffuseCoeffs(
         Vmath::Neg(nCoeffs, tmpOut, 1);
         fields[i]->AddTraceIntegral(viscousFlux[i], tmpOut);
         fields[i]->SetPhysState(false);
-        fields[i]->MultiplyByElmtInvMass(tmpOut, outarray[i]);
+        if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag())
+        {
+            fields[i]->MultiplyByElmtInvMass(tmpOut, outarray[i]);
+        }
     }
 }
 
@@ -476,10 +488,18 @@ void DiffusionLDGNS::ApplyBCsO1(
                         "WallViscous") ||
                     boost::iequals(
                         fields[i]->GetBndConditions()[j]->GetUserDefined(),
-                        "WallAdiabatic"))
+                        "WallAdiabatic") ||
+                    boost::iequals(
+                        fields[i]->GetBndConditions()[j]->GetUserDefined(),
+                        "WallRotational"))
                 {
                     // Reinforcing bcs for velocity in case of Wall bcs
-                    Vmath::Zero(nBndEdgePts, &scalarVariables[i][id2], 1);
+                    for (int pt = 0; pt < nBndEdgePts; ++pt)
+                    {
+                        scalarVariables[i][id2 + pt] = m_gridVelocityTrace
+                            [i][id2 + pt]; // If movement this equals trace grid
+                                           // velocity otherwise 0
+                    }
                 }
                 else if (boost::iequals(
                              fields[i]->GetBndConditions()[j]->GetUserDefined(),
@@ -634,9 +654,12 @@ void DiffusionLDGNS::ApplyBCsO1(
                         ->GetBndConditions()[j]
                         ->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet &&
-                !boost::iequals(
-                    fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
-                    "WallAdiabatic"))
+                (!boost::iequals(
+                     fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
+                     "WallAdiabatic") ||
+                 boost::iequals(
+                     fields[nScalars]->GetBndConditions()[j]->GetUserDefined(),
+                     "WallRotational")))
             {
                 Vmath::Vcopy(nBndEdgePts, &scalarVariables[nScalars - 1][id2],
                              1, &fluxO1[nScalars - 1][id2], 1);
@@ -649,7 +672,11 @@ void DiffusionLDGNS::ApplyBCsO1(
                      boost::iequals(fields[nScalars]
                                         ->GetBndConditions()[j]
                                         ->GetUserDefined(),
-                                    "WallAdiabatic"))
+                                    "WallAdiabatic") ||
+                     boost::iequals(fields[nScalars]
+                                        ->GetBndConditions()[j]
+                                        ->GetUserDefined(),
+                                    "WallRotational"))
             {
                 Vmath::Vcopy(nBndEdgePts, &pFwd[nScalars - 1][id2], 1,
                              &fluxO1[nScalars - 1][id2], 1);
@@ -767,7 +794,10 @@ void DiffusionLDGNS::ApplyBCsO2(
                     SpatialDomains::eDirichlet &&
                 !boost::iequals(
                     fields[var]->GetBndConditions()[i]->GetUserDefined(),
-                    "WallAdiabatic"))
+                    "WallAdiabatic") &&
+                !boost::iequals(
+                    fields[var]->GetBndConditions()[i]->GetUserDefined(),
+                    "WallRotational"))
             {
                 Vmath::Vmul(nBndEdgePts, &m_traceNormals[dir][id2], 1,
                             &qFwd[id2], 1, &penaltyflux[id2], 1);
@@ -782,7 +812,10 @@ void DiffusionLDGNS::ApplyBCsO2(
             }
             else if (boost::iequals(
                          fields[var]->GetBndConditions()[i]->GetUserDefined(),
-                         "WallAdiabatic"))
+                         "WallAdiabatic") ||
+                     boost::iequals(
+                         fields[var]->GetBndConditions()[i]->GetUserDefined(),
+                         "WallRotational"))
             {
                 if ((var == m_spaceDim + 1))
                 {

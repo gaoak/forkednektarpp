@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
         // Print out timings
         int iolevel = 0;
 
-        session->LoadParameter("IO_Timer_Level", iolevel, -1);
+        session->LoadParameter("IO_Timer_Level", iolevel, 0);
 
         // Print out timings
         LibUtilities::Timer::PrintElapsedRegions(session->GetComm(), std::cout,

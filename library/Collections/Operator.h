@@ -152,8 +152,17 @@ public:
         Array<OneD, NekDouble> &wsp = NullNekDouble1DArray) = 0;
 
     /// Check the validity of the supplied factor map
-    COLLECTIONS_EXPORT virtual void CheckFactors(StdRegions::FactorMap factors,
-                                                 int coll_phys_offset) = 0;
+    COLLECTIONS_EXPORT virtual void UpdateFactors(StdRegions::FactorMap factors,
+                                                  int coll_phys_offset) = 0;
+
+    COLLECTIONS_EXPORT virtual void UpdateVarcoeffs(
+        [[maybe_unused]] StdRegions::VarCoeffMap &varcoeffs)
+    {
+        ASSERTL0(false,
+                 "This method needs to be re-implemented in derived "
+                 "operator class. Make sure it is implemented for the operator"
+                 " in the .opt file");
+    }
 
     /// Get the size of the required workspace
     unsigned int GetWspSize()
@@ -173,14 +182,24 @@ public:
         return m_stdExp;
     }
 
-    inline unsigned int GetInputSize()
+    /*
+     * Return the input size for this collection.
+     * Optionally return the size for the opposite (Phys or Coeff) space.
+     */
+    inline unsigned int GetInputSize(bool defaultIn = true)
     {
-        return m_inputSize;
+        return (m_inputSizeOther && !defaultIn) ? m_inputSizeOther
+                                                : m_inputSize;
     }
 
-    inline unsigned int GetOutputSize()
+    /*
+     * Return the output size for this collection.
+     * Optionally return the size for the opposite (Phys or Coeff) space.
+     */
+    inline unsigned int GetOutputSize(bool defaultOut = true)
     {
-        return m_outputSize;
+        return (m_outputSizeOther && !defaultOut) ? m_outputSizeOther
+                                                  : m_outputSize;
     }
 
 protected:
@@ -196,31 +215,10 @@ protected:
     /// number of modes or quadrature points  that are taken as output from an
     /// operator
     unsigned int m_outputSize;
-
-    /// @brief This purely virtual function needs to be set-up for every
-    /// operator inside Collections. It is responsible for returning the size of
-    /// input collection, that the operator is applied on either in physical or
-    /// coefficient space.
-    /// @return Returns 0. The actual implementation is inside the specific
-    /// operator class.
-    virtual int v_GetInputSize()
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "This method is not defined or valid for this class type");
-        return 0;
-    }
-    /// @brief This purely virtual function needs to be set-up for every
-    /// operator inside Collections. It is responsible for returning the output
-    /// size either in physical or coefficient space of an operator inside
-    /// Collections.
-    /// @return Returns 0. The actual implementation is inside the specific
-    /// operator class.
-    virtual int v_GetOutputSize()
-    {
-        NEKERROR(ErrorUtil::efatal,
-                 "This method is not defined or valid for this class type");
-        return 0;
-    }
+    /// Number of modes or quadrature points, opposite to m_inputSize
+    unsigned int m_inputSizeOther;
+    /// Number of modes or quadrature points, opposite to m_outputSize
+    unsigned int m_outputSizeOther;
 };
 
 /// Shared pointer to an Operator object

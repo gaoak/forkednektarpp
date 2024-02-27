@@ -244,6 +244,18 @@ int main(int argc, char *argv[])
                 vSession, graphShPt, vSession->GetVariable(i));
     }
 
+    //@TODO: Might need this to rotate mesh based on time
+    for (auto &fld : pFields)
+    {
+        if (fld->GetGraph()->GetMovement() != nullptr)
+        {
+            fld->GetGraph()->GetMovement()->PerformMovement(
+                boost::lexical_cast<NekDouble>(fieldMetaDataMap["Time"]));
+            fld->Reset();
+            fld->SetUpPhysNormals();
+        }
+    }
+
     MultiRegions::ExpListSharedPtr Exp2D;
     Exp2D = MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(vSession,
                                                                     graphShPt);

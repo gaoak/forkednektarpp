@@ -62,8 +62,8 @@ using LibUtilities::eTriangle;
 class PhysInterp1DScaled_Helper : virtual public Operator
 {
 public:
-    void CheckFactors(StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         if (factors == m_factors)
         {
@@ -142,8 +142,8 @@ public:
         ASSERTL0(false, "Not valid for this operator.");
     }
 
-    void CheckFactors(StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         if (factors == m_factors)
         {
@@ -223,8 +223,8 @@ public:
                  "BwdTrans_MatrixFree: Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -302,8 +302,8 @@ public:
         ASSERTL0(false, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         m_factors = factors;
     }
@@ -493,10 +493,10 @@ public:
         ASSERTL0(false, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
-        PhysInterp1DScaled_Helper::CheckFactors(factors, coll_phys_offset);
+        PhysInterp1DScaled_Helper::UpdateFactors(factors, coll_phys_offset);
         m_factors = factors;
     }
 

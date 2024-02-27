@@ -141,6 +141,8 @@ void NavierStokesCFE::InitObject_Explicit()
 
     // Concluding initialisation of diffusion operator
     m_diffusion->InitObject(m_session, m_fields);
+    m_diffusion->SetGridVelocityTrace(
+        m_gridVelocityTrace); // If not ALE and movement this is just 0s
 }
 
 void NavierStokesCFE::v_DoDiffusion(
@@ -150,14 +152,17 @@ void NavierStokesCFE::v_DoDiffusion(
     const Array<OneD, Array<OneD, NekDouble>> &pBwd)
 {
     size_t nvariables = inarray.size();
-    size_t npoints    = GetNpoints();
-    size_t nTracePts  = GetTraceTotPoints();
+    size_t npointsIn  = GetNpoints();
+    size_t npointsOut =
+        m_ALESolver ? GetNcoeffs()
+                    : npointsIn; // If ALE then outarray is in coefficient space
+    size_t nTracePts = GetTraceTotPoints();
 
     // this should be preallocated
     Array<OneD, Array<OneD, NekDouble>> outarrayDiff(nvariables);
     for (size_t i = 0; i < nvariables; ++i)
     {
-        outarrayDiff[i] = Array<OneD, NekDouble>(npoints, 0.0);
+        outarrayDiff[i] = Array<OneD, NekDouble>(npointsOut, 0.0);
     }
 
     // Set artificial viscosity based on NS viscous tensor
@@ -165,7 +170,7 @@ void NavierStokesCFE::v_DoDiffusion(
     {
         if (m_varConv->GetFlagCalcDivCurl())
         {
-            Array<OneD, NekDouble> div(npoints), curlSquare(npoints);
+            Array<OneD, NekDouble> div(npointsIn), curlSquare(npointsIn);
             GetDivCurlSquared(m_fields, inarray, div, curlSquare, pFwd, pBwd);
 
             // Set volume and trace artificial viscosity
@@ -187,7 +192,7 @@ void NavierStokesCFE::v_DoDiffusion(
                              m_bndEvaluateTime, pFwd, pBwd);
         for (size_t i = 0; i < nvariables; ++i)
         {
-            Vmath::Vadd(npoints, outarrayDiff[i], 1, outarray[i], 1,
+            Vmath::Vadd(npointsOut, outarrayDiff[i], 1, outarray[i], 1,
                         outarray[i], 1);
         }
     }
@@ -200,7 +205,7 @@ void NavierStokesCFE::v_DoDiffusion(
 
         for (size_t i = 0; i < nvariables - 1; ++i)
         {
-            inarrayDiff[i] = Array<OneD, NekDouble>{npoints};
+            inarrayDiff[i] = Array<OneD, NekDouble>{npointsIn};
             inFwd[i]       = Array<OneD, NekDouble>{nTracePts};
             inBwd[i]       = Array<OneD, NekDouble>{nTracePts};
         }
@@ -235,12 +240,20 @@ void NavierStokesCFE::v_DoDiffusion(
         }
 
         // Diffusion term in physical rhs form
-        m_diffusion->Diffuse(nvariables, m_fields, inarrayDiff, outarrayDiff,
-                             inFwd, inBwd);
+        if (m_ALESolver)
+        {
+            m_diffusion->DiffuseCoeffs(nvariables, m_fields, inarrayDiff,
+                                       outarrayDiff, inFwd, inBwd);
+        }
+        else
+        {
+            m_diffusion->Diffuse(nvariables, m_fields, inarrayDiff,
+                                 outarrayDiff, inFwd, inBwd);
+        }
 
         for (size_t i = 0; i < nvariables; ++i)
         {
-            Vmath::Vadd(npoints, outarrayDiff[i], 1, outarray[i], 1,
+            Vmath::Vadd(npointsOut, outarrayDiff[i], 1, outarray[i], 1,
                         outarray[i], 1);
         }
     }

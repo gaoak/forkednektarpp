@@ -39,9 +39,10 @@
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
 
-std::shared_ptr<Interface> Interface_Init(int indx, const CompositeMap &edge)
+std::shared_ptr<Interface> Interface_Init(int indx, const CompositeMap &edge,
+                                          bool skipCoordCheck)
 {
-    return std::make_shared<Interface>(indx, edge);
+    return std::make_shared<Interface>(indx, edge, skipCoordCheck);
 }
 
 std::shared_ptr<InterfacePair> InterfacePair_Init(

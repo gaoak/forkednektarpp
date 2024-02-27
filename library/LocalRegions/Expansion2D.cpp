@@ -440,10 +440,16 @@ DNekScalMatSharedPtr Expansion2D::CreateMatrix(const MatrixKey &mkey)
 
             returnval = MemoryManager<DNekScalMat>::AllocateSharedPtr(one, adr);
 
-            // Clear memory (Repeat varcoeff checks)
+            // Clear memory for time-dependent matrices
             DropLocMatrix(advkey);
-            DropLocMatrix(masskey);
-            DropLocMatrix(lapkey);
+            if (!massVarcoeffs.empty())
+            {
+                DropLocMatrix(masskey);
+            }
+            if (!lapVarcoeffs.empty())
+            {
+                DropLocMatrix(lapkey);
+            }
         }
         break;
         case StdRegions::eLinearAdvectionDiffusionReactionGJP:

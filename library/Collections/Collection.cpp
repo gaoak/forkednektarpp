@@ -51,11 +51,17 @@ Collection::Collection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
     m_geomData = MemoryManager<CoalescedGeomData>::AllocateSharedPtr();
 }
 
-void Collection::CheckFactors(const OperatorType opType,
-                              StdRegions::FactorMap factors,
-                              int coll_phys_offset)
+void Collection::UpdateFactors(const OperatorType opType,
+                               StdRegions::FactorMap factors,
+                               int coll_phys_offset)
 {
-    m_ops[opType]->CheckFactors(factors, coll_phys_offset);
+    m_ops[opType]->UpdateFactors(factors, coll_phys_offset);
+}
+
+void Collection::UpdateVarcoeffs(const OperatorType opType,
+                                 StdRegions::VarCoeffMap &varcoeffs)
+{
+    m_ops[opType]->UpdateVarcoeffs(varcoeffs);
 }
 
 void Collection::Initialise(const OperatorType opType,

@@ -63,6 +63,10 @@ public:
     /// Destructor
     ~UnsteadyAdvection() override = default;
 
+    void v_ALEInitObject(
+        int spaceDim,
+        Array<OneD, MultiRegions::ExpListSharedPtr> &fields) override;
+
 protected:
     bool m_useGJPStabilisation;
     // scaling factor for GJP penalisation, default = 1.0
@@ -112,6 +116,11 @@ protected:
 
     /// Print Summary
     void v_GenerateSummary(SolverUtils::SummaryList &s) override;
+
+    bool v_PreIntegrate(int step) override;
+
+    void v_ExtraFldOutput(std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
+                          std::vector<std::string> &variables) override;
 
 private:
     NekDouble m_waveFreq;

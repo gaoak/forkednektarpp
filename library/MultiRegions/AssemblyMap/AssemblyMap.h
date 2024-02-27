@@ -306,7 +306,6 @@ public:
     /// Returns the method of solving global systems.
     MULTI_REGIONS_EXPORT GlobalSysSolnType GetGlobalSysSolnType() const;
     MULTI_REGIONS_EXPORT std::string GetPreconType() const;
-    MULTI_REGIONS_EXPORT NekDouble GetIterativeTolerance() const;
     MULTI_REGIONS_EXPORT bool IsAbsoluteTolerance() const;
     MULTI_REGIONS_EXPORT int GetSuccessiveRHS() const;
     MULTI_REGIONS_EXPORT std::string GetLinSysIterSolver() const;

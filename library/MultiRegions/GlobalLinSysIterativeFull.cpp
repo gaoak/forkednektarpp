@@ -270,6 +270,21 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         // Either get the solnInfo from <GlobalSysSolInfo> or from
         // <Parameters>
         if (pSession->DefinesGlobalSysSolnInfo(variable,
+                                               "IterativeSolverTolerance"))
+        {
+            sysKey.m_NekLinSysTolerance = boost::lexical_cast<double>(
+                pSession
+                    ->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
+                    .c_str());
+        }
+        else
+        {
+            pSession->LoadParameter("IterativeSolverTolerance",
+                                    sysKey.m_NekLinSysTolerance,
+                                    NekConstants::kNekIterativeTol);
+        }
+
+        if (pSession->DefinesGlobalSysSolnInfo(variable,
                                                "NekLinSysMaxIterations"))
         {
             sysKey.m_NekLinSysMaxIterations = boost::lexical_cast<int>(
@@ -329,14 +344,14 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         m_precon->BuildPreconditioner();
     }
 
-    m_linsol->setRhsMagnitude(m_isAbsoluteTolerance ? 1.0 : m_rhs_magnitude);
+    m_linsol->SetRhsMagnitude(m_isAbsoluteTolerance ? 1.0 : m_rhs_magnitude);
 
     if (m_useProjection)
     {
         Array<OneD, NekDouble> gloIn(nGlobal);
         Array<OneD, NekDouble> gloOut(nGlobal, 0.0);
         plocToGloMap->Assemble(pInput, gloIn);
-        DoProjection(nGlobal, gloIn, gloOut, nDir, m_tolerance, m_isAconjugate);
+        DoProjection(nGlobal, gloIn, gloOut, nDir, m_isAconjugate);
         plocToGloMap->GlobalToLocal(gloOut, pOutput);
     }
     else
@@ -345,14 +360,14 @@ void GlobalLinSysIterativeFull::v_SolveLinearSystem(
         {
             int nLocDofs = plocToGloMap->GetNumLocalCoeffs();
             Vmath::Zero(nLocDofs, pOutput, 1);
-            m_linsol->SolveSystem(nLocDofs, pInput, pOutput, nDir, m_tolerance);
+            m_linsol->SolveSystem(nLocDofs, pInput, pOutput, nDir);
         }
         else
         {
             Array<OneD, NekDouble> gloIn(nGlobal);
             Array<OneD, NekDouble> gloOut(nGlobal, 0.0);
             plocToGloMap->Assemble(pInput, gloIn);
-            m_linsol->SolveSystem(nGlobal, gloIn, gloOut, nDir, m_tolerance);
+            m_linsol->SolveSystem(nGlobal, gloIn, gloOut, nDir);
             plocToGloMap->GlobalToLocal(gloOut, pOutput);
         }
     }

@@ -116,8 +116,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -218,8 +218,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -324,8 +324,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -420,8 +420,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -524,8 +524,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -590,8 +590,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -665,8 +665,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -745,8 +745,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -830,8 +830,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -920,8 +920,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }
@@ -1010,8 +1010,8 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void CheckFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                      [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
+                       [[maybe_unused]] int coll_phys_offset) override
     {
         ASSERTL0(false, "Not valid for this operator.");
     }

@@ -49,24 +49,13 @@ ZoneRotateShPtr ZoneRotate_Init(int id, int domainID,
                                         axis, angularVelEqn);
 }
 
-ZoneTranslateShPtr ZoneTranslate_Init(int id, int domainID,
-                                      const CompositeMap &domain,
-                                      const int coordDim,
-                                      const std::vector<NekDouble> &velocity)
+ZoneTranslateShPtr ZoneTranslate_Init(
+    int id, int domainID, const CompositeMap &domain, const int coordDim,
+    const Array<OneD, LibUtilities::EquationSharedPtr> &velocityEqns,
+    const Array<OneD, LibUtilities::EquationSharedPtr> &displacementEqns)
 {
     return std::make_shared<ZoneTranslate>(id, domainID, domain, coordDim,
-                                           velocity);
-}
-
-ZonePrescribeShPtr ZonePrescribe_Init(int id, int domainID,
-                                      const CompositeMap &domain,
-                                      const int coordDim,
-                                      LibUtilities::EquationSharedPtr xDeform,
-                                      LibUtilities::EquationSharedPtr yDeform,
-                                      LibUtilities::EquationSharedPtr zDeform)
-{
-    return std::make_shared<ZonePrescribe>(id, domainID, domain, coordDim,
-                                           xDeform, yDeform, zDeform);
+                                           velocityEqns, displacementEqns);
 }
 
 ZoneFixedShPtr ZoneFixed_Init(int id, int domainID, const CompositeMap &domain,
@@ -107,17 +96,8 @@ void export_Zones()
     py::class_<ZoneTranslate, py::bases<ZoneBase>,
                std::shared_ptr<ZoneTranslate>>("ZoneTranslate", py::no_init)
         .def("__init__", py::make_constructor(&ZoneTranslate_Init))
-        .def("GetVel", &ZoneTranslate::GetVel);
-
-    py::class_<ZonePrescribe, py::bases<ZoneBase>,
-               std::shared_ptr<ZonePrescribe>>("ZonePrescribe", py::no_init)
-        .def("__init__", py::make_constructor(&ZonePrescribe_Init))
-        .def("GetXDeform", &ZonePrescribe::GetXDeform)
-        .def("GetYDeform", &ZonePrescribe::GetYDeform)
-        .def("GetZDeform", &ZonePrescribe::GetZDeform)
-        .def("GetXDeformEquation", &ZonePrescribe::GetXDeformEquation)
-        .def("GetYDeformEquation", &ZonePrescribe::GetYDeformEquation)
-        .def("GetZDeformEquation", &ZonePrescribe::GetZDeformEquation);
+        .def("GetVelocityEquation", &ZoneTranslate::GetVelocityEquation)
+        .def("GetDisplacementEqn", &ZoneTranslate::GetDisplacementEquation);
 
     py::class_<ZoneFixed, py::bases<ZoneBase>, std::shared_ptr<ZoneFixed>>(
         "ZoneFixed", py::no_init)

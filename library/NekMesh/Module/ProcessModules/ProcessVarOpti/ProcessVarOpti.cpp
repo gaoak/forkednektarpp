@@ -226,11 +226,30 @@ void ProcessVarOpti::Process()
 
             int optiKind = m_mesh->m_spaceDim;
 
-            if (freenodes[i][j]->GetNumCadCurve() == 1)
+            if (freenodes[i][j]->GetNumCadCurve())
             {
-                optiKind += 10;
+                // ensures CAD vertices are removed from optimisation and not
+                // allowed to move.
+                [&] { // in a lambda function to avoid checking multiple curves
+                      // if node is already identified as a vertex.
+                    for (auto &curve : freenodes[i][j]->GetCADCurves())
+                    {
+                        for (auto &vert : curve->GetVertex())
+                        {
+                            if (freenodes[i][j] == vert->GetNode())
+                            {
+                                // node is a vertex of the CAD curve and should
+                                // not be optimised.
+                                optiKind = 0;
+                                return;
+                            }
+                        }
+                    }
+                    optiKind += 10; // if the lambda function hasn't returned
+                                    // then node is not a vertex.
+                }();
             }
-            else if (freenodes[i][j]->GetNumCADSurf() == 1)
+            else if (freenodes[i][j]->GetNumCADSurf())
             {
                 optiKind += 20;
             }
@@ -243,9 +262,12 @@ void ProcessVarOpti::Process()
             ASSERTL0(c == check.end(), "duplicate node");
             check.insert(freenodes[i][j]->m_id);
 
-            ns.push_back(GetNodeOptiFactory().CreateInstance(
-                optiKind, freenodes[i][j], it->second, m_res, derivUtils,
-                m_opti));
+            if (optiKind)
+            {
+                ns.push_back(GetNodeOptiFactory().CreateInstance(
+                    optiKind, freenodes[i][j], it->second, m_res, derivUtils,
+                    m_opti));
+            }
         }
         optiNodes.push_back(ns);
     }

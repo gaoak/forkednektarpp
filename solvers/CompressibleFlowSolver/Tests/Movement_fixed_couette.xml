@@ -410,7 +410,6 @@
             <E VAR="rhov" VALUE="0" />
             <E VAR="E"    VALUE="pc / (Gamma - 1) + 0.5 * (Gamma / (Gamma-1) * (2 * pc) / (2 * Cp * Twall + Pr * Uwall * Uwall * y * (1-y))) * (Uwall * Uwall * y * y)" />
         </FUNCTION>
-
         <FUNCTION NAME="ExactSolution">
             <E VAR="rho"  VALUE="Gamma / (Gamma-1) * (2 * pc) / (2 * Cp * Twall + Pr * Uwall * Uwall * y * (1-y))" />
             <E VAR="rhou" VALUE="Gamma / (Gamma-1) * (2 * pc) / (2 * Cp * Twall + Pr * Uwall * Uwall * y * (1-y)) * Uwall * y" />

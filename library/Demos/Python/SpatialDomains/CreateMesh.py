@@ -117,11 +117,12 @@ def main():
             i,
             [
                 segments[x * (NY - 1) + y],
-                segments[horiz_start + x * NY + y + 1],
-                segments[(x + 1) * (NY - 1) + y],
                 segments[horiz_start + x * NY + y],
+                segments[(x + 1) * (NY - 1) + y],
+                segments[horiz_start + x * NY + y + 1],
             ],
         )
+        assert quads[i].IsValid()
     print("Generating domain...")
     composites[0] = SD.Composite([q.data() for q in quads])
     comp_map = SD.CompositeMap()

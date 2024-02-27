@@ -14,3 +14,5 @@ libvtk7-dev
 mpi-default-dev
 petsc-dev
 python-numpy
+python-pip
+python-setuptools

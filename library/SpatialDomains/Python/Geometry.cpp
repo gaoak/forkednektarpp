@@ -52,6 +52,12 @@ void Geometry_GenGeomFactors(GeometrySharedPtr geom)
     GeomFactorsSharedPtr geomFactors = geom->GetGeomFactors();
 }
 
+bool Geometry_IsValid(GeometrySharedPtr geom)
+{
+    GeomFactorsSharedPtr geomFactors = geom->GetGeomFactors();
+    return geomFactors->IsValid();
+}
+
 void export_Geometry()
 {
     py::class_<Geometry, std::shared_ptr<Geometry>, boost::noncopyable>(
@@ -64,6 +70,7 @@ void export_Geometry()
         .def("Setup", &Geometry::Setup)
         .def("FillGeom", &Geometry::FillGeom)
         .def("GenGeomFactors", &Geometry_GenGeomFactors)
+        .def("IsValid", &Geometry_IsValid)
 
         .def("ContainsPoint", &Geometry_ContainsPoint)
 

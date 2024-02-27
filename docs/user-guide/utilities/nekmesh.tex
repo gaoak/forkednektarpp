@@ -957,6 +957,15 @@ order at which to curve the surface:
   NekMesh -m projectcad:file=cadfile.step:order=x inital.xml optimised.xml
 \end{lstlisting}
 
+\subsection{Mesh combine}
+This module can combine two mesh files into one output file.
+This will read all information from two mesh files and generate the combine meish 
+file with all these information. The process will duplicate composite IDs 
+from mesh 1 detected in mesh 2 and will remap into the output file.
+
+\begin{lstlisting}[style=BashInputStyle]
+  NekMesh -m combine:file=mesh1.xml mesh2.xml combine.xml
+\end{lstlisting}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

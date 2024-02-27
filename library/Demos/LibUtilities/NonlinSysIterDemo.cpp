@@ -35,7 +35,7 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Foundations.hpp>
 #include <LibUtilities/LinearAlgebra/NekMatrix.hpp>
-#include <LibUtilities/LinearAlgebra/NekNonlinSys.h>
+#include <LibUtilities/LinearAlgebra/NekNonlinSysIter.h>
 #include <LibUtilities/LinearAlgebra/NekTypeDefs.hpp>
 #include <LibUtilities/LinearAlgebra/NekVector.hpp>
 #include <boost/algorithm/string.hpp>
@@ -45,45 +45,48 @@ using namespace std;
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 
-class LinSysDemo
+class NonlinSysDemo
 {
     typedef const Array<OneD, const NekDouble> InArrayType;
     typedef Array<OneD, NekDouble> OutArrayType;
 
 public:
-    LinSysDemo(const LibUtilities::SessionReaderSharedPtr &pSession,
-               const LibUtilities::CommSharedPtr &pComm)
+    NonlinSysDemo(const LibUtilities::SessionReaderSharedPtr &pSession,
+                  const LibUtilities::CommSharedPtr &pComm)
         : m_session(pSession), m_comm(pComm)
     {
         AllocateInitMatrix();
 
         std::string SolverType = "Newton";
         ASSERTL0(
-            LibUtilities::GetNekNonlinSysFactory().ModuleExists(SolverType),
+            LibUtilities::GetNekNonlinSysIterFactory().ModuleExists(SolverType),
             "NekNonlinSys '" + SolverType + "' is not defined.\n");
 
         // Create the key to hold solver settings
         auto sysKey = LibUtilities::NekSysKey();
-        pSession->LoadParameter("NekLinSysMaxIterations",
-                                sysKey.m_NekLinSysMaxIterations, 5000);
-        pSession->LoadParameter("LinSysMaxStorage", sysKey.m_LinSysMaxStorage,
-                                100);
+        // Load required LinSys parameters:
+        m_session->LoadParameter("NekLinSysMaxIterations",
+                                 sysKey.m_NekLinSysMaxIterations, 5000);
+        m_session->LoadParameter("LinSysMaxStorage", sysKey.m_LinSysMaxStorage,
+                                 100);
+        m_session->LoadParameter("LinSysRelativeTolInNonlin",
+                                 sysKey.m_NekLinSysTolerance, 1.0E-2);
         // Load required NonLinSys parameters:
         m_session->LoadParameter("NekNonlinSysMaxIterations",
                                  sysKey.m_NekNonlinSysMaxIterations, 100);
+        m_session->LoadParameter("NekNonLinSysTolerance",
+                                 sysKey.m_NekNonLinSysTolerance, 1.0E-09);
         m_session->LoadParameter("NonlinIterTolRelativeL2",
                                  sysKey.m_NonlinIterTolRelativeL2, 1.0E-6);
-        m_session->LoadParameter("LinSysRelativeTolInNonlin",
-                                 sysKey.m_LinSysRelativeTolInNonlin, 1.0E-2);
 
-        m_nonlinsol = LibUtilities::GetNekNonlinSysFactory().CreateInstance(
+        m_nonlinsol = LibUtilities::GetNekNonlinSysIterFactory().CreateInstance(
             SolverType, m_session, m_comm, m_matDim, sysKey);
 
-        m_NekSysOp.DefineNekSysResEval(&LinSysDemo::DoRhs, this);
-        m_NekSysOp.DefineNekSysLhsEval(&LinSysDemo::DoLhs, this);
+        m_NekSysOp.DefineNekSysResEval(&NonlinSysDemo::DoRhs, this);
+        m_NekSysOp.DefineNekSysLhsEval(&NonlinSysDemo::DoLhs, this);
         m_nonlinsol->SetSysOperators(m_NekSysOp);
     }
-    ~LinSysDemo()
+    ~NonlinSysDemo()
     {
     }
 
@@ -91,8 +94,7 @@ public:
     {
         Array<OneD, NekDouble> pOutput(m_matDim, 0.9);
 
-        int ntmpIts =
-            m_nonlinsol->SolveSystem(m_matDim, pOutput, pOutput, 0, 1.0E-9);
+        int ntmpIts = m_nonlinsol->SolveSystem(m_matDim, pOutput, pOutput, 0);
 
         int ndigits    = 6;
         int nothers    = 10;
@@ -148,7 +150,7 @@ protected:
     DNekMatSharedPtr m_matrix;
     Array<OneD, NekDouble> m_matDat;
     Array<OneD, NekDouble> m_SysRhs;
-    NekNonlinSysSharedPtr m_nonlinsol;
+    NekNonlinSysIterSharedPtr m_nonlinsol;
     LibUtilities::NekSysOperators m_NekSysOp;
     LibUtilities::SessionReaderSharedPtr m_session;
     LibUtilities::CommSharedPtr m_comm;
@@ -162,9 +164,9 @@ int main(int argc, char *argv[])
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     session->InitSession();
 
-    LinSysDemo linsys(session, session->GetComm());
+    NonlinSysDemo nonlinsys(session, session->GetComm());
 
-    linsys.DoSolve();
+    nonlinsys.DoSolve();
 
     // Finalise communications
     session->Finalise();

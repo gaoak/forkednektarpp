@@ -55,13 +55,16 @@ NekLinSysIterGMRES::NekLinSysIterGMRES(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
+    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-15);
+
     m_NekLinSysLeftPrecon  = pKey.m_NekLinSysLeftPrecon;
     m_NekLinSysRightPrecon = pKey.m_NekLinSysRightPrecon;
 
     m_KrylovMaxHessMatBand = pKey.m_KrylovMaxHessMatBand;
 
-    m_maxrestart = ceil(NekDouble(m_maxiter) / NekDouble(m_LinSysMaxStorage));
-    m_LinSysMaxStorage = min(m_maxiter, m_LinSysMaxStorage);
+    m_maxrestart       = ceil(NekDouble(m_NekLinSysMaxIterations) /
+                        NekDouble(m_LinSysMaxStorage));
+    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, m_LinSysMaxStorage);
 
     m_DifferenceFlag0 = pKey.m_DifferenceFlag0;
     m_DifferenceFlag1 = pKey.m_DifferenceFlag1;
@@ -93,10 +96,9 @@ void NekLinSysIterGMRES::v_InitObject()
  */
 int NekLinSysIterGMRES::v_SolveSystem(
     const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const int nDir, const NekDouble tol,
+    Array<OneD, NekDouble> &pOutput, const int nDir,
     [[maybe_unused]] const NekDouble factor)
 {
-    m_tolerance     = max(tol, 1.0E-15);
     int niterations = DoGMRES(nGlobal, pInput, pOutput, nDir);
 
     return niterations;
@@ -121,8 +123,7 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
 
     if (m_rhs_magnitude == NekConstants::kNekUnsetDouble)
     {
-        NekVector<NekDouble> inGlob(nGlobal, pInput, eWrapper);
-        Set_Rhs_Magnitude(inGlob);
+        Set_Rhs_Magnitude(pInput);
     }
 
     // Get vector sizes
@@ -177,7 +178,7 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
             cout << std::scientific << std::setw(nwidthcolm)
                  << std::setprecision(nwidthcolm - 8)
                  << "       GMRES iterations made = " << m_totalIterations
-                 << " using tolerance of " << m_tolerance
+                 << " using tolerance of " << m_NekLinSysTolerance
                  << " (error = " << sqrt(eps * m_prec_factor / m_rhs_magnitude)
                  << ")";
 
@@ -272,7 +273,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
 
     // Detect zero input array
     // Causes Arnoldi to breakdown, hence stop here
-    if (eps < m_tolerance * m_tolerance * m_rhs_magnitude)
+    if (eps < m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude)
     {
         m_converged = true;
         if (m_prec_factor == NekConstants::kNekUnsetDouble)
@@ -382,7 +383,9 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
         // the last term of eta is not residual
         if ((!truncted) || (nd < m_KrylovMaxHessMatBand))
         {
-            if ((eps < m_tolerance * m_tolerance * m_rhs_magnitude) && nd > 0)
+            if ((eps < m_NekLinSysTolerance * m_NekLinSysTolerance *
+                           m_rhs_magnitude) &&
+                nd > 0)
             {
                 m_converged = true;
             }

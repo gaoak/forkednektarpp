@@ -34,6 +34,7 @@
 
 #include <ADRSolver/EquationSystems/UnsteadyAdvectionDiffusion.h>
 #include <LibUtilities/TimeIntegration/TimeIntegrationScheme.h>
+#include <SolverUtils/Advection/AdvectionWeakDG.h>
 
 namespace Nektar
 {
@@ -167,9 +168,6 @@ void UnsteadyAdvectionDiffusion::DoOdeRhs(
     // Number of fields (variables of the problem)
     int nVariables = inarray.size();
 
-    // Number of solution points
-    int nSolutionPts = GetNpoints();
-
     UnsteadyAdvection::DoOdeRhs(inarray, outarray, time);
 
     if (m_explicitDiffusion)
@@ -177,15 +175,26 @@ void UnsteadyAdvectionDiffusion::DoOdeRhs(
         Array<OneD, Array<OneD, NekDouble>> outarrayDiff(nVariables);
         for (int i = 0; i < nVariables; ++i)
         {
-            outarrayDiff[i] = Array<OneD, NekDouble>(nSolutionPts, 0.0);
+            outarrayDiff[i] = Array<OneD, NekDouble>(outarray[i].size(), 0.0);
         }
 
-        m_diffusion->Diffuse(nVariables, m_fields, inarray, outarrayDiff);
+        if (m_ALESolver)
+        {
+            Array<OneD, Array<OneD, NekDouble>> tmpIn(nVariables);
+            // If ALE we must take Mu coefficient space to u physical space
+            ALEHelper::ALEDoElmtInvMassBwdTrans(inarray, tmpIn);
+            m_diffusion->DiffuseCoeffs(nVariables, m_fields, tmpIn,
+                                       outarrayDiff); // Using tmpIn from above
+        }
+        else
+        {
+            m_diffusion->Diffuse(nVariables, m_fields, inarray, outarrayDiff);
+        }
 
         for (int i = 0; i < nVariables; ++i)
         {
-            Vmath::Vadd(nSolutionPts, &outarrayDiff[i][0], 1, &outarray[i][0],
-                        1, &outarray[i][0], 1);
+            Vmath::Vadd(outarray[i].size(), &outarrayDiff[i][0], 1,
+                        &outarray[i][0], 1, &outarray[i][0], 1);
         }
     }
 }
@@ -285,6 +294,19 @@ void UnsteadyAdvectionDiffusion::v_GenerateSummary(SolverUtils::SummaryList &s)
         ss << "SVV (cut off = " << m_sVVCutoffRatio
            << ", coeff = " << m_sVVDiffCoeff << ")";
         SolverUtils::AddSummaryItem(s, "Smoothing", ss.str());
+    }
+}
+
+void UnsteadyAdvectionDiffusion::v_ExtraFldOutput(
+    std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
+    std::vector<std::string> &variables)
+{
+    bool extraFields;
+    m_session->MatchSolverInfo("OutputExtraFields", "True", extraFields, true);
+
+    if (extraFields && m_ALESolver)
+    {
+        ExtraFldOutputGridVelocity(fieldcoeffs, variables);
     }
 }
 
@@ -709,4 +731,27 @@ Array<OneD, NekDouble> UnsteadyAdvectionDiffusion::GetMaxStdVelocity(
 
     return maxV;
 }
+
+void UnsteadyAdvectionDiffusion::v_ALEInitObject(
+    int spaceDim, Array<OneD, MultiRegions::ExpListSharedPtr> &fields)
+{
+    if (m_projectionType == MultiRegions::eDiscontinuous)
+    {
+        m_spaceDim  = spaceDim;
+        m_fieldsALE = fields;
+
+        // Initialise grid velocities as 0s
+        m_gridVelocity      = Array<OneD, Array<OneD, NekDouble>>(m_spaceDim);
+        m_gridVelocityTrace = Array<OneD, Array<OneD, NekDouble>>(m_spaceDim);
+        for (int i = 0; i < spaceDim; ++i)
+        {
+            m_gridVelocity[i] =
+                Array<OneD, NekDouble>(fields[0]->GetTotPoints(), 0.0);
+            m_gridVelocityTrace[i] = Array<OneD, NekDouble>(
+                fields[0]->GetTrace()->GetTotPoints(), 0.0);
+        }
+    }
+    ALEHelper::InitObject(spaceDim, fields);
+}
+
 } // namespace Nektar

@@ -13,6 +13,7 @@ RUN DEBIAN_RELEASE=bullseye && \
     liboce-modeling-dev liboce-ocaf-dev libtet1.5-dev libtriangle-dev libvtk9-dev \
     libtinyxml-dev mpi-default-dev petsc-dev zlib1g-dev python3-numpy libptscotch-dev \
     libarpack2-dev \
+    python3-pip python3-setuptools \
     texlive-base texlive-latex-extra texlive-science texlive-fonts-recommended texlive-pstricks \
     doxygen graphviz imagemagick
 

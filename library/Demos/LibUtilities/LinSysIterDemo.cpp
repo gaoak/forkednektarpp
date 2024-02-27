@@ -58,9 +58,9 @@ public:
         AllocateInitMatrix();
 
         std::string LinSysIterSolverType = "FixedpointJacobi";
-        if (pSession->DefinesSolverInfo("LinSysIterSolver"))
+        if (m_session->DefinesSolverInfo("LinSysIterSolver"))
         {
-            LinSysIterSolverType = pSession->GetSolverInfo("LinSysIterSolver");
+            LinSysIterSolverType = m_session->GetSolverInfo("LinSysIterSolver");
         }
 
         ASSERTL0(LibUtilities::GetNekLinSysIterFactory().ModuleExists(
@@ -70,10 +70,13 @@ public:
 
         // Create the key to hold solver settings
         auto sysKey = LibUtilities::NekSysKey();
-        pSession->LoadParameter("NekLinSysMaxIterations",
-                                sysKey.m_NekLinSysMaxIterations, 5000);
-        pSession->LoadParameter("LinSysMaxStorage", sysKey.m_LinSysMaxStorage,
-                                100);
+        // Load required LinSys parameters:
+        m_session->LoadParameter("NekLinSysMaxIterations",
+                                 sysKey.m_NekLinSysMaxIterations, 5000);
+        m_session->LoadParameter("LinSysMaxStorage", sysKey.m_LinSysMaxStorage,
+                                 100);
+        m_session->LoadParameter("IterativeSolverTolerance",
+                                 sysKey.m_NekLinSysTolerance, 1.0E-09);
         m_linsol = LibUtilities::GetNekLinSysIterFactory().CreateInstance(
             LinSysIterSolverType, m_session, m_comm, m_matDim, sysKey);
 
@@ -91,8 +94,7 @@ public:
     {
         Array<OneD, NekDouble> pOutput(m_matDim, 0.0);
 
-        int ntmpIts =
-            m_linsol->SolveSystem(m_matDim, m_SysRhs, pOutput, 0, 1.0E-9);
+        int ntmpIts = m_linsol->SolveSystem(m_matDim, m_SysRhs, pOutput, 0);
         // The number of sigificant digits
         int ndigits = 6;
         // Extra width to place -, E, and power

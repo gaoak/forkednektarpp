@@ -27,6 +27,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         BoundaryConditions/TimeDependentBC.cpp
         BoundaryConditions/WallBC.cpp
         BoundaryConditions/WallViscousBC.cpp
+        BoundaryConditions/WallRotationalBC.cpp
         CompressibleFlowSolver.cpp
         Diffusion/DiffusionLDGNS.cpp
         EquationSystems/CompressibleFlowSystem.cpp
@@ -219,6 +220,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
     ADD_NEKTAR_TEST(Duct_Euler_2D_AxiSym_ForcedVortexSwirl)
     ADD_NEKTAR_TEST(EmbededCylinder2D)
     ADD_NEKTAR_TEST(Movement_fixed_couette)
+    ADD_NEKTAR_TEST(Movement_rotate_couette)
     ADD_NEKTAR_TEST(cfs_bc_enforceEntropyPressure)
     ADD_NEKTAR_TEST(cfs_bc_enforceEntropyVelocity)
     ADD_NEKTAR_TEST(cfs_bc_enforceEntropyTotalEnthalpy)
@@ -239,6 +241,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         #ADD_NEKTAR_TEST(Couette_WeakDG_LDG_Exact_par)
         ADD_NEKTAR_TEST(Couette_WeakDG_IP_MODIFIED_IM_par)
         ADD_NEKTAR_TEST(Movement_fixed_couette_par)
+        ADD_NEKTAR_TEST(Movement_rotate_couette_par)
     ENDIF (NEKTAR_USE_MPI)
 
     IF (NEKTAR_USE_FFTW)

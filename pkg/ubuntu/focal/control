@@ -18,6 +18,8 @@ Build-Depends: cmake (>= 2.8.11),
     libptscotch-dev,
     libtinyxml-dev,
     mpi-default-dev,
+    python-pip,
+    python-setuptools,
     zlib1g-dev
 
 Package: libnektar++
