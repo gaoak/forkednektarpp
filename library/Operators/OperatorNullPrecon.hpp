@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorPrecon.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ template <typename TData>
 class OperatorNullPrecon : public OperatorPrecon<TData>
 {
 public:
-    virtual ~OperatorNullPrecon() = default;
+    ~OperatorNullPrecon() override = default;
 
     OperatorNullPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPrecon<TData>(expansionList)
@@ -72,6 +72,12 @@ template <typename TData = default_fp_type> struct NullPrecon
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string NullPrecon<default_fp_type>::key;
+template <> const std::string NullPrecon<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

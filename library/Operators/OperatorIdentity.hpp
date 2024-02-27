@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,15 +46,15 @@ template <typename TData, FieldState TFieldState>
 class OperatorIdentity : public OperatorLinear<TData, TFieldState, TFieldState>
 {
 public:
-    virtual ~OperatorIdentity() = default;
+    ~OperatorIdentity() override = default;
 
     OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
     {
     }
 
-    virtual void apply([[maybe_unused]] Field<TData, TFieldState> &in,
-                       [[maybe_unused]] Field<TData, TFieldState> &out) override
+    void apply([[maybe_unused]] Field<TData, TFieldState> &in,
+               [[maybe_unused]] Field<TData, TFieldState> &out) override
     {
     }
 
@@ -85,6 +85,16 @@ struct Identity
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string Identity<FieldState::Coeff, default_fp_type>::key;
+template <>
+const std::string Identity<FieldState::Coeff, default_fp_type>::default_impl;
+template <> const std::string Identity<FieldState::Phys, default_fp_type>::key;
+template <>
+const std::string Identity<FieldState::Phys, default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

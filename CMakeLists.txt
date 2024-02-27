@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.24)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
 SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build,
 options are: None(CMAKE_CXX_FLAGS or CMAKE_C_FLAGS used) Debug Release
 RelWithDebInfo MinSizeRel.")
@@ -12,11 +12,6 @@ SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 INCLUDE(NektarSIMD)
 
 PROJECT(Nektar++ C CXX)
-
-CMAKE_POLICY(SET CMP0022 NEW)
-# Resolves issue with checking string equality for string params that are also
-# variable names - this resolves an issue with checking for MSVC on Windows
-CMAKE_POLICY(SET CMP0054 NEW)
 
 # Defer to use _ROOT variables to avoid Zlib warning
 IF (POLICY CMP0074)
@@ -255,36 +250,7 @@ ENDIF()
 
 # Redesign-specific options
 if (NEKTAR_BUILD_REDESIGN)
-    OPTION(NEKTAR_ENABLE_CUDA "Enable CUDA execution" OFF)
-    OPTION(NEKTAR_ENABLE_SERIAL "Enable Serial execution" ON)
-    OPTION(NEKTAR_ENABLE_THREADS "Enable multithreaded execution" OFF)
-
-    if (NEKTAR_ENABLE_CUDA)
-        if (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
-            MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
-        endif ()
-        enable_language(CUDA)
-        find_package(CUDAToolkit REQUIRED)
-        add_definitions(-DNEKTAR_USE_CUDA)
-
-        set(CUDA_SEPARABLE_COMPILATION ON)
-        set(CUDA_RUNTIME_LIBRARY "Shared")
-        if (NOT DEFINED CMAKE_CUDA_STANDARD)
-            set(CMAKE_CUDA_STANDARD 20)
-            set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-        endif()
-        if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-            set(CMAKE_CUDA_ARCHITECTURES native)
-        endif()
-    endif (NEKTAR_ENABLE_CUDA)
-
-    if (NEKTAR_ENABLE_THREADS)
-        add_definitions(-DNEKTAR_USE_THREADS)
-    endif()
-
-    if (NEKTAR_ENABLE_SERIAL)
-        add_definitions(-DNEKTAR_USE_SERIAL)
-    endif()
+    INCLUDE(NektarCUDA)
 endif()
 
 # Include Nektar++ common macros

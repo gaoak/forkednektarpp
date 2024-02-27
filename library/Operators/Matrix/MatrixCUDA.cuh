@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/Matrix/MatrixCUDAKernels.cuh"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorMatrix.hpp"
 
 namespace Nektar::Operators::detail

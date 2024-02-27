@@ -82,13 +82,13 @@ MACRO(SET_COMMON_PROPERTIES name)
 
     IF (MSVC)
         # Enable production-level warnings
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /W4)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /W4>)
         # Temporarily disable signed/unsigned comparison warning
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /wd4018)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /wd4018>)
         # Temporarily disable narrowing warnings
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /wd4244 /wd4267)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /wd4244 /wd4267>)
         # Enable source-level parallel builds
-        TARGET_COMPILE_OPTIONS(${name} PRIVATE /MP)
+        TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: /MP>)
         # Specify minimum Windows version (501=WinXP, 601=Windows 7)
         TARGET_COMPILE_DEFINITIONS(${name} PRIVATE _WIN32_WINNT=0x0601)
     ELSE ()
@@ -96,7 +96,7 @@ MACRO(SET_COMMON_PROPERTIES name)
         TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wall -Wextra)
         IF (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             # For GNU compilers add pedantic warnings
-            TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wpedantic)
+            TARGET_COMPILE_OPTIONS(${name} PRIVATE $<$<COMPILE_LANGUAGE:CXX>: -Wpedantic>)
             TARGET_COMPILE_OPTIONS(${name} PRIVATE -Wnon-virtual-dtor)
         ENDIF()
         # Temporarily disable warnings about comparing signed and unsigned
@@ -166,8 +166,8 @@ MACRO(ADD_NEKTAR_EXECUTABLE name)
     SET_COMMON_PROPERTIES(${name})
 
     IF (${CMAKE_SYSTEM} MATCHES "Linux.*")
-        SET_PROPERTY(TARGET ${name} APPEND_STRING PROPERTY COMPILE_FLAGS " -pthread")
-        SET_PROPERTY(TARGET ${name} APPEND_STRING PROPERTY LINK_FLAGS " -pthread")
+        SET_PROPERTY(TARGET ${name} APPEND PROPERTY CMAKE_CXX_FLAGS -pthread)
+        SET_PROPERTY(TARGET ${name} APPEND PROPERTY CMAKE_CXX_FLAGS -pthread)
     ENDIF()
 
     STRING(TOLOWER ${NEKEXE_COMPONENT} NEKEXE_COMPONENT)

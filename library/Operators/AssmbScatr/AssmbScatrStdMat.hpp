@@ -70,7 +70,7 @@ public:
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out,
-               const bool &zeroDir = false)
+               const bool &zeroDir = false) override
     {
         Assemble(in, m_glo);
 

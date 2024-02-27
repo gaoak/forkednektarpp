@@ -43,13 +43,34 @@
 #include <MultiRegions/ExpList.h>
 #include <Operators/Field.hpp>
 
-#ifdef NEKTAR_USE_CUDA
-#include "MemoryRegionCUDA.hpp"
+#ifdef NEKTAR_ENABLE_CUDA
+#include "Operators/MemoryRegionCUDA.hpp"
 #endif
+
+#include <boost/test/included/unit_test.hpp>
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
+
+#ifdef NEKTAR_USE_MPI
+struct InitMPI
+{
+    InitMPI()
+    {
+        int argc    = boost::unit_test::framework::master_test_suite().argc;
+        char **argv = boost::unit_test::framework::master_test_suite().argv;
+
+        MPI_Init(&argc, &argv);
+    }
+    ~InitMPI()
+    {
+        MPI_Finalize();
+    }
+};
+
+BOOST_TEST_GLOBAL_CONFIGURATION(InitMPI);
+#endif
 
 /**
  * @struct InitFields
@@ -70,15 +91,6 @@ template <typename TData, FieldState stateIn = FieldState::Coeff,
 class InitFields
 {
 public:
-    Field<TData, stateIn> *fixt_in        = nullptr;
-    Field<TData, stateOut> *fixt_out      = nullptr;
-    Field<TData, stateOut> *fixt_expected = nullptr;
-#ifdef NEKTAR_USE_CUDA
-    Field<TData, stateIn> *fixtcuda_in   = nullptr;
-    Field<TData, stateOut> *fixtcuda_out = nullptr;
-#endif
-    std::shared_ptr<TExpList> fixt_explist{nullptr};
-
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
@@ -94,7 +106,7 @@ public:
         {
             delete fixt_expected;
         }
-#ifdef NEKTAR_USE_CUDA
+#ifdef NEKTAR_ENABLE_CUDA
         if (fixtcuda_in)
         {
             delete fixtcuda_in;
@@ -104,6 +116,10 @@ public:
             delete fixtcuda_out;
         }
 #endif
+        if (session)
+        {
+            session->Finalise();
+        }
     }
 
     InitFields() = default;
@@ -112,14 +128,15 @@ public:
     {
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and create an expansion list
-        LibUtilities::SessionReaderSharedPtr session;
         SpatialDomains::MeshGraphSharedPtr graph;
 
         // Construct a fake command-line argument array to be fed to
         // Session::Reader::CreateInstance. The first element stands for
         // the name of the executable which, in our case, doesn't matter.
-        int argc     = 2;
-        char *argv[] = {(char *)"exe_name", meshName.data()};
+        int argc    = 2;
+        char **argv = new char *[argc];
+        argv[0]     = strdup("exe_name");
+        argv[1]     = meshName.data();
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
         graph   = SpatialDomains::MeshGraph::Read(session);
@@ -163,7 +180,7 @@ public:
         fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
-#ifdef NEKTAR_USE_CUDA
+#ifdef NEKTAR_ENABLE_CUDA
         auto fcuda_in =
             Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in,
                                                                      nin);
@@ -194,9 +211,27 @@ public:
                     outptr++;
                 }
             }
+            for (size_t el = 0; el < block.num_padding_elements; ++el)
+            {
+                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                {
+                    expptr++;
+                    outptr++;
+                }
+            }
         }
     }
 
 protected:
-    std::string meshName = "";
+    std::string meshName                  = "";
+    Field<TData, stateIn> *fixt_in        = nullptr;
+    Field<TData, stateOut> *fixt_out      = nullptr;
+    Field<TData, stateOut> *fixt_expected = nullptr;
+#ifdef NEKTAR_ENABLE_CUDA
+    Field<TData, stateIn> *fixtcuda_in   = nullptr;
+    Field<TData, stateOut> *fixtcuda_out = nullptr;
+#endif
+    std::shared_ptr<TExpList> fixt_explist{nullptr};
+
+    LibUtilities::SessionReaderSharedPtr session;
 };

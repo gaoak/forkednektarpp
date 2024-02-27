@@ -34,10 +34,10 @@
 
 #pragma once
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/BwdTrans/BwdTransCUDAKernels.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
 #include "Operators/OperatorBwdTrans.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/OperatorHelper.hpp"
 
 #define FLAG_QP false
 

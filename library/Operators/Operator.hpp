@@ -41,8 +41,7 @@
 #include <MultiRegions/ExpList.h>
 #include <Operators/OperatorsDeclspec.hpp>
 
-#include "Field.hpp"
-
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {

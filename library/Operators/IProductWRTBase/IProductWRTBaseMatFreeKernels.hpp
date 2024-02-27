@@ -870,9 +870,10 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct3DWorkspace(
-    [[maybe_unused]] const size_t nm0, const size_t nm1, const size_t nm2,
-    [[maybe_unused]] const size_t nq0, const size_t nq1, const size_t nq2,
-    size_t &wsp0Size, size_t &wsp1Size, size_t &wsp2Size)
+    [[maybe_unused]] const size_t nm0, const size_t nm1,
+    [[maybe_unused]] const size_t nm2, [[maybe_unused]] const size_t nq0,
+    const size_t nq1, const size_t nq2, size_t &wsp0Size, size_t &wsp1Size,
+    size_t &wsp2Size)
 {
     // Check preconditions
     ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nm0 == nm1 &&

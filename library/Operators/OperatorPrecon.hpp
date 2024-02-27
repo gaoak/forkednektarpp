@@ -46,7 +46,7 @@ class OperatorPrecon
     : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
 {
 public:
-    virtual ~OperatorPrecon() = default;
+    ~OperatorPrecon() override = default;
 
     OperatorPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
@@ -54,8 +54,8 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, FieldState::Coeff> &in,
-                       Field<TData, FieldState::Coeff> &out) = 0;
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out) override = 0;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)

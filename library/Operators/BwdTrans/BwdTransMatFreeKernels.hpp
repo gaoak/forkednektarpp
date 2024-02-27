@@ -573,7 +573,7 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2); // nm1 == nm2
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2); // nq0 == nq1
     }
-    // #elif defined(SHAPE_TYPE_TET) || defined(SHAPE_TYPE_PRISM) ||  \
+    // #elif defined(SHAPE_TYPE_TET) || defined(SHAPE_TYPE_PRISM) ||
     // defined(SHAPE_TYPE_PYR)
     else
     {

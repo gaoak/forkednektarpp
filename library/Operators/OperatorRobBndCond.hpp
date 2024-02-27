@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "Operator.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ template <typename TData> class OperatorRobBndCond : public Operator<TData>
 {
 
 public:
-    virtual ~OperatorRobBndCond() = default;
+    ~OperatorRobBndCond() override = default;
 
     OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
@@ -76,6 +76,12 @@ template <typename TData = default_fp_type> struct RobBndCond
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string RobBndCond<default_fp_type>::key;
+template <> const std::string RobBndCond<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

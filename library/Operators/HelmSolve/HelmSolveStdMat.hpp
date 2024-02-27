@@ -107,7 +107,7 @@ public:
             [](const TData &x, const TData &diff) { return x + diff; });
     }
 
-    void setLambda(const TData &lambda)
+    void setLambda(const TData &lambda) override
     {
         m_HelmOp->setLambda(lambda);
     }

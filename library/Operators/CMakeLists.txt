@@ -3,12 +3,14 @@ MACRO(ADD_OPERATOR name)
     SET(NAME_SOURCES ${name}_SOURCES)
 
     FILE(GLOB ${NAME_HEADERS}
-        ./*${name}.hpp
-        ./${name}/*.hpp
+        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+        *${name}.hpp
+        ${name}/*.hpp
     )
     FILE(GLOB ${NAME_SOURCES}
-        ./*${name}.cpp
-        ./${name}/*.cpp
+        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+        *${name}.cpp
+        ${name}/*.cpp
     )
     
     IF(NEKTAR_ENABLE_CUDA)
@@ -16,10 +18,12 @@ MACRO(ADD_OPERATOR name)
         SET(NAME_CUDA_SOURCES ${name}_CUDA_SOURCES)
 
         FILE(GLOB ${NAME_CUDA_HEADERS}
-            ./${name}/*.cuh
+            RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+            ${name}/*.cuh
         )
         FILE(GLOB ${NAME_CUDA_SOURCES}
-            ./${name}/*.cu
+            RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+            ${name}/*.cu
         )
 
         SET(${NAME_HEADERS}
@@ -43,14 +47,14 @@ ENDMACRO()
 
 
 SET(OPERATORS_HEADERS
-./Operator.hpp
-./Field.hpp
-./MemoryRegionCPU.hpp
+Operator.hpp
+Field.hpp
+MemoryRegionCPU.hpp
 )
 
 SET(OPERATORS_SOURCES
-./Operator.cpp
-./Field.cpp
+Operator.cpp
+Field.cpp
 )
 
 ADD_OPERATOR(Identity)
@@ -77,11 +81,11 @@ ADD_OPERATOR(AddTraceIntegral)
 if(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_SOURCES
         ${OPERATORS_SOURCES}
-        ./MemoryRegionCuda.cu
+        MemoryRegionCUDA.cpp
     )
     SET(OPERATORS_HEADERS
         ${OPERATORS_HEADERS}
-        ./MemoryRegionCuda.hpp
+        MemoryRegionCUDA.hpp
     )
     SET(ADDITIONAL_OPERATOR_DEPS
     CUDA::cublas
@@ -90,7 +94,7 @@ endif()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${OPERATORS_HEADERS} ${OPERATORS_SOURCES})
 
-ADD_DEFINITIONS(-DOPERATORS_EXPORTS)
+ADD_DEFINITIONS(-DOPERATORS_EXPORTS -I${CMAKE_CURRENT_SOURCE_DIR})
 
 ADD_NEKTAR_LIBRARY(Operators
     SOURCES ${OPERATORS_SOURCES}
@@ -99,9 +103,5 @@ ADD_NEKTAR_LIBRARY(Operators
     SUMMARY "Nektar++ Operators library"
     DESCRIPTION "This library provides classes related to operators for Nektar++.")
 
-INSTALL(DIRECTORY ./ DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators COMPONENT dev FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
+INSTALL(DIRECTORY ./ DESTINATION ${NEKTAR_INCLUDE_DIR}/Operators COMPONENT dev FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp" PATTERN "*.cuh")
 
-
-
-#INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
-#TARGET_INCLUDE_DIRECTORIES(Operators PUBLIC ${CMAKE_SOURCE_DIR}/Operators)

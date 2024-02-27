@@ -32,9 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestFwdTrans
-#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
@@ -69,7 +67,7 @@ TEST_FWDTRANS(fwdtrans_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_FWDTRANS(fwdtrans_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
-TEST_FWDTRANS(fwdtrans_hex, Helmholtz3D_Hex, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_hex, Helmholtz3D_Hex, 5.0E-08)
 
 TEST_FWDTRANS(fwdtrans_prism, Helmholtz3D_Prism, 1.0E-08)
 

@@ -34,13 +34,13 @@
 
 #pragma once
 
-#include "MemoryRegionCUDA.hpp"
 #include "Operators/CUDAMathKernels.cuh"
+#include "Operators/MemoryRegionCUDA.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorDirBndCond.hpp"
 #include "Operators/OperatorHelmSolve.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
-#include "Operators/OperatorHelper.cuh"
+#include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorLinear.hpp"
 #include "Operators/OperatorNeuBndCond.hpp"

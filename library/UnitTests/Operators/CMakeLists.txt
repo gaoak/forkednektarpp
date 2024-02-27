@@ -83,12 +83,12 @@ MACRO(SET_UNIT_TEST testname name mpi_flag)
     IF (mpi_flag)
         ADD_TEST(
           NAME Operators${testname}MPI
-          COMMAND mpirun -np 2 "${CMAKE_BINARY_DIR}/library/UnitTests/Operators/${name}" --detect_memory_leaks=0
+          COMMAND mpirun -np 2 ${name} --detect_memory_leaks=0
       )
     ELSE()
         ADD_TEST(
           NAME Operators${testname}
-          COMMAND "${CMAKE_BINARY_DIR}/library/UnitTests/Operators/${name}" --detect_memory_leaks=0
+          COMMAND ${name} --detect_memory_leaks=0
       )
     ENDIF()
 ENDMACRO()

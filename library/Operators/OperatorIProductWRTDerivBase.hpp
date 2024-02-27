@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "Operator.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ template <typename TData>
 class OperatorIProductWRTDerivBase : public Operator<TData>
 {
 public:
-    virtual ~OperatorIProductWRTDerivBase() = default;
+    ~OperatorIProductWRTDerivBase() override = default;
 
     OperatorIProductWRTDerivBase(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -85,6 +85,12 @@ template <typename TData = default_fp_type> struct IProductWRTDerivBase
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string IProductWRTDerivBase<>::key;
+template <> const std::string IProductWRTDerivBase<>::default_impl;
+#endif
 
 namespace detail
 {

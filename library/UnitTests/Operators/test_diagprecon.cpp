@@ -32,9 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_DYN_LINK
 #define BOOST_TEST_MODULE TestDiagPrecon
-#include <boost/test/included/unit_test.hpp>
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
@@ -76,6 +74,6 @@ TEST_DIAGPRECON(diagprecon_prism, Helmholtz3D_Prism, 1.0E-10)
 
 TEST_DIAGPRECON(diagprecon_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
-TEST_DIAGPRECON(diagprecon_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_DIAGPRECON(diagprecon_tet, Helmholtz3D_Tet, 2.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()

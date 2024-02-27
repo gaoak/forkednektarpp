@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssmbScatrCUDA.cu
+// File: MassCUDA.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,16 +32,53 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "AssmbScatrCUDA.cuh"
+#pragma once
+
+#include "Operators/BwdTrans/BwdTransCUDA.cuh"
+#include "Operators/IProductWRTBase/IProductWRTBaseCUDA.cuh"
+#include "Operators/OperatorMass.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// Register implementation with Operator Factory
-template <>
-std::string OperatorAssmbScatrImpl<double, ImplCUDA>::className =
-    GetOperatorFactory<double>().RegisterCreatorFunction(
-        "AssmbScatrCUDA", OperatorAssmbScatrImpl<double, ImplCUDA>::instantiate,
-        "");
+template <typename TData>
+class OperatorMassImpl<TData, ImplCUDA> : public OperatorMass<TData>
+{
+public:
+    OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorMass<TData>(expansionList),
+          m_field(
+              Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
+                  GetBlockAttributes(FieldState::Phys, expansionList)))
+    {
+        m_BwdTransOp = BwdTrans<>::create(this->m_expansionList, "CUDA");
+        m_IProductWRTBaseOp =
+            IProductWRTBase<>::create(this->m_expansionList, "CUDA");
+    }
+
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Coeff> &out) override
+    {
+        // Step 1: BwdTrans
+        m_BwdTransOp->apply(in, m_field);
+
+        // Step 2: Inner product for mass matrix operation
+        m_IProductWRTBaseOp->apply(m_field, out);
+    }
+
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<OperatorMassImpl<TData, ImplCUDA>>(
+            expansionList);
+    }
+
+    static std::string className;
+
+protected:
+    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
+    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    Field<TData, FieldState::Phys> m_field;
+};
 
 } // namespace Nektar::Operators::detail

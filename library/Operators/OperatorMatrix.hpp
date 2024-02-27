@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ class OperatorMatrix : public OperatorLinear<TData, TFieldState, TFieldState>
 {
 
 public:
-    virtual ~OperatorMatrix() = default;
+    ~OperatorMatrix() override = default;
 
     OperatorMatrix(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
@@ -75,6 +75,16 @@ template <FieldState TFieldState, typename TData> struct Matrix
             expansionList, pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string Matrix<FieldState::Coeff, default_fp_type>::key;
+template <>
+const std::string Matrix<FieldState::Coeff, default_fp_type>::default_impl;
+template <> const std::string Matrix<FieldState::Phys, default_fp_type>::key;
+template <>
+const std::string Matrix<FieldState::Phys, default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

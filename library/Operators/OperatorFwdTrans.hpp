@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "Field.hpp"
 #include "OperatorLinear.hpp"
 #include "OperatorPrecon.hpp"
+#include "Operators/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -46,7 +46,7 @@ namespace Nektar::Operators
 template <typename TData> class OperatorFwdTrans : public Operator<TData>
 {
 public:
-    virtual ~OperatorFwdTrans() = default;
+    ~OperatorFwdTrans() override = default;
 
     OperatorFwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
@@ -84,6 +84,12 @@ template <typename TData = default_fp_type> struct FwdTrans
                                                                  pKey);
     }
 };
+
+// Avoid [-Wundefined-var-template] warnings
+#if defined(__GNUC__) || defined(__clang__)
+template <> const std::string FwdTrans<default_fp_type>::key;
+template <> const std::string FwdTrans<default_fp_type>::default_impl;
+#endif
 
 namespace detail
 {

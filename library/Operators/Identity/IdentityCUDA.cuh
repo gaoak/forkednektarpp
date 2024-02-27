@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MassCUDA.hpp
+// File: IdentityCUDA.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,51 +34,43 @@
 
 #pragma once
 
-#include "Operators/BwdTrans/BwdTransCUDA.hpp"
-#include "Operators/IProductWRTBase/IProductWRTBaseCUDA.hpp"
-#include "Operators/OperatorMass.hpp"
+#include "Operators/MemoryRegionCUDA.hpp"
+#include "Operators/OperatorIdentity.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-template <typename TData>
-class OperatorMassImpl<TData, ImplCUDA> : public OperatorMass<TData>
+// Identity matrix implementation
+template <typename TData, FieldState TFieldState>
+class OperatorIdentityImpl<TData, TFieldState, ImplCUDA>
+    : public OperatorIdentity<TData, TFieldState>
 {
 public:
-    OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(expansionList),
-          m_field(
-              Field<TData, FieldState::Phys>::template create<MemoryRegionCUDA>(
-                  GetBlockAttributes(FieldState::Phys, expansionList)))
+    OperatorIdentityImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorIdentity<TData, TFieldState>(expansionList)
     {
-        m_BwdTransOp = BwdTrans<>::create(this->m_expansionList, "CUDA");
-        m_IProductWRTBaseOp =
-            IProductWRTBase<>::create(this->m_expansionList, "CUDA");
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override
+    void apply(Field<TData, TFieldState> &in,
+               Field<TData, TFieldState> &out) override
     {
-        // Step 1: BwdTrans
-        m_BwdTransOp->apply(in, m_field);
-
-        // Step 2: Inner product for mass matrix operation
-        m_IProductWRTBaseOp->apply(m_field, out);
+        size_t N = in.template GetStorage<MemoryRegionCUDA>().size();
+        auto const *inptr =
+            in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
+        cudaMemcpy(outptr, inptr, sizeof(TData) * N, cudaMemcpyDeviceToDevice);
     }
 
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return std::make_unique<OperatorMassImpl<TData, ImplCUDA>>(
-            expansionList);
+        return std::make_unique<
+            OperatorIdentityImpl<TData, TFieldState, ImplCUDA>>(expansionList);
     }
 
+    // className - for OperatorFactory
     static std::string className;
-
-protected:
-    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    Field<TData, FieldState::Phys> m_field;
 };
 
 } // namespace Nektar::Operators::detail
