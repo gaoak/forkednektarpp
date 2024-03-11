@@ -147,10 +147,9 @@ __global__ void IProductWRTDerivBase2DKernel(
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0; d < ncoord; ++d)
                 {
-                    sum1 += (df[dfindex + (2 * d) * dfSize] *
-                             in[index + d * nSize]);
-                    sum2 += (df[dfindex + (2 * d + 1) * dfSize] *
-                             in[index + d * nSize]);
+                    TData tmp = in[index + d * nSize];
+                    sum1 += df[dfindex + (2 * d) * dfSize] * tmp;
+                    sum2 += df[dfindex + (2 * d + 1) * dfSize] * tmp;
                 }
 
                 if constexpr (SHAPETYPE == LibUtilities::Quad)
@@ -202,10 +201,9 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0; d < ncoord; ++d)
                 {
-                    sum1 += (df[dfindex + (2 * d) * dfSize] *
-                             in[index + d * nSize]);
-                    sum2 += (df[dfindex + (2 * d + 1) * dfSize] *
-                             in[index + d * nSize]);
+                    TData tmp = in[index + d * nSize];
+                    sum1 += df[dfindex + (2 * d) * dfSize] * tmp;
+                    sum2 += df[dfindex + (2 * d + 1) * dfSize] * tmp;
                 }
 
                 // Moving from standard to collapsed coordinates.
@@ -350,12 +348,10 @@ __global__ void IProductWRTDerivBase3DKernel(
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0; d < ncoord; ++d)
                     {
-                        sum1 += (df[dfindex + (3 * d) * dfSize] *
-                                 in[index + d * nSize]);
-                        sum2 += (df[dfindex + (3 * d + 1) * dfSize] *
-                                 in[index + d * nSize]);
-                        sum3 += (df[dfindex + (3 * d + 2) * dfSize] *
-                                 in[index + d * nSize]);
+                        TData tmp = in[index + d * nSize];
+                        sum1 += df[dfindex + (3 * d) * dfSize] * tmp;
+                        sum2 += df[dfindex + (3 * d + 1) * dfSize] * tmp;
+                        sum3 += df[dfindex + (3 * d + 2) * dfSize] * tmp;
                     }
 
                     if constexpr (SHAPETYPE == LibUtilities::Hex)
@@ -437,12 +433,10 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0; d < ncoord; ++d)
                     {
-                        sum1 += (df[dfindex + (3 * d) * dfSize] *
-                                 in[index + d * nSize]);
-                        sum2 += (df[dfindex + (3 * d + 1) * dfSize] *
-                                 in[index + d * nSize]);
-                        sum3 += (df[dfindex + (3 * d + 2) * dfSize] *
-                                 in[index + d * nSize]);
+                        TData tmp = in[index + d * nSize];
+                        sum1 += df[dfindex + (3 * d) * dfSize] * tmp;
+                        sum2 += df[dfindex + (3 * d + 1) * dfSize] * tmp;
+                        sum3 += df[dfindex + (3 * d + 2) * dfSize] * tmp;
                     }
 
                     if constexpr (SHAPETYPE == LibUtilities::Tet ||
