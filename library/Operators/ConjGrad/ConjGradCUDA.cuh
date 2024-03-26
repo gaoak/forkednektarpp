@@ -89,9 +89,7 @@ public:
         cudaMalloc((void **)&m_p_A, sizeof(TData) * m_nloc);
         cudaMalloc((void **)&m_q_A, sizeof(TData) * m_nloc);
         cudaMalloc((void **)&m_vExchange, sizeof(TData) * 4);
-
-        // Deterime CUDA grid size.
-        m_gridSize = GetCUDAGridSize(m_nloc, m_blockSize);
+        cudaMalloc((void **)&m_buffer, sizeof(TData) * m_gridSize);
     }
 
     ~OperatorConjGradImpl(void)
@@ -99,6 +97,7 @@ public:
         cudaFree(m_p_A);
         cudaFree(m_q_A);
         cudaFree(m_vExchange);
+        cudaFree(m_buffer);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -121,6 +120,7 @@ public:
         cudaMemset(p_wk, 0, sizeof(TData) * m_nloc);
         cudaMemset(p_p_A, 0, sizeof(TData) * m_nloc);
         cudaMemset(p_q_A, 0, sizeof(TData) * m_nloc);
+        cudaMemset(m_buffer, 0, sizeof(TData) * m_gridSize);
 
         // Convergence parameters (host)
         size_t totalIterations = 0;
@@ -141,15 +141,19 @@ public:
 
         // Assembly (communication)
         m_assmbScatr->apply(m_r_A, m_wk, true);
-        dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-            m_nloc, p_wk, p_r_A, m_vExchange + 2);
+        dotKernel<m_blockSize>
+            <<<m_gridSize, m_blockSize>>>(m_nloc, p_wk, p_r_A, m_buffer);
+        reduceKernel<m_gridSize>
+            <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 2);
         cudaMemcpy(&eps, m_vExchange + 2, sizeof(TData),
                    cudaMemcpyDeviceToHost);
 
         // Calculate rhs magnitude
         m_assmbScatr->apply(m_r_A, m_wk);
-        dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-            m_nloc, p_in, p_wk, m_vExchange + 3);
+        dotKernel<m_blockSize>
+            <<<m_gridSize, m_blockSize>>>(m_nloc, p_in, p_wk, m_buffer);
+        reduceKernel<m_gridSize>
+            <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 3);
         cudaMemcpy(&rhsMagnitude, m_vExchange + 3, sizeof(TData),
                    cudaMemcpyDeviceToHost);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
@@ -171,11 +175,15 @@ public:
 
         cudaMemset(m_vExchange, 0, sizeof(TData) * 3);
 
-        dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-            m_nloc, p_r_A, p_w_A, m_vExchange + 0);
+        dotKernel<m_blockSize>
+            <<<m_gridSize, m_blockSize>>>(m_nloc, p_r_A, p_w_A, m_buffer);
+        reduceKernel<m_gridSize>
+            <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 0);
 
-        dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-            m_nloc, p_s_A, p_w_A, m_vExchange + 1);
+        dotKernel<m_blockSize>
+            <<<m_gridSize, m_blockSize>>>(m_nloc, p_s_A, p_w_A, m_buffer);
+        reduceKernel<m_gridSize>
+            <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 1);
 
         cudaMemcpy(&rho, m_vExchange + 0, sizeof(TData),
                    cudaMemcpyDeviceToHost);
@@ -219,17 +227,23 @@ public:
             cudaMemset(m_vExchange, 0, sizeof(TData) * 3);
 
             // <r_{k+1}, w_{k+1}>
-            dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-                m_nloc, p_r_A, p_w_A, m_vExchange + 0);
+            dotKernel<m_blockSize>
+                <<<m_gridSize, m_blockSize>>>(m_nloc, p_r_A, p_w_A, m_buffer);
+            reduceKernel<m_gridSize>
+                <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 0);
 
             // <s_{k+1}, w_{k+1}>
-            dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-                m_nloc, p_s_A, p_w_A, m_vExchange + 1);
+            dotKernel<m_blockSize>
+                <<<m_gridSize, m_blockSize>>>(m_nloc, p_s_A, p_w_A, m_buffer);
+            reduceKernel<m_gridSize>
+                <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 1);
 
             // <r_{k+1}, r_{k+1}>
             m_assmbScatr->apply(m_r_A, m_wk, true);
-            dotKernel<<<m_gridSize, m_blockSize, sizeof(TData) * m_blockSize>>>(
-                m_nloc, p_wk, p_r_A, m_vExchange + 2);
+            dotKernel<m_blockSize>
+                <<<m_gridSize, m_blockSize>>>(m_nloc, p_wk, p_r_A, m_buffer);
+            reduceKernel<m_gridSize>
+                <<<1, m_gridSize>>>(m_gridSize, m_buffer, m_vExchange + 2);
 
             cudaMemcpy(&rho_new, m_vExchange + 0, sizeof(TData),
                        cudaMemcpyDeviceToHost);
@@ -274,14 +288,15 @@ protected:
     Field<TData, FieldState::Coeff> m_s_A;
     Field<TData, FieldState::Coeff> m_r_A;
     Field<TData, FieldState::Coeff> m_wk;
+    TData *m_buffer;
     TData *m_q_A;
     TData *m_p_A;
     TData *m_vExchange;
     TData m_tol;
     size_t m_nloc;
     size_t m_maxIter;
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
+    static constexpr size_t m_gridSize  = 1024;
+    static constexpr size_t m_blockSize = 256;
 };
 
 } // namespace Nektar::Operators::detail

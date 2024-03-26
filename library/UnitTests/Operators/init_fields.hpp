@@ -49,7 +49,6 @@
 
 #include <boost/test/included/unit_test.hpp>
 
-using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
