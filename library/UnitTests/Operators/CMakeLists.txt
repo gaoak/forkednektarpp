@@ -45,7 +45,8 @@ IF (NEKTAR_ENABLE_SIMD)
 ENDIF()
 
 IF (NEKTAR_ENABLE_CUDA)
-        #test_cudakernels.cu
+    ADD_NEKTAR_EXECUTABLE(test_cudamathkernels
+        COMPONENT unit-test DEPENDS Operators SOURCES test_cudamathkernels.cpp CUDAMathKernelsLauncher.cu)
     ADD_NEKTAR_EXECUTABLE(test_bwdtranscuda
         COMPONENT unit-test DEPENDS Operators SOURCES test_bwdtranscuda.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbasecuda
@@ -122,7 +123,7 @@ ENDIF()
 
 # CUDA
 IF (NEKTAR_ENABLE_CUDA)
-    #SET_UNIT_TEST(CUDAKernels test_cudakernels FALSE)
+    SET_UNIT_TEST(CUDAMathKernels test_cudamathkernels FALSE)
     SET_UNIT_TEST(BwdTransCUDA test_bwdtranscuda FALSE)
     SET_UNIT_TEST(IProductWRTBaseCUDA test_ipwrtbasecuda FALSE)
     SET_UNIT_TEST(PhysDerivCUDA test_physderivcuda FALSE)

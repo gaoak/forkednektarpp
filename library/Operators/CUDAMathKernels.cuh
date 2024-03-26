@@ -32,13 +32,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-namespace Nektar::Operators::detail
+namespace Nektar::Operators
 {
 
 template <typename TData>
-__global__ void negKernel(const size_t nsize, const TData *x, TData *y)
+__global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
@@ -48,10 +48,10 @@ __global__ void negKernel(const size_t nsize, const TData *x, TData *y)
 }
 
 template <typename TData>
-__global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
+__global__ void addKernel(const unsigned int nsize, const TData *x,
+                          const TData *y, TData *z)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
@@ -61,10 +61,10 @@ __global__ void addKernel(const size_t nsize, const TData *x, const TData *y,
 }
 
 template <typename TData>
-__global__ void subKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *z)
+__global__ void subKernel(const unsigned int nsize, const TData *x,
+                          const TData *y, TData *z)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
@@ -74,10 +74,10 @@ __global__ void subKernel(const size_t nsize, const TData *x, const TData *y,
 }
 
 template <typename TData>
-__global__ void daxpyKernel(const size_t nsize, const TData alpha,
+__global__ void daxpyKernel(const unsigned int nsize, const TData alpha,
                             const TData *x, const TData *y, TData *z)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
@@ -87,10 +87,10 @@ __global__ void daxpyKernel(const size_t nsize, const TData alpha,
 }
 
 template <typename TData>
-__global__ void vdivKernel(const size_t nsize, const TData *x, const TData *y,
-                           TData *z)
+__global__ void vdivKernel(const unsigned int nsize, const TData *x,
+                           const TData *y, TData *z)
 {
-    size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
@@ -99,41 +99,98 @@ __global__ void vdivKernel(const size_t nsize, const TData *x, const TData *y,
     }
 }
 
-template <typename TData>
-__global__ void dotKernel(const size_t nsize, const TData *x, const TData *y,
-                          TData *out)
+template <int blockSize, typename TData>
+__device__ inline void reduce(const unsigned int nsize, TData *s, TData *out)
 {
-    extern __shared__ TData s[];
+    // Implementation based on reduce6 of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+    // and https://developer.nvidia.com/blog/using-cuda-warp-level-primitives
 
-    size_t i      = blockDim.x * blockIdx.x + threadIdx.x;
-    size_t sIndex = threadIdx.x;
+    int id = threadIdx.x;
 
-    TData tmp = 0.0;
-    while (i < nsize)
+    if (blockSize > 512 && id < 512 && id + 512 < blockSize)
     {
-        tmp += x[i] * y[i];
-        i += blockDim.x * gridDim.x;
+        s[id] += s[id + 512];
     }
-
-    s[sIndex] = tmp;
-
+    __syncthreads();
+    if (blockSize > 256 && id < 256 && id + 256 < blockSize)
+    {
+        s[id] += s[id + 256];
+    }
+    __syncthreads();
+    if (blockSize > 128 && id < 128 && id + 128 < blockSize)
+    {
+        s[id] += s[id + 128];
+    }
+    __syncthreads();
+    if (blockSize > 64 && id < 64 && id + 64 < blockSize)
+    {
+        s[id] += s[id + 64];
+    }
+    __syncthreads();
+    if (blockSize > 32 && id < 32 && id + 32 < blockSize)
+    {
+        s[id] += s[id + 32];
+    }
     __syncthreads();
 
-    i = blockDim.x / 2;
-    while (i != 0)
+    if (id < 32)
     {
-        if (sIndex < i)
-        {
-            s[sIndex] += s[sIndex + i];
-        }
-        __syncthreads();
-        i /= 2;
-    }
+        TData val = (id < nsize) ? s[id] : 0.0;
 
-    if (threadIdx.x == 0)
-    {
-        atomicAdd(out, s[0]);
+        val += __shfl_down_sync(0xffffffff, val, 16);
+        val += __shfl_down_sync(0xffffffff, val, 8);
+        val += __shfl_down_sync(0xffffffff, val, 4);
+        val += __shfl_down_sync(0xffffffff, val, 2);
+        val += __shfl_down_sync(0xffffffff, val, 1);
+
+        if (id == 0)
+        {
+            out[blockIdx.x] = val;
+        }
     }
 }
 
-} // namespace Nektar::Operators::detail
+template <int blockSize, typename TData>
+__global__ void reduceKernel(const unsigned int nsize, const TData *x,
+                             TData *out)
+{
+    // kernel assumes that blockDim.x = blockSize,
+    // and blockSize is power of 2 between 64 and 1024
+    __shared__ TData s[blockSize];
+    int id     = threadIdx.x;
+    double tmp = 0.0;
+    for (int tid = blockSize * blockIdx.x + threadIdx.x; tid < nsize;
+         tid += blockSize * gridDim.x)
+    {
+        tmp += x[tid];
+    }
+    s[id] = tmp;
+
+    __syncthreads();
+
+    reduce<blockSize, TData>(nsize, s, out);
+}
+
+template <int blockSize, typename TData>
+__global__ void dotKernel(const unsigned int nsize, const TData *x,
+                          const TData *y, TData *out)
+{
+    // kernel assumes that blockDim.x = blockSize,
+    // and blockSize is power of 2 between 64 and 1024
+    __shared__ TData s[blockSize];
+    int id     = threadIdx.x;
+    double tmp = 0.0;
+    for (int tid = blockSize * blockIdx.x + threadIdx.x; tid < nsize;
+         tid += blockSize * gridDim.x)
+    {
+        tmp += x[tid] * y[tid];
+    }
+    s[id] = tmp;
+
+    __syncthreads();
+
+    reduce<blockSize, TData>(nsize, s, out);
+}
+
+} // namespace Nektar::Operators
