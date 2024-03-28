@@ -1043,6 +1043,9 @@ public:
         return it->second;
     }
 
+    MULTI_REGIONS_EXPORT const DNekScalBlkMatSharedPtr &GetBlockMatrix(
+        const GlobalMatrixKey &gkey);
+
 protected:
     /// Expansion type
     ExpansionType m_expType;
@@ -1137,7 +1140,6 @@ protected:
     /// This function assembles the block diagonal matrix of local
     /// matrices of the type \a mtype.
     const DNekScalBlkMatSharedPtr GenBlockMatrix(const GlobalMatrixKey &gkey);
-    const DNekScalBlkMatSharedPtr &GetBlockMatrix(const GlobalMatrixKey &gkey);
     void MultiplyByBlockMatrix(const GlobalMatrixKey &gkey,
                                const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &outarray);

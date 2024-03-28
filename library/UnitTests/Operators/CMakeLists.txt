@@ -29,6 +29,8 @@ ADD_NEKTAR_EXECUTABLE(test_helmsolve
     COMPONENT unit-test DEPENDS Operators SOURCES test_helmsolve.cpp)
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral
     COMPONENT unit-test DEPENDS Operators SOURCES test_addtraceintegral.cpp)
+ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass
+    COMPONENT unit-test DEPENDS Operators SOURCES test_multiplybyelmtinvmass.cpp)
 
 # SumFac
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbasesumfac
@@ -110,6 +112,7 @@ SET_UNIT_TEST(FwdTrans test_fwdtrans ${NEKTAR_USE_MPI})
 SET_UNIT_TEST(Helmholtz test_helmholtz FALSE)
 SET_UNIT_TEST(HelmSolve test_helmsolve ${NEKTAR_USE_MPI})
 SET_UNIT_TEST(AddTraceIntegral test_addtraceintegral FALSE)
+SET_UNIT_TEST(MultiplyByElmtInvMass test_multiplybyelmtinvmass FALSE)
 
 # SumFac
 SET_UNIT_TEST(IProductWRTBaseSumFac test_ipwrtbasesumfac FALSE)
@@ -143,3 +146,4 @@ ENDIF()
 
 # Copy XML file to build directory
 FILE(COPY run DESTINATION ${CMAKE_BINARY_DIR}/library/UnitTests/Operators/)
+

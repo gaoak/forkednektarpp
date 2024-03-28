@@ -75,6 +75,7 @@ ADD_OPERATOR(DirBndCond)
 ADD_OPERATOR(NeuBndCond)
 ADD_OPERATOR(RobBndCond)
 ADD_OPERATOR(AddTraceIntegral)
+ADD_OPERATOR(MultiplyByElmtInvMass)
 #ADD_OPERATOR(Reduce)
 
 
