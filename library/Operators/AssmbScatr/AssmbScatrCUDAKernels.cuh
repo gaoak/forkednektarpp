@@ -41,10 +41,10 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict assmbptr,
-                               const TData *__restrict signptr,
-                               const TData *__restrict inptr,
-                               TData *__restrict outptr)
+                               const int *__restrict__ assmbptr,
+                               const TData *__restrict__ signptr,
+                               const TData *__restrict__ inptr,
+                               TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -65,9 +65,10 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict assmbptr, const TData sign,
-                               const TData *__restrict inptr,
-                               TData *__restrict outptr)
+                               const int *__restrict__ assmbptr,
+                               const TData sign,
+                               const TData *__restrict__ inptr,
+                               TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -87,9 +88,9 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict assmbptr,
-                               const TData *__restrict inptr,
-                               TData *__restrict outptr)
+                               const int *__restrict__ assmbptr,
+                               const TData *__restrict__ inptr,
+                               TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -109,10 +110,10 @@ template <typename TData>
 __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
                                     const unsigned int nelmt,
                                     const unsigned int offset,
-                                    const int *__restrict assmbptr,
-                                    const TData *__restrict signptr,
-                                    const TData *__restrict inptr,
-                                    TData *__restrict outptr)
+                                    const int *__restrict__ assmbptr,
+                                    const TData *__restrict__ signptr,
+                                    const TData *__restrict__ inptr,
+                                    TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -129,10 +130,13 @@ __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
 }
 
 template <typename TData>
-__global__ void GlobalToLocalKernel(
-    const unsigned int ncoeff, const unsigned int nelmt,
-    const unsigned int offset, const int *__restrict assmbptr, const TData sign,
-    const TData *__restrict inptr, TData *__restrict outptr)
+__global__ void GlobalToLocalKernel(const unsigned int ncoeff,
+                                    const unsigned int nelmt,
+                                    const unsigned int offset,
+                                    const int *__restrict__ assmbptr,
+                                    const TData sign,
+                                    const TData *__restrict__ inptr,
+                                    TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -152,9 +156,9 @@ template <typename TData>
 __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
                                     const unsigned int nelmt,
                                     const unsigned int offset,
-                                    const int *__restrict assmbptr,
-                                    const TData *__restrict inptr,
-                                    TData *__restrict outptr)
+                                    const int *__restrict__ assmbptr,
+                                    const TData *__restrict__ inptr,
+                                    TData *__restrict__ outptr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 

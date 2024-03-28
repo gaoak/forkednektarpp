@@ -41,8 +41,8 @@ template <typename TData, bool DEFORMED>
 __global__ void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -71,8 +71,8 @@ template <typename TData, bool DEFORMED>
 __global__ void IProductWRTDerivBase1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict df, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 
@@ -101,9 +101,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_f0, *s_f1;
@@ -173,9 +173,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     TData f0, f1;
 
@@ -234,9 +234,9 @@ __global__ void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict Z0, const TData *__restrict Z1,
-    const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_f0, *s_f1, *s_f2, *s_f3;
@@ -392,9 +392,9 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict Z0, const TData *__restrict Z1,
-    const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     TData f0, f1, f2, f3;
 

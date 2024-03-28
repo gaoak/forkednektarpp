@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseCUDA.hpp
+// File: IProductWRTDerivBaseCUDA.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -119,7 +119,7 @@ public:
 
         // Initialize workspace memory.
         auto nStorage = this->m_expansionList->GetTotPoints();
-        cudaMalloc((void **)&m_wsp, sizeof(TData) * nStorage * nCoord);
+        cudaMalloc((void **)&m_tmp, sizeof(TData) * nStorage * nCoord);
     }
 
     ~OperatorIProductWRTDerivBaseImpl(void)
@@ -131,7 +131,11 @@ public:
         DeallocateDataCUDA<TData>(m_D);
         cudaFree(m_jac);
         cudaFree(m_derivFac);
-        cudaFree(m_wsp);
+        cudaFree(m_tmp);
+        if (m_wsp != nullptr)
+        {
+            cudaFree(m_wsp);
+        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -141,9 +145,9 @@ public:
         // Copy memory to GPU, if necessary and get raw pointers.
         auto *inptr  = in.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
         auto *outptr = out.template GetStorage<MemoryRegionCUDA>().GetGPUPtr();
-        auto jacptr  = m_jac;
-        auto dfptr   = m_derivFac;
-        auto wspptr  = m_wsp;
+        auto *jacptr = m_jac;
+        auto *dfptr  = m_derivFac;
+        auto *tmpptr = m_tmp;
         auto nSize   = in.GetFieldSize();
 
         // Initialize index.
@@ -199,19 +203,19 @@ public:
                 {
                     IProductWRTDerivBase1DKernel<TData, true>(
                         m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, dfptr, inptr, wspptr);
+                        m_dfSize, dfptr, inptr, tmpptr);
                     IProductWRTBase1DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, nm0, nq0, nElmts, dbasis0, w0,
-                        jacptr, wspptr, outptr);
+                        jacptr, tmpptr, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase1DKernel<TData, false>(
                         m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, dfptr, inptr, wspptr);
+                        m_dfSize, dfptr, inptr, tmpptr);
                     IProductWRTBase1DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, nm0, nq0, nElmts, dbasis0, w0,
-                        jacptr, wspptr, outptr);
+                        jacptr, tmpptr, outptr);
                 }
             }
             else if (nDim == 2)
@@ -230,33 +234,56 @@ public:
                 auto nm1     = expPtr->GetBasisNumModes(1);
                 auto nq0     = expPtr->GetNumPoints(0);
                 auto nq1     = expPtr->GetNumPoints(1);
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+                    if (shape == LibUtilities::Quad)
+                    {
+                        wspsize = nq1 * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tri)
+                    {
+                        wspsize = nq0 * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        if (m_wsp != nullptr)
+                        {
+                            cudaFree(m_wsp);
+                        }
+
+                        m_wspsize = wspsize;
+                        cudaMalloc((void **)&m_wsp, sizeof(TData) * m_wspsize);
+                    }
+                }
                 if (deformed)
                 {
                     IProductWRTDerivBase2DKernel<TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, wspptr);
+                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, tmpptr);
                     IProductWRTBase2DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
-                        nElmts, correct, dbasis0, basis1, w0, w1, jacptr,
-                        wspptr, outptr);
+                        nElmts, correct, dbasis0, basis1, w0, w1, jacptr, m_wsp,
+                        tmpptr, outptr);
                     IProductWRTBase2DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
-                        nElmts, correct, basis0, dbasis1, w0, w1, jacptr,
-                        wspptr + nSize, outptr);
+                        nElmts, correct, basis0, dbasis1, w0, w1, jacptr, m_wsp,
+                        tmpptr + nSize, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase2DKernel<TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, wspptr);
+                        nElmts, nSize, m_dfSize, Z0, Z1, dfptr, inptr, tmpptr);
                     IProductWRTBase2DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
-                        nElmts, correct, dbasis0, basis1, w0, w1, jacptr,
-                        wspptr, outptr);
+                        nElmts, correct, dbasis0, basis1, w0, w1, jacptr, m_wsp,
+                        tmpptr, outptr);
                     IProductWRTBase2DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1,
-                        nElmts, correct, basis0, dbasis1, w0, w1, jacptr,
-                        wspptr + nSize, outptr);
+                        nElmts, correct, basis0, dbasis1, w0, w1, jacptr, m_wsp,
+                        tmpptr + nSize, outptr);
                 }
             }
             else if (nDim == 3)
@@ -282,43 +309,74 @@ public:
                 auto nq0     = expPtr->GetNumPoints(0);
                 auto nq1     = expPtr->GetNumPoints(1);
                 auto nq2     = expPtr->GetNumPoints(2);
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+                    if (shape == LibUtilities::Hex)
+                    {
+                        wspsize = (nq2 * nq1 + nq2) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tet)
+                    {
+                        wspsize = (nq2 * nq1 + nq2 + nm2) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Prism)
+                    {
+                        wspsize = (nq2 * nq1 + nq2 + nm1) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Pyr)
+                    {
+                        wspsize = (nq2 * nq1 + nq2) * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        if (m_wsp != nullptr)
+                        {
+                            cudaFree(m_wsp);
+                        }
+
+                        m_wspsize = wspsize;
+                        cudaMalloc((void **)&m_wsp, sizeof(TData) * m_wspsize);
+                    }
+                }
                 if (deformed)
                 {
                     IProductWRTDerivBase3DKernel<TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nCoord,
                         nElmts, nSize, m_dfSize, Z0, Z1, Z2, dfptr, inptr,
-                        wspptr);
+                        tmpptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, dbasis0, basis1, basis2, w0, w1,
-                        w2, jacptr, wspptr, outptr);
+                        w2, jacptr, m_wsp, tmpptr, outptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, dbasis1, basis2, w0, w1,
-                        w2, jacptr, wspptr + nSize, outptr);
+                        w2, jacptr, m_wsp, tmpptr + nSize, outptr);
                     IProductWRTBase3DKernel<TData, false, true, true>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, basis1, dbasis2, w0, w1,
-                        w2, jacptr, wspptr + 2 * nSize, outptr);
+                        w2, jacptr, m_wsp, tmpptr + 2 * nSize, outptr);
                 }
                 else
                 {
                     IProductWRTDerivBase3DKernel<TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nCoord,
                         nElmts, nSize, m_dfSize, Z0, Z1, Z2, dfptr, inptr,
-                        wspptr);
+                        tmpptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, dbasis0, basis1, basis2, w0, w1,
-                        w2, jacptr, wspptr, outptr);
+                        w2, jacptr, m_wsp, tmpptr, outptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, dbasis1, basis2, w0, w1,
-                        w2, jacptr, wspptr + nSize, outptr);
+                        w2, jacptr, m_wsp, tmpptr + nSize, outptr);
                     IProductWRTBase3DKernel<TData, false, true, false>(
                         m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
                         nq2, nElmts, correct, basis0, basis1, dbasis2, w0, w1,
-                        w2, jacptr, wspptr + 2 * nSize, outptr);
+                        w2, jacptr, m_wsp, tmpptr + 2 * nSize, outptr);
                 }
             }
 
@@ -326,7 +384,7 @@ public:
             jacptr += deformed ? nqTot * nElmts : nElmts;
             dfptr += deformed ? nqTot * nElmts : nElmts;
             inptr += nqTot * nElmts;
-            wspptr += nqTot * nElmts;
+            tmpptr += nqTot * nElmts;
             outptr += nmTot * nElmts;
             expIdx += nElmts;
         }
@@ -342,9 +400,10 @@ public:
     static std::string className;
 
 private:
-    TData *m_wsp;
-    TData *m_derivFac;
-    TData *m_jac;
+    TData *m_wsp      = nullptr;
+    TData *m_tmp      = nullptr;
+    TData *m_derivFac = nullptr;
+    TData *m_jac      = nullptr;
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_basis;
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>>
         m_dbasis;
@@ -353,6 +412,7 @@ private:
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_D;
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_Z;
     size_t m_dfSize;
+    size_t m_wspsize   = 0;
     size_t m_gridSize  = 1024;
     size_t m_blockSize = 32;
 };
@@ -364,7 +424,7 @@ void IProductWRTDerivBase1DKernel(
     const unsigned int nElmts, const unsigned int nSize,
     const unsigned int dfSize, const TData *df, const TData *in, TData *out)
 {
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         IProductWRTDerivBase1DKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
             nq0, nCoord, nElmts, nSize, dfSize, df, in, out);
@@ -388,7 +448,7 @@ void IProductWRTDerivBase2DKernel(
 {
     if (shapetype == LibUtilities::Quad)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             IProductWRTDerivBase2DKernel<TData, LibUtilities::Quad, DEFORMED>
                 <<<gridSize, blockSize>>>(nq0, nq1, nCoord, nElmts, nSize,
@@ -405,7 +465,7 @@ void IProductWRTDerivBase2DKernel(
     }
     else if (shapetype == LibUtilities::Tri)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq1);
             IProductWRTDerivBase2DKernel<TData, LibUtilities::Tri, DEFORMED>
@@ -433,7 +493,7 @@ void IProductWRTDerivBase3DKernel(
 {
     if (shapetype == LibUtilities::Hex)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Hex, DEFORMED>
                 <<<gridSize, blockSize>>>(nq0, nq1, nq2, nCoord, nElmts, nSize,
@@ -450,7 +510,7 @@ void IProductWRTDerivBase3DKernel(
     }
     else if (shapetype == LibUtilities::Tet)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + 2 * nq1 + nq2);
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Tet, DEFORMED>
@@ -468,7 +528,7 @@ void IProductWRTDerivBase3DKernel(
     }
     else if (shapetype == LibUtilities::Prism)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq2);
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Prism, DEFORMED>
@@ -487,7 +547,7 @@ void IProductWRTDerivBase3DKernel(
     }
     else if (shapetype == LibUtilities::Pyr)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq1 + nq2);
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Pyr, DEFORMED>

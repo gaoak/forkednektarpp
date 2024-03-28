@@ -41,7 +41,7 @@ template <typename TData, bool DEFORMED>
 __global__ void PhysDeriv1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict df, TData *__restrict inout)
+    const TData *__restrict__ df, TData *__restrict__ inout)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -69,7 +69,7 @@ template <typename TData, bool DEFORMED>
 __global__ void PhysDeriv1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nSize, const unsigned int dfSize,
-    const TData *__restrict df, TData *__restrict inout)
+    const TData *__restrict__ df, TData *__restrict__ inout)
 {
     unsigned int e = blockIdx.x;
 
@@ -97,9 +97,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
-    TData *__restrict inout)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    TData *__restrict__ inout)
 {
     extern __shared__ TData shared[];
     TData *s_xfrm0, *s_xfrm1;
@@ -168,9 +168,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void PhysDeriv2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
-    TData *__restrict inout)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    TData *__restrict__ inout)
 {
     TData xfrm0, xfrm1;
 
@@ -222,9 +222,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict Z2,
-    const TData *__restrict df, TData *__restrict inout)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, TData *__restrict__ inout)
 {
     extern __shared__ TData shared[];
     TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
@@ -396,9 +396,9 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 __global__ void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nSize,
-    const unsigned int dfSize, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict Z2,
-    const TData *__restrict df, TData *__restrict inout)
+    const unsigned int dfSize, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, TData *__restrict__ inout)
 {
     TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
@@ -503,9 +503,9 @@ __global__ void PhysDeriv3DKernel_QP(
 template <typename TData>
 __global__ void PhysDerivTensor1DKernel(const unsigned int nq0,
                                         const unsigned int nelmt,
-                                        const TData *__restrict D0,
-                                        const TData *__restrict in,
-                                        TData *__restrict out)
+                                        const TData *__restrict__ D0,
+                                        const TData *__restrict__ in,
+                                        TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_D0 = shared;
@@ -543,9 +543,9 @@ __global__ void PhysDerivTensor1DKernel(const unsigned int nq0,
 template <typename TData>
 __global__ void PhysDerivTensor1DKernel_QP(const unsigned int nq0,
                                            const unsigned int nelmt,
-                                           const TData *__restrict D0,
-                                           const TData *__restrict in,
-                                           TData *__restrict out)
+                                           const TData *__restrict__ D0,
+                                           const TData *__restrict__ in,
+                                           TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 
@@ -570,9 +570,9 @@ __global__ void PhysDerivTensor1DKernel_QP(const unsigned int nq0,
 template <typename TData>
 __global__ void PhysDerivTensor2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const unsigned int nSize, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict in,
-    TData *__restrict out)
+    const unsigned int nSize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_D0 = shared;
@@ -632,9 +632,9 @@ __global__ void PhysDerivTensor2DKernel(
 template <typename TData>
 __global__ void PhysDerivTensor2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const unsigned int nSize, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict in,
-    TData *__restrict out)
+    const unsigned int nSize, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 
@@ -674,9 +674,9 @@ template <typename TData>
 __global__ void PhysDerivTensor3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nSize,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict D2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_D0 = shared;
@@ -761,9 +761,9 @@ template <typename TData>
 __global__ void PhysDerivTensor3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nSize,
-    const TData *__restrict D0, const TData *__restrict D1,
-    const TData *__restrict D2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 

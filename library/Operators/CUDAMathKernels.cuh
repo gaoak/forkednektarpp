@@ -32,6 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <float.h>
+
 namespace Nektar::Operators
 {
 
@@ -192,5 +194,79 @@ __global__ void dotKernel(const unsigned int nsize, const TData *x,
 
     reduce<blockSize, TData>(nsize, s, out);
 }
+
+template <int blockSize, typename TData>
+__device__ inline void reduceMax(const unsigned int nsize, TData *s, TData *out)
+{
+    // Implementation based on reduce6 of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+    // and https://developer.nvidia.com/blog/using-cuda-warp-level-primitives
+
+    int id = threadIdx.x;
+
+    if (blockSize > 512 && id < 512 && id + 512 < blockSize)
+    {
+        s[id] = max(s[id], s[id + 512]);
+    }
+    __syncthreads();
+    if (blockSize > 256 && id < 256 && id + 256 < blockSize)
+    {
+        s[id] = max(s[id], s[id + 256]);
+    }
+    __syncthreads();
+    if (blockSize > 128 && id < 128 && id + 128 < blockSize)
+    {
+        s[id] = max(s[id], s[id + 128]);
+    }
+    __syncthreads();
+    if (blockSize > 64 && id < 64 && id + 64 < blockSize)
+    {
+        s[id] = max(s[id], s[id + 64]);
+    }
+    __syncthreads();
+    if (blockSize > 32 && id < 32 && id + 32 < blockSize)
+    {
+        s[id] = max(s[id], s[id + 32]);
+    }
+    __syncthreads();
+
+    if (id < 32)
+    {
+        TData val = (id < nsize) ? s[id] : -DBL_MAX;
+
+        val = max(val, __shfl_down_sync(0xffffffff, val, 16));
+        val = max(val, __shfl_down_sync(0xffffffff, val, 8));
+        val = max(val, __shfl_down_sync(0xffffffff, val, 4));
+        val = max(val, __shfl_down_sync(0xffffffff, val, 2));
+        val = max(val, __shfl_down_sync(0xffffffff, val, 1));
+
+        if (id == 0)
+        {
+            out[blockIdx.x] = val;
+        }
+    }
+}
+
+template <int blockSize, typename TData>
+__global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
+                                TData *out)
+{
+    // kernel assumes that blockDim.x = blockSize,
+    // and blockSize is power of 2 between 64 and 1024
+    __shared__ TData s[blockSize];
+    int id     = threadIdx.x;
+    double tmp = -DBL_MAX;
+    for (int tid = blockSize * blockIdx.x + threadIdx.x; tid < nsize;
+         tid += blockSize * gridDim.x)
+    {
+        tmp = max(tmp, x[tid]);
+    }
+    s[id] = tmp;
+
+    __syncthreads();
+
+    reduceMax<blockSize, TData>(nsize, s, out);
+}
+
 
 } // namespace Nektar::Operators
