@@ -43,9 +43,9 @@ template <typename TData>
 __global__ void BwdTransSegKernel(const unsigned int nm0,
                                   const unsigned int nq0,
                                   const unsigned int nelmt,
-                                  const TData *__restrict basis0,
-                                  const TData *__restrict in,
-                                  TData *__restrict out)
+                                  const TData *__restrict__ basis0,
+                                  const TData *__restrict__ in,
+                                  TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -64,17 +64,17 @@ __global__ void BwdTransSegKernel(const unsigned int nm0,
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nm0 * e;
-        unsigned int outoffset = nq0 * e;
+        const TData *inptr = in + nm0 * e;
+        TData *outptr      = out + nq0 * e;
 
         for (unsigned int i = 0; i < nq0; ++i)
         {
             TData tmp = 0.0;
             for (unsigned int p = 0; p < nm0; ++p)
             {
-                tmp += in[inoffset + p] * s_basis0[p * nq0 + i];
+                tmp += inptr[p] * s_basis0[p * nq0 + i];
             }
-            out[outoffset + i] = tmp;
+            outptr[i] = tmp;
         }
 
         e += blockDim.x * gridDim.x;
@@ -85,9 +85,9 @@ template <typename TData>
 __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
                                      const unsigned int nq0,
                                      const unsigned int nelmt,
-                                     const TData *__restrict basis0,
-                                     const TData *__restrict in,
-                                     TData *__restrict out)
+                                     const TData *__restrict__ basis0,
+                                     const TData *__restrict__ in,
+                                     TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -96,13 +96,13 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nm0 * e;
-        unsigned int outoffset = nq0 * e;
+        const TData *inptr = in + nm0 * e;
+        TData *outptr      = out + nq0 * e;
 
         // Copy to shared memory.
         for (unsigned int p = 0; p < nm0; p++)
         {
-            s_wsp0[p] = in[inoffset + p];
+            s_wsp0[p] = inptr[p];
         }
 
         __syncthreads();
@@ -114,7 +114,7 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
             {
                 tmp += s_wsp0[p] * basis0[p * nq0 + i];
             }
-            out[outoffset + i] = tmp;
+            outptr[i] = tmp;
         }
 
         __syncthreads();
@@ -127,8 +127,9 @@ template <typename TData>
 __global__ void BwdTransQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    TData *__restrict__ wsp, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -153,12 +154,11 @@ __global__ void BwdTransQuadKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    TData *wsp = new TData[nm1];
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * e;
+        TData *wsp0        = wsp + nm1 * e;
 
         for (unsigned int i = 0; i < nq0; ++i)
         {
@@ -167,9 +167,9 @@ __global__ void BwdTransQuadKernel(
                 TData tmp = 0.0;
                 for (unsigned int p = 0; p < nm0; ++p, ++cnt_qp)
                 {
-                    tmp += in[inoffset + cnt_qp] * s_basis0[p * nq0 + i];
+                    tmp += inptr[cnt_qp] * s_basis0[p * nq0 + i];
                 }
-                wsp[q] = tmp;
+                wsp0[q] = tmp;
             }
 
             for (unsigned int j = 0; j < nq1; ++j)
@@ -177,24 +177,22 @@ __global__ void BwdTransQuadKernel(
                 TData tmp = 0.0;
                 for (unsigned int q = 0; q < nm1; ++q)
                 {
-                    tmp += wsp[q] * s_basis1[q * nq1 + j];
+                    tmp += wsp0[q] * s_basis1[q * nq1 + j];
                 }
-                out[outoffset + nq0 * j + i] = tmp;
+                outptr[nq0 * j + i] = tmp;
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] wsp;
 }
 
 template <typename TData>
 __global__ void BwdTransQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -204,8 +202,8 @@ __global__ void BwdTransQuadKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * e;
 
         // Copy to shared memory.
         for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
@@ -214,7 +212,7 @@ __global__ void BwdTransQuadKernel_QP(
 
             for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
             {
-                s_wsp0[cnt_qp + p] = in[inoffset + cnt_qp + p];
+                s_wsp0[cnt_qp + p] = inptr[cnt_qp + p];
             }
         }
 
@@ -250,7 +248,7 @@ __global__ void BwdTransQuadKernel_QP(
                 {
                     tmp += s_wsp1[cnt_iq] * basis1[q * nq1 + j];
                 }
-                out[outoffset + cnt_ji] = tmp;
+                outptr[cnt_ji] = tmp;
             }
         }
 
@@ -264,18 +262,17 @@ template <typename TData>
 __global__ void BwdTransTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict in,
-    TData *__restrict out)
+    const bool correct, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    TData *wsp = new TData[nm0];
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * e;
+        TData *wsp0        = wsp + nm0 * e;
 
         for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
         {
@@ -284,9 +281,9 @@ __global__ void BwdTransTriKernel(
                 TData tmp = 0.0;
                 for (unsigned int q = 0; q < (nm1 - p); ++q, ++mode_pq)
                 {
-                    tmp += basis1[mode_pq * nq1 + j] * in[inoffset + mode_pq];
+                    tmp += basis1[mode_pq * nq1 + j] * inptr[mode_pq];
                 }
-                wsp[p] = tmp;
+                wsp0[p] = tmp;
             }
 
             for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
@@ -294,31 +291,29 @@ __global__ void BwdTransTriKernel(
                 TData tmp = 0.0;
                 for (unsigned int p = 0; p < nm0; ++p)
                 {
-                    tmp += wsp[p] * basis0[p * nq0 + i];
+                    tmp += wsp0[p] * basis0[p * nq0 + i];
                 }
 
                 if (correct)
                 {
-                    tmp += in[inoffset + 1] * basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp += inptr[1] * basis0[nq0 + i] * basis1[nq1 + j];
                 }
 
-                out[outoffset + cnt_ji] = tmp;
+                outptr[cnt_ji] = tmp;
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] wsp;
 }
 
 template <typename TData>
 __global__ void BwdTransTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict in,
-    TData *__restrict out)
+    const bool correct, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -328,8 +323,8 @@ __global__ void BwdTransTriKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * e;
 
         // Copy to shared memory.
         for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
@@ -338,7 +333,7 @@ __global__ void BwdTransTriKernel_QP(
 
             for (unsigned int q = threadIdx.y; q < nm1 - p; q += blockDim.y)
             {
-                s_wsp0[mode_pq + q] = in[inoffset + mode_pq + q];
+                s_wsp0[mode_pq + q] = inptr[mode_pq + q];
             }
         }
 
@@ -380,7 +375,7 @@ __global__ void BwdTransTriKernel_QP(
                     tmp += s_wsp0[1] * basis0[nq0 + i] * basis1[nq1 + j];
                 }
 
-                out[outoffset + cnt_ij] = tmp;
+                outptr[cnt_ij] = tmp;
             }
         }
 
@@ -395,9 +390,9 @@ __global__ void BwdTransHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -430,13 +425,12 @@ __global__ void BwdTransHexKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    TData *wsp1 = new TData[nm1 * nm2];
-    TData *wsp2 = new TData[nm2];
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
+        TData *wsp1        = wsp + (nm1 * nm2 + nm2) * e;
+        TData *wsp2        = wsp1 + nm1 * nm2;
 
         for (unsigned int i = 0; i < nq0; ++i)
         {
@@ -447,7 +441,7 @@ __global__ void BwdTransHexKernel(
                     TData tmp = 0.0;
                     for (unsigned int p = 0; p < nm0; ++p, ++cnt_rqp)
                     {
-                        tmp += in[inoffset + cnt_rqp] * s_basis0[p * nq0 + i];
+                        tmp += inptr[cnt_rqp] * s_basis0[p * nq0 + i];
                     }
                     wsp1[cnt_rq] = tmp;
                 }
@@ -472,16 +466,13 @@ __global__ void BwdTransHexKernel(
                     {
                         tmp += wsp2[r] * s_basis2[r * nq2 + k];
                     }
-                    out[outoffset + k * nq1 * nq0 + j * nq0 + i] = tmp;
+                    outptr[k * nq1 * nq0 + j * nq0 + i] = tmp;
                 }
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] wsp1;
-    delete[] wsp2;
 }
 
 template <typename TData>
@@ -489,9 +480,9 @@ __global__ void BwdTransHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -502,8 +493,8 @@ __global__ void BwdTransHexKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
 
         // Copy to shared memory.
         for (unsigned int r = threadIdx.z; r < nm2; r += blockDim.z)
@@ -514,7 +505,7 @@ __global__ void BwdTransHexKernel_QP(
 
                 for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
                 {
-                    s_wsp0[cnt_rqp + p] = in[inoffset + cnt_rqp + p];
+                    s_wsp0[cnt_rqp + p] = inptr[cnt_rqp + p];
                 }
             }
         }
@@ -577,7 +568,7 @@ __global__ void BwdTransHexKernel_QP(
                     {
                         tmp += s_wsp2[cnt_jir] * basis2[r * nq2 + k];
                     }
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -593,20 +584,20 @@ __global__ void BwdTransTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
     unsigned int nm01 = (2 * nm1 - nm0 + 1) * nm0 / 2;
-    TData *fpq        = new TData[nm01];
-    TData *fp         = new TData[nm0];
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
+        TData *fpq         = wsp + (nm01 + nm0) * e;
+        TData *fp          = fpq + nm01;
 
         for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
         {
@@ -617,8 +608,7 @@ __global__ void BwdTransTetKernel(
                     TData tmp = 0.0;
                     for (unsigned int r = 0; r < nm2 - p - q; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[k + nq2 * mode_pqr] *
-                               in[inoffset + mode_pqr];
+                        tmp += basis2[k + nq2 * mode_pqr] * inptr[mode_pqr];
                     }
                     fpq[cnt_pq] = tmp;
                 }
@@ -657,32 +647,29 @@ __global__ void BwdTransTetKernel(
                         tmp1 += basis0[nq0 + i] * basis1[j];
                         tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
                         tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 * in[inoffset + 1];
+                        tmp += tmp1 * inptr[1];
 
                         // bottom vertex
                         tmp1 = basis0[nq0 + i] * basis1[nq1 + j];
                         tmp1 *= basis2[k];
-                        tmp += tmp1 * in[inoffset + nm2];
+                        tmp += tmp1 * inptr[nm2];
 
                         // singular edge
                         for (unsigned int r = 1; r < nm2 - 1; ++r)
                         {
                             tmp1 = basis1[nq1 + j] * basis0[nq0 + i];
                             tmp1 *= basis2[(r + 1) * nq2 + k];
-                            tmp += tmp1 * in[inoffset + nm2 + r];
+                            tmp += tmp1 * inptr[nm2 + r];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] fpq;
-    delete[] fp;
 }
 
 template <typename TData> // not working for nm2 > nm1
@@ -690,9 +677,9 @@ __global__ void BwdTransTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -705,8 +692,8 @@ __global__ void BwdTransTetKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
 
         // Copy to shared memory.
         for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
@@ -722,7 +709,7 @@ __global__ void BwdTransTetKernel_QP(
                 for (unsigned int r = threadIdx.z; r < nm2 - p - q;
                      r += blockDim.z)
                 {
-                    s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
+                    s_wsp0[mode_pqr + r] = inptr[mode_pqr + r];
                 }
             }
         }
@@ -816,7 +803,7 @@ __global__ void BwdTransTetKernel_QP(
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -832,19 +819,18 @@ __global__ void BwdTransPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    TData *fpq = new TData[nm0 * nm1];
-    TData *fp  = new TData[nm0];
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
+        TData *fpq         = wsp + (nm0 * nm1 + nm0) * e;
+        TData *fp          = fpq + nm0 * nm1;
 
         for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
         {
@@ -856,8 +842,8 @@ __global__ void BwdTransPrismKernel(
                     TData tmp = 0.0;
                     for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
                     {
-                        tmp += in[inoffset + mode_pqr] *
-                               basis2[(mode_pr + r) * nq2 + k];
+                        tmp +=
+                            inptr[mode_pqr] * basis2[(mode_pr + r) * nq2 + k];
                     }
                     fpq[mode_pq] = tmp;
                 }
@@ -889,20 +875,17 @@ __global__ void BwdTransPrismKernel(
                         for (unsigned int q = 0; q < nm1; ++q)
                         {
                             tmp += basis2[nq2 + k] * basis1[q * nq1 + j] *
-                                   basis0[nq0 + i] * in[inoffset + nm2 * q + 1];
+                                   basis0[nq0 + i] * inptr[nm2 * q + 1];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] fpq;
-    delete[] fp;
 }
 
 template <typename TData>
@@ -910,9 +893,9 @@ __global__ void BwdTransPrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -923,8 +906,8 @@ __global__ void BwdTransPrismKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
 
         // Copy to shared memory.
         for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
@@ -936,7 +919,7 @@ __global__ void BwdTransPrismKernel_QP(
 
                 for (unsigned int r = threadIdx.z; r < nm2 - p; r += blockDim.z)
                 {
-                    s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
+                    s_wsp0[mode_pqr + r] = inptr[mode_pqr + r];
                 }
             }
         }
@@ -1011,7 +994,7 @@ __global__ void BwdTransPrismKernel_QP(
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -1027,19 +1010,18 @@ __global__ void BwdTransPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    TData *fpq = new TData[nm0 * nm1];
-    TData *fp  = new TData[nm0];
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
+        TData *fpq         = wsp + (nm0 * nm1 + nm0) * e;
+        TData *fp          = fpq + nm0 * nm1;
 
         for (int k = 0, cnt_kji = 0; k < nq2; ++k)
         {
@@ -1050,8 +1032,7 @@ __global__ void BwdTransPyrKernel(
                     TData tmp = 0.0;
                     for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[mode_pqr * nq2 + k] *
-                               in[inoffset + mode_pqr];
+                        tmp += basis2[mode_pqr * nq2 + k] * inptr[mode_pqr];
                     }
                     fpq[mode_pq] = tmp;
                 }
@@ -1061,8 +1042,7 @@ __global__ void BwdTransPyrKernel(
                     TData tmp = 0.0;
                     for (unsigned int r = 0; r < nm2 - q; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[mode_pqr * nq2 + k] *
-                               in[inoffset + mode_pqr];
+                        tmp += basis2[mode_pqr * nq2 + k] * inptr[mode_pqr];
                     }
                     fpq[mode_pq] = tmp;
                 }
@@ -1101,19 +1081,16 @@ __global__ void BwdTransPyrKernel(
                         tmp1 += basis0[nq0 + i] * basis1[j];
                         tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
                         tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 * in[inoffset + 1];
+                        tmp += tmp1 * inptr[1];
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
 
         e += blockDim.x * gridDim.x;
     }
-
-    delete[] fpq;
-    delete[] fp;
 }
 
 template <typename TData> // not working for nm2 > nm1
@@ -1121,9 +1098,9 @@ __global__ void BwdTransPyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -1134,8 +1111,8 @@ __global__ void BwdTransPyrKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nq0 * nq1 * nq2 * e;
 
         // Copy to shared memory.
         for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
@@ -1153,7 +1130,7 @@ __global__ void BwdTransPyrKernel_QP(
                     for (unsigned int r = threadIdx.z; r < nm2 - p;
                          r += blockDim.z)
                     {
-                        s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
+                        s_wsp0[mode_pqr + r] = inptr[mode_pqr + r];
                     }
                 }
                 else
@@ -1163,7 +1140,7 @@ __global__ void BwdTransPyrKernel_QP(
                     for (unsigned int r = threadIdx.z; r < nm2 - q;
                          r += blockDim.z)
                     {
-                        s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
+                        s_wsp0[mode_pqr + r] = inptr[mode_pqr + r];
                     }
                 }
             }
@@ -1260,7 +1237,7 @@ __global__ void BwdTransPyrKernel_QP(
                         tmp += tmp1 * s_wsp0[1];
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }

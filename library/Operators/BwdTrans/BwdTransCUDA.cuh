@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BwdTransCUDA.hpp
+// File: BwdTransCUDA.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -56,7 +56,8 @@ void BwdTrans2DKernel(const unsigned int gridSize, const unsigned int blockSize,
                       const unsigned int nm1, const unsigned int nq0,
                       const unsigned int nq1, const unsigned int nElmts,
                       const bool correct, const TData *basis0,
-                      const TData *basis1, const TData *in, TData *out);
+                      const TData *basis1, TData *wsp, const TData *in,
+                      TData *out);
 
 template <typename TData>
 void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
@@ -65,8 +66,8 @@ void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
                       const unsigned int nq0, const unsigned int nq1,
                       const unsigned int nq2, const unsigned int nElmts,
                       const bool correct, const TData *basis0,
-                      const TData *basis1, const TData *basis2, const TData *in,
-                      TData *out);
+                      const TData *basis1, const TData *basis2, TData *wsp,
+                      const TData *in, TData *out);
 
 // BwdTrans implementation
 template <typename TData>
@@ -82,6 +83,10 @@ public:
     ~OperatorBwdTransImpl()
     {
         DeallocateDataCUDA<TData>(m_basis);
+        if (m_wsp != nullptr)
+        {
+            cudaFree(m_wsp);
+        }
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -140,9 +145,32 @@ public:
                 auto nm1    = expPtr->GetBasisNumModes(1);
                 auto nq0    = expPtr->GetNumPoints(0);
                 auto nq1    = expPtr->GetNumPoints(1);
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+                    if (shape == LibUtilities::Quad)
+                    {
+                        wspsize = nm1 * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tri)
+                    {
+                        wspsize = nm0 * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        if (m_wsp != nullptr)
+                        {
+                            cudaFree(m_wsp);
+                        }
+
+                        m_wspsize = wspsize;
+                        cudaMalloc((void **)&m_wsp, sizeof(TData) * m_wspsize);
+                    }
+                }
                 BwdTrans2DKernel(m_gridSize, m_blockSize, shape, nm0, nm1, nq0,
-                                 nq1, nElmts, correct, basis0, basis1, inptr,
-                                 outptr);
+                                 nq1, nElmts, correct, basis0, basis1, m_wsp,
+                                 inptr, outptr);
             }
             else if (expPtr->GetShapeDimension() == 3)
             {
@@ -155,9 +183,41 @@ public:
                 auto nq0    = expPtr->GetNumPoints(0);
                 auto nq1    = expPtr->GetNumPoints(1);
                 auto nq2    = expPtr->GetNumPoints(2);
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+                    if (shape == LibUtilities::Hex)
+                    {
+                        wspsize = (nm1 * nm2 + nm2) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tet)
+                    {
+                        wspsize =
+                            ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Prism)
+                    {
+                        wspsize = (nm0 * nm1 + nm0) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Pyr)
+                    {
+                        wspsize = (nm0 * nm1 + nm0) * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        if (m_wsp != nullptr)
+                        {
+                            cudaFree(m_wsp);
+                        }
+
+                        m_wspsize = wspsize;
+                        cudaMalloc((void **)&m_wsp, sizeof(TData) * m_wspsize);
+                    }
+                }
                 BwdTrans3DKernel(m_gridSize, m_blockSize, shape, nm0, nm1, nm2,
                                  nq0, nq1, nq2, nElmts, correct, basis0, basis1,
-                                 basis2, inptr, outptr);
+                                 basis2, m_wsp, inptr, outptr);
             }
 
             // Increment pointer and index for next element type.
@@ -178,6 +238,8 @@ public:
 
 private:
     std::map<std::vector<LibUtilities::BasisKey>, std::vector<TData *>> m_basis;
+    TData *m_wsp       = nullptr;
+    size_t m_wspsize   = 0;
     size_t m_gridSize  = 32;
     size_t m_blockSize = 32;
 };
@@ -188,7 +250,7 @@ void BwdTrans1DKernel(const unsigned int gridSize, const unsigned int blockSize,
                       const unsigned int nElmts, const TData *basis0,
                       const TData *in, TData *out)
 {
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         unsigned int nshared = sizeof(TData) * (nq0 * nm0);
         BwdTransSegKernel<TData><<<gridSize, blockSize, nshared>>>(
@@ -208,17 +270,19 @@ void BwdTrans2DKernel(const unsigned int gridSize, const unsigned int blockSize,
                       const unsigned int nm1, const unsigned int nq0,
                       const unsigned int nq1, const unsigned int nElmts,
                       const bool correct, const TData *basis0,
-                      const TData *basis1, const TData *in, TData *out)
+                      const TData *basis1, TData *wsp, const TData *in,
+                      TData *out)
 {
     if (shapetype == LibUtilities::Quad)
     {
         unsigned int nmTot =
             LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 * nm0 + nq1 * nm1);
             BwdTransQuadKernel<TData><<<gridSize, blockSize, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nElmts, basis0, basis1, in, out);
+                nm0, nm1, nmTot, nq0, nq1, nElmts, basis0, basis1, wsp, in,
+                out);
         }
         else
         {
@@ -231,11 +295,11 @@ void BwdTrans2DKernel(const unsigned int gridSize, const unsigned int blockSize,
     {
         unsigned int nmTot =
             LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
-            BwdTransTriKernel<TData>
-                <<<gridSize, blockSize>>>(nm0, nm1, nmTot, nq0, nq1, nElmts,
-                                          correct, basis0, basis1, in, out);
+            BwdTransTriKernel<TData><<<gridSize, blockSize>>>(
+                nm0, nm1, nmTot, nq0, nq1, nElmts, correct, basis0, basis1, wsp,
+                in, out);
         }
         else
         {
@@ -254,20 +318,20 @@ void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
                       const unsigned int nq0, const unsigned int nq1,
                       const unsigned int nq2, const unsigned int nElmts,
                       const bool correct, const TData *basis0,
-                      const TData *basis1, const TData *basis2, const TData *in,
-                      TData *out)
+                      const TData *basis1, const TData *basis2, TData *wsp,
+                      const TData *in, TData *out)
 {
     if (shapetype == LibUtilities::Hex)
     {
         unsigned int nmTot =
             LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared =
                 sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2);
             BwdTransHexKernel<TData><<<gridSize, blockSize, nshared>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nElmts, basis0, basis1,
-                basis2, in, out);
+                basis2, wsp, in, out);
         }
         else
         {
@@ -282,11 +346,11 @@ void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
     {
         unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             BwdTransTetKernel<TData><<<gridSize, blockSize>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nElmts, correct, basis0,
-                basis1, basis2, in, out);
+                basis1, basis2, wsp, in, out);
         }
         else
         {
@@ -302,11 +366,11 @@ void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
     {
         unsigned int nmTot =
             LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             BwdTransPrismKernel<TData><<<gridSize, blockSize>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nElmts, correct, basis0,
-                basis1, basis2, in, out);
+                basis1, basis2, wsp, in, out);
         }
         else
         {
@@ -321,11 +385,11 @@ void BwdTrans3DKernel(const unsigned int gridSize, const unsigned int blockSize,
     {
         unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             BwdTransPyrKernel<TData><<<gridSize, blockSize>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nElmts, correct, basis0,
-                basis1, basis2, in, out);
+                basis1, basis2, wsp, in, out);
         }
         else
         {

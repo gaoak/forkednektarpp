@@ -44,10 +44,10 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 __global__ void NeuBndCondKernel(
-    const unsigned int nsize, const int *__restrict offsetptr,
-    const BoundaryConditionType *__restrict bctypeptr,
-    const int *__restrict ncoeffptr, const int *__restrict mapptr,
-    const TData *__restrict inptr, TData *__restrict outptr)
+    const unsigned int nsize, const int *__restrict__ offsetptr,
+    const BoundaryConditionType *__restrict__ bctypeptr,
+    const int *__restrict__ ncoeffptr, const int *__restrict__ mapptr,
+    const TData *__restrict__ inptr, TData *__restrict__ outptr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -68,11 +68,11 @@ __global__ void NeuBndCondKernel(
 
 template <typename TData>
 __global__ void NeuBndCondKernel(
-    const unsigned int nsize, const int *__restrict offsetptr,
-    const BoundaryConditionType *__restrict bctypeptr,
-    const int *__restrict ncoeffptr, const TData *__restrict signptr,
-    const int *__restrict mapptr, const TData *__restrict inptr,
-    TData *__restrict outptr)
+    const unsigned int nsize, const int *__restrict__ offsetptr,
+    const BoundaryConditionType *__restrict__ bctypeptr,
+    const int *__restrict__ ncoeffptr, const TData *__restrict__ signptr,
+    const int *__restrict__ mapptr, const TData *__restrict__ inptr,
+    TData *__restrict__ outptr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 

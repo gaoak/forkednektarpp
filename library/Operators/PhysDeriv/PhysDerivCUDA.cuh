@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivCUDA.hpp
+// File: PhysDerivCUDA.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -255,7 +255,7 @@ void PhysDeriv1DKernel(const unsigned int gridSize,
                        TData *out)
 {
     // Compute tensorial derivative.
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         unsigned int nshared = sizeof(TData) * (nq0 * nq0);
         PhysDerivTensor1DKernel<TData>
@@ -268,7 +268,7 @@ void PhysDeriv1DKernel(const unsigned int gridSize,
     }
 
     // Compute physical derivative.
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         PhysDeriv1DKernel<TData, DEFORMED><<<gridSize, blockSize>>>(
             nq0, nCoord, nElmts, nSize, dfSize, df, out);
@@ -292,7 +292,7 @@ void PhysDeriv2DKernel(const unsigned int gridSize,
                        TData *out)
 {
     // Compute tensorial derivative.
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         unsigned int nshared = sizeof(TData) * (nq0 * nq0 + nq1 * nq1);
         PhysDerivTensor2DKernel<TData><<<gridSize, blockSize, nshared>>>(
@@ -307,7 +307,7 @@ void PhysDeriv2DKernel(const unsigned int gridSize,
     // Compute physical derivative.
     if (shapetype == LibUtilities::Quad)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED>
                 <<<gridSize, blockSize>>>(nq0, nq1, nCoord, nElmts, nSize,
@@ -322,7 +322,7 @@ void PhysDeriv2DKernel(const unsigned int gridSize,
     }
     else if (shapetype == LibUtilities::Tri)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq1);
             PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED>
@@ -350,7 +350,7 @@ void PhysDeriv3DKernel(const unsigned int gridSize,
                        const TData *df, const TData *in, TData *out)
 {
     // Compute tensorial derivative.
-    if (!FLAG_QP)
+    if constexpr (!FLAG_QP)
     {
         unsigned int nshared =
             sizeof(TData) * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2);
@@ -366,7 +366,7 @@ void PhysDeriv3DKernel(const unsigned int gridSize,
     // Compute physical derivative.
     if (shapetype == LibUtilities::Hex)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED>
                 <<<gridSize, blockSize>>>(nq0, nq1, nq2, nElmts, nSize, dfSize,
@@ -382,7 +382,7 @@ void PhysDeriv3DKernel(const unsigned int gridSize,
     }
     else if (shapetype == LibUtilities::Tet)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + 2 * nq1 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED>
@@ -398,7 +398,7 @@ void PhysDeriv3DKernel(const unsigned int gridSize,
     }
     else if (shapetype == LibUtilities::Prism)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED>
@@ -415,7 +415,7 @@ void PhysDeriv3DKernel(const unsigned int gridSize,
     }
     else if (shapetype == LibUtilities::Pyr)
     {
-        if (!FLAG_QP)
+        if constexpr (!FLAG_QP)
         {
             unsigned int nshared = sizeof(TData) * (nq0 + nq1 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED>

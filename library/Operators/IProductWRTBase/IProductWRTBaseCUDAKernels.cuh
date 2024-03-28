@@ -40,9 +40,9 @@ namespace Nektar::Operators::detail
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict w0,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -106,9 +106,9 @@ __global__ void IProductWRTBaseSegKernel(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict w0,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -164,10 +164,10 @@ template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -208,13 +208,11 @@ __global__ void IProductWRTBaseQuadKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp = new TData[nq1];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + nq1 * e;
 
         for (unsigned int p = 0; p < nm0; ++p)
         {
@@ -228,7 +226,7 @@ __global__ void IProductWRTBaseQuadKernel(
                     sum += in[index] * s_basis0[p * nq0 + i] * jac[jacindex] *
                            s_w0[i];
                 }
-                wsp[j] = sum;
+                wsp0[j] = sum;
             }
 
             for (unsigned int q = 0; q < nm1; ++q)
@@ -236,7 +234,7 @@ __global__ void IProductWRTBaseQuadKernel(
                 TData sum = 0.0;
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    sum += wsp[j] * s_basis1[q * nq1 + j] * s_w1[j];
+                    sum += wsp0[j] * s_basis1[q * nq1 + j] * s_w1[j];
                 }
 
                 if constexpr (SCALE)
@@ -258,19 +256,16 @@ __global__ void IProductWRTBaseQuadKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict w0, const TData *__restrict w1,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -355,10 +350,11 @@ template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict jac,
-    const TData *__restrict in, TData *__restrict out, TData scale = 1.0)
+    const bool correct, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    TData *__restrict__ wsp, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_w0 = shared;
@@ -383,13 +379,11 @@ __global__ void IProductWRTBaseTriKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp = new TData[nq1];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + nq1 * e;
 
         for (unsigned int p = 0, mode_pq = 0; p < nm0; ++p)
         {
@@ -403,7 +397,7 @@ __global__ void IProductWRTBaseTriKernel(
                     sum += in[index] * basis0[p * nq0 + i] * jac[jacindex] *
                            s_w0[i];
                 }
-                wsp[j] = sum;
+                wsp0[j] = sum;
             }
 
             for (unsigned int q = 0; q < nm1 - p; ++q, ++mode_pq)
@@ -411,7 +405,7 @@ __global__ void IProductWRTBaseTriKernel(
                 TData sum = 0.0;
                 for (unsigned int j = 0; j < nq1; ++j)
                 {
-                    sum += wsp[j] * basis1[mode_pq * nq1 + j] * s_w1[j];
+                    sum += wsp0[j] * basis1[mode_pq * nq1 + j] * s_w1[j];
                 }
 
                 if constexpr (SCALE)
@@ -474,19 +468,16 @@ __global__ void IProductWRTBaseTriKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
 __global__ void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict jac,
-    const TData *__restrict in, TData *__restrict out, TData scale = 1.0)
+    const bool correct, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0     = shared;
@@ -614,11 +605,11 @@ __global__ void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_basis0 = shared;
@@ -675,14 +666,12 @@ __global__ void IProductWRTBaseHexKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp0 = new TData[nq2 * nq1];
-    TData *wsp1 = new TData[nq2];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * nq2 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + (nq2 * nq1 + nq2) * e;
+        TData *wsp1            = wsp0 + nq2 * nq1;
 
         for (unsigned int p = 0; p < nm0; ++p)
         {
@@ -744,10 +733,6 @@ __global__ void IProductWRTBaseHexKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp0;
-    delete[] wsp1;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
@@ -755,11 +740,11 @@ __global__ void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -877,11 +862,11 @@ __global__ void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_w0 = shared;
@@ -914,15 +899,13 @@ __global__ void IProductWRTBaseTetKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp0 = new TData[nq2 * nq1];
-    TData *wsp1 = new TData[nq2];
-    TData *prod = new TData[nm2];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * nq2 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + (nq2 * nq1 + nq2 + nm2) * e;
+        TData *wsp1            = wsp0 + nq2 * nq1;
+        TData *prod            = wsp1 + nq2;
 
         for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0; ++p)
         {
@@ -1055,11 +1038,6 @@ __global__ void IProductWRTBaseTetKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp0;
-    delete[] wsp1;
-    delete[] prod;
 }
 
 // NOTE: Not workign when nm2 > nm1
@@ -1068,11 +1046,11 @@ __global__ void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_prod = shared;
@@ -1283,11 +1261,11 @@ __global__ void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_w0 = shared;
@@ -1320,15 +1298,13 @@ __global__ void IProductWRTBasePrismKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp0 = new TData[nq2 * nq1];
-    TData *wsp1 = new TData[nq2];
-    TData *wsp2 = new TData[nm1];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * nq2 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + (nq2 * nq1 + nq2 + nm1) * e;
+        TData *wsp1            = wsp0 + nq2 * nq1;
+        TData *wsp2            = wsp1 + nq2;
 
         for (unsigned int p = 0, mode_pqr = 0; p < nm0; ++p)
         {
@@ -1442,11 +1418,6 @@ __global__ void IProductWRTBasePrismKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp0;
-    delete[] wsp1;
-    delete[] wsp2;
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED>
@@ -1454,11 +1425,11 @@ __global__ void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_wsp0 = shared;
@@ -1635,11 +1606,11 @@ __global__ void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_w0 = shared;
@@ -1672,14 +1643,12 @@ __global__ void IProductWRTBasePyrKernel(
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
-    // Allocate workspace memory.
-    TData *wsp0 = new TData[nq2 * nq1];
-    TData *wsp1 = new TData[nq2];
-
     while (e < nelmt)
     {
         unsigned int inoffset  = nq0 * nq1 * nq2 * e;
         unsigned int outoffset = nmTot * e;
+        TData *wsp0            = wsp + (nq2 * nq1 + nq2) * e;
+        TData *wsp1            = wsp0 + nq2 * nq1;
 
         for (unsigned int p = 0, mode_pqr = 0; p < nm0; ++p)
         {
@@ -1824,10 +1793,6 @@ __global__ void IProductWRTBasePyrKernel(
 
         e += blockDim.x * gridDim.x;
     }
-
-    // Deallocate workspace memory.
-    delete[] wsp0;
-    delete[] wsp1;
 }
 
 // NOTE: Not workign when nm2 > nm1
@@ -1836,11 +1801,11 @@ __global__ void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict w0,
-    const TData *__restrict w1, const TData *__restrict w2,
-    const TData *__restrict jac, const TData *__restrict in,
-    TData *__restrict out, TData scale = 1.0)
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, TData scale = 1.0)
 {
     extern __shared__ TData shared[];
     TData *s_prod = shared;
