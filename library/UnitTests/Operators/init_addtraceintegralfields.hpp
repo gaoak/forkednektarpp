@@ -65,18 +65,28 @@ public:
         auto blocks_in =
             GetBlockAttributes(stateIn, fixt_explist->GetTrace(), vec_t::width);
         auto f_in =
-            Field<double, stateIn>::create(blocks_in, nin, vec_t::alignment);
+            Field<double, stateIn>::template create<NektarSpaces::HostSpace>(
+                "f_in", blocks_in, nin, vec_t::alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
 
-#ifdef NEKTAR_ENABLE_CUDA
-        if (fixtcuda_in)
+        if (fixt_kokkos_in)
         {
-            delete fixtcuda_in;
+            delete fixt_kokkos_in;
+        }
+        auto fkokkos_in =
+            Field<double, stateIn>::template create<NektarSpaces::DeviceSpace>(
+                "fkokkos_in", blocks_in, nin);
+        fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
+
+#ifdef NEKTAR_ENABLE_CUDA
+        if (fixt_cuda_in)
+        {
+            delete fixt_cuda_in;
         }
         auto fcuda_in =
-            Field<double, stateIn>::template create<MemoryRegionCUDA>(blocks_in,
-                                                                      nin);
-        fixtcuda_in = new Field<double, stateIn>(std::move(fcuda_in));
+            Field<double, stateIn>::template create<NektarSpaces::DeviceSpace>(
+                "fcuda_in", blocks_in, nin);
+        fixt_cuda_in = new Field<double, stateIn>(std::move(fcuda_in));
 #endif
     }
 

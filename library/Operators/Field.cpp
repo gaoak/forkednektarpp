@@ -33,10 +33,21 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "Operators/Field.hpp"
+
 #include <MultiRegions/ExpList.h>
 
 using namespace Nektar;
 using namespace LibUtilities;
+
+std::string FieldStateString(FieldState state)
+{
+    if (state == FieldState::Phys)
+        return std::string("Phys");
+    else if (state == FieldState::Coeff)
+        return std::string("Coeff");
+    else
+        return std::string("");
+}
 
 std::vector<BlockAttributes> GetBlockAttributes(
     FieldState state, const MultiRegions::ExpListSharedPtr explist,

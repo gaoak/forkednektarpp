@@ -44,14 +44,13 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData> class OperatorRobBndCond : public Operator<TData>
 {
-
 public:
-    ~OperatorRobBndCond() override = default;
-
     OperatorRobBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorRobBndCond() override = default;
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out,
@@ -63,30 +62,16 @@ public:
 template <typename TData = default_fp_type> struct RobBndCond
 {
     using class_name = OperatorRobBndCond<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     RobBndCond() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<RobBndCond<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<RobBndCond<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string RobBndCond<default_fp_type>::key;
-template <> const std::string RobBndCond<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of RobBndCond operator
-template <typename TData, typename Op> class OperatorRobBndCondImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

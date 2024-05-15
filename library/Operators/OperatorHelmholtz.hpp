@@ -44,26 +44,21 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorHelmholtz
-    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    ~OperatorHelmholtz() override = default;
-
     OperatorHelmholtz(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
+        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    void apply([[maybe_unused]] Field<TData, FieldState::Coeff> &in,
-               [[maybe_unused]] Field<TData, FieldState::Coeff> &out) override
-    {
-    }
+    ~OperatorHelmholtz() override = default;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 
     void setLambda(TData lambda)
@@ -78,32 +73,19 @@ public:
 template <typename TData = default_fp_type> struct Helmholtz
 {
     using class_name = OperatorHelmholtz<TData>;
-    using FieldIn    = Field<TData, FieldState::Coeff>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Coeff>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
 
     Helmholtz() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<Helmholtz<TData>>(expansionList,
-                                                                  pKey);
+        return Operator<TData>::template create<Helmholtz<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string Helmholtz<>::key;
-template <> const std::string Helmholtz<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for Helmholtz implementations
-template <typename TData, typename Op> class OperatorHelmholtzImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

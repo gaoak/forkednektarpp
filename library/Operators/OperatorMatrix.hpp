@@ -41,17 +41,16 @@ namespace Nektar::Operators
 {
 
 // Matrix operator base class
-template <typename TData, FieldState TFieldState>
-class OperatorMatrix : public OperatorLinear<TData, TFieldState, TFieldState>
+template <FieldState TFieldState, typename TData>
+class OperatorMatrix : public OperatorLinear<TFieldState, TFieldState, TData>
 {
-
 public:
-    ~OperatorMatrix() override = default;
-
     OperatorMatrix(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
+        : OperatorLinear<TFieldState, TFieldState, TData>(expansionList)
     {
     }
+
+    ~OperatorMatrix() override = default;
 
     virtual size_t size()                     = 0;
     virtual void fill(std::vector<TData> src) = 0;
@@ -61,36 +60,17 @@ public:
 // Descriptor / traits class for Matrix to be used by Operator create function
 template <FieldState TFieldState, typename TData> struct Matrix
 {
-    using class_name = OperatorMatrix<TData, TFieldState>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+    using class_name = OperatorMatrix<TFieldState, TData>;
 
     Matrix() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<Matrix<TFieldState, TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<Matrix<TFieldState, TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string Matrix<FieldState::Coeff, default_fp_type>::key;
-template <>
-const std::string Matrix<FieldState::Coeff, default_fp_type>::default_impl;
-template <> const std::string Matrix<FieldState::Phys, default_fp_type>::key;
-template <>
-const std::string Matrix<FieldState::Phys, default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of Matrix operator
-template <typename TData, FieldState TFieldState, typename Op>
-class OperatorMatrixImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

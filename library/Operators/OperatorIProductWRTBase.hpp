@@ -45,12 +45,12 @@ namespace Nektar::Operators
 template <typename TData> class OperatorIProductWRTBase : public Operator<TData>
 {
 public:
-    ~OperatorIProductWRTBase() override = default;
-
     OperatorIProductWRTBase(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorIProductWRTBase() override = default;
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out,
@@ -67,32 +67,19 @@ public:
 template <typename TData = default_fp_type> struct IProductWRTBase
 {
     using class_name = OperatorIProductWRTBase<TData>;
-    using FieldIn    = Field<TData, FieldState::Phys>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Phys>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
 
     IProductWRTBase() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<IProductWRTBase<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<IProductWRTBase<TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string IProductWRTBase<>::key;
-template <> const std::string IProductWRTBase<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for IProductWRTBase implementations
-template <typename TData, typename Op> class OperatorIProductWRTBaseImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

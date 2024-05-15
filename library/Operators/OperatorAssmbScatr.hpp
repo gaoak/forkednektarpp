@@ -45,12 +45,12 @@ namespace Nektar::Operators
 template <typename TData> class OperatorAssmbScatr : public Operator<TData>
 {
 public:
-    ~OperatorAssmbScatr() override = default;
-
     OperatorAssmbScatr(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorAssmbScatr() override = default;
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out,
@@ -62,6 +62,12 @@ public:
     {
         apply(in, out, zeroDir);
     }
+
+    virtual void Assemble(Field<TData, FieldState::Coeff> &in,
+                          MemoryRegion<TData> &out) = 0;
+
+    virtual void GlobalToLocal(MemoryRegion<TData> &in,
+                               Field<TData, FieldState::Coeff> &out) = 0;
 };
 
 // Descriptor / traits class for Assembly+scatter to be used by Operator create
@@ -69,30 +75,16 @@ public:
 template <typename TData = default_fp_type> struct AssmbScatr
 {
     using class_name = OperatorAssmbScatr<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     AssmbScatr() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<AssmbScatr<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<AssmbScatr<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string AssmbScatr<default_fp_type>::key;
-template <> const std::string AssmbScatr<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of assembly+scatter operator
-template <typename TData, typename Op> class OperatorAssmbScatrImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

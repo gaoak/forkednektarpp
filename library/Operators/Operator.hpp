@@ -36,25 +36,36 @@
 
 #include <string>
 
+#include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 #include <Operators/OperatorsDeclspec.hpp>
 
 #include "Operators/Field.hpp"
+#include "Operators/Spaces.hpp"
+
+#define FLAG_QP false
 
 namespace Nektar::Operators
 {
+
+extern std::string g_ExecSpace;
+extern std::string g_Impl;
+
+// Core implementation types
+class StdMat
+{
+};
+
+class SumFac
+{
+};
 
 // Use typenames to define available implementations to
 // allow extension by users without modifying library
 using default_fp_type = double;
 using vec_t           = tinysimd::simd<double>;
-// Core implementation types
-struct ImplStdMat;
-struct ImplSumFac;
-struct ImplMatFree;
-struct ImplCUDA;
 
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
@@ -78,26 +89,181 @@ public:
     {
     }
 
-    template <typename TDescriptor>
+    template <typename TDescriptor, typename ExecSpace, typename Implementation>
     static std::shared_ptr<typename TDescriptor::class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        std::string key = TDescriptor::key;
-        if (pKey.empty())
+        // The TDescriptor name contains the namespace as well as the <TData>
+        // of <FieldState, TData> which needs to be removed.
+        std::string descript = Nektar::demangleTypeName(typeid(TDescriptor));
+        std::string descriptStr(descript);
+
+        // Check for a Nektar::Operators:: root.
+        const std::string base1("Nektar::Operators::");
+
+        std::size_t found = descriptStr.find(base1);
+        if (found != std::string::npos)
         {
-            key += TDescriptor::default_impl;
+            descriptStr.erase(found, base1.length());
+
+            found = descriptStr.find("<");
+            if (found != std::string::npos)
+            {
+                descriptStr.erase(found);
+            }
+            else
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "malformed operator template descriptor.");
+            }
         }
         else
         {
-            key += pKey;
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "malformed operator template descriptor.");
         }
 
-        return std::static_pointer_cast<typename TDescriptor::class_name>(
-            GetOperatorFactory<TData>().CreateInstance(key, expansionList));
+        // The TDescriptor name may contain the FieldState, if so get
+        // the enum and corresponding string.
+        const std::string base2("(FieldState)");
+        std::string fieldStateStr(descript);
+
+        found = fieldStateStr.find(base2);
+        if (found != std::string::npos)
+        {
+            fieldStateStr.erase(0, found + base2.length());
+
+            found = fieldStateStr.find(",");
+            if (found != std::string::npos)
+            {
+                fieldStateStr.erase(found);
+            }
+            else
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "malformed FieldState template descriptor.");
+            }
+
+            fieldStateStr =
+                FieldStateString(FieldState(std::stoi(fieldStateStr)));
+        }
+        else
+        {
+            fieldStateStr.clear();
+        }
+
+        // The ExecSpace name contains the namespace which needs to be
+        // removed.
+        std::string execStr = Nektar::demangleTypeName(typeid(ExecSpace));
+
+        const std::string base3("NektarSpaces::");
+
+        // Check for a NektarSpaces:: root.
+        found = execStr.find(base3);
+        if (found != std::string::npos)
+        {
+            execStr.erase(found, base3.length());
+        }
+        else
+        {
+            // Check for a Kokkos:: root.
+            found = execStr.find("Kokkos::");
+            if (found != std::string::npos)
+            {
+                execStr = "Kokkos";
+            }
+        }
+
+        // The Implementation name contains the namespace which needs
+        // to be removed.
+        std::string implStr = Nektar::demangleTypeName(typeid(Implementation));
+
+        const std::string base4("Nektar::Operators::");
+
+        found = implStr.find(base4);
+        if (found != std::string::npos)
+        {
+            implStr.erase(found, base4.length());
+        }
+
+        std::string requestedKey =
+            descriptStr + fieldStateStr + execStr + implStr;
+        std::string key = requestedKey;
+
+        OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+
+        for (size_t i = 0; i < 7; ++i)
+        {
+            switch (i)
+            {
+                case 0:
+                    // Find the operator with the same ExecSpace and the
+                    // same implementation.
+                    key = descriptStr + fieldStateStr + execStr + implStr;
+                    break;
+                case 1:
+                    // Find the operator with the same ExecSpace and the default
+                    // implementation.
+                    key = descriptStr + fieldStateStr + execStr + g_Impl;
+                    break;
+                case 2:
+                    // Find the operator with the same ExecSpace and the
+                    // universal implementation.
+                    key = descriptStr + fieldStateStr + execStr + "Universal";
+                    break;
+                case 3:
+                    // Find the operator with the default ExecSpace and the
+                    // default implementation.
+                    key = descriptStr + fieldStateStr + g_ExecSpace + g_Impl;
+                    break;
+                case 4:
+                    // Find the operator with the default ExecSpace and the
+                    // universal implementation.
+                    key =
+                        descriptStr + fieldStateStr + g_ExecSpace + "Universal";
+                    break;
+                case 5:
+                    // Find the operator with the "Serial" ExecSpace
+                    // and the universal implementation.
+                    key = descriptStr + fieldStateStr + "Serial" + "Universal";
+                    break;
+                case 6:
+                    // Find the operator with the "Serial" ExecSpace and
+                    // the "StdMat" implementation.
+                    key = descriptStr + fieldStateStr + "Serial" + "StdMat";
+                    break;
+                default:
+                    break;
+            }
+
+            if (factory.ModuleExists(key))
+            {
+                if (key != requestedKey)
+                {
+                    std::string msg;
+                    msg += "The requested operator: " + requestedKey +
+                           " was not found. Using operator: " + key +
+                           " instead";
+
+                    WARNINGL0(false, msg);
+                }
+
+                return std::static_pointer_cast<
+                    typename TDescriptor::class_name>(
+                    factory.CreateInstance(key, expansionList));
+            }
+        }
+
+        // No suitible operator was found.
+        std::stringstream msg;
+        msg << "No such operator: " << requestedKey
+            << " and no default operator: " << key << std::endl;
+        factory.PrintAvailableClasses(msg);
+        NEKERROR(ErrorUtil::efatal, msg.str());
     }
 
 protected:
+    // Standard Get/Set methods
     size_t GetGeometricFactorSize(void)
     {
         size_t gfSize    = 0;
@@ -149,6 +315,7 @@ protected:
                 jac[index++] = auxJac[0];
             }
         }
+
         return jac;
     }
 
@@ -193,14 +360,16 @@ protected:
                 dfindex += 1;
             }
         }
+
         return derivFac;
     }
 
-    size_t GetVectorizedGeomFactorSize(
-        const std::vector<BlockAttributes> &blocks)
+    // Vectorized Get/Set methods
+    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks)
     {
         size_t gfSize = 0;
         size_t exp_id = 0;
+
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
             size_t num_metaBlocks =
@@ -225,8 +394,8 @@ protected:
         return gfSize;
     }
 
-    std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
-    SetVectorizedJacobian(size_t jacSize, std::vector<BlockAttributes> &blocks)
+    std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> SetJacobian(
+        size_t jacSize, std::vector<BlockAttributes> &blocks)
     {
         // Allocate memory for the jacobian
         std::vector<vec_t, tinysimd::allocator<vec_t>> jac;
@@ -234,6 +403,7 @@ protected:
 
         size_t exp_id = 0;
         size_t jac_id = 0;
+
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
             size_t num_elements         = blocks[blk].num_elements;
@@ -266,6 +436,7 @@ protected:
                         jac[jac_id++].load(&tmp[0]);
                     }
                 }
+
                 // Last block: may have padding elements
                 for (size_t i = 0; i < vec_t::width - num_padding_elements; ++i)
                 {
@@ -325,8 +496,7 @@ protected:
     }
 
     std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
-    SetVectorizedDerivFactor(size_t dfSize,
-                             std::vector<BlockAttributes> &blocks)
+    SetDerivativeFactor(size_t dfSize, std::vector<BlockAttributes> &blocks)
     {
         // Allocate memory for the derivative factor
         size_t nDim   = this->m_expansionList->GetShapeDimension();
@@ -337,6 +507,7 @@ protected:
         // original df: point->dim->coord->element->block
         size_t exp_id = 0;
         size_t jac_id = 0;
+
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
             size_t num_elements         = blocks[blk].num_elements;
@@ -415,6 +586,7 @@ protected:
                     }
                     exp_id += vec_t::width;
                 }
+
                 // Last block: may have padding elements
                 for (size_t d = 0; d < nDim * nCoord; ++d)
                 {

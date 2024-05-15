@@ -43,10 +43,6 @@
 #include <MultiRegions/ExpList.h>
 #include <Operators/Field.hpp>
 
-#ifdef NEKTAR_ENABLE_CUDA
-#include "Operators/MemoryRegionCUDA.hpp"
-#endif
-
 #include <boost/test/included/unit_test.hpp>
 
 using namespace Nektar::LibUtilities;
@@ -62,6 +58,7 @@ struct InitMPI
 
         MPI_Init(&argc, &argv);
     }
+
     ~InitMPI()
     {
         MPI_Finalize();
@@ -69,6 +66,26 @@ struct InitMPI
 };
 
 BOOST_TEST_GLOBAL_CONFIGURATION(InitMPI);
+#endif
+
+#if defined(NEKTAR_ENABLE_KOKKOS)
+struct InitKokkos
+{
+    InitKokkos()
+    {
+        int argc    = boost::unit_test::framework::master_test_suite().argc;
+        char **argv = boost::unit_test::framework::master_test_suite().argv;
+
+        Kokkos::initialize(argc, argv);
+    }
+
+    ~InitKokkos()
+    {
+        Kokkos::finalize();
+    }
+};
+
+BOOST_TEST_GLOBAL_CONFIGURATION(InitKokkos);
 #endif
 
 /**
@@ -90,6 +107,10 @@ template <typename TData, FieldState stateIn = FieldState::Coeff,
 class InitFields
 {
 public:
+    InitFields()
+    {
+    }
+
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
@@ -105,23 +126,32 @@ public:
         {
             delete fixt_expected;
         }
-#ifdef NEKTAR_ENABLE_CUDA
-        if (fixtcuda_in)
+
+        if (fixt_kokkos_in)
         {
-            delete fixtcuda_in;
+            delete fixt_kokkos_in;
         }
-        if (fixtcuda_out)
+        if (fixt_kokkos_out)
         {
-            delete fixtcuda_out;
+            delete fixt_kokkos_out;
+        }
+
+#if defined(NEKTAR_ENABLE_CUDA)
+        if (fixt_cuda_in)
+        {
+            delete fixt_cuda_in;
+        }
+        if (fixt_cuda_out)
+        {
+            delete fixt_cuda_out;
         }
 #endif
+
         if (session)
         {
             session->Finalise();
         }
     }
-
-    InitFields() = default;
 
     void Configure(size_t nin = 1, size_t nout = 1)
     {
@@ -169,25 +199,38 @@ public:
         auto blocks_out =
             GetBlockAttributes(stateOut, fixt_explist, vec_t::width);
 
-        // Create two Field objects with a MemoryRegionCPU backend by default
+        // Create two Field objects with a MemoryRegionHost backend by default
         auto f_in =
-            Field<TData, stateIn>::create(blocks_in, nin, vec_t::alignment);
+            Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                "f_in", blocks_in, nin, vec_t::alignment);
         auto f_out =
-            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
+            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
+                "f_out", blocks_out, nout, vec_t::alignment);
         auto f_expected =
-            Field<TData, stateOut>::create(blocks_out, nout, vec_t::alignment);
+            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
+                "f_expected", blocks_out, nout, vec_t::alignment);
         fixt_in       = new Field<TData, stateIn>(std::move(f_in));
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
-#ifdef NEKTAR_ENABLE_CUDA
+
+        auto fkokkos_in = Field<TData, stateIn>::template create<
+            Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_in",
+                                                         blocks_in, nin);
+        auto fkokkos_out = Field<TData, stateOut>::template create<
+            Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_out",
+                                                         blocks_out, nout);
+        fixt_kokkos_in  = new Field<TData, stateIn>(std::move(fkokkos_in));
+        fixt_kokkos_out = new Field<TData, stateOut>(std::move(fkokkos_out));
+
+#if defined(NEKTAR_ENABLE_CUDA)
         auto fcuda_in =
-            Field<TData, stateIn>::template create<MemoryRegionCUDA>(blocks_in,
-                                                                     nin);
+            Field<TData, stateIn>::template create<NektarSpaces::DeviceSpace>(
+                "fcuda_in", blocks_in, nin);
         auto fcuda_out =
-            Field<TData, stateOut>::template create<MemoryRegionCUDA>(
-                blocks_out, nout);
-        fixtcuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
-        fixtcuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
+            Field<TData, stateOut>::template create<NektarSpaces::DeviceSpace>(
+                "fcuda_out", blocks_out, nout);
+        fixt_cuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
+        fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
 #endif
     }
 
@@ -226,9 +269,13 @@ protected:
     Field<TData, stateIn> *fixt_in        = nullptr;
     Field<TData, stateOut> *fixt_out      = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
-#ifdef NEKTAR_ENABLE_CUDA
-    Field<TData, stateIn> *fixtcuda_in   = nullptr;
-    Field<TData, stateOut> *fixtcuda_out = nullptr;
+
+    Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
+    Field<TData, stateOut> *fixt_kokkos_out = nullptr;
+
+#if defined(NEKTAR_ENABLE_CUDA)
+    Field<TData, stateIn> *fixt_cuda_in   = nullptr;
+    Field<TData, stateOut> *fixt_cuda_out = nullptr;
 #endif
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 

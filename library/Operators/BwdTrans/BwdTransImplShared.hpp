@@ -1,0 +1,237 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: BwdTransImplShared.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include "Operators/OperatorBwdTrans.hpp"
+
+#include "Operators/BwdTrans/BwdTransCUDASumFacKernels.cuh"
+#include "Operators/MemoryRegion.hpp"
+#include "Operators/OperatorHelper.hpp"
+
+namespace Nektar::Operators::detail
+{
+// Shared implementation
+template <typename ExecSpace, typename Implementation, typename TData,
+          typename = typename std::enable_if<
+              std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+              std::is_same<Implementation, Operators::SumFac>::value>::type>
+class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+public:
+    OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorBwdTrans<TData>(expansionList)
+    {
+        // Initialize the basis data.
+        m_basisMap =
+            GetBasisData<MemSpace, TData>(expansionList, BASIS_BASIS_DATA);
+    }
+
+    void apply(Field<TData, FieldState::Coeff> &in,
+               Field<TData, FieldState::Phys> &out) override
+    {
+        // Copy memory to the device, if necessary and get raw pointers.
+        const TData *inptr = in.template GetConstPtr<MemSpace>();
+        TData *outptr      = out.template GetPtr<MemSpace>();
+
+        TData *wspptr = nullptr;
+
+        // Initialize index.
+        size_t expIdx = 0;
+
+        // Initialize basiskey.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            3, LibUtilities::NullBasisKey);
+
+        // Loop over the blocks.
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
+        {
+            // Determine shape and type of the element.
+            auto const expPtr = this->m_expansionList->GetExp(expIdx);
+            auto nElmts       = in.GetBlocks()[block_idx].num_elements;
+            auto nmTot        = expPtr->GetNcoeffs();
+            auto nqTot        = expPtr->GetTotPoints();
+            auto shape        = expPtr->DetShapeType();
+
+            // Deterime CUDA grid size.
+            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+
+            // Flag for collapsed coordinate correction.
+            bool correct = expPtr->GetBasis(0)->GetBasisType() ==
+                           LibUtilities::eModified_A;
+
+            // Fetch basis key for the current element type.
+            for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
+            {
+                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+            }
+
+            // Function call to kernel functions.
+            if (expPtr->GetShapeDimension() == 1)
+            {
+                auto basis0 =
+                    m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
+
+                auto nm0 = expPtr->GetBasisNumModes(0);
+                auto nq0 = expPtr->GetNumPoints(0);
+                BwdTrans1DKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nm0,
+                                                   nq0, nElmts, basis0, inptr,
+                                                   outptr);
+            }
+            else if (expPtr->GetShapeDimension() == 2)
+            {
+                auto basis0 =
+                    m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
+                auto basis1 =
+                    m_basisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
+
+                auto nm0 = expPtr->GetBasisNumModes(0);
+                auto nm1 = expPtr->GetBasisNumModes(1);
+                auto nq0 = expPtr->GetNumPoints(0);
+                auto nq1 = expPtr->GetNumPoints(1);
+
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+
+                    if (shape == LibUtilities::Quad)
+                    {
+                        wspsize = nm1 * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tri)
+                    {
+                        wspsize = nm0 * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        m_wspsize = wspsize;
+                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                            m_wspsize,
+                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                    }
+
+                    wspptr = m_wsp.template GetPtr<MemSpace>();
+                }
+
+                BwdTrans2DKernel<ExecSpace, TData>(
+                    m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1, nElmts,
+                    correct, basis0, basis1, wspptr, inptr, outptr);
+            }
+            else if (expPtr->GetShapeDimension() == 3)
+            {
+                auto basis0 =
+                    m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
+                auto basis1 =
+                    m_basisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
+                auto basis2 =
+                    m_basisMap[basisKeys[2]].template GetConstPtr<MemSpace>();
+
+                auto nm0 = expPtr->GetBasisNumModes(0);
+                auto nm1 = expPtr->GetBasisNumModes(1);
+                auto nm2 = expPtr->GetBasisNumModes(2);
+                auto nq0 = expPtr->GetNumPoints(0);
+                auto nq1 = expPtr->GetNumPoints(1);
+                auto nq2 = expPtr->GetNumPoints(2);
+
+                if constexpr (!FLAG_QP)
+                {
+                    size_t wspsize = 0;
+
+                    if (shape == LibUtilities::Hex)
+                    {
+                        wspsize = (nm1 * nm2 + nm2) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Tet)
+                    {
+                        wspsize =
+                            ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Prism)
+                    {
+                        wspsize = (nm0 * nm1 + nm0) * nElmts;
+                    }
+                    else if (shape == LibUtilities::Pyr)
+                    {
+                        wspsize = (nm0 * nm1 + nm0) * nElmts;
+                    }
+
+                    if (m_wspsize < wspsize)
+                    {
+                        m_wspsize = wspsize;
+
+                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                            m_wspsize,
+                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                    }
+
+                    wspptr = m_wsp.template GetPtr<MemSpace>();
+                }
+
+                BwdTrans3DKernel<ExecSpace, TData>(
+                    m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
+                    nq2, nElmts, correct, basis0, basis1, basis2, wspptr, inptr,
+                    outptr);
+            }
+
+            // Increment pointer and index for next element type.
+            inptr += in.GetBlocks()[block_idx].block_size;
+            outptr += out.GetBlocks()[block_idx].block_size;
+            expIdx += nElmts;
+        }
+    }
+
+    static std::unique_ptr<Operator<TData>> instantiate(
+        MultiRegions::ExpListSharedPtr expansionList)
+    {
+        return std::make_unique<
+            OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+
+    static std::string className;
+
+private:
+    BasisDataMap<TData> m_basisMap;
+    MemoryRegion<TData> m_wsp;
+
+    size_t m_wspsize   = 0;
+    size_t m_gridSize  = 32;
+    size_t m_blockSize = 32;
+};
+
+} // namespace Nektar::Operators::detail

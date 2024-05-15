@@ -34,6 +34,13 @@
 
 #pragma once
 
+#include "MemoryRegion.hpp"
+
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/MiscUtils.hpp>
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
+
 #include <array>
 #include <iostream>
 #include <memory>
@@ -41,11 +48,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#include "MemoryRegionCPU.hpp"
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 namespace Nektar::MultiRegions
 {
@@ -67,7 +69,8 @@ enum class FieldState
     Coeff
 };
 
-using default_fp_type                    = double;
+std::string FieldStateString(FieldState);
+
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 /**
@@ -95,6 +98,7 @@ struct BlockAttributes
  * This method basically captures identical elements that are contiguously
  * stored in the ExpList and group them into blocks. Padding elements will
  * also be set based on given vector width.
+ *
  * @param state     Field state to query.
  * @param explist   Expansion list to query.
  * @param VectorWidth Vector width to use for the field.
@@ -106,15 +110,16 @@ std::vector<BlockAttributes> GetBlockAttributes(
 
 /**
  * @brief A Field represents expansion data to be operated on.
+ *
  * @tparam TData  The floating-point representation used by the field.
  * @tparam TState A FieldState value representing the state of the field.
  */
 template <typename TData = default_fp_type, FieldState TState = DefaultState>
-class Field
+class Field : public MemoryRegion<TData>
 {
 public:
     Field(const Field &) = delete;
-    virtual ~Field()     = default;
+    ~Field() override    = default; // Default removes implicit moves
 
     /**
      * @brief Construct a new Field object by moving storage from an existing
@@ -123,10 +128,10 @@ public:
      * @param rhs
      */
     Field(Field &&rhs)
-        : m_storage(std::move(rhs.m_storage)),
+        : MemoryRegion<TData>::MemoryRegion(std::move(rhs)),
           block_attributes(std::move(rhs.block_attributes)),
           component_names(std::move(rhs.component_names)),
-          m_curVecWidth(rhs.m_curVecWidth), m_alignment(rhs.m_alignment)
+          m_curVecWidth(rhs.m_curVecWidth)
     {
     }
 
@@ -134,15 +139,15 @@ public:
      * @brief Move assignment operator.
      *
      * @param rhs
+     *
      * @return Field&
      */
     Field &operator=(Field &&rhs)
     {
-        m_storage        = std::move(rhs.m_storage);
+        this->m_storage  = std::move(rhs.m_storage);
         block_attributes = std::move(rhs.block_attributes);
         component_names  = std::move(rhs.component_names);
         m_curVecWidth    = std::move(rhs.m_curVecWidth);
-        m_alignment      = std::move(rhs.m_alignment);
 
         return *this;
     }
@@ -151,6 +156,7 @@ public:
      * @brief Compare this field to another field, with absolute
      * tolerance tol. Two fields must have same storage shape
      * and same components.
+     *
      * @return bool
      */
     bool compare(Field<TData, TState> &rhs, TData tol)
@@ -161,19 +167,17 @@ public:
         }
 
         const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
-        if (rhs_blocks.size() != block_attributes.size())
-        {
-            return false;
-        }
-        if (rhs.m_curVecWidth != m_curVecWidth)
+
+        if ((rhs_blocks.size() != block_attributes.size()) ||
+            (rhs.m_curVecWidth != m_curVecWidth))
         {
             return false;
         }
 
         bool isMatched = true;
 
-        TData *store     = m_storage->GetCPUPtr();
-        TData *rhs_store = rhs.m_storage->GetCPUPtr();
+        TData *store     = this->m_storage->GetHostPtr();
+        TData *rhs_store = rhs.m_storage->GetHostPtr();
 
         for (size_t component = 0; component < GetNumComponents(); ++component)
         {
@@ -187,11 +191,8 @@ public:
                     (num_elements + num_padding_elements) / m_curVecWidth;
 
                 // Check that each block have the same structure
-                if (num_elements != rhs_blocks[bl].num_elements)
-                {
-                    return false;
-                }
-                if (num_pts != rhs_blocks[bl].num_pts)
+                if ((num_elements != rhs_blocks[bl].num_elements) ||
+                    (num_pts != rhs_blocks[bl].num_pts))
                 {
                     return false;
                 }
@@ -216,14 +217,17 @@ public:
                                     {
                                         isMatched = false;
                                     }
+
                                     MisMatchcnt++;
                                 }
                             }
+
                             store++;
                             rhs_store++;
                         }
                     }
                 }
+
                 if (!isMatched)
                 {
                     std::cout << "Number of mismatches in block " << bl
@@ -246,38 +250,139 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @tparam TMemoryRegion Type of memory region to use
+     * @tparam MemSpace      Type of memory space to use
+     *
+     * @param name           Name of the field (memory region)
      * @param blocks         Field data specification.
      * @param components     Names of components for a vector field.
-     * @param Align          Memory alignment to use.
+     * @param alignment      Memory alignment to use.
+     *
      * @return Field<TData, TState>
      */
-    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
+    template <typename MemSpace>
     static Field<TData, TState> create(
-        std::vector<BlockAttributes> blocks,
+        std::string name, std::vector<BlockAttributes> blocks,
         std::vector<std::string> components,
-        size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
-        auto field         = Field(std::move(blocks), components);
         int num_components = components.size();
+        auto field         = Field(std::move(blocks), components);
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block) {
-                return acc + block.block_size;
-            });
+            [](size_t acc, const BlockAttributes &block)
+            { return acc + block.block_size; });
 
-        // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
-        field.m_storage = std::make_unique<TMemoryRegion<TData>>(
-            storage_size * num_components, Align);
+        size_t size = storage_size * num_components;
+
+        // Create new a MemoryRegion and polymorphically store as a
+        // MemoryRegionHost.
+        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
+                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        {
+            field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
+                name, size, alignment);
+        }
+        else if constexpr (
+            std::is_same<MemSpace,
+                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
+            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        {
+            field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+                name, size, alignment);
+        }
+        else
+        {
+            std::string msg("Field::createN - invaid memory space (");
+            msg += field.m_storage->GetName() +
+                   "): " + Nektar::demangleTypeName(typeid(MemSpace));
+
+            NEKERROR(Nektar::ErrorUtil::efatal, msg);
+        }
 
         // Zero memory
-        std::fill(field.m_storage->GetCPUPtr(),
-                  field.m_storage->GetCPUPtr() + storage_size * num_components,
-                  0);
+        field.m_storage->initialize(0);
 
-        // Record the alignment
-        field.m_alignment = Align;
+        return field;
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the names of the components.
+     *
+     * @tparam MemSpace      Type of memory space to use
+     *
+     * @param blocks         Field data specification.
+     * @param components     Names of components for a vector field.
+     * @param alignment      Memory alignment to use.
+     *
+     * @return Field<TData, TState>
+     */
+    template <typename MemSpace>
+    static Field<TData, TState> create(
+        std::vector<BlockAttributes> blocks,
+        std::vector<std::string> components,
+        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    {
+        return Field<TData, TState>::template create<MemSpace>(
+            blocks, components, alignment);
+    }
+
+    /**
+     * @brief Static templated creation method. This method create
+     * new Field by giving the number of components.
+     *
+     * @tparam MemSpace      Type of memory space to use
+     *
+     * @param name           Name of the field (memory region)
+     * @param blocks         Field data specification.
+     * @param num_components Number of components for a vector field.
+     * @param alignment      Memory alignment to use.
+     *
+     * @return Field<TData, TState>
+     */
+    template <typename MemSpace>
+    static Field<TData, TState> create(
+        std::string name, std::vector<BlockAttributes> blocks,
+        int num_components = 1,
+        size_t alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    {
+        auto field = Field(std::move(blocks), num_components);
+
+        size_t storage_size = std::accumulate(
+            field.block_attributes.begin(), field.block_attributes.end(), 0,
+            [](size_t acc, const BlockAttributes &block)
+            { return acc + block.block_size; });
+
+        size_t size = storage_size * num_components;
+
+        // Create new a MemoryRegion and polymorphically store as a
+        // MemoryRegionHost.
+        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
+                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        {
+            field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
+                name, size, alignment);
+        }
+        else if constexpr (
+            std::is_same<MemSpace,
+                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
+            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        {
+            field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+                name, size, alignment);
+        }
+        else
+        {
+            std::string msg("Field::create - invaid memory space (");
+            msg += field.m_storage->GetName() +
+                   "): " + Nektar::demangleTypeName(typeid(MemSpace));
+
+            NEKERROR(Nektar::ErrorUtil::efatal, msg);
+        }
+
+        // Zero memory
+        field.m_storage->initialize(0);
 
         return field;
     }
@@ -285,122 +390,22 @@ public:
     /**
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
-     * @tparam TMemoryRegion Type of memory region to use
+     *
+     * @tparam MemSpace      Type of memory space to use
+     *
      * @param blocks         Field data specification.
      * @param num_components Number of components for a vector field.
-     * @param Align          Memory alignment to use.
+     * @param alignment      Memory alignment to use.
+     *
      * @return Field<TData, TState>
      */
-    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
+    template <typename MemSpace>
     static Field<TData, TState> create(
         std::vector<BlockAttributes> blocks, int num_components = 1,
-        size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
-        auto field = Field(std::move(blocks), num_components);
-
-        size_t storage_size = std::accumulate(
-            field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block) {
-                return acc + block.block_size;
-            });
-
-        // Create new TMemoryRegion and polymorphically store as MemoryRegionCPU
-        field.m_storage = std::make_unique<TMemoryRegion<TData>>(
-            storage_size * num_components, Align);
-
-        // Zero memory
-        std::fill(field.m_storage->GetCPUPtr(),
-                  field.m_storage->GetCPUPtr() + storage_size * num_components,
-                  0);
-
-        // Record the alignment
-        field.m_alignment = Align;
-
-        return field;
-    }
-
-    /**
-     * @brief Another create method that copy data from a Nektar::Array
-     *
-     * @tparam TMemoryRegion Type of memory region to use
-     * @param array          Nektar::Array to copy from
-     * @param blocks         Field storage layout.
-     * @param Align          Memory alignment to use.
-     * @return Field<TData, TState>
-     */
-    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    static Field<TData, TState> fromArray(
-        Nektar::Array<Nektar::OneD, TData> const &array,
-        std::vector<BlockAttributes> blocks,
-        size_t Align = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-    {
-        auto field = create<MemoryRegionCPU>(blocks, Align);
-
-        // given paddings, the Storage size may be larger than array size.
-        // But it should not be smaller.
-        ASSERTL0(field.GetStorage().size() >= array.size(),
-                 "Array size should not be larger than field size!")
-
-        std::copy(array.begin(), array.end(), field.GetStorage().GetCPUPtr());
-
-        field.template GetStorage<TMemoryRegion>(); // convert storage to
-                                                    // TMemoryRegion
-        return field;
-    }
-
-    /**
-     * @brief Get the underlying storage of the field as the requested type.
-     * @return MemoryRegion storage converted to the requested type
-     *
-     * This routine performs MemoryRegion conversions if necessary to enable
-     * casting of, for example a CUDA memory region to a CPU memory region to
-     * support the use of a CPU-only operator if necessary.
-     *
-     * A runtime warning is provided if a transfer of data from device to host
-     * is required to achieve the conversion.
-     */
-    template <template <typename> class TMemoryRegion = MemoryRegionCPU>
-    TMemoryRegion<TData> &GetStorage()
-    {
-        using T = TMemoryRegion<TData>;
-
-        static_assert(std::is_base_of<MemoryRegionCPU<TData>, T>::value,
-                      "TMemoryRegion must derive MemoryRegionCPU<TData>");
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionCUDA is requested from a
-            // MemoryRegionCPU backed Field
-            auto &ret = dynamic_cast<T &>(*m_storage);
-
-            // Debug warning, a (possibly) undesired conversion occured
-            WARNINGL0(typeid(*m_storage) == typeid(T),
-                      std::string("Requested backing storage of type ") +
-                          typeid(T).name() + " != actual storage type " +
-                          typeid(*m_storage).name());
-            return ret;
-        }
-        catch (const std::bad_cast &e)
-        {
-            WARNINGL0(false, std::string("Converting backing storage from ") +
-                                 typeid(*m_storage).name() + " to " +
-                                 typeid(T).name());
-
-            // This is just here so that the fromCPU method does
-            // not need to be declared for MemoryRegionCPU
-            if constexpr (!std::is_same<T, MemoryRegionCPU<TData>>::value)
-            {
-                // Dynamic cast threw an exception, attempt to allocate the
-                // requested TMemoryRegion from old data
-
-                m_storage->ToCPU(); // Make sure memory is on the CPU
-
-                m_storage = std::make_unique<T>(T::fromCPU(
-                    std::move(*m_storage))); // Create new TMemoryRegion from
-                                             // the CPU memory
-            }
-
-            return dynamic_cast<T &>(*m_storage);
-        }
+        return Field<TData, TState>::template create<MemSpace>(
+            "", blocks, num_components, alignment);
     }
 
     /**
@@ -413,7 +418,7 @@ public:
      * VW1 by first reshaping from VW0 to a vector width of 1, and then to VW1.
      *
      * @tparam  VectorWidth     Target vector width.
-     * @tparam  Align           Memory alignment to use.
+     * @tparam  alignment       Memory alignment to use.
      */
     template <size_t VectorWidth> void ReshapeStorage()
     {
@@ -435,7 +440,8 @@ public:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TData *ptr = m_storage->GetCPUPtr() + component * scalar_field_size;
+            TData *ptr =
+                this->m_storage->GetHostPtr() + component * scalar_field_size;
 
             for (const auto &block : block_attributes)
             {
@@ -462,6 +468,68 @@ public:
     }
 
     /**
+     * @brief Copy the data to a Nektar::Array
+     *
+     * @return Array<Nektar::OneD, TDataOut>
+     */
+    template <typename TDataOut = TData>
+    Nektar::Array<Nektar::OneD, TDataOut> toArray(size_t size = 0) const
+    {
+        if (size == 0)
+        {
+            for (auto const &block : this->GetBlocks())
+            {
+                size += block.block_size;
+            }
+        }
+
+        Nektar::Array<Nektar::OneD, TDataOut> array(size);
+
+        // Copy the data from the input field
+        auto *ptr    = this->m_storage->GetHostConstPtr();
+        auto *arrptr = array.data();
+
+        for (auto const &block : this->GetBlocks())
+        {
+            auto nSize  = block.block_size;
+            auto nElmts = block.num_elements;
+            auto nmTot  = block.num_pts;
+
+            std::copy(ptr, ptr + nElmts * nmTot, arrptr);
+
+            arrptr += nElmts * nmTot;
+            ptr += nSize;
+        }
+
+        return array;
+    }
+
+    /**
+     * @brief Copy the data from a Nektar::Array
+     *
+     * @param Array<Nektar::OneD, TDataIn>
+     */
+    template <typename MemSpace, typename TDataIn = TData>
+    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
+    {
+        // Copy the data from the input array
+        auto *ptr    = this->m_storage->GetHostPtr();
+        auto *arrptr = array.data();
+
+        for (auto const &block : this->GetBlocks())
+        {
+            auto nSize  = block.block_size;
+            auto nElmts = block.num_elements;
+            auto nmTot  = block.num_pts;
+
+            this->template copyRaw<MemSpace>(ptr, arrptr, nElmts * nmTot);
+
+            arrptr += nElmts * nmTot;
+            ptr += nSize;
+        }
+    }
+
+    /**
      * @brief Copy data from one field/component to another. The two fields
      * must have the same storage layout.
      *
@@ -469,8 +537,8 @@ public:
      * @param rhs_component the component to load in the source field
      * @param component the component to overwrite in the destination field
      */
-    void CopyDataFrom(Field<TData, TState> &rhs, size_t rhs_component = 0,
-                      size_t component = 0)
+    void CopyFieldData(Field<TData, TState> &rhs, size_t rhs_component = 0,
+                       size_t component = 0)
     {
         ASSERTL0(rhs_component < rhs.GetNumComponents(),
                  "rhs_component is out of range!");
@@ -485,8 +553,9 @@ public:
         size_t scalar_field_size = GetFieldSize();
 
         const TData *rhs_ptr =
-            rhs.m_storage->GetCPUPtr() + rhs_component * scalar_field_size;
-        TData *ptr = m_storage->GetCPUPtr() + component * scalar_field_size;
+            rhs.m_storage->GetHostPtr() + rhs_component * scalar_field_size;
+        TData *ptr =
+            this->m_storage->GetHostPtr() + component * scalar_field_size;
 
         for (auto const &block : block_attributes)
         {
@@ -524,7 +593,7 @@ public:
      */
     size_t GetFieldSize()
     {
-        return m_storage->size() / GetNumComponents();
+        return this->m_storage->size() / GetNumComponents();
     }
 
     /**
@@ -534,7 +603,7 @@ public:
      */
     size_t GetAlignment()
     {
-        return m_alignment;
+        return this->m_storage->GetAlignment();
     }
 
     /**
@@ -545,12 +614,6 @@ public:
     size_t GetVecWidth()
     {
         return m_curVecWidth;
-    }
-
-    Nektar::Array<Nektar::OneD, TData> toArray() const
-    {
-        return Nektar::Array<Nektar::OneD, TData>(m_storage->size(),
-                                                  m_storage->GetCPUPtr());
     }
 
 private:
@@ -571,7 +634,7 @@ private:
         for (int component = 0; component < GetNumComponents(); ++component)
         {
             TData *inptr =
-                m_storage->GetCPUPtr() + component * scalar_field_size;
+                this->m_storage->GetHostPtr() + component * scalar_field_size;
 
             for (const auto &block : block_attributes)
             {
@@ -653,10 +716,8 @@ private:
     {
     }
 
-    std::unique_ptr<MemoryRegionCPU<TData>> m_storage;
     std::vector<BlockAttributes> block_attributes;
     std::vector<std::string> component_names = {"u"};
 
     size_t m_curVecWidth = 1;
-    size_t m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 };

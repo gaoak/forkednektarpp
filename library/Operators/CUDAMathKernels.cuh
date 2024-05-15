@@ -32,10 +32,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
+#include "Operators/Spaces.hpp"
+
 #include <float.h>
 
 namespace Nektar::Operators
 {
+
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
 template <typename TData>
 __global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
@@ -268,5 +274,79 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
     reduceMax<blockSize, TData>(nsize, s, out);
 }
 
+// Launchers for the kernels
 
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    addKernel(const size_t gridSize, const size_t blockSize, const size_t nloc,
+              const TData *addend1, const TData *addend2, TData *sum)
+{
+    addKernel<<<gridSize, blockSize>>>(nloc, addend1, addend2, sum);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    divKernel(const size_t gridSize, const size_t blockSize, const size_t nloc,
+              const TData *numerator, const TData *denominator, TData *quotient)
+{
+    vdivKernel<<<gridSize, blockSize>>>(nloc, numerator, denominator, quotient);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    negKernel(const size_t gridSize, const size_t blockSize, const size_t nloc,
+              const TData *in, TData *out)
+{
+    negKernel<<<gridSize, blockSize>>>(nloc, in, out);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    subKernel(const size_t gridSize, const size_t blockSize, const size_t nloc,
+              const TData *subtrahend, const TData *minuend, TData *difference)
+{
+    subKernel<<<gridSize, blockSize>>>(nloc, subtrahend, minuend, difference);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    daxpyKernel(const size_t gridSize, const size_t blockSize,
+                const unsigned int nsize, const TData alpha, const TData *x,
+                const TData *y, TData *z)
+{
+    daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
+}
+
+template <typename ExecSpace, typename TData, int iBlockSize>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    dotKernel(const size_t gridSize, const size_t blockSize,
+              const unsigned int nsize, const TData *x, const TData *y,
+              TData *out)
+{
+    dotKernel<iBlockSize, TData><<<gridSize, blockSize>>>(nsize, x, y, out);
+}
+
+template <typename ExecSpace, typename TData, int iBlockSize>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    reduceKernel(const size_t gridSize, const size_t blockSize,
+                 const unsigned int nsize, const TData *x, TData *out)
+{
+    reduceKernel<iBlockSize, TData><<<gridSize, blockSize>>>(nsize, x, out);
+}
+
+#endif
 } // namespace Nektar::Operators

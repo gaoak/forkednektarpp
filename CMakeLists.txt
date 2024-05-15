@@ -167,7 +167,7 @@ SET(CMAKE_BUILD_RPATH "${TP_LIB_DIR}")
 LIST(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
      "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}" isSystemDir)
 IF("${isSystemDir}" STREQUAL "-1")
-    SET(CMAKE_INSTALL_RPATH 
+    SET(CMAKE_INSTALL_RPATH
         "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}" "${TP_LIB_DIR}/")
 ELSE()
     SET(CMAKE_INSTALL_RPATH "${TP_LIB_DIR}")
@@ -220,6 +220,13 @@ IF (${CMAKE_COMPILER_IS_GNUCXX})
     MARK_AS_ADVANCED(NEKTAR_ENABLE_PROFILE)
 ENDIF (${CMAKE_COMPILER_IS_GNUCXX})
 
+# Automatic Switch generation range
+SET(NEKTAR_SWITCH_MIN 2 CACHE STRING "Set min range of auto generated switch")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_MIN)
+
+SET(NEKTAR_SWITCH_MAX 8 CACHE STRING "Set max range of auto generated switch")
+MARK_AS_ADVANCED(NEKTAR_SWITCH_MAX)
+
 # Memory pools
 OPTION(NEKTAR_USE_MEMORY_POOLS
     "Use memory pools to accelerate memory allocation." ON)
@@ -249,9 +256,46 @@ IF (MSVC)
 ENDIF()
 
 # Redesign-specific options
-if (NEKTAR_BUILD_REDESIGN)
-    INCLUDE(NektarCUDA)
-endif()
+IF (NEKTAR_BUILD_REDESIGN)
+    IF (NEKTAR_ENABLE_CUDA)
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
+        ELSEIF (NEKTAR_ENABLE_KOKKOS)
+            MESSAGE(FATAL_ERROR "Cannot use both CUDA and KOKKOS")
+        ELSEIF (NEKTAR_ENABLE_HIP)
+            MESSAGE(FATAL_ERROR "Cannot use both CUDA and HIP")
+        ELSE()
+            INCLUDE(NektarCUDA)
+        ENDIF()
+    ENDIF ()
+
+    IF (NEKTAR_ENABLE_HIP)
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both HIP and AVX")
+        ELSEIF (NEKTAR_ENABLE_CUDA)
+            MESSAGE(FATAL_ERROR "Cannot use both HIP and CUDA")
+        ELSEIF (NEKTAR_ENABLE_KOKKOS)
+            MESSAGE(FATAL_ERROR "Cannot use both HIP and KOKKOS")
+        ELSE()
+            INCLUDE(NektarHIP)
+        ENDIF()
+    ENDIF ()
+
+    IF (NEKTAR_ENABLE_KOKKOS)
+        SET(BOOST_MIN_VERSION "1.80.0")
+        SET(CUDA_MIN_VERSION "12.2")
+
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both Kokkos and AVX")
+        ELSEIF (NEKTAR_ENABLE_CUDA)
+            MESSAGE(FATAL_ERROR "Cannot use both Kokkos and CUDA")
+        ELSEIF (NEKTAR_ENABLE_HIP)
+            MESSAGE(FATAL_ERROR "Cannot use both Kokkos and HIP")
+        ELSE()
+            INCLUDE(NektarKokkos)
+        ENDIF()
+    ENDIF ()
+ENDIF ()
 
 # Include Nektar++ common macros
 INCLUDE (NektarCommon)

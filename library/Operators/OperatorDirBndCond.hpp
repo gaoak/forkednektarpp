@@ -46,12 +46,12 @@ template <typename TData> class OperatorDirBndCond : public Operator<TData>
 {
 
 public:
-    ~OperatorDirBndCond() override = default;
-
     OperatorDirBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorDirBndCond() override = default;
 
     virtual void apply(Field<TData, FieldState::Coeff> &out) = 0;
 
@@ -66,30 +66,16 @@ public:
 template <typename TData = default_fp_type> struct DirBndCond
 {
     using class_name = OperatorDirBndCond<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     DirBndCond() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<DirBndCond<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<DirBndCond<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string DirBndCond<default_fp_type>::key;
-template <> const std::string DirBndCond<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of DirBndCond operator
-template <typename TData, typename Op> class OperatorDirBndCondImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

@@ -44,26 +44,21 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorPhysDeriv
-    : public OperatorLinear<TData, FieldState::Phys, FieldState::Phys>
+    : public OperatorLinear<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
-    ~OperatorPhysDeriv() override = default;
-
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Phys, FieldState::Phys>(
+        : OperatorLinear<FieldState::Phys, FieldState::Phys, TData>(
               expansionList)
     {
     }
 
-    void apply([[maybe_unused]] Field<TData, FieldState::Phys> &in,
-               [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
-    {
-    }
+    ~OperatorPhysDeriv() override = default;
 
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Phys> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 };
 
@@ -71,32 +66,19 @@ public:
 template <typename TData = default_fp_type> struct PhysDeriv
 {
     using class_name = OperatorPhysDeriv<TData>;
-    using FieldIn    = Field<TData, FieldState::Phys>;
-    using FieldOut   = Field<TData, FieldState::Phys>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Phys>;
+    using FieldOut = Field<TData, FieldState::Phys>;
 
     PhysDeriv() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<PhysDeriv<TData>>(expansionList,
-                                                                  pKey);
+        return Operator<TData>::template create<PhysDeriv<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string PhysDeriv<>::key;
-template <> const std::string PhysDeriv<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for PhysDeriv implementations
-template <typename TData, typename Op> class OperatorPhysDerivImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators
