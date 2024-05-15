@@ -46,13 +46,13 @@ template <typename TData>
 class OperatorIProductWRTDerivBase : public Operator<TData>
 {
 public:
-    ~OperatorIProductWRTDerivBase() override = default;
-
     OperatorIProductWRTDerivBase(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorIProductWRTDerivBase() override = default;
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out,
@@ -70,32 +70,19 @@ public:
 template <typename TData = default_fp_type> struct IProductWRTDerivBase
 {
     using class_name = OperatorIProductWRTDerivBase<TData>;
-    using FieldIn    = Field<TData, FieldState::Phys>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Phys>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
 
     IProductWRTDerivBase() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<IProductWRTDerivBase<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<IProductWRTDerivBase<TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string IProductWRTDerivBase<>::key;
-template <> const std::string IProductWRTDerivBase<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for IProductWRTDerivBase implementations
-template <typename TData, typename Op> class OperatorIProductWRTDerivBaseImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

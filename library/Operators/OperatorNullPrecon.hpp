@@ -59,30 +59,16 @@ public:
 template <typename TData = default_fp_type> struct NullPrecon
 {
     using class_name = OperatorNullPrecon<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     NullPrecon() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<NullPrecon<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<NullPrecon<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string NullPrecon<default_fp_type>::key;
-template <> const std::string NullPrecon<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of NullPrecon operator
-template <typename TData, typename Op> class OperatorNullPreconImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

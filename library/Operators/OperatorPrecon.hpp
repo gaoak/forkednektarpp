@@ -43,29 +43,27 @@ namespace Nektar::Operators
 // Precon base class
 template <typename TData>
 class OperatorPrecon
-    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    ~OperatorPrecon() override = default;
-
     OperatorPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
+        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    void apply(Field<TData, FieldState::Coeff> &in,
-               Field<TData, FieldState::Coeff> &out) override = 0;
+    ~OperatorPrecon() override = default;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 
     virtual void configure(
-        const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
-                                             FieldState::Coeff>> &op) = 0;
+        const std::shared_ptr<
+            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
+            &op) = 0;
 };
 
 } // namespace Nektar::Operators

@@ -34,8 +34,105 @@
 
 #include "Operators/Operator.hpp"
 
+#include <LibUtilities/BasicUtils/SessionReader.h>
+
 namespace Nektar::Operators
 {
+
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+    std::string g_ExecSpace = "AVX ";
+#elif defined(NEKTAR_ENABLE_CUDA)
+    std::string g_ExecSpace = "CUDA ";
+#elif defined(NEKTAR_ENABLE_HIP)
+    std::string g_ExecSpace = "Hip";
+#elif defined(NEKTAR_ENABLE_KOKKOS)
+    std::string g_ExecSpace = "Kokkos";
+#else
+    std::string g_ExecSpace = "Serial ";
+#endif
+
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||  \
+    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+    std::string g_Impl = {"SumFac "};
+#else
+    std::string g_Impl = {"StdMat "};
+#endif
+
+
+  
+std::string operatorExecSpace =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opExecSpace", "",
+        "Operator default ExecSpace - "
+        "Serial "
+#if !defined(NEKTAR_ENABLE_CUDA) && !defined(NEKTAR_ENABLE_HIP) &&  \
+    !defined(NEKTAR_ENABLE_KOKKOS) &&  \
+    !defined(NEKTAR_ENABLE_SIMD_AVX2) && !defined(NEKTAR_ENABLE_SIMD_AVX512)
+        "(default)"
+#endif
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+        ", AVX "
+        "(default)"
+#endif
+#if defined(NEKTAR_ENABLE_CUDA)
+        ", CUDA "
+        "(default)"
+#endif
+#if defined(NEKTAR_ENABLE_HIP)
+        ", Hip"
+        "(default)"
+#endif
+#if defined(NEKTAR_ENABLE_KOKKOS)
+        ", Kokkos"
+        "(default)"
+#endif
+                                                         );
+
+std::string operatorImpl =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "opImpl", "",
+        "Operator default Implementation - "
+        "StdMat "
+#if !defined(NEKTAR_ENABLE_CUDA) && !defined(NEKTAR_ENABLE_HIP) &&  \
+    !defined(NEKTAR_ENABLE_SIMD_AVX2) && !defined(NEKTAR_ENABLE_SIMD_AVX512)
+        "(default)"
+#endif
+        "SumFac "
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_CUDA) ||  \
+    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+        "(default)"
+#endif
+                                                         );
+
+#if defined(NEKTAR_ENABLE_KOKKOS)
+std::string kokkosCmdPolicy =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "kokkos_policy", "",
+        "Kokkos Execution Policy - range (default), mdrange, team");
+
+std::string kokkosCmdLeaguesPerLoop =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "kokkos_leagues_per_loop", "",
+        "Kokkos TeamPolicy number of leagues (work items)"
+        "per loop (default 1).");
+
+std::string kokkosCmdTeamsPerLeague =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "kokkos_teams_per_league", "",
+        "Kokkos TeamPolicy number of teams (threads) "
+        "per Kokkos TeamPolicy league (default 256/16).");
+
+std::string kokkosCmdChunkSize =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "kokkos_chunk_size", "",
+        "Kokkos TeamPolicy and RangePolicy chunk size.");
+
+std::string kokkosCmdTileSize =
+    LibUtilities::SessionReader::RegisterCmdLineArgument(
+        "kokkos_tile_size", "",
+        "Kokkos MDRangePolicy tile size.");
+#endif
 
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 {

@@ -45,12 +45,12 @@ namespace Nektar::Operators
 template <typename TData> class OperatorNeuBndCond : public Operator<TData>
 {
 public:
-    ~OperatorNeuBndCond() override = default;
-
     OperatorNeuBndCond(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorNeuBndCond() override = default;
 
     virtual void apply(Field<TData, FieldState::Coeff> &inout) = 0;
 
@@ -65,30 +65,16 @@ public:
 template <typename TData = default_fp_type> struct NeuBndCond
 {
     using class_name = OperatorNeuBndCond<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     NeuBndCond() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<NeuBndCond<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<NeuBndCond<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string NeuBndCond<default_fp_type>::key;
-template <> const std::string NeuBndCond<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of NeuBndCond operator
-template <typename TData, typename Op> class OperatorNeuBndCondImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

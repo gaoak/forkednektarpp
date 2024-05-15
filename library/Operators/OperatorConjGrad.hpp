@@ -45,12 +45,12 @@ namespace Nektar::Operators
 template <typename TData> class OperatorConjGrad : public Operator<TData>
 {
 public:
-    ~OperatorConjGrad() override = default;
-
     OperatorConjGrad(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
+
+    ~OperatorConjGrad() override = default;
 
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
@@ -61,23 +61,24 @@ public:
         apply(in, out);
     }
 
-    void setLHS(const std::shared_ptr<OperatorLinear<TData, FieldState::Coeff,
-                                                     FieldState::Coeff>> &ptr)
+    void setLHS(
+        const std::shared_ptr<
+            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         m_LHS = ptr;
     }
 
     void setPrecon(
         const std::shared_ptr<
-            OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>> &ptr)
+            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         m_precon = ptr;
     }
 
 protected:
-    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+    std::shared_ptr<OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
         m_LHS;
-    std::shared_ptr<OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>>
+    std::shared_ptr<OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
 };
 
@@ -85,30 +86,16 @@ protected:
 template <typename TData = default_fp_type> struct ConjGrad
 {
     using class_name = OperatorConjGrad<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     ConjGrad() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<ConjGrad<TData>>(expansionList,
-                                                                 pKey);
+        return Operator<TData>::template create<ConjGrad<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string ConjGrad<default_fp_type>::key;
-template <> const std::string ConjGrad<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of CG operator
-template <typename TData, typename Op> class OperatorConjGradImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

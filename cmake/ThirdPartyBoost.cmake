@@ -10,47 +10,53 @@
 MESSAGE(STATUS "Searching for Boost:")
 
 # Minimum version and boost libraries required
-SET(MIN_VER "1.60.0")
+if(NOT BOOST_MIN_VERSION)
+    SET(BOOST_MIN_VERSION "1.60.0")
+endif()
+
 SET(NEEDED_BOOST_LIBS iostreams system program_options)
 
 SET(Boost_NO_BOOST_CMAKE ON)
 SET(Boost_USE_STATIC_LIBS OFF)
+
 IF( BOOST_ROOT )
     SET(Boost_NO_SYSTEM_PATHS ON)
-    FIND_PACKAGE( Boost ${MIN_VER} QUIET COMPONENTS ${NEEDED_BOOST_LIBS})
 ELSE ()
     SET(TEST_ENV1 $ENV{BOOST_HOME})
     SET(TEST_ENV2 $ENV{BOOST_DIR})
+
     IF (DEFINED TEST_ENV1)
         SET(BOOST_ROOT $ENV{BOOST_HOME})
         SET(Boost_NO_SYSTEM_PATHS ON)
-        FIND_PACKAGE( Boost ${MIN_VER} QUIET COMPONENTS ${NEEDED_BOOST_LIBS} )
     ELSEIF (DEFINED TEST_ENV2)
         SET(BOOST_ROOT $ENV{BOOST_DIR})
         SET(Boost_NO_SYSTEM_PATHS ON)
-        FIND_PACKAGE( Boost ${MIN_VER} QUIET COMPONENTS ${NEEDED_BOOST_LIBS} )
     ELSE ()
         SET(BOOST_ROOT ${TPDIST})
-        FIND_PACKAGE( Boost ${MIN_VER} QUIET COMPONENTS ${NEEDED_BOOST_LIBS} )
     ENDIF()
+
 ENDIF()
 
-# Check what we found and determine if we need to build boost
-FOREACH(FOUND_VAR ${NEEDED_BOOST_LIBS})
-    STRING(TOUPPER ${FOUND_VAR} FOUND_VAR_UPPER)
-    IF (Boost_${FOUND_VAR_UPPER}_FOUND)
-        MESSAGE(STATUS "-- Found Boost ${FOUND_VAR} library: "
-                "${Boost_${FOUND_VAR_UPPER}_LIBRARY}")
-    ELSE ()
-        MESSAGE(STATUS "-- Pre-installed Boost ${FOUND_VAR} library not found")
-    ENDIF()
-ENDFOREACH()
+FIND_PACKAGE(Boost ${BOOST_MIN_VERSION} QUIET COMPONENTS ${NEEDED_BOOST_LIBS})
 
-IF (NOT Boost_FOUND)
-    SET(BUILD_BOOST ON)
-ELSE()
+IF(Boost_FOUND)
+    MESSAGE(STATUS "-- Found Boost library version: ${BOOST_VERSION}")
     SET(BUILD_BOOST OFF)
-ENDIF ()
+
+    # Check what was found and determine if boost needs to be built.
+    FOREACH(FOUND_VAR ${NEEDED_BOOST_LIBS})
+        STRING(TOUPPER ${FOUND_VAR} FOUND_VAR_UPPER)
+        IF (Boost_${FOUND_VAR_UPPER}_FOUND)
+            MESSAGE(STATUS "-- Found Boost ${FOUND_VAR} library: "
+                    "${Boost_${FOUND_VAR_UPPER}_LIBRARY}")
+        ELSE ()
+            MESSAGE(STATUS "-- Pre-installed Boost ${FOUND_VAR} library not found, building boost.")
+            SET(BUILD_BOOST ON)
+        ENDIF()
+    ENDFOREACH()
+ELSE()
+    SET(BUILD_BOOST ON)
+ENDIF()
 
 
 OPTION(THIRDPARTY_BUILD_BOOST "Build Boost libraries" ${BUILD_BOOST})
@@ -69,7 +75,7 @@ IF (THIRDPARTY_BUILD_BOOST)
 
     # Only build the libraries we need
     FOREACH(boostlib ${NEEDED_BOOST_LIBS})
- 	LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
+        LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
     ENDFOREACH()
 
     IF (NOT WIN32)
@@ -121,12 +127,20 @@ IF (THIRDPARTY_BUILD_BOOST)
         SET(TOOLSET_CMDLINE ${TOOLSET}-${TOOLSET_VERSION})
     ENDIF()
 
+    IF (BOOST_MIN_VERSION STREQUAL "1.60.0")
+        SET(BOOST_URL "${TPURL}/boost_1_71_0.tar.bz2")
+        SET(BOOST_URL_MD5 "4cdf9b5c2dc01fb2b7b733d5af30e558")
+    ELSE()
+        SET(BOOST_URL "${TPURL}/boost_1_85_0.tar.bz2")
+        SET(BOOST_URL_MD5 "429d451cb9197143cc77962c5ff272ef")
+    ENDIF()
+
     IF (NOT WIN32)
         EXTERNALPROJECT_ADD(
             boost
             PREFIX ${TPSRC}
-            URL ${TPURL}/boost_1_71_0.tar.bz2
-            URL_MD5 "4cdf9b5c2dc01fb2b7b733d5af30e558"
+            URL ${BOOST_URL}
+            URL_MD5 ${BOOST_URL_MD5}
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
             SOURCE_DIR ${TPBUILD}/boost
@@ -146,18 +160,18 @@ IF (THIRDPARTY_BUILD_BOOST)
             INSTALL_COMMAND ""
             )
     ELSE ()
-	    MESSAGE(STATUS "Windows MSVC build - toolset is: ${TOOLSET_CMDLINE}")
+            MESSAGE(STATUS "Windows MSVC build - toolset is: ${TOOLSET_CMDLINE}")
         IF (CMAKE_SIZEOF_VOID_P EQUAL 8)
             SET(ADDRESS_MODEL 64)
         ELSE()
             SET(ADDRESS_MODEL 32)
         ENDIF()
-		MESSAGE(STATUS "Windows MSVC build - address model is: ${ADDRESS_MODEL}")
+                MESSAGE(STATUS "Windows MSVC build - address model is: ${ADDRESS_MODEL}")
         EXTERNALPROJECT_ADD(
             boost
             PREFIX ${TPSRC}
-            URL ${TPURL}/boost_1_71_0.tar.bz2
-            URL_MD5 "4cdf9b5c2dc01fb2b7b733d5af30e558"
+            URL ${BOOST_URL}
+            URL_MD5 ${BOOST_URL_MD5}
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
             SOURCE_DIR ${TPBUILD}/boost
@@ -194,7 +208,7 @@ IF (THIRDPARTY_BUILD_BOOST)
     SET(cmd_string "${cmd_string} : ${CMAKE_CXX_COMPILER} $<SEMICOLON>")
 
     IF (UNIX)
-	EXTERNALPROJECT_ADD_STEP(boost conf-project-conf
+        EXTERNALPROJECT_ADD_STEP(boost conf-project-conf
             COMMAND cmake -E echo "${cmd_string}" >
                 ${TPBUILD}/boost/tools/build/src/user-config.jam
             DEPENDERS build

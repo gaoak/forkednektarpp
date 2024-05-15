@@ -44,26 +44,21 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorBwdTrans
-    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>
+    : public OperatorLinear<FieldState::Coeff, FieldState::Phys, TData>
 {
 public:
-    ~OperatorBwdTrans() override = default;
-
     OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Phys>(
+        : OperatorLinear<FieldState::Coeff, FieldState::Phys, TData>(
               expansionList)
     {
     }
 
-    void apply([[maybe_unused]] Field<TData, FieldState::Coeff> &in,
-               [[maybe_unused]] Field<TData, FieldState::Phys> &out) override
-    {
-    }
+    ~OperatorBwdTrans() override = default;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Phys> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 };
 
@@ -71,32 +66,19 @@ public:
 template <typename TData = default_fp_type> struct BwdTrans
 {
     using class_name = OperatorBwdTrans<TData>;
-    using FieldIn    = Field<TData, FieldState::Coeff>;
-    using FieldOut   = Field<TData, FieldState::Phys>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Coeff>;
+    using FieldOut = Field<TData, FieldState::Phys>;
 
     BwdTrans() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<BwdTrans<TData>>(expansionList,
-                                                                 pKey);
+        return Operator<TData>::template create<BwdTrans<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string BwdTrans<>::key;
-template <> const std::string BwdTrans<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for BwdTrans implementations
-template <typename TData, typename Op> class OperatorBwdTransImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

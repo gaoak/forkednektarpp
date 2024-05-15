@@ -42,26 +42,21 @@ namespace Nektar::Operators
 
 // Identity base class
 // Defines the apply operator to enforce apply parameter types
-template <typename TData, FieldState TFieldState>
-class OperatorIdentity : public OperatorLinear<TData, TFieldState, TFieldState>
+template <FieldState TFieldState, typename TData>
+class OperatorIdentity : public OperatorLinear<TFieldState, TFieldState, TData>
 {
 public:
-    ~OperatorIdentity() override = default;
-
     OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, TFieldState, TFieldState>(expansionList)
+        : OperatorLinear<TFieldState, TFieldState, TData>(expansionList)
     {
     }
 
-    void apply([[maybe_unused]] Field<TData, TFieldState> &in,
-               [[maybe_unused]] Field<TData, TFieldState> &out) override
-    {
-    }
+    ~OperatorIdentity() override = default;
 
     virtual void operator()(Field<TData, TFieldState> &in,
                             Field<TData, TFieldState> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 };
 
@@ -69,38 +64,20 @@ public:
 template <FieldState TFieldState, typename TData = default_fp_type>
 struct Identity
 {
-    using class_name = OperatorIdentity<TData, TFieldState>;
-    using FieldIn    = Field<TData, TFieldState>;
-    using FieldOut   = Field<TData, TFieldState>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+    using class_name = OperatorIdentity<TFieldState, TData>;
+
+    using FieldIn  = Field<TData, TFieldState>;
+    using FieldOut = Field<TData, TFieldState>;
 
     Identity() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<Identity<TFieldState, TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<Identity<TFieldState, TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string Identity<FieldState::Coeff, default_fp_type>::key;
-template <>
-const std::string Identity<FieldState::Coeff, default_fp_type>::default_impl;
-template <> const std::string Identity<FieldState::Phys, default_fp_type>::key;
-template <>
-const std::string Identity<FieldState::Phys, default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for Identity implementations
-template <typename TData, FieldState TFieldState, typename Op>
-class OperatorIdentityImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

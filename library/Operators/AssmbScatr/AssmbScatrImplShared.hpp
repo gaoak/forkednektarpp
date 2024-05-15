@@ -1,0 +1,207 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: AssmbScatrImplShared.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include "AssmbScatrImplBase.hpp"
+
+#include "Operators/AssmbScatr/AssmbScatrCUDASumFacKernels.cuh"
+#include "Operators/AssmbScatr/AssmbScatrKokkosStdMatKernels.hpp"
+
+#include "Operators/OperatorHelper.hpp"
+
+namespace Nektar::Operators::detail
+{
+
+// Shared implementation
+template <typename ExecSpace, typename Implementation, typename TData,
+          typename = typename std::enable_if<
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)
+#if defined(NEKTAR_ENABLE_CUDA)
+              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+                  std::is_same<Implementation, Operators::SumFac>::value)
+#endif
+              >::type>
+class OperatorAssmbScatrImpl
+    : public OperatorAssmbScatrImplBase<ExecSpace, Implementation, TData>
+{
+    using MemSpace = typename ExecSpace::memory_space;
+
+public:
+    OperatorAssmbScatrImpl(const MultiRegions::ExpListSharedPtr &expansionList)
+        : OperatorAssmbScatrImplBase<ExecSpace, Implementation, TData>(
+              expansionList)
+    {
+        // Memory allocation for assemble pointer
+        auto assmb = this->m_assmbMap->GetLocalToGlobalMap();
+
+        m_assmb = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            assmb, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+
+        // Memory allocation for sign pointer
+        this->m_signChange = this->m_assmbMap->AssemblyMap::GetSignChange();
+
+        if (m_signChange)
+        {
+            auto sign = this->m_assmbMap->GetLocalToGlobalSign();
+
+            m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+                sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+        }
+    }
+
+    void Assemble(Field<TData, FieldState::Coeff> &in,
+                  MemoryRegion<TData> &out) override
+    {
+        // Zero the output
+        out.initialize(0, this->m_nGlobal);
+
+        const TData *inptr = in.template GetConstPtr<MemSpace>();
+        TData *outptr      = out.template GetPtr<MemSpace>();
+
+        const int *assmbptr = m_assmb.template GetConstPtr<MemSpace>();
+
+        if (this->m_solnType == eIterativeFull)
+        {
+            // Initialise index
+            size_t expIdx = 0;
+            size_t offset = 0;
+
+            for (auto const &block : in.GetBlocks())
+            {
+                // Determine shape and type of the element.
+                auto nElmts = block.num_elements;
+
+                auto const expPtr = this->m_expansionList->GetExp(expIdx);
+                auto ncoeff       = expPtr->GetNcoeffs();
+
+                // Deterime CUDA grid size.
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+
+                if (m_signChange)
+                {
+                    const TData *signptr =
+                        m_sign.template GetConstPtr<MemSpace>();
+
+                    AssembleKernel<ExecSpace, TData>(
+                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
+                        assmbptr, signptr, inptr, outptr);
+                }
+                else
+                {
+                    AssembleKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
+                                                     ncoeff, nElmts, offset,
+                                                     assmbptr, inptr, outptr);
+                }
+
+                // Increment pointer and index for next element type.
+                offset += ncoeff * nElmts;
+                expIdx += nElmts;
+            }
+        }
+    }
+
+    void GlobalToLocal(MemoryRegion<TData> &in,
+                       Field<TData, FieldState::Coeff> &out) override
+    {
+        // Zero the output
+        out.initialize(0, this->m_nLocal);
+
+        const TData *inptr = in.template GetConstPtr<MemSpace>();
+        TData *outptr      = out.template GetPtr<MemSpace>();
+
+        const int *assmbptr = m_assmb.template GetConstPtr<MemSpace>();
+
+        if (this->m_solnType == eIterativeFull)
+        {
+            // Initialise index
+            size_t expIdx = 0;
+            size_t offset = 0;
+
+            for (auto const &block : out.GetBlocks())
+            {
+                // Determine shape and type of the element.
+                auto nElmts = block.num_elements;
+
+                auto const expPtr = this->m_expansionList->GetExp(expIdx);
+                auto ncoeff       = expPtr->GetNcoeffs();
+
+#if defined(NEKTAR_ENABLE_CUDA)
+                // Deterime CUDA grid size.
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+#endif
+                if (m_signChange)
+                {
+                    const TData *signptr =
+                        m_sign.template GetConstPtr<MemSpace>();
+
+                    GlobalToLocalKernel<ExecSpace, TData>(
+                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
+                        assmbptr, signptr, inptr, outptr);
+                }
+                else
+                {
+                    GlobalToLocalKernel<ExecSpace, TData>(
+                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
+                        assmbptr, inptr, outptr);
+                }
+
+                // Increment pointer and index for next element type.
+                offset += ncoeff * nElmts;
+                expIdx += nElmts;
+            }
+        }
+    }
+
+    // instantiation function for CreatorFunction in OperatorFactory
+    static std::unique_ptr<Operator<TData>> instantiate(
+        const MultiRegions::ExpListSharedPtr &expansionList)
+    {
+        return std::make_unique<
+            OperatorAssmbScatrImpl<ExecSpace, Implementation, TData>>(
+            expansionList);
+    }
+
+private:
+    bool m_signChange;
+
+    MemoryRegion<TData> m_sign;
+    MemoryRegion<int> m_assmb;
+
+    size_t m_gridSize  = 1024;
+    size_t m_blockSize = 32;
+};
+
+} // namespace Nektar::Operators::detail

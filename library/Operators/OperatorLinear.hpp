@@ -34,16 +34,17 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ExpList.h>
+#include "Operator.hpp"
 
 #include "Field.hpp"
-#include "Operator.hpp"
+
+#include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <MultiRegions/ExpList.h>
 
 namespace Nektar::Operators
 {
 
-template <typename TData, FieldState TFieldIn, FieldState TFieldOut>
+template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
 class OperatorLinear : public Operator<TData>
 {
 

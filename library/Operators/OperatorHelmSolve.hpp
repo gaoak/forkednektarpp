@@ -46,15 +46,21 @@ namespace Nektar::Operators
 template <typename TData> class OperatorHelmSolve : public Operator<TData>
 {
 public:
-    ~OperatorHelmSolve() override = default;
-
     OperatorHelmSolve(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
+    ~OperatorHelmSolve() override = default;
+
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
+    virtual void operator()(Field<TData, FieldState::Phys> &in,
+                            Field<TData, FieldState::Coeff> &out)
+    {
+        apply(in, out);
+    }
 
     virtual void setLambda(const TData &lambda) = 0;
 
@@ -67,30 +73,16 @@ public:
 template <typename TData = default_fp_type> struct HelmSolve
 {
     using class_name = OperatorHelmSolve<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     HelmSolve() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<HelmSolve<TData>>(expansionList,
-                                                                  pKey);
+        return Operator<TData>::template create<HelmSolve<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string HelmSolve<default_fp_type>::key;
-template <> const std::string HelmSolve<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of HelmSolve operator
-template <typename TData, typename Op> class OperatorHelmSolveImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

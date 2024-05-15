@@ -59,18 +59,16 @@ public:
         auto func1 = fixt_explist->GetSession()->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_in->GetStorage().GetCPUPtr());
-        std::copy(
-            fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-            fixtcuda_in->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+                  fixt_in->GetPtr<NektarSpaces::HostSpace>());
+        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                  fixt_cuda_in->GetPtr<NektarSpaces::HostSpace>());
         auto func2 =
             fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_out->GetStorage().GetCPUPtr());
-        std::copy(
-            fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-            fixtcuda_out->template GetStorage<MemoryRegionCUDA>().GetCPUPtr());
+                  fixt_out->GetPtr<NektarSpaces::HostSpace>());
+        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                  fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>());
     }
 };
 

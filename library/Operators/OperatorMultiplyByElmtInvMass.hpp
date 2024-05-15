@@ -46,16 +46,17 @@ template <typename TData>
 class OperatorMultiplyByElmtInvMass : public Operator<TData>
 {
 public:
-    ~OperatorMultiplyByElmtInvMass() override = default;
-
     OperatorMultiplyByElmtInvMass(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
+    ~OperatorMultiplyByElmtInvMass() override = default;
+
     virtual void apply(Field<TData, FieldState::Coeff> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
@@ -67,30 +68,19 @@ public:
 template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
 {
     using class_name = OperatorMultiplyByElmtInvMass<TData>;
-    using FieldIn    = Field<TData, FieldState::Coeff>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
+    using FieldIn  = Field<TData, FieldState::Coeff>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
+
+    MultiplyByElmtInvMass() = delete;
+
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<MultiplyByElmtInvMass>(
-            expansionList, pKey);
+        return Operator<TData>::template create<MultiplyByElmtInvMass<TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string MultiplyByElmtInvMass<>::key;
-template <> const std::string MultiplyByElmtInvMass<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for MultiplyByElmtInvMass implementations
-template <typename TData, typename Op> class OperatorMultiplyByElmtInvMassImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

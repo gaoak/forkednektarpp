@@ -44,26 +44,21 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorMass
-    : public OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>
+    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
-    ~OperatorMass() override = default;
-
     OperatorMass(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TData, FieldState::Coeff, FieldState::Coeff>(
+        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
 
-    void apply([[maybe_unused]] Field<TData, FieldState::Coeff> &in,
-               [[maybe_unused]] Field<TData, FieldState::Coeff> &out) override
-    {
-    }
+    ~OperatorMass() override = default;
 
     virtual void operator()(Field<TData, FieldState::Coeff> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
-        apply(in, out);
+        this->apply(in, out);
     }
 };
 
@@ -71,32 +66,19 @@ public:
 template <typename TData = default_fp_type> struct Mass
 {
     using class_name = OperatorMass<TData>;
-    using FieldIn    = Field<TData, FieldState::Coeff>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
+
+    using FieldIn  = Field<TData, FieldState::Coeff>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
 
     Mass() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<Mass<TData>>(expansionList,
-                                                             pKey);
+        return Operator<TData>::template create<Mass<TData>, ExecSpace, Impl>(
+            expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string Mass<default_fp_type>::key;
-template <> const std::string Mass<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for Mass implementations
-template <typename TData, typename Op> class OperatorMassImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

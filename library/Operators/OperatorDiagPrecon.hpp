@@ -59,30 +59,16 @@ public:
 template <typename TData = default_fp_type> struct DiagPrecon
 {
     using class_name = OperatorDiagPrecon<TData>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
     DiagPrecon() = delete;
 
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<DiagPrecon<TData>>(
-            expansionList, pKey);
+        return Operator<TData>::template create<DiagPrecon<TData>, ExecSpace,
+                                                Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string DiagPrecon<default_fp_type>::key;
-template <> const std::string DiagPrecon<default_fp_type>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for implementation of DiagPrecon operator
-template <typename TData, typename Op> class OperatorDiagPreconImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators

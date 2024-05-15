@@ -37,7 +37,6 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysIterativeFull.h>
 
-using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;

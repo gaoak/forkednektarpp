@@ -46,16 +46,17 @@ template <typename TData>
 class OperatorAddTraceIntegral : public Operator<TData>
 {
 public:
-    ~OperatorAddTraceIntegral() override = default;
-
     OperatorAddTraceIntegral(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }
 
+    ~OperatorAddTraceIntegral() override = default;
+
     virtual void apply(Field<TData, FieldState::Phys> &in,
                        Field<TData, FieldState::Coeff> &out) = 0;
+
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
@@ -67,30 +68,17 @@ public:
 template <typename TData = default_fp_type> struct AddTraceIntegral
 {
     using class_name = OperatorAddTraceIntegral<TData>;
-    using FieldIn    = Field<TData, FieldState::Phys>;
-    using FieldOut   = Field<TData, FieldState::Coeff>;
-    OPERATORS_EXPORT static const std::string key;
-    OPERATORS_EXPORT static const std::string default_impl;
 
+    using FieldIn  = Field<TData, FieldState::Phys>;
+    using FieldOut = Field<TData, FieldState::Coeff>;
+
+    template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList,
-        std::string pKey = "")
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<AddTraceIntegral>(expansionList,
-                                                                  pKey);
+        return Operator<TData>::template create<AddTraceIntegral<TData>,
+                                                ExecSpace, Impl>(expansionList);
     }
 };
-
-// Avoid [-Wundefined-var-template] warnings
-#if defined(__GNUC__) || defined(__clang__)
-template <> const std::string AddTraceIntegral<>::key;
-template <> const std::string AddTraceIntegral<>::default_impl;
-#endif
-
-namespace detail
-{
-// Template for AddTraceIntegral implementations
-template <typename TData, typename Op> class OperatorAddTraceIntegralImpl;
-} // namespace detail
 
 } // namespace Nektar::Operators
