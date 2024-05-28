@@ -42,11 +42,17 @@ using namespace LibUtilities;
 std::string FieldStateString(FieldState state)
 {
     if (state == FieldState::Phys)
+    {
         return std::string("Phys");
+    }
     else if (state == FieldState::Coeff)
+    {
         return std::string("Coeff");
+    }
     else
+    {
         return std::string("");
+    }
 }
 
 std::vector<BlockAttributes> GetBlockAttributes(

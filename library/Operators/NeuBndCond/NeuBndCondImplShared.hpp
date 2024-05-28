@@ -43,6 +43,7 @@
 
 namespace Nektar::Operators::detail
 {
+
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<

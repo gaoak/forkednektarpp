@@ -350,7 +350,7 @@ public:
     }
 
     static std::unique_ptr<Operator<TData>> instantiate(
-        MultiRegions::ExpListSharedPtr expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
             OperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(

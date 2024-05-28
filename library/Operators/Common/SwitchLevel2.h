@@ -36,7 +36,6 @@
 #include <boost/preprocessor/repetition/for.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 
-
 /* The following code sets up a two-level switch where the outer range
    of the number of modes goes from MINXD to MAXXD which can be set
    from CMake Parameter NEKTAR_SWITCH_MIN and NEKTAR_SWITCH_MAX. The
@@ -46,7 +45,7 @@
    and OPERATORXD_M_SHAPE giving details of the switch case for the
    Quadrature case and the outer switch cases for each mode and
    OPERATORXD_DEF_SHAPE which are the default, non-templated function
-   call */ 
+   call */
 
 /** Macro tests the values of the tuple 'state' to see if the first
    element, given by BOOST_PP_TUPLE_ELEM(0, state), is not equal to

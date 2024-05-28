@@ -50,8 +50,8 @@
 namespace Nektar::Operators
 {
 
-extern std::string g_ExecSpace;
-extern std::string g_Impl;
+extern OPERATORS_EXPORT std::string g_ExecSpace;
+extern OPERATORS_EXPORT std::string g_Impl;
 
 // Core implementation types
 class StdMat
@@ -99,14 +99,9 @@ public:
         std::string descriptStr(descript);
 
         // Check for a Nektar::Operators:: root.
-        const std::string base1("Nektar::Operators::");
-
-        std::size_t found = descriptStr.find(base1);
-        if (found != std::string::npos)
+        if (Nektar::stripString(descriptStr, "Nektar::Operators::"))
         {
-            descriptStr.erase(found, base1.length());
-
-            found = descriptStr.find("<");
+            size_t found = descriptStr.find("<");
             if (found != std::string::npos)
             {
                 descriptStr.erase(found);
@@ -123,29 +118,24 @@ public:
                      "malformed operator template descriptor.");
         }
 
+#if defined(_MSC_VER)
+        // Check for a struct root.
+        Nektar::stripString(descriptStr, "struct ");
+#endif
+
         // The TDescriptor name may contain the FieldState, if so get
         // the enum and corresponding string.
-        const std::string base2("(FieldState)");
         std::string fieldStateStr(descript);
 
-        found = fieldStateStr.find(base2);
-        if (found != std::string::npos)
+        size_t found0 = fieldStateStr.find("0");
+        size_t found1 = fieldStateStr.find("1");
+        if (found0 != std::string::npos)
         {
-            fieldStateStr.erase(0, found + base2.length());
-
-            found = fieldStateStr.find(",");
-            if (found != std::string::npos)
-            {
-                fieldStateStr.erase(found);
-            }
-            else
-            {
-                NEKERROR(Nektar::ErrorUtil::efatal,
-                         "malformed FieldState template descriptor.");
-            }
-
-            fieldStateStr =
-                FieldStateString(FieldState(std::stoi(fieldStateStr)));
+            fieldStateStr = FieldStateString(FieldState(0));
+        }
+        else if (found1 != std::string::npos)
+        {
+            fieldStateStr = FieldStateString(FieldState(1));
         }
         else
         {
@@ -156,41 +146,39 @@ public:
         // removed.
         std::string execStr = Nektar::demangleTypeName(typeid(ExecSpace));
 
-        const std::string base3("NektarSpaces::");
-
-        // Check for a NektarSpaces:: root.
-        found = execStr.find(base3);
-        if (found != std::string::npos)
-        {
-            execStr.erase(found, base3.length());
-        }
-        else
+        if (!Nektar::stripString(execStr, "NektarSpaces::"))
         {
             // Check for a Kokkos:: root.
-            found = execStr.find("Kokkos::");
+            size_t found = execStr.find("Kokkos::");
             if (found != std::string::npos)
             {
                 execStr = "Kokkos";
             }
         }
 
+#if defined(_MSC_VER)
+        // Check for a class root.
+        Nektar::stripString(execStr, "class ");
+#endif
+
         // The Implementation name contains the namespace which needs
         // to be removed.
         std::string implStr = Nektar::demangleTypeName(typeid(Implementation));
 
-        const std::string base4("Nektar::Operators::");
+        Nektar::stripString(implStr, "Nektar::Operators::");
 
-        found = implStr.find(base4);
-        if (found != std::string::npos)
-        {
-            implStr.erase(found, base4.length());
-        }
+#if defined(_MSC_VER)
+        // Check for a class root.
+        Nektar::stripString(implStr, "class ");
+#endif
 
         std::string requestedKey =
             descriptStr + fieldStateStr + execStr + implStr;
         std::string key = requestedKey;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
+
+        bool notFound = true;
 
         for (size_t i = 0; i < 7; ++i)
         {
@@ -248,18 +236,25 @@ public:
                     WARNINGL0(false, msg);
                 }
 
-                return std::static_pointer_cast<
-                    typename TDescriptor::class_name>(
-                    factory.CreateInstance(key, expansionList));
+                notFound = false;
+
+                break;
             }
         }
 
         // No suitible operator was found.
-        std::stringstream msg;
-        msg << "No such operator: " << requestedKey
-            << " and no default operator: " << key << std::endl;
-        factory.PrintAvailableClasses(msg);
-        NEKERROR(ErrorUtil::efatal, msg.str());
+        if (notFound)
+        {
+            std::stringstream msg;
+            msg << "No such operator: " << requestedKey
+                << " and no default operator: " << key << ". Descriptor is "
+                << descript << std::endl;
+            factory.PrintAvailableClasses(msg);
+            NEKERROR(ErrorUtil::efatal, msg.str());
+        }
+
+        return std::static_pointer_cast<typename TDescriptor::class_name>(
+            factory.CreateInstance(key, expansionList));
     }
 
 protected:

@@ -185,8 +185,7 @@ SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)
 SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_stdmat test_multiplybyelmtinvmass_kokkos_stdmat FALSE)
 
 # These Kokkos test do not work probably because of interleaaving???
-IF((NOT DEFINED NEKTAR_ENABLE_SIMD_AVX2) AND
-   (NOT DEFINED NEKTAR_ENABLE_SIMD_AVX512))
+IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
     SET_UNIT_TEST(Assmbscatr_kokkos_stdmat test_assmbscatr_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Dirichlet_kokkos_stdmat test_dirichlet_kokkos_stdmat FALSE)
     SET_UNIT_TEST(FwdTrans_kokkos_stdmat test_fwdtrans_kokkos_stdmat FALSE)

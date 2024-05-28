@@ -41,6 +41,7 @@ namespace Nektar
 {
 
 std::string demangleTypeName(const std::type_info &info);
+bool stripString(std::string &inStr, const std::string baseStr);
 
 } // namespace Nektar
 

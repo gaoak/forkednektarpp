@@ -162,23 +162,27 @@ public:
 
             // Compute new search direction p_k
             std::transform(p_p_A, p_p_A + this->m_nloc, p_w_A, p_p_A,
-                           [&beta](const TData &pElem, const TData &wElem)
-                           { return beta * pElem + wElem; });
+                           [&beta](const TData &pElem, const TData &wElem) {
+                               return beta * pElem + wElem;
+                           });
 
             // Compute new search direction q_k
             std::transform(p_q_A, p_q_A + this->m_nloc, p_s_A, p_q_A,
-                           [&beta](const TData &qElem, const TData &sElem)
-                           { return beta * qElem + sElem; });
+                           [&beta](const TData &qElem, const TData &sElem) {
+                               return beta * qElem + sElem;
+                           });
 
             // Update solution x_{k+1}
             std::transform(p_p_A, p_p_A + this->m_nloc, p_out, p_out,
-                           [&alpha](const TData &pElem, const TData &xElem)
-                           { return alpha * pElem + xElem; });
+                           [&alpha](const TData &pElem, const TData &xElem) {
+                               return alpha * pElem + xElem;
+                           });
 
             // Update residual vector r_{k+1}
             std::transform(p_q_A, p_q_A + this->m_nloc, p_r_A, p_r_A,
-                           [&alpha](const TData &qElem, const TData &rElem)
-                           { return -alpha * qElem + rElem; });
+                           [&alpha](const TData &qElem, const TData &rElem) {
+                               return -alpha * qElem + rElem;
+                           });
 
             // Apply preconditioner
             this->m_precon->apply(this->m_r_A, this->m_w_A);

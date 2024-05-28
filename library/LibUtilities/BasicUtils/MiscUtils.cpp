@@ -37,6 +37,8 @@
 #if defined(__GNUC__) || defined(__clang__)
 #include <cxxabi.h>
 #elif defined(_MSC_VER)
+#include <windows.h>
+
 #include <dbghelp.h>
 #endif
 
@@ -70,5 +72,18 @@ std::string demangleTypeName(const std::type_info &info)
     return ret;
 }
 #endif
+
+bool stripString(std::string &inStr, const std::string baseStr)
+{
+    size_t found = inStr.find(baseStr);
+
+    if (found != std::string::npos)
+    {
+        inStr.erase(found, baseStr.length());
+        return true;
+    }
+
+    return false;
+}
 
 } // namespace Nektar

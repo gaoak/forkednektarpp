@@ -72,8 +72,8 @@ public:
      * @brief Constructor methods - no base, copy methods
      *
      */
-    MemoryRegionDevice()                                         = delete;
-    MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
+    MemoryRegionDevice()                              = delete;
+    MemoryRegionDevice(const MemoryRegionDevice &rhs) = delete;
     MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
 
     /**
@@ -856,7 +856,7 @@ public:
                 cudaMemcpy(m_device, host, count * sizeof(TData),
                            cudaMemcpyHostToDevice);
 
-                delete[] (host);
+                delete[](host);
 #elif defined(NEKTAR_ENABLE_HIP)
                 TData *host = new TData[count * sizeof(TData)];
 
@@ -865,7 +865,7 @@ public:
                 hipMemcpy(m_device, host, count * sizeof(TData),
                           hipMemcpyHostToDevice);
 
-                delete[] (host);
+                delete[](host);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
                 // char *srcPtr = reinterpret_cast<char *>(host);
                 // char *dstPtr = reinterpret_cast<char *>(m_device);
@@ -902,7 +902,7 @@ public:
      * @param array - std::vector to copy from
      */
     template <typename TDataIn = TData>
-    void copyVector(std::vector<TDataIn> const &array)
+    void copyVector([[maybe_unused]] std::vector<TDataIn> const &array)
     {
 #ifdef SYNC_WIHT_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
@@ -990,7 +990,8 @@ public:
      * @param array - Nektar::Array to copy from
      */
     template <typename TDataIn = TData>
-    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
+    void copyArray(
+        [[maybe_unused]] Nektar::Array<Nektar::OneD, TDataIn> const &array)
     {
 #ifdef SYNC_WIHT_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
@@ -1202,7 +1203,8 @@ public:
      * @param array - Nektar::Array to copy from
      */
     template <typename TDataIn = TData>
-    void copyRaw(TData *dest, TDataIn *src, size_t size)
+    void copyRaw([[maybe_unused]] TData *dest, [[maybe_unused]] TDataIn *src,
+                 [[maybe_unused]] size_t size)
     {
 #ifdef SYNC_WIHT_HOST
         MemoryRegionHost<TData>::template copyRaw<TDataIn>(dest, src, size);
