@@ -42,11 +42,17 @@
 
 namespace Nektar::Operators::detail
 {
+
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-              std::is_same<Implementation, Operators::SumFac>::value>::type>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)
+#if defined(NEKTAR_ENABLE_CUDA)
+              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+                  std::is_same<Implementation, Operators::SumFac>::value)
+#endif
+              >::type>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -215,8 +221,9 @@ public:
         }
     }
 
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
-        MultiRegions::ExpListSharedPtr expansionList)
+        const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
             OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(

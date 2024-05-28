@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DirBndCondKokkosStdMatKernels.hpp 
+// File: DirBndCondKokkosStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -49,11 +49,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 DirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                         [[maybe_unused]] const size_t blockSize,
-                         const unsigned int nsize, const int *offsetptr,
-                         const BoundaryConditionType *bctypeptr,
-                         const int *ncoeffptr, const int *mapptr,
-                         const TData *inptr, TData *outptr)
+                 [[maybe_unused]] const size_t blockSize,
+                 const unsigned int nsize, const int *offsetptr,
+                 const BoundaryConditionType *bctypeptr, const int *ncoeffptr,
+                 const int *mapptr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {
@@ -73,11 +72,11 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 DirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                         [[maybe_unused]] const size_t blockSize,
-                         const unsigned int nsize, const int *offsetptr,
-                         const BoundaryConditionType *bctypeptr,
-                         const int *ncoeffptr, const TData *signptr,
-                         const int *mapptr, const TData *inptr, TData *outptr)
+                 [[maybe_unused]] const size_t blockSize,
+                 const unsigned int nsize, const int *offsetptr,
+                 const BoundaryConditionType *bctypeptr, const int *ncoeffptr,
+                 const TData *signptr, const int *mapptr, const TData *inptr,
+                 TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {
@@ -98,10 +97,9 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 LocalDirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                              [[maybe_unused]] const size_t blockSize,
-                              const unsigned int nsize, const int *id0ptr,
-                              const int *id1ptr, const TData *signptr,
-                              TData *outptr)
+                      [[maybe_unused]] const size_t blockSize,
+                      const unsigned int nsize, const int *id0ptr,
+                      const int *id1ptr, const TData *signptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {

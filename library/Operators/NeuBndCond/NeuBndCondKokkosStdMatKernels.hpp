@@ -48,11 +48,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                         [[maybe_unused]] const size_t blockSize,
-                         const size_t bndExpSize, const int *offsetPtr,
-                         const BoundaryConditionType *bctypePtr,
-                         const int *ncoeffPtr, const int *mapPtr,
-                         const TData *inPtr, TData *outPtr)
+                 [[maybe_unused]] const size_t blockSize,
+                 const size_t bndExpSize, const int *offsetPtr,
+                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, bndExpSize, KOKKOS_LAMBDA(int i) {
@@ -72,11 +71,11 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                         [[maybe_unused]] const size_t blockSize,
-                         const size_t bndExpSize, const int *offsetPtr,
-                         const BoundaryConditionType *bctypePtr,
-                         const int *ncoeffPtr, const TData *signPtr,
-                         const int *mapPtr, const TData *inPtr, TData *outPtr)
+                 [[maybe_unused]] const size_t blockSize,
+                 const size_t bndExpSize, const int *offsetPtr,
+                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
+                 const TData *signPtr, const int *mapPtr, const TData *inPtr,
+                 TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, bndExpSize, KOKKOS_LAMBDA(int i) {

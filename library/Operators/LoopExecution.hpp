@@ -460,8 +460,7 @@ parallel_for(BlockRange const &r, const Functor &functor)
                 // printf("i is %d\n", thread.team_rank());
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(thread, team_range_size),
-                    [&](const int &n)
-                    {
+                    [&](const int &n) {
                         const int i = n / (j_size * k_size) + rbegin0;
                         const int j = (n / k_size) % j_size + rbegin1;
                         const int k = n % k_size + rbegin2;
@@ -552,8 +551,7 @@ parallel_for(BlockRange const &r, const Functor &functor)
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(thread, totalN),
                     [&, startingN, i_size, j_size, k_size, rbegin0, rbegin1,
-                     rbegin2](const int &N)
-                    {
+                     rbegin2](const int &N) {
                         // Craft an i,j,k out of this range.  This approach
                         // works with row-major layout so that consecutive
                         // Kokkos threads work along consecutive slots in
@@ -685,8 +683,7 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                           typename Reduction::value_type & inner_val) {
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(thread, team_range_size),
-                    [&](const int &n)
-                    {
+                    [&](const int &n) {
                         const int i = n / (j_size * k_size) + rbegin0;
                         const int j = (n / k_size) % j_size + rbegin1;
                         const int k = n % k_size + rbegin2;
@@ -788,8 +785,7 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(thread, totalN),
                     [&, startingN, i_size, j_size, k_size, rbegin0, rbegin1,
-                     rbegin2](const int &N)
-                    {
+                     rbegin2](const int &N) {
                         // Craft an i,j,k out of this range.  This approach
                         // works with row-major layout so that consecutive
                         // Kokkos threads work along consecutive slots in

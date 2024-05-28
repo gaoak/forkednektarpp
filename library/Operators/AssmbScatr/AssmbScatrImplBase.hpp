@@ -91,12 +91,11 @@ public:
         GlobalToLocal(m_global, out);
     }
 
-    virtual void Assemble(Field<TData, FieldState::Coeff> &in,
-                          MemoryRegion<TData> &out) override = 0;
+    void Assemble(Field<TData, FieldState::Coeff> &in,
+                  MemoryRegion<TData> &out) override = 0;
 
-    virtual void GlobalToLocal(
-        MemoryRegion<TData> &in,
-        Field<TData, FieldState::Coeff> &out) override = 0;
+    void GlobalToLocal(MemoryRegion<TData> &in,
+                       Field<TData, FieldState::Coeff> &out) override = 0;
 
     // className - for OperatorFactory
     static std::string className;

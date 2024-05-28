@@ -43,10 +43,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 AssembleKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int ncoeff, const unsigned int nelmt,
-                       const unsigned int offset, const int *assmbptr,
-                       const TData *signptr, const TData *inptr, TData *outptr)
+               [[maybe_unused]] const size_t blockSize,
+               const unsigned int ncoeff, const unsigned int nelmt,
+               const unsigned int offset, const int *assmbptr,
+               const TData *signptr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -64,10 +64,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 AssembleKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int ncoeff, const unsigned int nelmt,
-                       const unsigned int offset, const int *assmbptr,
-                       const TData sign, const TData *inptr, TData *outptr)
+               [[maybe_unused]] const size_t blockSize,
+               const unsigned int ncoeff, const unsigned int nelmt,
+               const unsigned int offset, const int *assmbptr, const TData sign,
+               const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -85,10 +85,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 AssembleKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int ncoeff, const unsigned int nelmt,
-                       const unsigned int offset, const int *assmbptr,
-                       const TData *inptr, TData *outptr)
+               [[maybe_unused]] const size_t blockSize,
+               const unsigned int ncoeff, const unsigned int nelmt,
+               const unsigned int offset, const int *assmbptr,
+               const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -106,11 +106,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
-                            [[maybe_unused]] const size_t blockSize,
-                            const unsigned int ncoeff, const unsigned int nelmt,
-                            const unsigned int offset, const int *assmbptr,
-                            const TData *signptr, const TData *inptr,
-                            TData *outptr)
+                    [[maybe_unused]] const size_t blockSize,
+                    const unsigned int ncoeff, const unsigned int nelmt,
+                    const unsigned int offset, const int *assmbptr,
+                    const TData *signptr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -128,10 +127,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
-                            [[maybe_unused]] const size_t blockSize,
-                            const unsigned int ncoeff, const unsigned int nelmt,
-                            const unsigned int offset, const int *assmbptr,
-                            const TData sign, const TData *inptr, TData *outptr)
+                    [[maybe_unused]] const size_t blockSize,
+                    const unsigned int ncoeff, const unsigned int nelmt,
+                    const unsigned int offset, const int *assmbptr,
+                    const TData sign, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -148,10 +147,10 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
-                            [[maybe_unused]] const size_t blockSize,
-                            const unsigned int ncoeff, const unsigned int nelmt,
-                            const unsigned int offset, const int *assmbptr,
-                            const TData *inptr, TData *outptr)
+                    [[maybe_unused]] const size_t blockSize,
+                    const unsigned int ncoeff, const unsigned int nelmt,
+                    const unsigned int offset, const int *assmbptr,
+                    const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {

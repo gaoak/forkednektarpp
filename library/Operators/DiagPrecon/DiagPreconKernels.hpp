@@ -65,9 +65,9 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
 CopyDiagonalKernel([[maybe_unused]] const size_t gridSize,
-                   [[maybe_unused]] const size_t blockSize,
-                   const size_t nmTot, const size_t nElmts, const size_t mode,
-                   TData *in, TData *out)
+                   [[maybe_unused]] const size_t blockSize, const size_t nmTot,
+                   const size_t nElmts, const size_t mode, TData *in,
+                   TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nElmts,

@@ -270,8 +270,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         size_t size = storage_size * num_components;
 
@@ -351,8 +352,9 @@ public:
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
-            [](size_t acc, const BlockAttributes &block)
-            { return acc + block.block_size; });
+            [](size_t acc, const BlockAttributes &block) {
+                return acc + block.block_size;
+            });
 
         size_t size = storage_size * num_components;
 

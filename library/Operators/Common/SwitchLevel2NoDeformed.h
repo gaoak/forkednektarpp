@@ -34,8 +34,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /* Switch macros for two level switch over modes and then quadrature
-   orders when deformation is not a template parameter */ 
-
+   orders when deformation is not a template parameter */
 
 #define NM(i) BOOST_PP_TUPLE_ELEM(0, i)
 #define NM_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))

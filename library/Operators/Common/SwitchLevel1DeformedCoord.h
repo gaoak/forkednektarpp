@@ -52,7 +52,7 @@ if (deformed)
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
-            break;
+                break;
             case 2:
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
@@ -62,7 +62,7 @@ if (deformed)
 
 #include "../Common/SwitchLevel1_1D.h"
 
-            break;
+                break;
             case 3:
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
@@ -71,7 +71,7 @@ if (deformed)
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
-            break;
+                break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
                 break;
@@ -102,7 +102,7 @@ if (deformed)
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
-            break;
+                break;
             case 3:
 #undef OPERATOR2D_TRI
 #define OPERATOR2D_TRI(r, i)                                                   \
@@ -119,7 +119,7 @@ if (deformed)
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
-            break;
+                break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
                 break;
@@ -185,7 +185,7 @@ else
 
 #include "../Common/SwitchLevel1_1D.h"
 
-            break;
+                break;
             case 2:
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
@@ -195,7 +195,7 @@ else
 
 #include "../Common/SwitchLevel1_1D.h"
 
-            break;
+                break;
             case 3:
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
@@ -204,7 +204,7 @@ else
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
-            break;
+                break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
                 break;
@@ -240,7 +240,7 @@ else
 
 #include "../Common/SwitchLevel1_2D.h"
 
-            break;
+                break;
             case 3:
 #undef OPERATOR2D_TRI
 #define OPERATOR2D_TRI(r, i)                                                   \
@@ -257,7 +257,7 @@ else
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
-            break;
+                break;
             default:
                 NEKERROR(ErrorUtil::efatal, "invalid coordinate dimension");
                 break;

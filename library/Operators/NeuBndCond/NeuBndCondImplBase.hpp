@@ -57,7 +57,7 @@ public:
     {
     }
 
-    virtual void apply(Field<TData, FieldState::Coeff> &inOut) = 0;
+    void apply(Field<TData, FieldState::Coeff> &inOut) override = 0;
 
     // className - for OperatorFactory
     static std::string className;

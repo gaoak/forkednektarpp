@@ -61,9 +61,9 @@
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace>(),\
-                             fixt_expected->GetPtr<NektarSpaces::HostSpace>(), \
-                             tol);                                             \
+            OutputIfNotMatch(                                                  \
+                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace>(),            \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace>(), tol);        \
         }                                                                      \
     }
 
