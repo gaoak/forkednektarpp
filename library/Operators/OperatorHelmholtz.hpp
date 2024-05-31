@@ -66,6 +66,7 @@ public:
         m_lambda = lambda;
     }
 
+protected:
     TData m_lambda = 1.0;
 };
 

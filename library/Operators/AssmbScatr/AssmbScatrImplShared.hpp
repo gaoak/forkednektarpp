@@ -47,13 +47,12 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorAssmbScatrImpl
     : public OperatorAssmbScatrImplBase<ExecSpace, Implementation, TData>
 {
@@ -71,7 +70,7 @@ public:
             assmb, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
         // Memory allocation for sign pointer
-        this->m_signChange = this->m_assmbMap->AssemblyMap::GetSignChange();
+        m_signChange = this->m_assmbMap->AssemblyMap::GetSignChange();
 
         if (m_signChange)
         {
@@ -88,47 +87,52 @@ public:
         // Zero the output
         out.initialize(0, this->m_nGlobal);
 
-        const TData *inptr = in.template GetConstPtr<MemSpace>();
-        TData *outptr      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetConstPtr<MemSpace>();
+        TData *outPtr      = out.template GetPtr<MemSpace>();
 
-        const int *assmbptr = m_assmb.template GetConstPtr<MemSpace>();
+        const int *assmbPtr = m_assmb.template GetConstPtr<MemSpace>();
 
         if (this->m_solnType == eIterativeFull)
         {
             // Initialise index
-            size_t expIdx = 0;
-            size_t offset = 0;
+            size_t exp_idx = 0;
+            size_t offset  = 0;
 
             for (auto const &block : in.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
 
-                auto const expPtr = this->m_expansionList->GetExp(expIdx);
-                auto ncoeff       = expPtr->GetNcoeffs();
+                auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+                auto nCoeff       = expPtr->GetNcoeffs();
 
                 // Deterime CUDA grid size.
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-
+#if defined(NEKTAR_ENABLE_CUDA)
+                if constexpr (std::is_same<ExecSpace,
+                                           NektarSpaces::CUDA>::value)
+                {
+                    m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+                }
+#endif
                 if (m_signChange)
                 {
-                    const TData *signptr =
+                    const TData *signPtr =
                         m_sign.template GetConstPtr<MemSpace>();
 
                     AssembleKernel<ExecSpace, TData>(
-                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
-                        assmbptr, signptr, inptr, outptr);
+                        m_gridSize, m_blockSize, nCoeff, nElmts, offset,
+                        assmbPtr, signPtr, inPtr, outPtr);
                 }
                 else
                 {
                     AssembleKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                                     ncoeff, nElmts, offset,
-                                                     assmbptr, inptr, outptr);
+                                                     nCoeff, nElmts, offset,
+                                                     assmbPtr, inPtr, outPtr);
                 }
 
                 // Increment pointer and index for next element type.
-                offset += ncoeff * nElmts;
-                expIdx += nElmts;
+                offset += nCoeff * nElmts;
+                exp_idx += nElmts;
             }
         }
     }
@@ -139,28 +143,32 @@ public:
         // Zero the output
         out.initialize(0, this->m_nLocal);
 
-        const TData *inptr = in.template GetConstPtr<MemSpace>();
-        TData *outptr      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetConstPtr<MemSpace>();
+        TData *outPtr      = out.template GetPtr<MemSpace>();
 
-        const int *assmbptr = m_assmb.template GetConstPtr<MemSpace>();
+        const int *assmbPtr = m_assmb.template GetConstPtr<MemSpace>();
 
         if (this->m_solnType == eIterativeFull)
         {
             // Initialise index
-            size_t expIdx = 0;
-            size_t offset = 0;
+            size_t exp_idx = 0;
+            size_t offset  = 0;
 
             for (auto const &block : out.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
 
-                auto const expPtr = this->m_expansionList->GetExp(expIdx);
+                auto const expPtr = this->m_expansionList->GetExp(exp_idx);
                 auto ncoeff       = expPtr->GetNcoeffs();
 
-#if defined(NEKTAR_ENABLE_CUDA)
                 // Deterime CUDA grid size.
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+#if defined(NEKTAR_ENABLE_CUDA)
+                if constexpr (std::is_same<ExecSpace,
+                                           NektarSpaces::CUDA>::value)
+                {
+                    m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+                }
 #endif
                 if (m_signChange)
                 {
@@ -169,18 +177,18 @@ public:
 
                     GlobalToLocalKernel<ExecSpace, TData>(
                         m_gridSize, m_blockSize, ncoeff, nElmts, offset,
-                        assmbptr, signptr, inptr, outptr);
+                        assmbPtr, signptr, inPtr, outPtr);
                 }
                 else
                 {
                     GlobalToLocalKernel<ExecSpace, TData>(
                         m_gridSize, m_blockSize, ncoeff, nElmts, offset,
-                        assmbptr, inptr, outptr);
+                        assmbPtr, inPtr, outPtr);
                 }
 
                 // Increment pointer and index for next element type.
                 offset += ncoeff * nElmts;
-                expIdx += nElmts;
+                exp_idx += nElmts;
             }
         }
     }
@@ -195,7 +203,7 @@ public:
     }
 
 private:
-    bool m_signChange;
+    bool m_signChange = false;
 
     MemoryRegion<TData> m_sign;
     MemoryRegion<int> m_assmb;

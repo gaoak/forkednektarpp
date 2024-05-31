@@ -34,7 +34,6 @@
 
 #include "init_fields.hpp"
 
-using namespace std;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 

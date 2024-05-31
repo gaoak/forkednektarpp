@@ -80,7 +80,7 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false) override
     {
-        Assemble(in, m_global);
+        this->Assemble(in, m_global);
 
         // Zeroing Dirichlet BC
         if (zeroDir)
@@ -88,14 +88,8 @@ public:
             m_global.initialize(0, m_nDir);
         }
 
-        GlobalToLocal(m_global, out);
+        this->GlobalToLocal(m_global, out);
     }
-
-    void Assemble(Field<TData, FieldState::Coeff> &in,
-                  MemoryRegion<TData> &out) override = 0;
-
-    void GlobalToLocal(MemoryRegion<TData> &in,
-                       Field<TData, FieldState::Coeff> &out) override = 0;
 
     // className - for OperatorFactory
     static std::string className;

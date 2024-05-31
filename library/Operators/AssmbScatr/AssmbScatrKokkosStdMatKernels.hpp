@@ -45,8 +45,8 @@ inline typename std::enable_if<
 AssembleKernel([[maybe_unused]] const size_t gridSize,
                [[maybe_unused]] const size_t blockSize,
                const unsigned int ncoeff, const unsigned int nelmt,
-               const unsigned int offset, const int *assmbptr,
-               const TData *signptr, const TData *inptr, TData *outptr)
+               const unsigned int offset, const int *assmbPtr,
+               const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -54,8 +54,8 @@ AssembleKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                Kokkos::atomic_add(outptr + assmbptr[index + i],
-                                   signptr[index + i] * inptr[index + i]);
+                Kokkos::atomic_add(outPtr + assmbPtr[index + i],
+                                   signPtr[index + i] * inPtr[index + i]);
             }
         });
 }
@@ -66,8 +66,8 @@ inline typename std::enable_if<
 AssembleKernel([[maybe_unused]] const size_t gridSize,
                [[maybe_unused]] const size_t blockSize,
                const unsigned int ncoeff, const unsigned int nelmt,
-               const unsigned int offset, const int *assmbptr, const TData sign,
-               const TData *inptr, TData *outptr)
+               const unsigned int offset, const int *assmbPtr, const TData sign,
+               const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -75,8 +75,8 @@ AssembleKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                Kokkos::atomic_add(outptr + assmbptr[index + i],
-                                   sign * inptr[index + i]);
+                Kokkos::atomic_add(outPtr + assmbPtr[index + i],
+                                   sign * inPtr[index + i]);
             }
         });
 }
@@ -87,8 +87,8 @@ inline typename std::enable_if<
 AssembleKernel([[maybe_unused]] const size_t gridSize,
                [[maybe_unused]] const size_t blockSize,
                const unsigned int ncoeff, const unsigned int nelmt,
-               const unsigned int offset, const int *assmbptr,
-               const TData *inptr, TData *outptr)
+               const unsigned int offset, const int *assmbPtr,
+               const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -96,8 +96,8 @@ AssembleKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                Kokkos::atomic_add(outptr + assmbptr[index + i],
-                                   inptr[index + i]);
+                Kokkos::atomic_add(outPtr + assmbPtr[index + i],
+                                   inPtr[index + i]);
             }
         });
 }
@@ -108,8 +108,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
                     [[maybe_unused]] const size_t blockSize,
                     const unsigned int ncoeff, const unsigned int nelmt,
-                    const unsigned int offset, const int *assmbptr,
-                    const TData *signptr, const TData *inptr, TData *outptr)
+                    const unsigned int offset, const int *assmbPtr,
+                    const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -117,8 +117,8 @@ GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                outptr[index + i] =
-                    signptr[index + i] * inptr[assmbptr[index + i]];
+                outPtr[index + i] =
+                    signPtr[index + i] * inPtr[assmbPtr[index + i]];
             }
         });
 }
@@ -129,8 +129,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
                     [[maybe_unused]] const size_t blockSize,
                     const unsigned int ncoeff, const unsigned int nelmt,
-                    const unsigned int offset, const int *assmbptr,
-                    const TData sign, const TData *inptr, TData *outptr)
+                    const unsigned int offset, const int *assmbPtr,
+                    const TData sign, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -138,7 +138,7 @@ GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                outptr[index + i] = sign * inptr[assmbptr[index + i]];
+                outPtr[index + i] = sign * inPtr[assmbPtr[index + i]];
             }
         });
 }
@@ -149,8 +149,8 @@ inline typename std::enable_if<
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
                     [[maybe_unused]] const size_t blockSize,
                     const unsigned int ncoeff, const unsigned int nelmt,
-                    const unsigned int offset, const int *assmbptr,
-                    const TData *inptr, TData *outptr)
+                    const unsigned int offset, const int *assmbPtr,
+                    const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nelmt, KOKKOS_LAMBDA(int e) {
@@ -158,7 +158,7 @@ GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
 
             for (unsigned int i = 0; i < ncoeff; i++)
             {
-                outptr[index + i] = inptr[assmbptr[index + i]];
+                outPtr[index + i] = inPtr[assmbPtr[index + i]];
             }
         });
 }

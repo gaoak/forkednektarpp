@@ -101,7 +101,7 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inptr   = in.template GetConstPtr<MemSpace>();
+        auto *inPtr   = in.template GetConstPtr<MemSpace>();
         auto *outOrig = out.template GetPtr<MemSpace>();
 
         auto const Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
@@ -109,12 +109,15 @@ public:
                  "Output field has fewer components than the coordinate!");
         // WARNINGL0(Coordim == out.GetNumComponents(),
         //           "Output field has more components than the coordinate!");
+
+        std::vector<TData *> outPtr;
+        outPtr.resize(Coordim);
+
         size_t scalar_field_size = out.size() / out.GetNumComponents();
-        std::vector<TData *> outptr;
-        outptr.resize(Coordim);
+
         for (int d = 0; d < Coordim; ++d)
         {
-            outptr[d] = outOrig + d * scalar_field_size;
+            outPtr[d] = outOrig + d * scalar_field_size;
         }
 
         size_t exp_idx = 0; // accumulates over blocks, not used in operatorND()
@@ -123,16 +126,17 @@ public:
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+            auto const nPadElmts = inblock.num_padding_elements;
 
-            auto nElmts    = inblock.num_elements;
-            auto nPadElmts = inblock.num_padding_elements;
-
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            // Determine shape and type of the element.
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const shapeType = expPtr->DetShapeType();
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
             m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
@@ -147,17 +151,22 @@ public:
 
 #include "../Common/SwitchLevel1DeformedCoord.h"
 
-            inptr += inblock.block_size;
+            // Increment pointer and index for next element type.
+            inPtr += inblock.block_size;
 
             for (int d = 0; d < Coordim; ++d)
             {
-                outptr[d] += outblock.block_size;
+                outPtr[d] += outblock.block_size;
             }
 
             exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -165,8 +174,6 @@ public:
             OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     int m_nElmtGroup, m_jac_idx;
@@ -182,14 +189,14 @@ private:
     void operator1D(const NekDouble *input, std::vector<NekDouble *> output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nq0     = expPtr->GetNumPoints(0);
-        const auto nqTot   = nq0;
-        const auto nqBlock = nqTot * vec_t::width;
+        auto const nq0     = expPtr->GetNumPoints(0);
+        auto const nqTot   = nq0;
+        auto const nqBlock = nqTot * vec_t::width;
 
-        const auto nCoord = output.size();
-        const auto ndf    = nCoord;
+        auto const nCoord = output.size();
+        auto const ndf    = nCoord;
         int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
@@ -197,8 +204,9 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         // auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         const vec_t::vectorType *tmpIn =
@@ -254,8 +262,9 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         // auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
 
@@ -302,14 +311,14 @@ private:
         const size_t exp_idx = 0;
         auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
+        auto const nq0 = expPtr->GetNumPoints(0);
+        auto const nq1 = expPtr->GetNumPoints(1);
 
-        const auto nqTot   = nq0 * nq1;
-        const auto nqBlock = nqTot * vec_t::width;
+        auto const nqTot   = nq0 * nq1;
+        auto const nqBlock = nqTot * vec_t::width;
 
-        const auto nCoord = output.size();
-        const auto ndf    = 2 * nCoord;
+        auto const nCoord = output.size();
+        auto const ndf    = 2 * nCoord;
         int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
@@ -317,8 +326,9 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
         auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
@@ -375,8 +385,9 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
         auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
@@ -424,12 +435,12 @@ private:
         const size_t exp_idx = 0;
         auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        auto const nq0 = expPtr->GetNumPoints(0);
+        auto const nq1 = expPtr->GetNumPoints(1);
+        auto const nq2 = expPtr->GetNumPoints(2);
 
-        const auto nqTot    = nq0 * nq1 * nq2;
-        const auto nqBlocks = nqTot * vec_t::width;
+        auto const nqTot    = nq0 * nq1 * nq2;
+        auto const nqBlocks = nqTot * vec_t::width;
 
         constexpr auto ndf = 9;
         int dfsize         = ndf;
@@ -444,8 +455,9 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
         auto D2 = m_derivativeMap[m_basisKeys[2]].template GetPtr<MemSpace>();
@@ -508,8 +520,9 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        vec_t *dfptr        = m_derivFac.template GetPtr<MemSpace>();
-        const vec_t *df_ptr = &(dfptr[m_jac_idx * ndf]);
+        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+
         auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
         auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
         auto D2 = m_derivativeMap[m_basisKeys[2]].template GetPtr<MemSpace>();

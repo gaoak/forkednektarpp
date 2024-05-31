@@ -33,13 +33,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestIProductWRTBaseKokkos
+
+#include "init_ipwrtbasefields.hpp"
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
-
-#include "Operators/OperatorIProductWRTBase.hpp"
-#include "init_ipwrtbasefields.hpp"
 
 #define TEST_IPWRTBASE(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

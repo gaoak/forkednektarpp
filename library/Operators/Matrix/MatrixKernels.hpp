@@ -52,14 +52,14 @@ MatrixKernel([[maybe_unused]] const size_t gridSize,
     Nektar::parallel_for<ExecSpace>(
         0, nElmts, KOKKOS_LAMBDA(int e) {
             const TData *matrix = mat + e * numPts;
-            const TData *inptr  = in + e * numPts;
-            TData *outptr       = out + e * numPts;
+            const TData *inPtr  = in + e * numPts;
+            TData *outPtr       = out + e * numPts;
 
             for (size_t j = 0; j < size * size; j += size)
             {
                 for (size_t i = 0; i < numPts; ++i)
                 {
-                    outptr[i] += inptr[i] * matrix[j + i];
+                    outPtr[i] += inPtr[i] * matrix[j + i];
                 }
             }
         });
@@ -78,14 +78,14 @@ __global__ void MatrixKernel(const size_t nelmt, const size_t numPts,
     while (e < nelmt)
     {
         const TData *matrix = mat + e * numPts;
-        const TData *inptr  = in + e * numPts;
-        TData *outptr       = out + e * numPts;
+        const TData *inPtr  = in + e * numPts;
+        TData *outPtr       = out + e * numPts;
 
         for (size_t j = 0; j < size * size; j += size)
         {
             for (size_t i = 0; i < numPts; ++i)
             {
-                outptr[i] += inptr[i] * matrix[j + i];
+                outPtr[i] += inPtr[i] * matrix[j + i];
             }
         }
         e += blockDim.x * gridDim.x;

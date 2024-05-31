@@ -44,13 +44,12 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, FieldState TFieldState,
           typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorMatrixImpl
     : public OperatorMatrixImplBase<ExecSpace, Implementation, TFieldState,
                                     TData>
@@ -68,12 +67,12 @@ public:
                Field<TData, TFieldState> &out) override
     {
         // Copy memory to the device, if necessary and get raw pointers.
-        auto *inptr     = in.template GetConstPtr<MemSpace>();
-        auto *outptr    = out.template GetPtr<MemSpace>();
-        auto *matrixptr = this->m_matrix.template GetConstPtr<MemSpace>();
+        auto *inPtr     = in.template GetConstPtr<MemSpace>();
+        auto *outPtr    = out.template GetPtr<MemSpace>();
+        auto *matrixPtr = this->m_matrix.template GetConstPtr<MemSpace>();
 
         // Initialise index
-        size_t expIdx = 0;
+        size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (auto const &block : in.GetBlocks())
@@ -82,26 +81,31 @@ public:
             auto nElmts = block.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
+            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
             auto numPts       = (TFieldState == FieldState::Coeff)
                                     ? expPtr->GetNcoeffs()
                                     : expPtr->GetTotPoints();
 
             // Deterime CUDA grid size.
-            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-
+#if defined(NEKTAR_ENABLE_CUDA)
+            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+            {
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+            }
+#endif
             MatrixKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nElmts,
-                                           numPts, this->m_size, matrixptr,
-                                           inptr, outptr);
+                                           numPts, this->m_size, matrixPtr,
+                                           inPtr, outPtr);
 
             // Increment pointer and index for next element type.
-            inptr += numPts * nElmts;
-            outptr += numPts * nElmts;
-            matrixptr += numPts * nElmts;
-            expIdx += nElmts;
+            matrixPtr += numPts * nElmts;
+            inPtr += numPts * nElmts;
+            outPtr += numPts * nElmts;
+            exp_idx += nElmts;
         }
     }
 
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {

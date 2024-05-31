@@ -55,7 +55,7 @@ SetDiagonalKernel([[maybe_unused]] const size_t gridSize,
                   TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nElmts, KOKKOS_LAMBDA(int i) { out[i * nmTot + mode] = val; });
+        0, nElmts, KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = val; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -71,7 +71,7 @@ CopyDiagonalKernel([[maybe_unused]] const size_t gridSize,
 {
     Nektar::parallel_for<ExecSpace>(
         0, nElmts,
-        KOKKOS_LAMBDA(int i) { out[i * nmTot + mode] = in[i * nmTot + mode]; });
+        KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = in[e * nmTot + mode]; });
 }
 
 // CUDA Kernels

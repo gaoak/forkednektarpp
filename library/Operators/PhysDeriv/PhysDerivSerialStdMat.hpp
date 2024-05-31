@@ -103,13 +103,13 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
-        auto *inptr  = in.template GetConstPtr<MemSpace>();
-        auto *outptr = out.template GetPtr<MemSpace>();
+        auto *inPtr  = in.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
         auto nSize   = out.GetFieldSize();
 
         // Initialize index.
-        size_t expIdx  = 0;
-        size_t dfindex = 0;
+        size_t exp_idx = 0;
+        size_t df_idx  = 0;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -117,19 +117,20 @@ public:
 
         for (auto const &block : in.GetBlocks())
         {
+            // Block dependent
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
+
             // Determine shape and type of the element.
-            auto nElmts    = block.num_elements;
-            auto nPadElmts = block.num_padding_elements;
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+                                  SpatialDomains::eDeformed;
+            auto const nCoord  = expPtr->GetCoordim();
+            auto const nqTot   = expPtr->GetTotPoints();
+            auto const ptsKeys = expPtr->GetPointsKeys();
 
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nDim         = expPtr->GetShapeDimension();
-            auto nCoord       = expPtr->GetCoordim();
-            auto nqTot        = expPtr->GetTotPoints();
-            auto ptsKeys      = expPtr->GetPointsKeys();
-            auto deformed     = expPtr->GetMetricInfo()->GetGtype() ==
-                            SpatialDomains::eDeformed;
-
-            Array<OneD, Array<OneD, TData>> deriv(nDim);
+            Array<OneD, Array<OneD, TData>> deriv(dimension);
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
@@ -140,12 +141,12 @@ public:
             // Get derivative matrix.
             auto &matPtr = m_matPtr[basisKeys];
 
-            for (size_t d = 0; d < nDim; ++d)
+            for (size_t d = 0; d < dimension; ++d)
             {
                 // Perform matrix-matrix multiply.
                 deriv[d] = Array<OneD, TData>(nqTot * nElmts);
                 Blas::Dgemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nqTot, inptr, nqTot, 0.0,
+                            matPtr[d].get(), nqTot, inPtr, nqTot, 0.0,
                             deriv[d].get(), nqTot);
             }
 
@@ -154,19 +155,20 @@ public:
                 for (size_t i = 0; i < nCoord; i++)
                 {
                     Vmath::Vmul(nqTot * nElmts,
-                                m_derivFac[i * nDim].get() + dfindex, 1,
-                                deriv[0].get(), 1, outptr + i * nSize, 1);
-                    for (size_t d = 1; d < nDim; d++)
+                                m_derivFac[i * dimension].get() + df_idx, 1,
+                                deriv[0].get(), 1, outPtr + i * nSize, 1);
+                    for (size_t d = 1; d < dimension; d++)
                     {
                         Vmath::Vvtvp(nqTot * nElmts,
-                                     m_derivFac[i * nDim + d].get() + dfindex,
-                                     1, deriv[d].get(), 1, outptr + i * nSize,
-                                     1, outptr + i * nSize, 1);
+                                     m_derivFac[i * dimension + d].get() +
+                                         df_idx,
+                                     1, deriv[d].get(), 1, outPtr + i * nSize,
+                                     1, outPtr + i * nSize, 1);
                     }
                 }
 
-                outptr += (nPadElmts + nElmts) * nqTot;
-                dfindex += nqTot * nElmts;
+                outPtr += (nPadElmts + nElmts) * nqTot;
+                df_idx += nqTot * nElmts;
             }
             else
             {
@@ -174,30 +176,36 @@ public:
                 {
                     for (size_t i = 0; i < nCoord; i++)
                     {
-                        Vmath::Smul(nqTot, m_derivFac[i * nDim][dfindex + e],
+                        Vmath::Smul(nqTot,
+                                    m_derivFac[i * dimension][df_idx + e],
                                     deriv[0].get() + e * nqTot, 1,
-                                    outptr + i * nSize, 1);
-                        for (size_t d = 1; d < nDim; d++)
+                                    outPtr + i * nSize, 1);
+                        for (size_t d = 1; d < dimension; d++)
                         {
                             Vmath::Svtvp(
-                                nqTot, m_derivFac[i * nDim + d][dfindex + e],
+                                nqTot,
+                                m_derivFac[i * dimension + d][df_idx + e],
                                 deriv[d].get() + e * nqTot, 1,
-                                outptr + i * nSize, 1, outptr + i * nSize, 1);
+                                outPtr + i * nSize, 1, outPtr + i * nSize, 1);
                         }
                     }
 
-                    outptr += nqTot;
+                    outPtr += nqTot;
                 }
 
-                outptr += nPadElmts * nqTot;
-                dfindex += nElmts;
+                outPtr += nPadElmts * nqTot;
+                df_idx += nElmts;
             }
 
-            inptr += (nPadElmts + nElmts) * nqTot;
-            expIdx += nElmts;
+            inPtr += (nPadElmts + nElmts) * nqTot;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -205,8 +213,6 @@ public:
             OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     Array<OneD, Array<OneD, TData>> m_derivFac;

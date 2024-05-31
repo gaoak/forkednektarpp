@@ -33,59 +33,109 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <boost/test/unit_test_log.hpp>
-#include <string>
-#include <type_traits>
-#include <vector>
 
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
 #include <Operators/Field.hpp>
 
+// Currently the BOOST_TEST_DYN_LINK is local only to this unit
+// test. It is undefined at the bottom of the file.
+#if defined(OPERATORS_BOOST_TEST_DYN_LINK)
+#if !defined(BOOST_TEST_DYN_LINK)
+#define LOCALLY_DEFINED_BOOST_TEST_DYN_LINK
+#define BOOST_TEST_DYN_LINK
+#endif
+#endif
+
+// Currently the BOOST_TEST_NO_MAIN is local only to this unit
+// test. It is undefined at the bottom of the file.
+#if defined(OPERATORS_BOOST_TEST_NO_MAIN)
+#if !defined(BOOST_TEST_NO_MAIN)
+#define LOCALLY_DEFINED_BOOST_TEST_NO_MAIN
+#define BOOST_TEST_NO_MAIN
+#endif
+#endif
+
+#if defined(BOOST_TEST_DYN_LINK) || defined(BOOST_TEST_NO_MAIN)
+#define BOOST_TEST_ALTERNATIVE_INIT_API
+#endif
+
+#if defined(BOOST_TEST_DYN_LINK)
+#include <boost/test/unit_test.hpp>
+#else
 #include <boost/test/included/unit_test.hpp>
+#endif
+
+#include <boost/test/unit_test_log.hpp>
+
+#include <string>
+#include <type_traits>
+#include <vector>
+
+// Helps turn defines into usable strings (even if it has a comma in it)
+#define STRV(...) #__VA_ARGS__
+#define STRVX(...) STRV(__VA_ARGS__)
 
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-#ifdef NEKTAR_USE_MPI
-struct InitMPI
+struct GlobalConfiguration
 {
-    InitMPI()
-    {
-        int argc    = boost::unit_test::framework::master_test_suite().argc;
-        char **argv = boost::unit_test::framework::master_test_suite().argv;
+    std::string testModule{STRVX(BOOST_TEST_MODULE)};
 
+    GlobalConfiguration()
+    {
+        [[maybe_unused]] int argc =
+            boost::unit_test::framework::master_test_suite().argc;
+        [[maybe_unused]] char **argv =
+            boost::unit_test::framework::master_test_suite().argv;
+
+#ifdef NEKTAR_USE_MPI
         MPI_Init(&argc, &argv);
-    }
-
-    ~InitMPI()
-    {
-        MPI_Finalize();
-    }
-};
-
-BOOST_TEST_GLOBAL_CONFIGURATION(InitMPI);
 #endif
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
-struct InitKokkos
-{
-    InitKokkos()
-    {
-        int argc    = boost::unit_test::framework::master_test_suite().argc;
-        char **argv = boost::unit_test::framework::master_test_suite().argv;
-
-        Kokkos::initialize(argc, argv);
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
+        {
+            Kokkos::initialize(argc, argv);
+        }
+#endif
     }
 
-    ~InitKokkos()
+    ~GlobalConfiguration()
     {
-        Kokkos::finalize();
+#if defined(NEKTAR_ENABLE_KOKKOS)
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
+        {
+            Kokkos::finalize();
+        }
+#endif
+
+#ifdef NEKTAR_USE_MPI
+        MPI_Finalize();
+#endif
     }
 };
 
-BOOST_TEST_GLOBAL_CONFIGURATION(InitKokkos);
+#if defined(BOOST_TEST_NO_MAIN)
+
+bool init_function()
+{
+    return true;
+}
+
+int main(int argc, char *argv[])
+{
+    GlobalConfiguration gc;
+
+    return boost::unit_test::unit_test_main(&init_function, argc, argv);
+}
+
+#else
+BOOST_TEST_GLOBAL_CONFIGURATION(GlobalConfiguration);
 #endif
 
 /**
@@ -114,6 +164,7 @@ public:
     ~InitFields()
     {
         BOOST_TEST_MESSAGE("teardown fixture");
+
         if (fixt_in)
         {
             delete fixt_in;
@@ -213,24 +264,31 @@ public:
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
 
-        auto fkokkos_in = Field<TData, stateIn>::template create<
-            Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_in",
-                                                         blocks_in, nin);
-        auto fkokkos_out = Field<TData, stateOut>::template create<
-            Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_out",
-                                                         blocks_out, nout);
-        fixt_kokkos_in  = new Field<TData, stateIn>(std::move(fkokkos_in));
-        fixt_kokkos_out = new Field<TData, stateOut>(std::move(fkokkos_out));
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
+        {
+            auto fkokkos_in = Field<TData, stateIn>::template create<
+                Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_in",
+                                                             blocks_in, nin);
+            auto fkokkos_out = Field<TData, stateOut>::template create<
+                Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_out",
+                                                             blocks_out, nout);
+            fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
+            fixt_kokkos_out =
+                new Field<TData, stateOut>(std::move(fkokkos_out));
+        }
 
 #if defined(NEKTAR_ENABLE_CUDA)
-        auto fcuda_in =
-            Field<TData, stateIn>::template create<NektarSpaces::DeviceSpace>(
-                "fcuda_in", blocks_in, nin);
-        auto fcuda_out =
-            Field<TData, stateOut>::template create<NektarSpaces::DeviceSpace>(
-                "fcuda_out", blocks_out, nout);
-        fixt_cuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
-        fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
+        {
+            auto fcuda_in = Field<TData, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin);
+            auto fcuda_out = Field<TData, stateOut>::template create<
+                NektarSpaces::DeviceSpace>("fcuda_out", blocks_out, nout);
+            fixt_cuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
+            fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
+        }
 #endif
     }
 
@@ -280,4 +338,14 @@ protected:
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 
     LibUtilities::SessionReaderSharedPtr session;
+
+    std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };
+
+#if defined(LOCALLY_DEFINED_BOOST_TEST_DYN_LINK)
+#undef BOOST_TEST_DYN_LINK
+#endif
+
+#if defined(LOCALLY_DEFINED_BOOST_TEST_NO_MAIN)
+#undef BOOST_TEST_NO_MAIN
+#endif

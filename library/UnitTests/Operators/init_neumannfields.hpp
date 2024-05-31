@@ -34,7 +34,8 @@
 
 #include "init_fields.hpp"
 
-using namespace std;
+#include "Operators/OperatorNeuBndCond.hpp"
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
@@ -48,6 +49,22 @@ public:
         : InitFields<double, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
     {
+    }
+
+    void SetTestCase(
+        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
+        [[maybe_unused]] double *inptr, [[maybe_unused]] bool padding = true)
+    {
+    }
+
+    void ExpectedSolution(
+        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
+        [[maybe_unused]] double *inptr)
+    {
+        using ExecSpace = NektarSpaces::Serial;
+        using Impl      = Operators::StdMat;
+        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_expected);
     }
 };
 

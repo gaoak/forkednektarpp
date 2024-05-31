@@ -95,10 +95,7 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t nloc  = out.size();
-        auto *outptr = out.template GetPtr<MemSpace>();
-        auto *rhsptr = m_rhs.template GetPtr<MemSpace>();
-        auto *tmpptr = m_tmp.template GetPtr<MemSpace>();
+        size_t nloc = out.size();
 
         // Deterime CUDA grid size.
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -107,15 +104,21 @@ public:
             m_gridSize = GetCUDAGridSize(nloc, m_blockSize);
         }
 #endif
-
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_MassOp->apply(out, m_tmp);
-        subKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, rhsptr,
-                                    tmpptr, rhsptr);
+
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls. The memory region being
+        // used must be copied back.
+        auto *rhsPtr = m_rhs.template GetPtr<MemSpace>();
+        auto *tmpPtr = m_tmp.template GetConstPtr<MemSpace>();
+
+        subKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, rhsPtr,
+                                    tmpPtr, rhsPtr);
 
         // Handle Robin BCs
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
@@ -126,9 +129,15 @@ public:
         // Solve for u_hat using Conjugate Gradient
         m_CGOp->apply(m_rhs, m_tmp);
 
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls the memory region being used must
+        // be copied back.
+        tmpPtr       = m_tmp.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
+
         // Add Dirichlet BCs
-        addKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, outptr,
-                                    tmpptr, outptr);
+        addKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, outPtr,
+                                    tmpPtr, outPtr);
     }
 
     void setPrecon(

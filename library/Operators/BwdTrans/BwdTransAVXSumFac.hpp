@@ -85,22 +85,28 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inptr  = in.template GetConstPtr<MemSpace>();
-        auto *outptr = out.template GetPtr<MemSpace>();
+        auto *inPtr  = in.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
 
+        // Initialize index.
         size_t exp_idx = 0;
+
+        // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+            auto const nPadElmts = inblock.num_padding_elements;
 
-            m_nElmtGroup =
-                (inblock.num_elements + inblock.num_padding_elements) /
-                vec_t::width;
+            // Determine shape and type of the element.
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const shapeType = expPtr->DetShapeType();
+            auto const dimension = expPtr->GetShapeDimension();
+
+            m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();
@@ -112,12 +118,17 @@ public:
 
 #include "../Common/SwitchLevel2NoDeformed.h"
 
-            inptr += inblock.block_size;
-            outptr += outblock.block_size;
+            // Increment pointer and index for next element type.
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
             exp_idx += inblock.num_elements;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -125,8 +136,6 @@ public:
             OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     BasisDataMap<vec_t> m_basisMap;
@@ -164,7 +173,7 @@ private:
         constexpr auto nmTot = nm0;
         // constexpr auto nqBlocks = nqTot * vec_t::width;
         // constexpr auto nmBlocks = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmtGroup;
+        // auto const nElmtGroup = this->m_nElmtGroup;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
@@ -180,10 +189,10 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
 
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bptr0, tmpIn, tmpOut);
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -199,16 +208,16 @@ private:
     void operator1D(const NekDouble *input, NekDouble *output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nq0 = expPtr->GetNumPoints(0);
+        auto const nm0 = expPtr->GetBasisNumModes(0);
+        auto const nq0 = expPtr->GetNumPoints(0);
 
-        const auto nqTot = nq0;
-        const auto nmTot = nm0;
-        // const auto nqBlocks = nqTot * vec_t::width;
-        // const auto nmBlocks = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
+        auto const nqTot = nq0;
+        auto const nmTot = nm0;
+        // auto const nqBlocks = nqTot * vec_t::width;
+        // auto const nmBlocks = nmTot * vec_t::width;
+        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
@@ -224,10 +233,10 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
 
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bptr0, tmpIn, tmpOut);
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -244,14 +253,14 @@ private:
     void operator2D(const NekDouble *input, NekDouble *output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
         constexpr auto nqTot = nq0 * nq1;
-        const auto nmTot =
+        auto const nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // const auto nmBlocks     = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
+        // auto const nmBlocks     = nmTot * vec_t::width;
+        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -273,13 +282,13 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bptr1 =
+            auto bPtr1 =
                 m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
 
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bptr0,
-                                         bptr1, wsp0, tmpIn, tmpOut);
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
+                                         bPtr1, wsp0, tmpIn, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -295,20 +304,20 @@ private:
     void operator2D(const NekDouble *input, NekDouble *output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
+        auto const nm0 = expPtr->GetBasisNumModes(0);
+        auto const nm1 = expPtr->GetBasisNumModes(1);
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
+        auto const nq0 = expPtr->GetNumPoints(0);
+        auto const nq1 = expPtr->GetNumPoints(1);
 
-        const auto nqTot = nq0 * nq1;
-        const auto nmTot =
+        auto const nqTot = nq0 * nq1;
+        auto const nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        // const auto nqBlocks = nqTot * vec_t::width;
-        // const auto nmBlocks = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
+        // auto const nqBlocks = nqTot * vec_t::width;
+        // auto const nmBlocks = nmTot * vec_t::width;
+        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -330,13 +339,13 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bptr1 =
+            auto bPtr1 =
                 m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
 
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bptr0,
-                                         bptr1, wsp0, tmpIn, tmpOut);
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
+                                         bPtr1, wsp0, tmpIn, tmpOut);
 
             // // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
@@ -353,14 +362,14 @@ private:
     void operator3D(const NekDouble *input, NekDouble *output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
         constexpr auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        auto const nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // const auto nmBlocks     = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
+        // auto const nmBlocks     = nmTot * vec_t::width;
+        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -383,15 +392,15 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bptr1 =
+            auto bPtr1 =
                 m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-            auto bptr2 =
+            auto bPtr2 =
                 m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
 
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         bptr0, bptr1, bptr2, wsp0, wsp1, tmpIn,
+                                         bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
                                          tmpOut);
 
             // // de-interleave and store data
@@ -408,22 +417,22 @@ private:
     void operator3D(const NekDouble *input, NekDouble *output)
     {
         const size_t exp_idx = 0;
-        const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-        const auto nm2 = expPtr->GetBasisNumModes(2);
+        auto const nm0 = expPtr->GetBasisNumModes(0);
+        auto const nm1 = expPtr->GetBasisNumModes(1);
+        auto const nm2 = expPtr->GetBasisNumModes(2);
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        auto const nq0 = expPtr->GetNumPoints(0);
+        auto const nq1 = expPtr->GetNumPoints(1);
+        auto const nq2 = expPtr->GetNumPoints(2);
 
-        const auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        auto const nqTot = nq0 * nq1 * nq2;
+        auto const nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        // const auto nqBlocks = nqTot * vec_t::width;
-        // const auto nmBlocks = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
+        // auto const nqBlocks = nqTot * vec_t::width;
+        // auto const nmBlocks = nmTot * vec_t::width;
+        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -446,15 +455,15 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bptr0 =
+            auto bPtr0 =
                 m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bptr1 =
+            auto bPtr1 =
                 m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-            auto bptr2 =
+            auto bPtr2 =
                 m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
 
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         bptr0, bptr1, bptr2, wsp0, wsp1, tmpIn,
+                                         bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
                                          tmpOut);
 
             // // de-interleave and store data

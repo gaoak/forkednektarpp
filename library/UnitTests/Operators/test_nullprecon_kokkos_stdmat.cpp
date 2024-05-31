@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_diagprecon_kokkos_stdmat.cpp
+// File: test_nullprecon_kokkos_stdmat.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,18 +32,16 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestDiagPreconKokkos
+#define BOOST_TEST_MODULE TestNullPreconKokkos
 
-#include "init_diagpreconfields.hpp"
-
-#include "Operators/OperatorHelmholtz.hpp"
+#include "init_nullpreconfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#define TEST_DIAGPRECON(test_name, test, tol)                                  \
+#define TEST_NULLPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
@@ -51,13 +49,8 @@
         Configure();                                                           \
         SetTestCase(fixt_kokkos_in->GetBlocks(),                               \
                     fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace>());        \
-        auto HelmholtzOp =                                                     \
-            Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
-        auto DiagPreconOp =                                                    \
-            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        HelmholtzOp->setLambda(1.0);                                           \
-        DiagPreconOp->configure(HelmholtzOp);                                  \
-        DiagPreconOp->apply(*fixt_kokkos_in, *fixt_kokkos_out);                \
+        NullPrecon<>::template create<ExecSpace, Impl>(fixt_explist)           \
+            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
@@ -69,18 +62,18 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDiagPreconKokkos)
+BOOST_AUTO_TEST_SUITE(TestNullPreconKokkos)
 
-TEST_DIAGPRECON(diagprecon_kokkos_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_NULLPRECON(nullprecon_kokkos_seg, Helmholtz1D_Seg, 1.0E-15)
 
-TEST_DIAGPRECON(diagprecon_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_NULLPRECON(nullprecon_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
 
-TEST_DIAGPRECON(diagprecon_kokkos_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_NULLPRECON(nullprecon_kokkos_hex, Helmholtz3D_Hex, 1.0E-15)
 
-TEST_DIAGPRECON(diagprecon_kokkos_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_NULLPRECON(nullprecon_kokkos_prism, Helmholtz3D_Prism, 1.0E-15)
 
-TEST_DIAGPRECON(diagprecon_kokkos_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_NULLPRECON(nullprecon_kokkos_pyr, Helmholtz3D_Pyr, 1.0E-15)
 
-TEST_DIAGPRECON(diagprecon_kokkos_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_NULLPRECON(nullprecon_kokkos_tet, Helmholtz3D_Tet, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

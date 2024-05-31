@@ -34,7 +34,13 @@
 
 #pragma once
 
-#include "Operators/DirBndCond/DirBndCondImplBase.hpp"
+#include "Operators/OperatorDirBndCond.hpp"
+
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
+#include <MultiRegions/ContField.h>
+
+using namespace Nektar;
+using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -43,15 +49,13 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
               std::is_same<Implementation, Operators::StdMat>::value>::type>
-class OperatorDirBndCondImpl
-    : public OperatorDirBndCondImplBase<ExecSpace, Implementation, TData>
+class OperatorDirBndCondImpl : public OperatorDirBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorDirBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorDirBndCondImplBase<ExecSpace, Implementation, TData>(
-              expansionList)
+        : OperatorDirBndCond<TData>(expansionList)
     {
     }
 
@@ -122,6 +126,9 @@ public:
         // Copy the data to the output field.
         out.template copyArray<MemSpace>(outarr);
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

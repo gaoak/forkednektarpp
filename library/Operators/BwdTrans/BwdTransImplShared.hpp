@@ -46,13 +46,12 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -70,44 +69,53 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Copy memory to the device, if necessary and get raw pointers.
-        const TData *inptr = in.template GetConstPtr<MemSpace>();
-        TData *outptr      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetConstPtr<MemSpace>();
+        TData *outPtr      = out.template GetPtr<MemSpace>();
 
-        TData *wspptr = nullptr;
-
-        // Initialize index.
-        size_t expIdx = 0;
+        TData *wspPtr = nullptr;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             3, LibUtilities::NullBasisKey);
 
+        // Initialize index.
+        size_t exp_idx = 0;
+
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nElmts       = in.GetBlocks()[block_idx].num_elements;
-            auto nmTot        = expPtr->GetNcoeffs();
-            auto nqTot        = expPtr->GetTotPoints();
-            auto shape        = expPtr->DetShapeType();
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const shapeType = expPtr->DetShapeType();
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const nmTot     = expPtr->GetNcoeffs();
+            auto const nqTot     = expPtr->GetTotPoints();
 
             // Deterime CUDA grid size.
-            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-
+#if defined(NEKTAR_ENABLE_CUDA)
+            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+            {
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+            }
+#endif
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
                            LibUtilities::eModified_A;
 
             // Fetch basis key for the current element type.
-            for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
+            for (size_t d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             // Function call to kernel functions.
-            if (expPtr->GetShapeDimension() == 1)
+            if (dimension == 1)
             {
                 auto basis0 =
                     m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
@@ -115,10 +123,10 @@ public:
                 auto nm0 = expPtr->GetBasisNumModes(0);
                 auto nq0 = expPtr->GetNumPoints(0);
                 BwdTrans1DKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nm0,
-                                                   nq0, nElmts, basis0, inptr,
-                                                   outptr);
+                                                   nq0, nElmts, basis0, inPtr,
+                                                   outPtr);
             }
-            else if (expPtr->GetShapeDimension() == 2)
+            else if (dimension == 2)
             {
                 auto basis0 =
                     m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
@@ -134,11 +142,11 @@ public:
                 {
                     size_t wspsize = 0;
 
-                    if (shape == LibUtilities::Quad)
+                    if (shapeType == LibUtilities::Quad)
                     {
                         wspsize = nm1 * nElmts;
                     }
-                    else if (shape == LibUtilities::Tri)
+                    else if (shapeType == LibUtilities::Tri)
                     {
                         wspsize = nm0 * nElmts;
                     }
@@ -151,14 +159,14 @@ public:
                             EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
                     }
 
-                    wspptr = m_wsp.template GetPtr<MemSpace>();
+                    wspPtr = m_wsp.template GetPtr<MemSpace>();
                 }
 
                 BwdTrans2DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, shape, nm0, nm1, nq0, nq1, nElmts,
-                    correct, basis0, basis1, wspptr, inptr, outptr);
+                    m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0, nq1,
+                    nElmts, correct, basis0, basis1, wspPtr, inPtr, outPtr);
             }
-            else if (expPtr->GetShapeDimension() == 3)
+            else if (dimension == 3)
             {
                 auto basis0 =
                     m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
@@ -178,20 +186,20 @@ public:
                 {
                     size_t wspsize = 0;
 
-                    if (shape == LibUtilities::Hex)
+                    if (shapeType == LibUtilities::Hex)
                     {
                         wspsize = (nm1 * nm2 + nm2) * nElmts;
                     }
-                    else if (shape == LibUtilities::Tet)
+                    else if (shapeType == LibUtilities::Tet)
                     {
                         wspsize =
                             ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
                     }
-                    else if (shape == LibUtilities::Prism)
+                    else if (shapeType == LibUtilities::Prism)
                     {
                         wspsize = (nm0 * nm1 + nm0) * nElmts;
                     }
-                    else if (shape == LibUtilities::Pyr)
+                    else if (shapeType == LibUtilities::Pyr)
                     {
                         wspsize = (nm0 * nm1 + nm0) * nElmts;
                     }
@@ -205,21 +213,24 @@ public:
                             EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
                     }
 
-                    wspptr = m_wsp.template GetPtr<MemSpace>();
+                    wspPtr = m_wsp.template GetPtr<MemSpace>();
                 }
 
                 BwdTrans3DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, shape, nm0, nm1, nm2, nq0, nq1,
-                    nq2, nElmts, correct, basis0, basis1, basis2, wspptr, inptr,
-                    outptr);
+                    m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2, nq0, nq1,
+                    nq2, nElmts, correct, basis0, basis1, basis2, wspPtr, inPtr,
+                    outPtr);
             }
 
             // Increment pointer and index for next element type.
-            inptr += in.GetBlocks()[block_idx].block_size;
-            outptr += out.GetBlocks()[block_idx].block_size;
-            expIdx += nElmts;
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
+            exp_idx += nElmts;
         }
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
@@ -229,8 +240,6 @@ public:
             OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     BasisDataMap<TData> m_basisMap;

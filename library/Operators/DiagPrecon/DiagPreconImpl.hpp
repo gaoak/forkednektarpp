@@ -91,8 +91,8 @@ public:
     {
         m_assmbScatrOp->Assemble(in, m_wk);
 
-        TData *diagptr = m_diag.template GetPtr<MemSpace>();
-        TData *wkptr   = m_wk.template GetPtr<MemSpace>();
+        TData *diagPtr = m_diag.template GetPtr<MemSpace>();
+        TData *wkPtr   = m_wk.template GetPtr<MemSpace>();
 
         // Deterime CUDA grid size.
 #if defined(NEKTAR_ENABLE_CUDA)
@@ -101,12 +101,12 @@ public:
             m_gridSize = GetCUDAGridSize(m_nGlobal - m_nDir, m_blockSize);
         }
 #endif
-
         divKernel<ExecSpace, TData>(m_gridSize, m_blockSize, m_nGlobal - m_nDir,
-                                    wkptr + m_nDir, diagptr + m_nDir,
-                                    wkptr + m_nDir);
+                                    wkPtr + m_nDir, diagPtr + m_nDir,
+                                    wkPtr + m_nDir);
 
         m_wk.initialize(0, m_nDir);
+
         m_assmbScatrOp->GlobalToLocal(m_wk, out);
     }
 
@@ -139,24 +139,25 @@ public:
                 "DiagPrecon action",
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
 
-        TData *uvec_ptr = unit_vec.template GetPtr<MemSpace>();
-        TData *actn_ptr = action.template GetPtr<MemSpace>();
-        TData *diag_ptr = diag;
+        TData *uvecPtr = unit_vec.template GetPtr<MemSpace>();
+        TData *actnPtr = action.template GetPtr<MemSpace>();
+        TData *diagPtr = diag;
 
-        size_t expIdx = 0;
+        size_t exp_idx = 0;
 
         for (auto const &block : unit_vec.GetBlocks())
         {
+            // Block dependent
+            auto const nSize  = block.block_size;
+            auto const nElmts = block.num_elements;
+            auto const nmTot  = block.num_pts;
+
             // Determine shape and type of the element.
-            auto nSize  = block.block_size;
-            auto nElmts = block.num_elements;
-            auto nmTot  = block.num_pts;
+            // auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            // auto const nmTot  = expPtr->GetNcoeffs();
 
-            // auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            // size_t nmTot      = expPtr->GetNcoeffs();
-
-#if defined(NEKTAR_ENABLE_CUDA)
             // Deterime CUDA grid size.
+#if defined(NEKTAR_ENABLE_CUDA)
             if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
             {
                 m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
@@ -166,36 +167,50 @@ public:
             {
                 // Set ith term in unit vector to be 1.
                 SetDiagonalKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nmTot, nElmts, i, 1.0, uvec_ptr);
+                    m_gridSize, m_blockSize, nmTot, nElmts, i, 1.0, uvecPtr);
+
+                // Anytime there is a mix of internal kernel calls and
+                // external operator calls. The memory region being
+                // used must be marked as being valid which more
+                // importantly invalidates the sibling memory region.
+                unit_vec.template setValid<MemSpace>();
 
                 // Apply the operator to unit vector and store in the
                 // action field.
                 op->apply(unit_vec, action);
+
                 if constexpr (std::is_same<ExecSpace,
                                            NektarSpaces::Serial>::value)
                 {
                     m_robBCOp->apply(unit_vec, action);
                 }
 
+                // Anytime there is a mix of internal kernel calls and
+                // external operator calls. The memory region being
+                // used must be copied back.
+                action.template GetPtr<MemSpace>();
+
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
                 CopyDiagonalKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                                     nmTot, nElmts, i, actn_ptr,
-                                                     diag_ptr);
+                                                     nmTot, nElmts, i, actnPtr,
+                                                     diagPtr);
 
                 // Reset the ith term in the unit vector to be 0
                 SetDiagonalKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nmTot, nElmts, i, 0.0, uvec_ptr);
+                    m_gridSize, m_blockSize, nmTot, nElmts, i, 0.0, uvecPtr);
             }
 
-            uvec_ptr += nSize;
-            diag_ptr += nSize;
-            actn_ptr += nSize;
-            expIdx += nElmts;
+            uvecPtr += nSize;
+            diagPtr += nSize;
+            actnPtr += nSize;
+            exp_idx += nElmts;
         }
 
         // Assembly
-        TData *diagHost = diagMR.template GetPtr<NektarSpaces::HostSpace>();
+        const TData *diagHost =
+            diagMR.template GetConstPtr<NektarSpaces::HostSpace>();
+
         Array<OneD, TData> glodiag(m_nGlobal, 0.0);
 
         for (size_t i = 0; i < m_nLocal; ++i)

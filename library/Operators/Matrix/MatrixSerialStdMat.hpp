@@ -63,13 +63,13 @@ public:
     void apply(Field<TData, TFieldState> &in,
                Field<TData, TFieldState> &out) override
     {
-        auto *inptr     = in.template GetConstPtr<MemSpace>();
-        auto *outptr    = out.template GetPtr<MemSpace>();
-        auto *matrixptr = this->m_matrix.template GetConstPtr<MemSpace>();
+        auto *inPtr     = in.template GetConstPtr<MemSpace>();
+        auto *outPtr    = out.template GetPtr<MemSpace>();
+        auto *matrixPtr = this->m_matrix.template GetConstPtr<MemSpace>();
 
-        auto *pIn     = inptr;
-        auto *pOut    = outptr;
-        auto *pMatrix = matrixptr;
+        auto *pIn     = inPtr;
+        auto *pOut    = outPtr;
+        auto *pMatrix = matrixPtr;
 
         for (size_t i = 0; i < this->m_size; ++i)
         {
@@ -83,7 +83,7 @@ public:
             }
 
             pOut++;
-            pIn = inptr;
+            pIn = inPtr;
         }
     }
 

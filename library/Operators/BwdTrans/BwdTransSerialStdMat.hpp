@@ -60,18 +60,24 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
-        auto *inptr  = in.template GetConstPtr<MemSpace>();
-        auto *outptr = out.template GetPtr<MemSpace>();
+        auto *inPtr  = in.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
 
-        size_t expIdx = 0;
+        // Initialize index.
+        size_t exp_idx = 0;
+
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nElmts       = in.GetBlocks()[block_idx].num_elements;
-            auto nmTot        = expPtr->GetNcoeffs();
-            auto nqTot        = expPtr->GetTotPoints();
+            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            auto const nmTot  = expPtr->GetNcoeffs();
+            auto const nqTot  = expPtr->GetTotPoints();
 
             // Get BwdTrans matrix.
             Nektar::StdRegions::StdMatrixKey key(
@@ -80,16 +86,20 @@ public:
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0,
-                        matPtr->GetRawPtr(), nqTot, inptr, nmTot, 0.0, outptr,
+                        matPtr->GetRawPtr(), nqTot, inPtr, nmTot, 0.0, outPtr,
                         nqTot);
 
             // Increment pointer and index for next element type.
-            inptr += in.GetBlocks()[block_idx].block_size;
-            outptr += out.GetBlocks()[block_idx].block_size;
-            expIdx += nElmts;
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -97,8 +107,6 @@ public:
             OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 };
 
 } // namespace Nektar::Operators::detail

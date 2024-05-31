@@ -39,7 +39,7 @@ namespace Nektar::Operators::detail
 {
 template <typename TData>
 void IProductWRTBaseSumFacSegKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -56,22 +56,22 @@ void IProductWRTBaseSumFacSegKernel(
     double *wsp;
     wsp = new double[wspSize];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * nquad0, &m_jac[jac_idx], 1, inptr, 1, wsp, 1);
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * nquad0, &m_jac[jac_idx], 1, inPtr, 1, wsp, 1);
 
         jac_idx += numElmts * nquad0;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
-            Vmath::Smul(nquad0, m_jac[jac_idx], inptr + e * nquad0, 1,
+            Vmath::Smul(nquad0, m_jac[jac_idx], inPtr + e * nquad0, 1,
                         wsp + e * nquad0, 1);
 
             jac_idx += 1;
@@ -79,23 +79,23 @@ void IProductWRTBaseSumFacSegKernel(
     }
 
     // Multiplies wsp with B^T
-    // outptr = B^T * W * wsp
+    // outPtr = B^T * W * wsp
     for (int e = 0; e < numElmts; ++e)
     {
         if (colldir0)
         {
             Vmath::Vmul(nquad0, wsp + e * nquad0, 1, &weights[0], 1,
-                        outptr + e * nquad0, 1);
+                        outPtr + e * nquad0, 1);
         }
         else
         {
-            // wsp = W * inptr
+            // wsp = W * inPtr
             Vmath::Vmul(nquad0, &weights[0], 1, wsp + e * nquad0, 1,
                         wsp + e * nquad0, 1);
 
-            // outptr = B^T * wsp;
+            // outPtr = B^T * wsp;
             Blas::Dgemv('T', nquad0, nmodes0, 1.0, base0.get(), nquad0,
-                        &wsp[0 + e * nquad0], 1, 0.0, &outptr[0 + e * nmodes0],
+                        &wsp[0 + e * nquad0], 1, 0.0, &outPtr[0 + e * nmodes0],
                         1);
         }
     }
@@ -106,7 +106,7 @@ void IProductWRTBaseSumFacSegKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacTriKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -138,24 +138,24 @@ void IProductWRTBaseSumFacTriKernel(
     double *tmp;
     tmp = new double[tmpSize];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * nquad0 * nquad1, &m_jac[jac_idx], 1, inptr, 1,
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * nquad0 * nquad1, &m_jac[jac_idx], 1, inPtr, 1,
                     wsp, 1);
 
         jac_idx += numElmts * nquad0 * nquad1;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
             Vmath::Smul(nquad0 * nquad1, m_jac[jac_idx],
-                        inptr + e * (nquad0 * nquad1), 1,
+                        inPtr + e * (nquad0 * nquad1), 1,
                         wsp + e * (nquad0 * nquad1), 1);
 
             jac_idx += 1;
@@ -203,14 +203,14 @@ void IProductWRTBaseSumFacTriKernel(
             Blas::Dgemv('T', nquad1, nmodes1 - i, 1.0,
                         base1.get() + mode * nquad1, nquad1,
                         tmp + i * nquad1 + e * tmpStride, 1, 0.0,
-                        outptr + mode + e * totModes, 1);
+                        outPtr + mode + e * totModes, 1);
             mode += nmodes1 - i;
         }
 
         // fix for modified basis by splitting top vertex mode
         if (expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A)
         {
-            outptr[1 + e * totModes] +=
+            outPtr[1 + e * totModes] +=
                 Blas::Ddot(nquad1, base1.get() + nquad1, 1,
                            tmp + nquad1 + e * tmpStride, 1);
         }
@@ -222,7 +222,7 @@ void IProductWRTBaseSumFacTriKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacQuadKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -251,31 +251,31 @@ void IProductWRTBaseSumFacQuadKernel(
     wsp = new double[wspSize];
     tmp = new double[tmpSize];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * nquad0 * nquad1, &m_jac[jac_idx], 1, inptr, 1,
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * nquad0 * nquad1, &m_jac[jac_idx], 1, inPtr, 1,
                     wsp, 1);
 
         jac_idx += numElmts * nquad0 * nquad1;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
             Vmath::Smul(nquad0 * nquad1, m_jac[jac_idx],
-                        inptr + e * (nquad0 * nquad1), 1,
+                        inPtr + e * (nquad0 * nquad1), 1,
                         wsp + e * (nquad0 * nquad1), 1);
             jac_idx += 1;
         }
     }
 
     // Multiplies wsp with B^T
-    // outptr = B^T * W * wsp
+    // outPtr = B^T * W * wsp
     for (int e = 0; e < numElmts; ++e)
     {
         // Pre-multiply integration weights
@@ -298,14 +298,14 @@ void IProductWRTBaseSumFacQuadKernel(
         if (colldir0 && colldir1)
         {
             Vmath::Vcopy(nmodes0 * nmodes1, wsp + e * (nquad1 * nquad0), 1,
-                         outptr + e * (nquad1 * nquad0), 1);
+                         outPtr + e * (nquad1 * nquad0), 1);
         }
         else if (colldir0)
         {
             // [f] * [B]
             Blas::Dgemm('N', 'N', nmodes0, nmodes1, nquad1, 1.0,
                         &wsp[0 + e * (nmodes0 * nquad1)], nmodes0, base1.get(),
-                        nquad1, 0.0, &outptr[0 + e * (nmodes0 * nmodes1)],
+                        nquad1, 0.0, &outPtr[0 + e * (nmodes0 * nmodes1)],
                         nmodes0);
         }
         else if (colldir1)
@@ -313,7 +313,7 @@ void IProductWRTBaseSumFacQuadKernel(
             // [B^T] * [f]
             Blas::Dgemm('T', 'N', nmodes0, nquad1, nquad0, 1.0, base0.get(),
                         nquad0, &wsp[0 + e * (nquad1 * nquad0)], nquad0, 0.0,
-                        &outptr[0 + e * (nmodes0 * nquad1)], nmodes0);
+                        &outPtr[0 + e * (nmodes0 * nquad1)], nmodes0);
         }
         else
         {
@@ -326,7 +326,7 @@ void IProductWRTBaseSumFacQuadKernel(
             // [f] * [B]
             Blas::Dgemm('N', 'N', nmodes0, nmodes1, nquad1, 1.0,
                         &tmp[0 + e * (nmodes0 * nquad1)], nmodes0, base1.get(),
-                        nquad1, 0.0, &outptr[0 + e * (nmodes0 * nmodes1)],
+                        nquad1, 0.0, &outPtr[0 + e * (nmodes0 * nmodes1)],
                         nmodes0);
         }
     }
@@ -337,7 +337,7 @@ void IProductWRTBaseSumFacQuadKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacTetKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -382,22 +382,22 @@ void IProductWRTBaseSumFacTetKernel(
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inptr, 1, wsp, 1);
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inPtr, 1, wsp, 1);
 
         jac_idx += numElmts * totPoints;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
-            Vmath::Smul(totPoints, m_jac[jac_idx], inptr + e * (totPoints), 1,
+            Vmath::Smul(totPoints, m_jac[jac_idx], inPtr + e * (totPoints), 1,
                         wsp + e * (totPoints), 1);
 
             jac_idx += 1;
@@ -513,7 +513,7 @@ void IProductWRTBaseSumFacTetKernel(
                 Blas::Dgemv('T', nquad2, nmodes2 - i - j, 1.0,
                             base2.get() + mode * nquad2, nquad2,
                             tmp2 + cnt * nquad2 + e * tmpStride2, 1, 0.0,
-                            outptr + mode1 + e * totModes, 1);
+                            outPtr + mode1 + e * totModes, 1);
                 mode += nmodes2 - i - j;
                 mode1 += nmodes2 - i - j;
             }
@@ -529,12 +529,12 @@ void IProductWRTBaseSumFacTetKernel(
         if (expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A)
         {
             // add in (1+c)/2 (1+b)/2   component
-            outptr[1 + e * totModes] +=
+            outPtr[1 + e * totModes] +=
                 Blas::Ddot(nquad2, base2.get() + nquad2, 1,
                            &tmp2[nquad2] + e * tmpStride2, 1);
 
             // add in (1+c)/2 (1-b)/2 (1+a)/2 component
-            outptr[1 + e * totModes] +=
+            outPtr[1 + e * totModes] +=
                 Blas::Ddot(nquad2, base2.get() + nquad2, 1,
                            &tmp2[nquad2 * nmodes1] + e * tmpStride2, 1);
         }
@@ -543,7 +543,7 @@ void IProductWRTBaseSumFacTetKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacPyrKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -587,22 +587,22 @@ void IProductWRTBaseSumFacPyrKernel(
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inptr, 1, wsp, 1);
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inPtr, 1, wsp, 1);
 
         jac_idx += numElmts * totPoints;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
-            Vmath::Smul(totPoints, m_jac[jac_idx], inptr + e * (totPoints), 1,
+            Vmath::Smul(totPoints, m_jac[jac_idx], inPtr + e * (totPoints), 1,
                         wsp + e * (totPoints), 1);
 
             jac_idx += 1;
@@ -683,7 +683,7 @@ void IProductWRTBaseSumFacPyrKernel(
                 Blas::Dgemv('T', nquad2, nmodes2 - ijmax, 1.0,
                             base2.get() + mode * nquad2, nquad2,
                             tmp2 + cnt * nquad2 + tmpStride2 * e, 1, 0.0,
-                            outptr + mode1 + e * totModes, 1);
+                            outPtr + mode1 + e * totModes, 1);
                 mode += nmodes2 - ijmax;
                 mode1 += nmodes2 - ijmax;
             }
@@ -701,16 +701,16 @@ void IProductWRTBaseSumFacPyrKernel(
         if (expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A)
         {
             // add in (1+c)/2 (1+b)/2 (1-a)/2  component
-            outptr[1 + e * totModes] +=
+            outPtr[1 + e * totModes] +=
                 Blas::Ddot(nquad2, base2.get() + nquad2, 1, &tmp2[nquad2], 1);
 
             // add in (1+c)/2 (1-b)/2 (1+a)/2 component
-            outptr[1 + e * totModes] +=
+            outPtr[1 + e * totModes] +=
                 Blas::Ddot(nquad2, base2.get() + nquad2, 1,
                            &tmp2[nquad2 * nmodes1] + e * tmpStride2, 1);
 
             // add in (1+c)/2 (1+b)/2 (1+a)/2 component
-            outptr[1 + e * totModes] += Blas::Ddot(
+            outPtr[1 + e * totModes] += Blas::Ddot(
                 nquad2, base2.get() + nquad2, 1,
                 &tmp2[nquad2 * nmodes1 + nquad2] + e * tmpStride2, 1);
         }
@@ -719,7 +719,7 @@ void IProductWRTBaseSumFacPyrKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacPrismKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -765,22 +765,22 @@ void IProductWRTBaseSumFacPrismKernel(
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
-        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inptr, 1, wsp, 1);
+        // wsp = Jac * inPtr
+        Vmath::Vmul(numElmts * totPoints, &m_jac[jac_idx], 1, inPtr, 1, wsp, 1);
 
         jac_idx += numElmts * totPoints;
     }
     else
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
-            Vmath::Smul(totPoints, m_jac[jac_idx], inptr + e * (totPoints), 1,
+            Vmath::Smul(totPoints, m_jac[jac_idx], inPtr + e * (totPoints), 1,
                         wsp + e * (totPoints), 1);
 
             jac_idx += 1;
@@ -848,7 +848,7 @@ void IProductWRTBaseSumFacPrismKernel(
             Blas::Dgemm('T', 'N', nmodes2 - i, nmodes1, nquad2, 1.0,
                         base2.get() + mode * nquad2, nquad2,
                         tmp2 + i * nquad2 + e * tmpStride2, nquad2 * nmodes0,
-                        0.0, outptr + mode * nmodes1 + e * totModes,
+                        0.0, outPtr + mode * nmodes1 + e * totModes,
                         nmodes2 - i);
             mode += nmodes2 - i;
         }
@@ -866,7 +866,7 @@ void IProductWRTBaseSumFacPrismKernel(
                 // refer to StdPrismExp.cpp
                 mode = r + i * (R + 1 - p) +
                        (Q + 1) * (p * R + 1 - (p - 2) * (p - 1) / 2);
-                outptr[mode + e * totModes] += Blas::Ddot(
+                outPtr[mode + e * totModes] += Blas::Ddot(
                     nquad2, base2.get() + nquad2, 1,
                     tmp2 + i * nmodes0 * nquad2 + nquad2 + e * tmpStride2, 1);
             }
@@ -876,7 +876,7 @@ void IProductWRTBaseSumFacPrismKernel(
 
 template <typename TData>
 void IProductWRTBaseSumFacHexKernel(
-    const TData *&inptr, TData *&outptr,
+    const TData *&inPtr, TData *&outPtr,
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
@@ -920,13 +920,13 @@ void IProductWRTBaseSumFacHexKernel(
     wsp1 = new double[wspSize1];
     wsp2 = new double[wspSize2];
 
-    // Pre-multiply inptr with jacobian and store results in wsp
+    // Pre-multiply inPtr with jacobian and store results in wsp
     // wsp = J * \hat{f}
     if (isDeformed == SpatialDomains::eDeformed)
     {
-        // wsp = Jac * inptr
+        // wsp = Jac * inPtr
         Vmath::Vmul(numElmts * nquad0 * nquad1 * nquad2, &m_jac[jac_idx], 1,
-                    inptr, 1, wsp, 1);
+                    inPtr, 1, wsp, 1);
         jac_idx += numElmts * nquad0 * nquad1 * nquad2;
     }
     else
@@ -934,14 +934,14 @@ void IProductWRTBaseSumFacHexKernel(
         // Looping through elements
         for (int e = 0; e < numElmts; ++e)
         {
-            Vmath::Smul(totPoints, m_jac[jac_idx], inptr + e * totPoints, 1,
+            Vmath::Smul(totPoints, m_jac[jac_idx], inPtr + e * totPoints, 1,
                         wsp + e * totPoints, 1);
             jac_idx += 1;
         }
     }
 
     // Multiplies wsp with B^T
-    // outptr = B^T * W * wsp
+    // outPtr = B^T * W * wsp
     for (int e = 0; e < numElmts; ++e)
     {
         // Pre-multiply integration weights0
@@ -1017,7 +1017,7 @@ void IProductWRTBaseSumFacHexKernel(
             {
                 Vmath::Vcopy(nmodes0 * nmodes1, wsp2 + e * totPoints2 + i,
                              nquad2,
-                             &outptr[e * totModes] + nmodes0 * nmodes1 * i, 1);
+                             &outPtr[e * totModes] + nmodes0 * nmodes1 * i, 1);
             }
         }
         else
@@ -1025,7 +1025,7 @@ void IProductWRTBaseSumFacHexKernel(
             // Sum-fac w.r.t base2
             Blas::Dgemm('T', 'N', nmodes0 * nmodes1, nmodes2, nquad2, 1.0,
                         &wsp2[e * totPoints2], nquad2, base2.get(), nquad2, 0.0,
-                        &outptr[e * totModes], nmodes0 * nmodes1);
+                        &outPtr[e * totModes], nmodes0 * nmodes1);
         }
     }
 

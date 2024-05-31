@@ -64,18 +64,25 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
-        auto *inptr  = in.template GetConstPtr<MemSpace>();
-        auto *outptr = out.template GetPtr<MemSpace>();
+        auto *inPtr  = in.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
 
-        size_t expIdx = 0;
-        size_t jacIdx = 0;
+        size_t exp_idx = 0;
+        size_t jac_idx = 0;
+
+        // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nElmts       = in.GetBlocks()[block_idx].num_elements;
-            auto nqTot        = expPtr->GetTotPoints();
-            auto nmTot        = expPtr->GetNcoeffs();
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+
+            // Determine shape and type of the element.
+            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            auto const nqTot  = expPtr->GetTotPoints();
+            auto const nmTot  = expPtr->GetNcoeffs();
 
             Nektar::StdRegions::StdMatrixKey key(
                 StdRegions::eIProductWRTBase, expPtr->DetShapeType(), *expPtr);
@@ -89,7 +96,7 @@ public:
             {
                 for (size_t i = 0; i < nElmts * nqTot; ++i)
                 {
-                    wsp[i] = m_jac[jacIdx++] * inptr[i];
+                    wsp[i] = m_jac[jac_idx++] * inPtr[i];
                 }
             }
             else
@@ -99,23 +106,29 @@ public:
                     for (size_t i = 0; i < nqTot; ++i)
                     {
                         wsp[e * nqTot + i] =
-                            m_jac[jacIdx] * inptr[e * nqTot + i];
+                            m_jac[jac_idx] * inPtr[e * nqTot + i];
                     }
-                    jacIdx++;
+
+                    jac_idx++;
                 }
             }
 
             Blas::Dgemm('N', 'N', matPtr->GetRows(), nElmts,
                         matPtr->GetColumns(), lambda, matPtr->GetRawPtr(),
-                        matPtr->GetRows(), wsp.get(), nqTot, 0.0, outptr,
+                        matPtr->GetRows(), wsp.get(), nqTot, 0.0, outPtr,
                         nmTot);
 
-            inptr += in.GetBlocks()[block_idx].block_size;
-            outptr += out.GetBlocks()[block_idx].block_size;
-            expIdx += nElmts;
+            // Increment pointer and index for next element type.
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -123,8 +136,6 @@ public:
             OperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     Array<OneD, TData> m_jac;

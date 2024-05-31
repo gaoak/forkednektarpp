@@ -104,6 +104,7 @@ public:
         return str;
     }
 
+    // className - for OperatorFactory
     static std::string className;
 
 protected:

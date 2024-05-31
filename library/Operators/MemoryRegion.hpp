@@ -130,6 +130,35 @@ public:
     }
 
     /**
+     * @brief osstream operator.
+     *
+     * @param rhs - MemoryRegion to stream
+     *
+     * @return    - stream
+     */
+    friend auto operator<<(std::ostream &os, MemoryRegion const &mr)
+        -> std::ostream &
+    {
+        try
+        {
+            // This cast fails if e.g. a MemoryRegionDevice is requested
+            // from a MemoryRegionHost storage.
+            auto &ret =
+                dynamic_cast<MemoryRegionDevice<TData> &>(*(mr.m_storage));
+
+            return os << ret;
+        }
+
+        catch (const std::bad_cast &e)
+        {
+            auto &ret =
+                dynamic_cast<MemoryRegionHost<TData> &>(*(mr.m_storage));
+
+            return os << ret;
+        }
+    }
+
+    /**
      * @brief Get the const pointer to the host/device memory.
      *
      * @return    - TData*
@@ -291,9 +320,10 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn = TData,
+              class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
-        std::string name, std::vector<TDataIn> const &array,
+        std::string name, std::vector<TDataIn, Alloc> const &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         auto mr = MemoryRegion();
@@ -337,9 +367,10 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn = TData,
+              class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
-        std::vector<TDataIn> const &array,
+        std::vector<TDataIn, Alloc> const &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         return MemoryRegion<TData>::template fromVector<MemSpace, TDataIn>(
@@ -396,9 +427,9 @@ public:
 
     /**
      * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a std::vector
+     *        new MemoryRegion that copies data from an Nektar::Array
      *
-     * @param array     - std::vector to copy from
+     * @param array     - Nektar::Array to copy from
      * @param alignment - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
@@ -489,8 +520,9 @@ public:
      * @param array - std::vector to copy from
      *
      */
-    template <typename MemSpace, typename TDataIn = TData>
-    void copyVector(std::vector<TDataIn> const &array)
+    template <typename MemSpace, typename TDataIn = TData,
+              class Alloc = std::allocator<TDataIn>>
+    void copyVector(std::vector<TDataIn, Alloc> const &array)
     {
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
@@ -647,7 +679,7 @@ public:
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage
-                auto &ret =
+                [[maybe_unused]] auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
                 m_storage->copyRaw(dest, src, size);
@@ -658,7 +690,7 @@ public:
                 // Convert the storage to device
                 GetStorage<MemoryRegionDevice>();
 
-                auto &ret =
+                [[maybe_unused]] auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
                 m_storage->copyRaw(dest, src, size);
@@ -668,7 +700,7 @@ public:
         {
             std::string msg("MemoryRegion::copyRaw - "
                             "invaid memory space (");
-            msg += m_storage->GetName() +
+            msg += m_storage->getName() +
                    "): " + Nektar::demangleTypeName(typeid(MemSpace));
 
             NEKERROR(Nektar::ErrorUtil::efatal, msg);
@@ -680,16 +712,17 @@ public:
      *
      * @return Array<Nektar::OneD, TData>
      */
-    template <typename TDataOut = TData> std::vector<TData> toVector() const
+    template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
+    std::vector<TData, Alloc> toVector() const
     {
         if constexpr (std::is_same<TDataOut, TData>::value)
         {
-            return std::vector<TDataOut>(m_storage->size(),
-                                         m_storage->GetHostPtr());
+            return std::vector<TDataOut, Alloc>(m_storage->size(),
+                                                m_storage->GetHostPtr());
         }
         else
         {
-            std::vector<TDataOut> vector(m_storage->size());
+            std::vector<TDataOut, Alloc> vector(m_storage->size());
 
             // Copy the data from the input field
             auto *ptr    = m_storage->GetHostConstPtr();
@@ -750,12 +783,74 @@ public:
     }
 
     /**
-     * @brief Set all storage data as being valid.
+     * @brief Get the storage name.
      *
      */
-    void setValid()
+    std::string getName() const
     {
-        m_storage->setValid();
+        return m_storage->getName();
+    }
+
+    /**
+     * @brief Set this memory as being valid on the selected MemSpace
+     * and the other (if it exists) as invlaid.
+     *
+     */
+    template <typename MemSpace> void setValid()
+    {
+        // Set the Host memory as being valid.
+        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
+                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        {
+            // If the memory region is a MemoryRegionDevice then
+            // invalidate the device side which validates the host
+            // side.
+            try
+            {
+                // This cast fails if e.g. a MemoryRegionDevice is requested
+                // from a MemoryRegionHost storage.
+                auto &ret =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+                ret.setValid(false);
+            }
+
+            // If the memory region is a MemoryRegionHost then
+            // just validate the host side.
+            catch (const std::bad_cast &e)
+            {
+                m_storage->setValid(true);
+            }
+        }
+
+        // Set the Device memory as being valid.
+        else if constexpr (
+#if defined(NEKTAR_ENABLE_KOKKOS)
+            std::is_same<MemSpace,
+                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
+#endif
+            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        {
+            // If the memory region is a MemoryRegionDevice then
+            // validate the device side which invalidates the host
+            // side.
+            try
+            {
+                // This cast fails if e.g. a MemoryRegionDevice is requested
+                // from a MemoryRegionHost storage.
+                auto &ret =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+                ret.setValid(true);
+            }
+
+            // If the memory region is a MemoryRegionHost then
+            // just validate the host side.
+            catch (const std::bad_cast &e)
+            {
+                m_storage->setValid(true);
+            }
+        }
     }
 
     /**
@@ -826,7 +921,7 @@ public:
             {
                 std::string msg("MemoryRegion::DeviceToHost - "
                                 "the memory region (");
-                msg += m_storage->GetName() +
+                msg += m_storage->getName() +
                        ") is not a MemoryRegionDevice but a " +
                        typeid(*m_storage).name();
 
@@ -840,7 +935,7 @@ public:
         {
             std::string msg("MemoryRegion::DeviceToHost - "
                             "invaid memory space (");
-            msg += m_storage->GetName() +
+            msg += m_storage->getName() +
                    "): " + Nektar::demangleTypeName(typeid(MemSpace));
 
             NEKERROR(Nektar::ErrorUtil::efatal, msg);
@@ -978,7 +1073,7 @@ protected:
             // Debug warning, a (possibly) undesired conversion occured.
             std::string msg("MemoryRegion::GetStorage - "
                             "Requested backing storage (");
-            msg += m_storage->GetName() + ") of type " + name +
+            msg += m_storage->getName() + ") of type " + name +
                    " != actual storage type " + sname;
 
             WARNINGL0(typeid(*m_storage) == typeid(T), msg);
@@ -995,7 +1090,7 @@ protected:
 
             std::string msg("MemoryRegion::GetStorage - "
                             "Converting backing storage (");
-            msg += m_storage->GetName() + ") from " + sname + " to " + name;
+            msg += m_storage->getName() + ") from " + sname + " to " + name;
 
             WARNINGL0(false, msg);
 

@@ -1,114 +1,167 @@
+# These tests can all likely be derived from the same cpp.in file
+# AddTraceIntegral       Nodepend ReConfigure() - Seg, Quad, etc
+# AssmbScatr             Nodepend - Seg, Quad, etc
+# BwdTran                Nodepend - Seg, Quad, etc
+# Helmholtz              Nodepend - Seg, Quad, etc
+# IdentityCoeff          Nodepend - Seg, Quad, etc
+# IdentityPhys           Nodepend - Seg, Quad, etc
+# IProductWRTBase        Nodepend - Seg, Quad, etc
+# IProductWRTDerivBase   Nodepend - Seg, Quad, etc
+# Mass                   Nodepend - Seg, Quad, etc
+# MultiplyByElmtInvMass  Nodepend - Seg, Quad, etc
+# NullPrecon             Nodepend - Seg, Quad, etc
+# PhysDeriv              Nodepend - Seg, Quad, etc
+
+# These tests may require an individual  cpp.in file
+# DiagPrecon             creaate operator - Helmholtz - Helmholtz1D_Seg, etc.
+
+# FwdTrans               creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
+# Helmsolve              creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
+
+# Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
+# Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
+
+# NOTE: THE KOKKOS VERSION OF THE TEST SHOULD BECOME THE TEMPLATE FOR
+# THE *.cpp.in FILE. DO NOT USE ANY OTHER TEST AS THE KOKKOS VERSION
+# OF THE TEST HAS BEEN CLEANDED UP CONSIDERABLElY SO TO FOLLOW A
+# COMMON FORMAT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+SET(OPERATOR_UNIT_TEST_DEPENDS
+  Operators )
+
+IF(BOOST_TEST_DYN_LINK)
+    SET(OPERATOR_UNIT_TEST_DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS}
+        ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+ENDIF()
+
 # Serial StdMat
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_addtraceintegral_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_assmbscatr_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_bwdtrans_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_diagprecon_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_diagprecon_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirichlet_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_dirichlet_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_fwdtrans_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_fwdtrans_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_helmholtz_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmsolve_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_helmsolve_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_identitycoeff_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_identitycoeff_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_identityphys_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_identityphys_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtbase_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtderivbase_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_mass_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_mass_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_multiplybyelmtinvmass_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_serial_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_neumann_serial_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_nullprecon_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_nullprecon_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_physderiv_serial_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
 
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
-    COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtbase_serial_sumfac.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
 
-# These AVX test do not work 
+# These AVX test do not work
 # AVX SumFac
-IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_bwdtrans_avx_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtbase_avx_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_physderiv_avx_sumfac.cpp)    
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
 ENDIF()
 
 # CUDA
 IF(NEKTAR_ENABLE_CUDA)
     ADD_NEKTAR_EXECUTABLE(test_cudamathkernels
-        COMPONENT unit-test DEPENDS Operators SOURCES test_cudamathkernels.cpp CUDAMathKernelsLauncher.cu)
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_cudamathkernels.cpp CUDAMathKernelsLauncher.cu)
 # CUDA SumFac
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_cuda_sumfac
-        COMPONENT unit-test DEPENDS Operators SOURCES test_addtraceintegral_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_assmbscatr_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_bwdtrans_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_diagprecon_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_diagprecon_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_dirichlet_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_dirichlet_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_fwdtrans_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_helmholtz_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_helmholtz_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_helmsolve_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_helmsolve_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_identitycoeff_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_identityphys_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_identityphys_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtbase_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtderivbase_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_mass_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_mass_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_multiplybyelmtinvmass_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_neumann_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_neumann_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_nullprecon_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_nullprecon_cuda_sumfac.cpp)    
-    ADD_NEKTAR_EXECUTABLE(test_physderiv_cuda_sumfac    
-        COMPONENT unit-test DEPENDS Operators SOURCES test_physderiv_cuda_sumfac.cpp)    
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_diagprecon_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_dirichlet_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identityphys_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_neumann_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_nullprecon_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_cuda_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_cuda_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac.cpp)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_addtraceintegral_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_assmbscatr_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_bwdtrans_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_diagprecon_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_dirichlet_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_dirichlet_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_fwdtrans_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_fwdtrans_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_helmholtz_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_identitycoeff_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_identitycoeff_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_identityphys_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_identityphys_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_ipwrtbase_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_mass_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_multiplybyelmtinvmass_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_neumann_kokkos_stdmat
-    COMPONENT unit-test DEPENDS Operators SOURCES test_neumann_kokkos_stdmat.cpp)
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_nullprecon_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_kokkos_stdmat.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physderiv_kokkos_stdmat
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_stdmat.cpp)
 
 # Macro
 MACRO(SET_UNIT_TEST testname name mpi_flag)
@@ -140,19 +193,19 @@ SET_UNIT_TEST(IdentityCoeff_serial_stdmat test_identitycoeff_serial_stdmat FALSE
 SET_UNIT_TEST(IdentityPhys_serial_stdmat test_identityphys_serial_stdmat FALSE)
 SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_stdmat test_multiplybyelmtinvmass_serial_stdmat FALSE)
+SET_UNIT_TEST(Neumann_serial_stdmat test_neumann_serial_stdmat FALSE)
 SET_UNIT_TEST(NullPrecon_serial_stdmat test_nullprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
 
 # Serial SumFac
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 
-# These AVX test do not work 
-# AVX SumFac
-#IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+# AVX SumFac - FIX ME - These test do not work
+IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
 #    SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
 #    SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
 #    SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
-#ENDIF()
+ENDIF()
 
 # CUDA SumFac
 IF(NEKTAR_ENABLE_CUDA)
@@ -169,27 +222,35 @@ IF(NEKTAR_ENABLE_CUDA)
     SET_UNIT_TEST(IProductWRTDerivBase_cuda_sumfac test_ipwrtderivbase_cuda_sumfac FALSE)
     SET_UNIT_TEST(IdentityCoeff_cuda_sumfac test_identitycoeff_cuda_sumfac FALSE)
     SET_UNIT_TEST(IdentityPhys_cuda_sumfac test_identityphys_cuda_sumfac FALSE)
-    SET_UNIT_TEST(PhysDeriv_cuda_sumfac test_physderiv_cuda_sumfac FALSE)
     SET_UNIT_TEST(Mass_cuda_sumfac test_mass_cuda_sumfac FALSE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_cuda_sumfac test_multiplybyelmtinvmass_cuda_sumfac FALSE)
     SET_UNIT_TEST(Neumann_cuda_sumfac test_neumann_cuda_sumfac FALSE)
     SET_UNIT_TEST(NullPrecon_cuda_sumfac test_nullprecon_cuda_sumfac FALSE)
+    SET_UNIT_TEST(PhysDeriv_cuda_sumfac test_physderiv_cuda_sumfac FALSE)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial
-SET_UNIT_TEST(AddTraceIntegral_kokkos_stdmat test_addtraceintegral_kokkos_stdmat FALSE)
-SET_UNIT_TEST(Helmholtz_kokkos_stdmat test_helmholtz_kokkos_stdmat FALSE)
-SET_UNIT_TEST(IdentityCoeff_kokkos_stdmat test_identitycoeff_kokkos_stdmat FALSE)
-SET_UNIT_TEST(IdentityPhys_kokkos_stdmat test_identityphys_kokkos_stdmat FALSE)
-SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)
-SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_stdmat test_multiplybyelmtinvmass_kokkos_stdmat FALSE)
-
-# These Kokkos test do not work probably because of interleaaving???
+# These Kokkos tests do not work always with AVX probably because of
+# interleaaving and slightly different results??? Once AVX is fully
+# built try to run them.
 IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
+    SET_UNIT_TEST(AddTraceIntegral_kokkos_stdmat test_addtraceintegral_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Assmbscatr_kokkos_stdmat test_assmbscatr_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(BwdTrans_kokkos_stdmat test_bwdtrans_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(DiagPrecon_kokkos_stdmat test_diagprecon_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Dirichlet_kokkos_stdmat test_dirichlet_kokkos_stdmat FALSE)
     SET_UNIT_TEST(FwdTrans_kokkos_stdmat test_fwdtrans_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(Helmholtz_kokkos_stdmat test_helmholtz_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(Helmsolve_kokkos_stdmat test_helmsolve_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(IdentityCoeff_kokkos_stdmat test_identitycoeff_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(IdentityPhys_kokkos_stdmat test_identityphys_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(IProductWRTDerivBase_kokkos_stdmat test_ipwrtderivbase_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(Mass_kokkos_stdmat test_mass_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_stdmat test_multiplybyelmtinvmass_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Neumann_kokkos_stdmat test_neumann_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(NullPrecon_kokkos_stdmat test_nullprecon_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(PhysDeriv_kokkos_stdmat test_physderiv_kokkos_stdmat FALSE)
 ENDIF()
 
 # Copy XML file to build directory

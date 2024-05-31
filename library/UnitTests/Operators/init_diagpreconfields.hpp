@@ -33,10 +33,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "init_fields.hpp"
+
+#include "Operators/OperatorDiagPrecon.hpp"
+
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>
 
-using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::MultiRegions;

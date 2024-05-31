@@ -55,28 +55,9 @@ class OperatorHelmholtzImplBase : public OperatorHelmholtz<TData>
 public:
     OperatorHelmholtzImplBase(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtz<TData>(expansionList),
-          m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
-              "Helmholtz bwd",
-              GetBlockAttributes(FieldState::Phys, expansionList))),
-          m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
-              "Helmholtz deriv",
-              GetBlockAttributes(FieldState::Phys, expansionList),
-              expansionList->GetCoordim(0)))
+        : OperatorHelmholtz<TData>(expansionList)
     {
         auto nCoord = this->m_expansionList->GetCoordim(0);
-
-        m_BwdTransOp =
-            BwdTrans<TData>::template create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_PhysDerivOp =
-            PhysDeriv<TData>::template create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template create<
-            ExecSpace, Implementation>(this->m_expansionList);
 
         m_diffCoeff = MemoryRegion<TData>::template create<MemSpace>(
             "Helmholtz diffCoeff", nCoord * nCoord);
@@ -92,41 +73,10 @@ public:
         }
     }
 
-    // virtual void apply(Field<TData, FieldState::Coeff> &in,
-    //                    Field<TData, FieldState::Coeff> &out)
-    // {
-    //     // Step 1: BwdTrans
-    //     m_BwdTransOp->apply(in, m_bwd);
-
-    //     // Step 2: PhysDeriv
-    //     m_PhysDerivOp->apply(m_bwd, m_deriv);
-
-    //     // Step 3: Inner product for mass matrix operation
-    //     m_IProductWRTBaseOp->apply(m_bwd, out, this->m_lambda);
-
-    //     // Step 4: Multiply by diffusion coefficient
-    //     // Done by the specific implementation - CUDA vs StdMat
-    //     DiffusionCoeff(m_deriv);
-    //     DiffusionCoeff(this->m_deriv, m_derivcoeff);
-
-    //     // Step 5: Inner product
-    //     // Done by the specific implementation - CUDA vs StdMat
-    //     this->m_IProductWRTDerivBaseOp->apply(this->m_deriv, out, true);
-    //     this->m_IProductWRTDerivBaseOp->apply(m_derivcoeff, out, true);
-    // }
-
+    // className - for OperatorFactory
     static std::string className;
 
 protected:
-    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<OperatorPhysDeriv<TData>> m_PhysDerivOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    std::shared_ptr<OperatorIProductWRTDerivBase<TData>>
-        m_IProductWRTDerivBaseOp;
-
-    Field<TData, FieldState::Phys> m_bwd;
-    Field<TData, FieldState::Phys> m_deriv;
-
     MemoryRegion<TData> m_diffCoeff;
 };
 

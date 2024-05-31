@@ -49,6 +49,11 @@
 #elif defined(NEKTAR_ENABLE_KOKKOS)
 #endif
 
+// If this macro is set when calling the device side creation and copy
+// methods will put the data on the host and the device. If not set,
+// the device side creation and copy methods will put the data on the
+// device only.
+
 // #define SYNC_WITH_HOST
 
 template <typename TData> class MemoryRegion;
@@ -124,10 +129,11 @@ public:
      * @param array     - std::vector to copy from
      * @param alignment - memory alignment
      */
-    template <typename TDataIn = TData>
-    MemoryRegionDevice(std::string name, std::vector<TDataIn> const &array,
+    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
+    MemoryRegionDevice(std::string name,
+                       std::vector<TDataIn, Alloc> const &array,
                        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         : MemoryRegionHost<TData>(name, array, alignment)
 #else
         : MemoryRegionHost<TData>(name, array.size(), alignment)
@@ -135,7 +141,8 @@ public:
     {
         createMemory();
 
-        if constexpr (std::is_same<TDataIn, TData>::value)
+        if constexpr (std::is_same<TDataIn, TData>::value &&
+                      std::is_same<Alloc, std::allocator<TDataIn>>::value)
         {
 #if defined(NEKTAR_ENABLE_CUDA)
             cudaMemcpy(m_device, array.data(), this->m_size * sizeof(TData),
@@ -144,22 +151,20 @@ public:
             hipMemcpy(m_device, array.data(), this->m_size * sizeof(TData),
                       hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-            // TData *arrayPtr = const_cast<TData *>(array.data());
+            TData *arrayPtr = const_cast<TDataIn *>(array.data());
 
             // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.data(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -187,17 +192,15 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.data(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(array.data(),
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -206,8 +209,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -223,7 +225,7 @@ public:
     MemoryRegionDevice(std::string name,
                        Nektar::Array<Nektar::OneD, TDataIn> const &array,
                        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         : MemoryRegionHost<TData>(name, array, alignment)
 #else
         : MemoryRegionHost<TData>(name, array.size(), alignment)
@@ -240,22 +242,20 @@ public:
             hipMemcpy(m_device, array.get(), this->m_size * sizeof(TData),
                       hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-            // TData *arrayPtr = const_cast<TData *>(array.get());
+            TData *arrayPtr = const_cast<TDataIn *>(array.get());
 
             // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.get(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -283,17 +283,15 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.get(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(array.get(),
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -321,7 +319,7 @@ public:
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         : MemoryRegionHost<TData>(name, array, alignment)
 #else
         : MemoryRegionHost<TData>(name, array, __EXECSPACE_MEMORY_REGION_ONLY__)
@@ -332,7 +330,7 @@ public:
         // which is determined on the host side.  Initially, allocate
         // as device only so to get the size in the constructor, then
         // create the host memory.
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
 #else
         MemoryRegionHost<TData>::createMemory(name, alignment);
 #endif
@@ -353,23 +351,21 @@ public:
                 hipMemcpy(devicePtr, array[i].get(), size * sizeof(TData),
                           hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-                // TData *arrayPtr = const_cast<TData *>(array[i].get());
+                TData *arrayPtr = const_cast<TDataIn *>(array[i].get());
 
                 // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
                 // char *dstPtr = reinterpret_cast<char *>(devicePtr);
 
-                // // Create an unmanage Kokkos view from the raw pointers.
+                // Create an unmanage Kokkos view from the raw pointers.
                 // Kokkos::View<char *, Kokkos::HostSpace> hostView(
                 //     srcPtr, size * sizeof(TData));
                 // Kokkos::View<char *, Kokkos::DefaultExecutionSpace>
                 // deviceView(
                 //     dstPtr, size * sizeof(TData));
-                // // Deep copy the host view to the device view.
-                // Kokkos::deep_copy(deviceView, hostView);
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                    array[i].get(), size);
+                Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                    size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     devicePtr, size);
 
@@ -413,13 +409,11 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             TData *devicePtr = m_device;
 
@@ -428,7 +422,7 @@ public:
                 size_t size = array[i].size();
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
+                Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(
                     array[i].get(), size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     devicePtr, size);
@@ -441,8 +435,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -475,7 +468,7 @@ public:
      */
     void operator=(MemoryRegionDevice &&rhs)
     {
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::operator=(std::move(rhs));
 #endif
         m_device       = rhs.m_device;
@@ -483,6 +476,34 @@ public:
 
         rhs.m_device       = nullptr;
         rhs.m_device_valid = false;
+    }
+
+    /**
+     * @brief osstream operator.
+     *
+     * @param rhs - MemoryRegion to stream
+     *
+     * @return    - stream
+     */
+    friend auto operator<<(std::ostream &os, MemoryRegionDevice const &mr)
+        -> std::ostream &
+    {
+        std::stringstream msg;
+        msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
+            << " initialize: " << mr.m_initialize << " ";
+
+        if (mr.m_alignment == __EXECSPACE_MEMORY_REGION_ONLY__)
+        {
+            msg << "EXECSPACE_MEMORY_REGION_ONLY ";
+        }
+        else
+        {
+            msg << " host_valid: " << mr.m_host_valid << " ";
+        }
+
+        msg << " device_valid: " << mr.m_device_valid << " ";
+
+        return os << msg.str();
     }
 
     /**
@@ -601,18 +622,16 @@ public:
                 // char *srcPtr = reinterpret_cast<char *>(this->m_host);
                 // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-                // // Create an unmanage Kokkos view from the raw pointers.
+                // Create an unmanage Kokkos view from the raw pointers.
                 // Kokkos::View<char *, Kokkos::HostSpace> hostView(
                 //     srcPtr, this->m_size * sizeof(TData));
                 // Kokkos::View<char *, Kokkos::DefaultExecutionSpace>
                 // deviceView(
                 //     dstPtr, this->m_size * sizeof(TData));
-                // // Deep copy the host view to the device view.
-                // Kokkos::deep_copy(deviceView, hostView);
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> hostView(
-                    this->m_host, this->m_size);
+                Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,
+                                                                  this->m_size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     m_device, this->m_size);
 
@@ -682,18 +701,16 @@ public:
                 // char *srcPtr = reinterpret_cast<char *>(m_device);
                 // char *dstPtr = reinterpret_cast<char *>(this->m_host);
 
-                // // Create an unmanage Kokkos view from the raw pointers.
+                // Create an unmanage Kokkos view from the raw pointers.
                 // Kokkos::View<char *, Kokkos::DefaultExecutionSpace>
                 // deviceView(
                 //     srcPtr, this->m_size * sizeof(TData));
                 // Kokkos::View<char *, Kokkos::HostSpace> hostView(
                 //     dstPtr, this->m_size * sizeof(TData));
-                // // Deep copy the device view to the host view.
-                // Kokkos::deep_copy(hostView, deviceView);
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> hostView(
-                    this->m_host, this->m_size);
+                Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,
+                                                                  this->m_size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     m_device, this->m_size);
 
@@ -755,13 +772,11 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(rhsRet.m_device);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> srcView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> dstView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the device view to the device view.
-            // Kokkos::deep_copy(dstView, srcView);
 
             // Create unmanage Kokkos views from the raw pointers.
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(
@@ -795,7 +810,7 @@ public:
      */
     void initialize(TData val, size_t count = 0) override
     {
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::initialize(val, count);
 #endif
         if (count == 0)
@@ -818,17 +833,15 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(host);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, val);
 
             // Create an unmanage Kokkos view from the raw pointer.
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                m_device, this->m_size);
+                m_device, count);
 
             // Deep copy the val to the device view.
             Kokkos::deep_copy(deviceView, val);
@@ -870,18 +883,16 @@ public:
                 // char *srcPtr = reinterpret_cast<char *>(host);
                 // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-                // // Create an unmanage Kokkos view from the raw pointers.
+                // Create an unmanage Kokkos view from the raw pointers.
                 // Kokkos::View<char *, Kokkos::HostSpace> hostView(
                 //     srcPtr, this->m_size * sizeof(TData));
                 // Kokkos::View<char *, Kokkos::DefaultExecutionSpace>
                 // deviceView(
                 //     dstPtr, this->m_size * sizeof(TData));
-                // // Deep copy the host view to the device view.
-                // Kokkos::deep_copy(deviceView, hostView);
 
                 // Create an unmanage Kokkos view from the raw pointer.
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                    m_device, this->m_size);
+                    m_device, count);
 
                 // Deep copy the val to the device view.
                 Kokkos::deep_copy(deviceView, val);
@@ -901,13 +912,14 @@ public:
      *
      * @param array - std::vector to copy from
      */
-    template <typename TDataIn = TData>
-    void copyVector([[maybe_unused]] std::vector<TDataIn> const &array)
+    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
+    void copyVector([[maybe_unused]] std::vector<TDataIn, Alloc> const &array)
     {
-#ifdef SYNC_WIHT_HOST
-        MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
+#ifdef SYNC_WITH_HOST
+        MemoryRegionHost<TData>::template copyVector<TDataIn>(array);
 #endif
-        if constexpr (std::is_same<TDataIn, TData>::value)
+        if constexpr (std::is_same<TDataIn, TData>::value &&
+                      std::is_same<Alloc, std::allocator<TDataIn>>::value)
         {
 #if defined(NEKTAR_ENABLE_CUDA)
             cudaMemcpy(m_device, array.data(), this->m_size * sizeof(TData),
@@ -916,22 +928,20 @@ public:
             hipMemcpy(m_device, array.data(), this->m_size * sizeof(TData),
                       hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-            // TDataIn *arrayPtr = const_cast<TDataIn *>(array.data());
+            TDataIn *arrayPtr = const_cast<TDataIn *>(array.data());
 
             // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.data(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -959,17 +969,15 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.data(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(array.get(),
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -978,8 +986,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -993,7 +1000,7 @@ public:
     void copyArray(
         [[maybe_unused]] Nektar::Array<Nektar::OneD, TDataIn> const &array)
     {
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
@@ -1006,22 +1013,20 @@ public:
                       hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
 
-            // TData *arrayPtr = const_cast<TData *>(array.get());
+            TDataIn *arrayPtr = const_cast<TDataIn *>(array.get());
 
             // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.get(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -1049,17 +1054,15 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                array.get(), this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(array.get(),
+                                                                this->m_size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                 m_device, this->m_size);
 
@@ -1068,8 +1071,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -1081,10 +1083,10 @@ public:
      */
     template <typename TDataIn = TData>
     void copyArray(
-        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
-            &array)
+        [[maybe_unused]] Nektar::Array<
+            Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const &array)
     {
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
@@ -1102,23 +1104,21 @@ public:
                 hipMemcpy(devicePtr, array[i].get(), size * sizeof(TData),
                           hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-                // TData *arrayPtr = const_cast<TData *>(array[i].get());
+                TDataIn *arrayPtr = const_cast<TDataIn *>(array[i].get());
 
                 // char *srcPtr = reinterpret_cast<char *>(arrayPtr);
                 // char *dstPtr = reinterpret_cast<char *>(devicePtr);
 
-                // // Create an unmanage Kokkos view from the raw pointers.
+                // Create an unmanage Kokkos view from the raw pointers.
                 // Kokkos::View<char *, Kokkos::HostSpace> hostView(
                 //     srcPtr, size * sizeof(TData));
                 // Kokkos::View<char *, Kokkos::DefaultExecutionSpace>
                 // deviceView(
                 //     dstPtr, size * sizeof(TData));
-                // // Deep copy the host view to the device view.
-                // Kokkos::deep_copy(deviceView, hostView);
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
-                    array[i].get(), size);
+                Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(arrayPtr,
+                                                                    size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     devicePtr, size);
 
@@ -1163,13 +1163,11 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(m_device);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, this->m_size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, this->m_size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             TData *devicePtr = m_device;
 
@@ -1178,7 +1176,7 @@ public:
                 size_t size = array[i].size();
 
                 // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> hostView(
+                Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(
                     array[i].get(), size);
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
                     devicePtr, size);
@@ -1191,8 +1189,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -1206,7 +1203,7 @@ public:
     void copyRaw([[maybe_unused]] TData *dest, [[maybe_unused]] TDataIn *src,
                  [[maybe_unused]] size_t size)
     {
-#ifdef SYNC_WIHT_HOST
+#ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyRaw<TDataIn>(dest, src, size);
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
@@ -1219,17 +1216,14 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(src);
             // char *dstPtr = reinterpret_cast<char *>(dest);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> srcView(
-                src, size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> srcView(src, size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dest,
                                                                          size);
 
@@ -1263,17 +1257,14 @@ public:
             // char *srcPtr = reinterpret_cast<char *>(tmp.data());
             // char *dstPtr = reinterpret_cast<char *>(dest);
 
-            // // Create an unmanage Kokkos view from the raw pointers.
+            // Create an unmanage Kokkos view from the raw pointers.
             // Kokkos::View<char *, Kokkos::HostSpace> hostView(
             //     srcPtr, size * sizeof(TData));
             // Kokkos::View<char *, Kokkos::DefaultExecutionSpace> deviceView(
             //     dstPtr, size * sizeof(TData));
-            // // Deep copy the host view to the device view.
-            // Kokkos::deep_copy(deviceView, hostView);
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> srcView(
-                src, size);
+            Kokkos::View<TDataIn *, Kokkos::HostSpace> srcView(src, size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dest,
                                                                          size);
 
@@ -1282,8 +1273,7 @@ public:
 #endif
         }
 
-        m_device_valid = true;
-
+        m_device_valid     = true;
         this->m_initialize = false;
     }
 
@@ -1291,13 +1281,21 @@ public:
      * @brief Set all storage data as being valid.
      *
      */
-    void setValid() override
+    void setValid(bool valid) override
     {
-#ifdef SYNC_WIHT_HOST
-        MemoryRegionHost<TData>::setValid();
-#endif
-        m_device_valid     = true;
+        m_device_valid     = valid;
+        this->m_host_valid = !valid;
         this->m_initialize = false;
+    }
+
+    /**
+     * @brief Get the storage valid.
+     *
+     * This is a virtual function so that subclasses can set values.
+     */
+    bool getValid() const override
+    {
+        return m_device_valid;
     }
 
 protected:

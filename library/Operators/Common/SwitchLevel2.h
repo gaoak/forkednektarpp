@@ -90,7 +90,7 @@ if (dimension == 1)
               {
               ...
                  case 5:
-                 operator1D<LibUtilities::eSegment,4,5>(inptr,outptr);
+                 operator1D<LibUtilities::eSegment,4,5>(inPtr,outPtr);
                  break;
                  ...
                  }

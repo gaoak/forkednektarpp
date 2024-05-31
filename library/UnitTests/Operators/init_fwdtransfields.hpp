@@ -33,9 +33,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "init_fields.hpp"
+
+#include "Operators/OperatorFwdTrans.hpp"
+
 #include <MultiRegions/ContField.h>
 
-using namespace std;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;

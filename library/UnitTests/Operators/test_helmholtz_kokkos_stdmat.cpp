@@ -33,30 +33,26 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestHelmholtzKokkos
+
+#include "init_helmholtzfields.hpp"
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorHelmholtz.hpp"
-#include "init_helmholtzfields.hpp"
-
 #define TEST_HELMSOLVE(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace1 = NektarSpaces::Serial;                               \
-        using ExecSpace2 = Kokkos::DefaultExecutionSpace;                      \
-        using Impl1      = Operators::StdMat;                                  \
-        using Impl2      = Operators::StdMat;                                  \
+        using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
+        using Impl      = Operators::StdMat;                                   \
         Configure();                                                           \
-        SetTestCase(fixt_in->GetBlocks(),                                      \
-                    fixt_in->GetPtr<NektarSpaces::HostSpace>());               \
         SetTestCase(fixt_kokkos_in->GetBlocks(),                               \
                     fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace>());        \
-        Helmholtz<>::template create<ExecSpace1, Impl1>(fixt_explist)          \
-            ->apply(*fixt_in, *fixt_expected);                                 \
-        Helmholtz<>::template create<ExecSpace2, Impl2>(fixt_explist)          \
+        Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist)            \
             ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

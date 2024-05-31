@@ -34,6 +34,8 @@
 
 #include "init_fields.hpp"
 
+#include "Operators/OperatorMultiplyByElmtInvMass.hpp"
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;

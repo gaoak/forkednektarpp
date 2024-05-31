@@ -34,12 +34,18 @@
 
 #pragma once
 
-#include "Operators/DirBndCond/DirBndCondImplBase.hpp"
+#include "Operators/OperatorDirBndCond.hpp"
 
 #include "Operators/DirBndCond/DirBndCondCUDASumFacKernels.cuh"
 #include "Operators/DirBndCond/DirBndCondKokkosStdMatKernels.hpp"
 
 #include "Operators/OperatorHelper.hpp"
+
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
+#include <MultiRegions/ContField.h>
+
+using namespace Nektar;
+using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -47,22 +53,19 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
-class OperatorDirBndCondImpl
-    : public OperatorDirBndCondImplBase<ExecSpace, Implementation, TData>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+class OperatorDirBndCondImpl : public OperatorDirBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorDirBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorDirBndCondImplBase<ExecSpace, Implementation, TData>(
-              expansionList)
+        : OperatorDirBndCond<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -101,12 +104,12 @@ public:
         // NCoeff
         m_ncoeff = MemoryRegion<int>::template create<MemSpace>(m_bndExpSize);
 
-        int *ncoeff = m_ncoeff.template GetPtr<NektarSpaces::HostSpace>();
+        int *ncoeffPtr = m_ncoeff.template GetPtr<NektarSpaces::HostSpace>();
 
         size_t ntotcoeff = 0;
         for (size_t i = 0; i < m_bndExpSize; ++i)
         {
-            ncoeff[i] = contfield->GetBndCondExpansions()[i]->GetNcoeffs();
+            ncoeffPtr[i] = contfield->GetBndCondExpansions()[i]->GetNcoeffs();
             ntotcoeff += contfield->GetBndCondExpansions()[i]->GetNcoeffs();
         }
 
@@ -115,25 +118,25 @@ public:
             MemoryRegion<BoundaryConditionType>::template create<MemSpace>(
                 m_bndExpSize);
 
-        BoundaryConditionType *bctype =
+        BoundaryConditionType *bctypePtr =
             m_bctype.template GetPtr<NektarSpaces::HostSpace>();
 
         for (size_t i = 0; i < m_bndExpSize; ++i)
         {
-            bctype[i] =
+            bctypePtr[i] =
                 contfield->GetBndConditions()[i]->GetBoundaryConditionType();
         }
 
         // Coeff
         m_coeff = MemoryRegion<TData>::template create<MemSpace>(ntotcoeff);
 
-        TData *coeff = m_coeff.template GetPtr<NektarSpaces::HostSpace>();
+        TData *coeffPtr = m_coeff.template GetPtr<NektarSpaces::HostSpace>();
 
         for (size_t i = 0; i < m_bndExpSize; ++i)
         {
-            for (size_t j = 0; j < ncoeff[i]; ++j)
+            for (size_t j = 0; j < ncoeffPtr[i]; ++j)
             {
-                coeff[offset[i] + j] =
+                coeffPtr[offset[i] + j] =
                     contfield->GetBndCondExpansions()[i]->GetCoeffs()[j];
             }
         }
@@ -162,36 +165,39 @@ public:
 
     void apply(Field<TData, FieldState::Coeff> &out) override
     {
-        TData *outptr = out.template GetPtr<MemSpace>();
+        TData *outPtr = out.template GetPtr<MemSpace>();
 
-        BoundaryConditionType *p_bctype = m_bctype.template GetPtr<MemSpace>();
-        TData *p_coeff                  = m_coeff.template GetPtr<MemSpace>();
-        int *p_map                      = m_map.template GetPtr<MemSpace>();
-        int *p_ncoeff                   = m_ncoeff.template GetPtr<MemSpace>();
-        int *p_offset                   = m_offset.template GetPtr<MemSpace>();
+        BoundaryConditionType *bctypePtr = m_bctype.template GetPtr<MemSpace>();
+        TData *coeffPtr                  = m_coeff.template GetPtr<MemSpace>();
+        int *mapPtr                      = m_map.template GetPtr<MemSpace>();
+        int *ncoeffPtr                   = m_ncoeff.template GetPtr<MemSpace>();
+        int *offsetPtr                   = m_offset.template GetPtr<MemSpace>();
 
-        int *p_locid0    = m_locid0.template GetPtr<MemSpace>();
-        int *p_locid1    = m_locid1.template GetPtr<MemSpace>();
-        TData *p_locsign = m_locsign.template GetPtr<MemSpace>();
+        int *locid0Ptr    = m_locid0.template GetPtr<MemSpace>();
+        int *locid1Ptr    = m_locid1.template GetPtr<MemSpace>();
+        TData *locsignPtr = m_locsign.template GetPtr<MemSpace>();
         // Copy memory to the device, if necessary and get raw pointers.
 
-#if defined(NEKTAR_ENABLE_CUDA)
         // Deterime CUDA grid size.
-        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
+#if defined(NEKTAR_ENABLE_CUDA)
+        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+        {
+            m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
+        }
 #endif
         if (m_signChange)
         {
-            TData *p_sign = m_sign.template GetPtr<MemSpace>();
+            TData *signPtr = m_sign.template GetPtr<MemSpace>();
 
             DirBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, p_offset, p_bctype,
-                p_ncoeff, p_sign, p_map, p_coeff, outptr);
+                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
+                ncoeffPtr, signPtr, mapPtr, coeffPtr, outPtr);
         }
         else
         {
             DirBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, p_offset, p_bctype,
-                p_ncoeff, p_map, p_coeff, outptr);
+                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
+                ncoeffPtr, mapPtr, coeffPtr, outPtr);
         }
 
         // communicate local Dirichlet coeffs that are just
@@ -213,12 +219,19 @@ public:
         // }
 
         // Deterime CUDA grid size.
-        m_gridSize = GetCUDAGridSize(m_localDirSize, m_blockSize);
-
+#if defined(NEKTAR_ENABLE_CUDA)
+        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+        {
+            m_gridSize = GetCUDAGridSize(m_localDirSize, m_blockSize);
+        }
+#endif
         LocalDirBndCondKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                                m_localDirSize, p_locid0,
-                                                p_locid1, p_locsign, outptr);
+                                                m_localDirSize, locid0Ptr,
+                                                locid1Ptr, locsignPtr, outPtr);
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

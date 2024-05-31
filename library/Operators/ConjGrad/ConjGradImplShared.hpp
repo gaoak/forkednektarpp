@@ -47,13 +47,12 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorConjGradImpl
     : public OperatorConjGradImplBase<ExecSpace, Implementation, TData>
 {
@@ -86,21 +85,21 @@ public:
 
         m_buffer.initialize(0);
 
-        const TData *p_in = in.template GetConstPtr<MemSpace>();
-        TData *p_out      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetConstPtr<MemSpace>();
+        TData *outPtr      = out.template GetPtr<MemSpace>();
 
-        TData *p_w_A = this->m_w_A.template GetPtr<MemSpace>();
-        TData *p_s_A = this->m_s_A.template GetPtr<MemSpace>();
-        TData *p_r_A = this->m_r_A.template GetPtr<MemSpace>();
-        TData *p_wk  = this->m_wk.template GetPtr<MemSpace>();
+        TData *w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+        TData *s_APtr = this->m_s_A.template GetPtr<MemSpace>();
+        TData *r_APtr = this->m_r_A.template GetPtr<MemSpace>();
+        TData *wkPtr  = this->m_wk.template GetPtr<MemSpace>();
 
-        TData *p_p_A = this->m_p_A.template GetPtr<MemSpace>();
-        TData *p_q_A = this->m_q_A.template GetPtr<MemSpace>();
+        TData *p_APtr = this->m_p_A.template GetPtr<MemSpace>();
+        TData *q_APtr = this->m_q_A.template GetPtr<MemSpace>();
 
-        TData *p_buffer = m_buffer.template GetPtr<MemSpace>();
+        TData *bufferPtr = m_buffer.template GetPtr<MemSpace>();
 
-        TData *p_vExchange = m_vExchange.template GetPtr<MemSpace>();
-        const TData *p_vExchangeHost =
+        TData *vExchangePtr = m_vExchange.template GetPtr<MemSpace>();
+        const TData *vExchangeHostPtr =
             m_vExchange.template GetConstPtr<NektarSpaces::HostSpace>();
 
         // Convergence parameters (host)
@@ -120,23 +119,23 @@ public:
         this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk, true);
 
         dotKernel<ExecSpace, TData, m_blockSize>(
-            m_gridSize, m_blockSize, this->m_nloc, p_wk, p_r_A, p_buffer);
+            m_gridSize, m_blockSize, this->m_nloc, wkPtr, r_APtr, bufferPtr);
         reduceKernel<ExecSpace, TData, m_gridSize>(1, m_gridSize, m_gridSize,
-                                                   p_buffer, p_vExchange + 2);
+                                                   bufferPtr, vExchangePtr + 2);
 
         m_vExchange.template DeviceToHost<MemSpace>();
-        eps = p_vExchangeHost[2];
+        eps = vExchangeHostPtr[2];
 
         // Calculate rhs magnitude
         this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk);
 
         dotKernel<ExecSpace, TData, m_blockSize>(
-            m_gridSize, m_blockSize, this->m_nloc, p_in, p_wk, p_buffer);
+            m_gridSize, m_blockSize, this->m_nloc, inPtr, wkPtr, bufferPtr);
         reduceKernel<ExecSpace, TData, m_gridSize>(1, m_gridSize, m_gridSize,
-                                                   p_buffer, p_vExchange + 3);
+                                                   bufferPtr, vExchangePtr + 3);
 
         m_vExchange.template DeviceToHost<MemSpace>();
-        rhsMagnitude = p_vExchangeHost[3];
+        rhsMagnitude = vExchangeHostPtr[3];
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
         // If the input residual is less than tolerance then skip solve.
@@ -144,6 +143,12 @@ public:
         {
             return;
         }
+
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls. The memory region being
+        // used must be marked as being valid which more
+        // importantly invalidates the sibling memory region.
+        this->m_r_A.template setValid<MemSpace>();
 
         // Apply preconditioner
         this->m_precon->apply(this->m_r_A, this->m_w_A);
@@ -154,19 +159,25 @@ public:
         // Apply Robin BCs
         // this->m_robBndCondOp->apply(this->m_w_A, this->m_s_A);
 
-        dotKernel<ExecSpace, TData, m_blockSize>(
-            m_gridSize, m_blockSize, this->m_nloc, p_r_A, p_w_A, p_buffer);
-        reduceKernel<ExecSpace, TData, m_gridSize>(1, m_gridSize, m_gridSize,
-                                                   p_buffer, p_vExchange + 0);
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls the memory region being used
+        // must be copied back.
+        w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+        s_APtr = this->m_s_A.template GetPtr<MemSpace>();
 
         dotKernel<ExecSpace, TData, m_blockSize>(
-            m_gridSize, m_blockSize, this->m_nloc, p_s_A, p_w_A, p_buffer);
+            m_gridSize, m_blockSize, this->m_nloc, r_APtr, w_APtr, bufferPtr);
         reduceKernel<ExecSpace, TData, m_gridSize>(1, m_gridSize, m_gridSize,
-                                                   p_buffer, p_vExchange + 1);
+                                                   bufferPtr, vExchangePtr + 0);
+
+        dotKernel<ExecSpace, TData, m_blockSize>(
+            m_gridSize, m_blockSize, this->m_nloc, s_APtr, w_APtr, bufferPtr);
+        reduceKernel<ExecSpace, TData, m_gridSize>(1, m_gridSize, m_gridSize,
+                                                   bufferPtr, vExchangePtr + 1);
 
         m_vExchange.template DeviceToHost<MemSpace>();
-        rho = p_vExchangeHost[0];
-        mu  = p_vExchangeHost[1];
+        rho = vExchangeHostPtr[0];
+        mu  = vExchangeHostPtr[1];
 
         beta            = 0.0;
         alpha           = rho / mu;
@@ -176,25 +187,34 @@ public:
         {
             if (totalIterations > this->m_maxIter)
             {
-                std::cout << "Exceeded max iterations\n";
+                std::stringstream msg;
+                msg << "Exceeded max iterations: " << totalIterations;
+                WARNINGL0(false, msg.str());
+
                 return;
             }
 
             // Compute new search direction p_k
             daxpyKernel<ExecSpace, TData>(m_gridSize, m_blockSize, this->m_nloc,
-                                          beta, p_p_A, p_w_A, p_p_A);
+                                          beta, p_APtr, w_APtr, p_APtr);
 
             // Compute new search direction q_k
             daxpyKernel<ExecSpace, TData>(m_gridSize, m_blockSize, this->m_nloc,
-                                          beta, p_q_A, p_s_A, p_q_A);
+                                          beta, q_APtr, s_APtr, q_APtr);
 
             // Update solution x_{k+1}
             daxpyKernel<ExecSpace, TData>(m_gridSize, m_blockSize, this->m_nloc,
-                                          alpha, p_p_A, p_out, p_out);
+                                          alpha, p_APtr, outPtr, outPtr);
 
             // Update residual vector r_{k+1}
             daxpyKernel<ExecSpace, TData>(m_gridSize, m_blockSize, this->m_nloc,
-                                          -alpha, p_q_A, p_r_A, p_r_A);
+                                          -alpha, q_APtr, r_APtr, r_APtr);
+
+            // Anytime there is a mix of internal kernel calls and
+            // external operator calls. The memory region being
+            // used must be marked as being valid which more
+            // importantly invalidates the sibling memory region.
+            this->m_r_A.template setValid<MemSpace>();
 
             // Apply preconditioner
             this->m_precon->apply(this->m_r_A, this->m_w_A);
@@ -205,30 +225,39 @@ public:
             // Apply Robin BCs
             // this->m_robBndCondOp->apply(this->m_w_A, this->m_s_A);
 
+            // Anytime there is a mix of internal kernel calls and
+            // external operator calls the memory region being used
+            // must be copied back.
+            w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+            s_APtr = this->m_s_A.template GetPtr<MemSpace>();
+
             // <r_{k+1}, w_{k+1}>
-            dotKernel<ExecSpace, TData, m_blockSize>(
-                m_gridSize, m_blockSize, this->m_nloc, p_r_A, p_w_A, p_buffer);
+            dotKernel<ExecSpace, TData, m_blockSize>(m_gridSize, m_blockSize,
+                                                     this->m_nloc, r_APtr,
+                                                     w_APtr, bufferPtr);
             reduceKernel<ExecSpace, TData, m_gridSize>(
-                1, m_gridSize, m_gridSize, p_buffer, p_vExchange + 0);
+                1, m_gridSize, m_gridSize, bufferPtr, vExchangePtr + 0);
 
             // <s_{k+1}, w_{k+1}>
-            dotKernel<ExecSpace, TData, m_blockSize>(
-                m_gridSize, m_blockSize, this->m_nloc, p_s_A, p_w_A, p_buffer);
+            dotKernel<ExecSpace, TData, m_blockSize>(m_gridSize, m_blockSize,
+                                                     this->m_nloc, s_APtr,
+                                                     w_APtr, bufferPtr);
             reduceKernel<ExecSpace, TData, m_gridSize>(
-                1, m_gridSize, m_gridSize, p_buffer, p_vExchange + 1);
+                1, m_gridSize, m_gridSize, bufferPtr, vExchangePtr + 1);
 
             // <r_{k+1}, r_{k+1}>
             this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk, true);
 
-            dotKernel<ExecSpace, TData, m_blockSize>(
-                m_gridSize, m_blockSize, this->m_nloc, p_wk, p_r_A, p_buffer);
+            dotKernel<ExecSpace, TData, m_blockSize>(m_gridSize, m_blockSize,
+                                                     this->m_nloc, wkPtr,
+                                                     r_APtr, bufferPtr);
             reduceKernel<ExecSpace, TData, m_gridSize>(
-                1, m_gridSize, m_gridSize, p_buffer, p_vExchange + 2);
+                1, m_gridSize, m_gridSize, bufferPtr, vExchangePtr + 2);
 
             m_vExchange.template DeviceToHost<MemSpace>();
-            rho_new = p_vExchangeHost[0];
-            mu      = p_vExchangeHost[1];
-            eps     = p_vExchangeHost[2];
+            rho_new = vExchangeHostPtr[0];
+            mu      = vExchangeHostPtr[1];
+            eps     = vExchangeHostPtr[2];
 
             // std::cout << "Iteration " << totalIterations << " -- eps = " <<
             // eps

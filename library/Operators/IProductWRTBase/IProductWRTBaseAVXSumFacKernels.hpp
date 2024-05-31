@@ -175,7 +175,7 @@ NEK_FORCE_INLINE static void IProductTriKernel(
     if (correct)
     {
         int eta_idx    = 0;
-        vec_t iprod_01 = 0.0; // T(outptr + VW); //Load 1x
+        vec_t iprod_01 = 0.0; // T(outPtr + VW); //Load 1x
 
         for (int eta1 = 0; eta1 < nq1; ++eta1)
         {
@@ -601,7 +601,7 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
         // Corrections for singular edge
         for (int q = 0; q < nm1; ++q)
         {
-            corr_q[q] = 0.0; // T(outptr + (nm2*q + 1)*VW);
+            corr_q[q] = 0.0; // T(outPtr + (nm2*q + 1)*VW);
         }
 
         int cnt_kji = 0;

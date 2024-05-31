@@ -118,6 +118,7 @@ template <typename TData = default_fp_type, FieldState TState = DefaultState>
 class Field : public MemoryRegion<TData>
 {
 public:
+    Field(){};
     Field(const Field &) = delete;
     ~Field() override    = default; // Default removes implicit moves
 
@@ -442,10 +443,10 @@ public:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TData *ptr =
+            TData *hostPtr =
                 this->m_storage->GetHostPtr() + component * scalar_field_size;
 
-            for (const auto &block : block_attributes)
+            for (auto const &block : block_attributes)
             {
                 const size_t numMetaBlocks =
                     (block.num_elements + block.num_padding_elements) /
@@ -457,15 +458,16 @@ public:
                 for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
                      ++metaBlock)
                 {
-                    // Copy data into temporary storage because inptr and outptr
+                    // Copy data into temporary storage because inPtr and outPtr
                     // access the same memory location
-                    std::copy(ptr, ptr + MetaBlockSize, temp.get());
+                    std::copy(hostPtr, hostPtr + MetaBlockSize, temp.get());
                     InterleaveFromScalar<VectorWidth>(temp.get(), block.num_pts,
-                                                      ptr);
-                    ptr += block.num_pts * VectorWidth;
+                                                      hostPtr);
+                    hostPtr += block.num_pts * VectorWidth;
                 }
             }
         }
+
         m_curVecWidth = VectorWidth;
     }
 
@@ -546,7 +548,7 @@ public:
                  "rhs_component is out of range!");
         ASSERTL0(component < GetNumComponents(), "component is out of range!");
 
-        const auto &rhs_blocks = rhs.GetBlocks();
+        auto const &rhs_blocks = rhs.GetBlocks();
         ASSERTL0(rhs_blocks.size() == block_attributes.size(),
                  "Number of blocks are not the same!");
         ASSERTL0(rhs.m_curVecWidth == m_curVecWidth,
@@ -605,7 +607,7 @@ public:
      */
     size_t GetAlignment()
     {
-        return this->m_storage->GetAlignment();
+        return this->m_storage->getAlignment();
     }
 
     /**
@@ -635,10 +637,10 @@ private:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TData *inptr =
+            TData *inPtr =
                 this->m_storage->GetHostPtr() + component * scalar_field_size;
 
-            for (const auto &block : block_attributes)
+            for (auto const &block : block_attributes)
             {
                 const size_t numMetaBlocks =
                     (block.num_elements + block.num_padding_elements) /
@@ -650,14 +652,15 @@ private:
                 for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
                      ++metaBlock)
                 {
-                    // Copy data into temporary storage because inptr and outptr
+                    // Copy data into temporary storage because inPtr and outPtr
                     // access the same memory location
-                    std::copy(inptr, inptr + MetaBlockSize, temp.get());
-                    Deinterleave(temp.get(), block.num_pts, inptr);
-                    inptr += MetaBlockSize;
+                    std::copy(inPtr, inPtr + MetaBlockSize, temp.get());
+                    Deinterleave(temp.get(), block.num_pts, inPtr);
+                    inPtr += MetaBlockSize;
                 }
             }
         }
+
         m_curVecWidth = 1;
     }
 

@@ -33,14 +33,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestFwdTransKokkos
+
+#include "init_fwdtransfields.hpp"
+
+#include "Operators/OperatorDiagPrecon.hpp"
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
-
-#include "Operators/OperatorDiagPrecon.hpp"
-#include "Operators/OperatorFwdTrans.hpp"
-#include "init_fwdtransfields.hpp"
 
 #define TEST_FWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

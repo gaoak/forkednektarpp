@@ -198,6 +198,7 @@ ENDMACRO()
 
 SET(OPERATORS_HEADERS
     Field.hpp
+    LoopExecution.hpp
     MemoryRegionHost.hpp
     MemoryRegionDevice.hpp
     Operator.hpp
@@ -208,6 +209,7 @@ SET(OPERATORS_HEADERS
 
 SET(OPERATORS_SOURCES
     Field.cpp
+    LoopExecution.cpp
     Operator.cpp
     OperatorHelper.cpp
     )
