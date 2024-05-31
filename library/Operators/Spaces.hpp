@@ -61,7 +61,9 @@ class Interlaced
 
 } // namespace Nektar::MemoryLayout
 
-// Create some data types for non-Kokkos CPU runs.
+// Create some data types for non-Kokkos runs. The NektarSpaces
+// namespace basically duplicates concepts that are part of the Kokkos
+// namespace.
 namespace NektarSpaces
 {
 
@@ -88,6 +90,8 @@ public:
 
 using DefaultHostExecutionSpace = Serial; // Default Host implementation.
 
+// This macro is used in the CMakeLists.txt for generating the factory
+// *.cpp files. There is also a device tag.
 #define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::DefaultHostExecutionSpace
 
 // Native pure GPU execution
@@ -148,7 +152,7 @@ using DefaultExecutionSpace = SYCL;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
 
-// No specific GPU
+// No specific GPU so the device is the host.
 #else
 
 using DeviceSpace           = HostSpace;
@@ -194,6 +198,8 @@ using DefaultExecutionSpace = DefaultHostExecutionSpace;
 #include <Kokkos_Macros.hpp>
 #include <Kokkos_Random.hpp>
 
+// These are used for LoopExecution.hpp reductions. There are
+// equivalent for when Kokkoks is not defined.
 namespace Nektar
 {
 template <typename TData> using ReduceSum = Kokkos::Sum<TData>;
@@ -201,20 +207,11 @@ template <typename TData> using ReduceMin = Kokkos::Min<TData>;
 template <typename TData> using ReduceMax = Kokkos::Max<TData>;
 } // namespace Nektar
 
+// For decaring functions.  There are equivalent for when Kokkoks is
+// not defined.
 #define GPU_FUNCTION KOKKOS_FUNCTION
 #define GPU_INLINE_FUNCTION KOKKOS_INLINE_FUNCTION
 #define GPU_FORCEINLINE_FUNCTION KOKKOS_FORCEINLINE_FUNCTION
-
-namespace NektarKokkos
-{
-
-enum Kokkos_Policy
-{
-    Kokkos_Team_Policy,
-    Kokkos_Range_Policy,
-    Kokkos_MDRange_Policy
-};
-}
 
 // GPUs
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) ||               \
@@ -228,14 +225,15 @@ enum Kokkos_Policy
 
 #else // !defined(NEKTAR_ENABLE_KOKKOS)
 
+// For decaring functions when Kokkoks is not defined.
 #define GPU_FUNCTION
 #define GPU_INLINE_FUNCTION inline
 #define GPU_FORCEINLINE_FUNCTION inline
 
 #define KOKKOS_LAMBDA [&]
 
-// Kokkos not included in this build. Create some stub types so
-// these types at least exist.
+// Kokkos is not included in this build. Create some stub types so
+// these types at least exist and so #ifdef are not needed.
 namespace Kokkos
 {
 
@@ -250,7 +248,8 @@ public:
     using memory_layout = Nektar::MemoryLayout::Consecutive;
 };
 
-// These functions duplicate the basic Kokkos atomic functions.
+// These functions duplicate the basic Kokkos atomic functions. These
+// are only used for serial execution.
 template <class T>
 GPU_INLINE_FUNCTION void atomic_add(T *const dest, const T val)
 {

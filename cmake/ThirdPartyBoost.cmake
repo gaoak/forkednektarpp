@@ -16,6 +16,21 @@ endif()
 
 SET(NEEDED_BOOST_LIBS iostreams system program_options)
 
+IF( BOOST_TEST_DYN_LINK )
+#    Currently only supported in
+#    library/UnitTests/Operators/init_fields.hpp
+#    ADD_DEFINITIONS(-DBOOST_TEST_DYN_LINK)
+    ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_DYN_LINK)
+    SET(NEEDED_BOOST_LIBS ${NEEDED_BOOST_LIBS} unit_test_framework)
+ENDIF()
+
+IF( BOOST_TEST_NO_MAIN )
+#    Currently only supported in
+#    library/UnitTests/Operators/init_fields.hpp
+#    ADD_DEFINITIONS(-DBOOST_TEST_NO_MAIN)
+    ADD_DEFINITIONS(-DOPERATORS_BOOST_TEST_NO_MAIN)
+ENDIF()
+
 SET(Boost_NO_BOOST_CMAKE ON)
 SET(Boost_USE_STATIC_LIBS OFF)
 
@@ -40,7 +55,7 @@ ENDIF()
 FIND_PACKAGE(Boost ${BOOST_MIN_VERSION} QUIET COMPONENTS ${NEEDED_BOOST_LIBS})
 
 IF(Boost_FOUND)
-    MESSAGE(STATUS "-- Found Boost library version: ${BOOST_VERSION}")
+    MESSAGE(STATUS "-- Found Boost library version: ${Boost_VERSION_STRING}")
     SET(BUILD_BOOST OFF)
 
     # Check what was found and determine if boost needs to be built.
@@ -55,6 +70,7 @@ IF(Boost_FOUND)
         ENDIF()
     ENDFOREACH()
 ELSE()
+    MESSAGE(STATUS "-- Boost library version: ${BOOST_MIN_VERSION} not found.")
     SET(BUILD_BOOST ON)
 ENDIF()
 
@@ -73,9 +89,13 @@ ENDIF()
 IF (THIRDPARTY_BUILD_BOOST)
     INCLUDE(ExternalProject)
 
-    # Only build the libraries we need
+    # Only build the libraries needed
     FOREACH(boostlib ${NEEDED_BOOST_LIBS})
-        LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
+        IF( ${boostlib} STREQUAL "unit_test_framework" )
+            LIST(APPEND BOOST_LIB_LIST --with-test)
+        ELSE()
+            LIST(APPEND BOOST_LIB_LIST --with-${boostlib})
+        ENDIF ()
     ENDFOREACH()
 
     IF (NOT WIN32)

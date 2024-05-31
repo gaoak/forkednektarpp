@@ -47,9 +47,10 @@
         using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::StdMat;                                   \
         Configure();                                                           \
-        auto DirBndCondOp =                                                    \
-            DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        DirBndCondOp->apply(*fixt_out);                                        \
+        SetTestCase(fixt_out->GetBlocks(),                                     \
+                    fixt_out->GetPtr<NektarSpaces::HostSpace>());              \
+        DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
+            ->apply(*fixt_out);                                                \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \

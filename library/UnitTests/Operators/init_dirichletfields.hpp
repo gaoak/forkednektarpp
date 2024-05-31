@@ -34,7 +34,8 @@
 
 #include "init_fields.hpp"
 
-using namespace std;
+#include "Operators/OperatorDirBndCond.hpp"
+
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
@@ -47,6 +48,12 @@ public:
     DirichletField()
         : InitFields<double, FieldState::Coeff, FieldState::Coeff,
                      MultiRegions::ContField>()
+    {
+    }
+
+    void SetTestCase(
+        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
+        [[maybe_unused]] double *inptr, [[maybe_unused]] bool padding = true)
     {
     }
 

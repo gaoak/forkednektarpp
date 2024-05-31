@@ -114,8 +114,8 @@ public:
      * @param array     - std::vector to copy from
      * @param alignment - memory alignment
      */
-    template <typename TDataIn = TData>
-    MemoryRegionHost(std::string name, std::vector<TDataIn> const &array,
+    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
+    MemoryRegionHost(std::string name, std::vector<TDataIn, Alloc> const &array,
                      size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         m_size = array.size();
@@ -124,7 +124,8 @@ public:
 
         if (alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
         {
-            if constexpr (std::is_same<TDataIn, TData>::value)
+            if constexpr (std::is_same<TDataIn, TData>::value &&
+                          std::is_same<Alloc, std::allocator<TDataIn>>::value)
             {
                 std::memcpy(m_host, array.data(), m_size * sizeof(TData));
             }
@@ -266,6 +267,32 @@ public:
         rhs.m_name       = "";
 
         return *this;
+    }
+
+    /**
+     * @brief osstream operator.
+     *
+     * @param rhs - MemoryRegion to stream
+     *
+     * @return    - stream
+     */
+    friend auto operator<<(std::ostream &os, MemoryRegionHost const &mr)
+        -> std::ostream &
+    {
+        std::stringstream msg;
+        msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
+            << " initialize: " << mr.m_initialize << " ";
+
+        if (mr.m_alignment == __EXECSPACE_MEMORY_REGION_ONLY__)
+        {
+            msg << "EXECSPACE_MEMORY_REGION_ONLY ";
+        }
+        else
+        {
+            msg << " host_valid: " << mr.m_host_valid << " ";
+        }
+
+        return os << msg.str();
     }
 
     /**
@@ -427,12 +454,13 @@ public:
      *
      * @param array - std::vector to copy from
      */
-    template <typename TDataIn = TData>
-    void copyVector(std::vector<TDataIn> const &array)
+    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
+    void copyVector(std::vector<TDataIn, Alloc> const &array)
     {
         if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
         {
-            if constexpr (std::is_same<TDataIn, TData>::value)
+            if constexpr (std::is_same<TDataIn, TData>::value &&
+                          std::is_same<Alloc, std::allocator<TDataIn>>::value)
             {
                 std::memcpy(m_host, array.get(), m_size * sizeof(TData));
             }
@@ -553,13 +581,33 @@ public:
      *
      * This is a virtual function so that subclasses can set values.
      */
-    virtual void setValid()
+    virtual void setValid(bool valid)
     {
         if (m_host)
         {
-            m_host_valid = true;
+            m_host_valid = valid;
             m_initialize = false;
         }
+    }
+
+    /**
+     * @brief Get the storage valid.
+     *
+     * This is a virtual function so that subclasses can set values.
+     */
+    virtual bool getValid() const
+    {
+        return m_host_valid;
+    }
+
+    /**
+     * @brief Get the initialize valid.
+     *
+     * This is a virtual function so that subclasses can set values.
+     */
+    bool getInitialize() const
+    {
+        return m_initialize;
     }
 
     /**
@@ -567,7 +615,7 @@ public:
      *
      * @return - size_t
      */
-    size_t GetAlignment() const
+    size_t getAlignment() const
     {
         return m_alignment;
     }
@@ -577,7 +625,7 @@ public:
      *
      * @return - std::string
      */
-    std::string GetName() const
+    std::string getName() const
     {
         return m_name;
     }
@@ -609,8 +657,9 @@ protected:
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid = false; ///< Flag indicating the host data is valid
-    bool m_initialize = true;  ///< Flag indicating the data is being initialize
-                               ///< and is neeeded for host device transfers.
+    bool m_host_valid = false; // Flag indicating that the host data is valid
+    bool m_initialize = true;  // Flag indicating that the data needs
+                               // to be initialize and is neeeded for
+                               // host device transfers.
     std::string m_name{""};
 };

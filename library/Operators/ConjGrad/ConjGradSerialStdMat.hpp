@@ -83,16 +83,16 @@ public:
         Array<OneD, TData> outArray(this->m_nloc, 0.0);
 
         // Pointers to the temporary fields
-        auto *p_in  = inArray.get();
-        auto *p_out = outArray.get();
+        auto *inPtr  = inArray.get();
+        auto *outPtr = outArray.get();
 
-        auto *p_w_A = this->m_w_A.template GetPtr<MemSpace>();
-        auto *p_s_A = this->m_s_A.template GetPtr<MemSpace>();
-        auto *p_r_A = this->m_r_A.template GetPtr<MemSpace>();
-        auto *p_wk  = this->m_wk.template GetPtr<MemSpace>();
+        auto *w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+        auto *s_APtr = this->m_s_A.template GetPtr<MemSpace>();
+        auto *r_APtr = this->m_r_A.template GetPtr<MemSpace>();
+        auto *wkPtr  = this->m_wk.template GetPtr<MemSpace>();
 
-        auto *p_p_A = this->m_p_A.template GetPtr<MemSpace>();
-        auto *p_q_A = this->m_q_A.template GetPtr<MemSpace>();
+        auto *p_APtr = this->m_p_A.template GetPtr<MemSpace>();
+        auto *q_APtr = this->m_q_A.template GetPtr<MemSpace>();
 
         // Convergence parameters
         size_t totalIterations = 0;
@@ -106,12 +106,12 @@ public:
         Array<OneD, TData> vExchange(3, 0.0);
 
         // Copy RHS into the initial residual
-        std::copy(p_in, p_in + this->m_nloc, p_r_A);
+        std::copy(inPtr, inPtr + this->m_nloc, r_APtr);
 
         // Assembly (communication)
         this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk, true);
         vExchange[2] =
-            std::inner_product(p_wk, p_wk + this->m_nloc, p_r_A, 0.0);
+            std::inner_product(wkPtr, wkPtr + this->m_nloc, r_APtr, 0.0);
 
         // Perform inner-product exchanges
         m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
@@ -120,7 +120,8 @@ public:
 
         // Calculate the rhs magnitude
         this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk);
-        rhsMagnitude = std::inner_product(p_in, p_in + this->m_nloc, p_wk, 0.0);
+        rhsMagnitude =
+            std::inner_product(inPtr, inPtr + this->m_nloc, wkPtr, 0.0);
         m_rowComm->AllReduce(rhsMagnitude, Nektar::LibUtilities::ReduceSum);
         rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
 
@@ -129,6 +130,12 @@ public:
         {
             return;
         }
+
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls. The memory region being used must
+        // be marked as being valid which more importantly invalidates
+        // the sibling memory region.
+        this->m_r_A.template setValid<MemSpace>();
 
         // Apply the preconditioner
         this->m_precon->apply(this->m_r_A, this->m_w_A);
@@ -139,10 +146,16 @@ public:
         // Apply the Robin BCs
         this->m_robBndCondOp->apply(this->m_w_A, this->m_s_A);
 
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls the memory region being used must
+        // be copied back.
+        w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+        s_APtr = this->m_s_A.template GetPtr<MemSpace>();
+
         vExchange[0] =
-            std::inner_product(p_r_A, p_r_A + this->m_nloc, p_w_A, 0.0);
+            std::inner_product(r_APtr, r_APtr + this->m_nloc, w_APtr, 0.0);
         vExchange[1] =
-            std::inner_product(p_s_A, p_s_A + this->m_nloc, p_w_A, 0.0);
+            std::inner_product(s_APtr, s_APtr + this->m_nloc, w_APtr, 0.0);
 
         m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);
 
@@ -156,33 +169,42 @@ public:
         {
             if (totalIterations > this->m_maxIter)
             {
-                std::cout << "Exceeded max iterations\n";
+                std::stringstream msg;
+                msg << "Exceeded max iterations: " << totalIterations;
+                WARNINGL0(false, msg.str());
+
                 return;
             }
 
             // Compute new search direction p_k
-            std::transform(p_p_A, p_p_A + this->m_nloc, p_w_A, p_p_A,
+            std::transform(p_APtr, p_APtr + this->m_nloc, w_APtr, p_APtr,
                            [&beta](const TData &pElem, const TData &wElem) {
                                return beta * pElem + wElem;
                            });
 
             // Compute new search direction q_k
-            std::transform(p_q_A, p_q_A + this->m_nloc, p_s_A, p_q_A,
+            std::transform(q_APtr, q_APtr + this->m_nloc, s_APtr, q_APtr,
                            [&beta](const TData &qElem, const TData &sElem) {
                                return beta * qElem + sElem;
                            });
 
             // Update solution x_{k+1}
-            std::transform(p_p_A, p_p_A + this->m_nloc, p_out, p_out,
+            std::transform(p_APtr, p_APtr + this->m_nloc, outPtr, outPtr,
                            [&alpha](const TData &pElem, const TData &xElem) {
                                return alpha * pElem + xElem;
                            });
 
             // Update residual vector r_{k+1}
-            std::transform(p_q_A, p_q_A + this->m_nloc, p_r_A, p_r_A,
+            std::transform(q_APtr, q_APtr + this->m_nloc, r_APtr, r_APtr,
                            [&alpha](const TData &qElem, const TData &rElem) {
                                return -alpha * qElem + rElem;
                            });
+
+            // Anytime there is a mix of internal kernel calls and
+            // external operator calls. The memory region being
+            // used must be marked as being valid which more
+            // importantly invalidates the sibling memory region.
+            this->m_r_A.template setValid<MemSpace>();
 
             // Apply preconditioner
             this->m_precon->apply(this->m_r_A, this->m_w_A);
@@ -193,18 +215,24 @@ public:
             // Apply Robin BCs
             this->m_robBndCondOp->apply(this->m_w_A, this->m_s_A);
 
+            // Anytime there is a mix of internal kernel calls and
+            // external operator calls the memory region being used
+            // must be copied back.
+            w_APtr = this->m_w_A.template GetPtr<MemSpace>();
+            s_APtr = this->m_s_A.template GetPtr<MemSpace>();
+
             // <r_{k+1}, w_{k+1}>
             vExchange[0] =
-                std::inner_product(p_r_A, p_r_A + this->m_nloc, p_w_A, 0.0);
+                std::inner_product(r_APtr, r_APtr + this->m_nloc, w_APtr, 0.0);
 
             // <s_{k+1}, w_{k+1}>
             vExchange[1] =
-                std::inner_product(p_s_A, p_s_A + this->m_nloc, p_w_A, 0.0);
+                std::inner_product(s_APtr, s_APtr + this->m_nloc, w_APtr, 0.0);
 
             // <r_{k+1}, r_{k+1}>
             this->m_assmbScatrOp->apply(this->m_r_A, this->m_wk, true);
             vExchange[2] =
-                std::inner_product(p_wk, p_wk + this->m_nloc, p_r_A, 0.0);
+                std::inner_product(wkPtr, wkPtr + this->m_nloc, r_APtr, 0.0);
 
             // Perform inner-product exchanges
             m_rowComm->AllReduce(vExchange, Nektar::LibUtilities::ReduceSum);

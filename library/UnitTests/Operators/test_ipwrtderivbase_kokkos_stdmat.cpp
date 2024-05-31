@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_diagprecon_kokkos_stdmat.cpp
+// File: test_ipwrtderivbase_kokkos_stdmat.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,32 +32,25 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestDiagPreconKokkos
+#define BOOST_TEST_MODULE TestIProductWRTDerivBaseKokkos
 
-#include "init_diagpreconfields.hpp"
-
-#include "Operators/OperatorHelmholtz.hpp"
+#include "init_ipwrtderivbasefields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#define TEST_DIAGPRECON(test_name, test, tol)                                  \
+#define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
         using Impl      = Operators::StdMat;                                   \
-        Configure();                                                           \
+        Configure(dim, 1);                                                     \
         SetTestCase(fixt_kokkos_in->GetBlocks(),                               \
                     fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace>());        \
-        auto HelmholtzOp =                                                     \
-            Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
-        auto DiagPreconOp =                                                    \
-            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        HelmholtzOp->setLambda(1.0);                                           \
-        DiagPreconOp->configure(HelmholtzOp);                                  \
-        DiagPreconOp->apply(*fixt_kokkos_in, *fixt_kokkos_out);                \
+        IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist) \
+            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
@@ -69,18 +62,29 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDiagPreconKokkos)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseKokkos)
 
-TEST_DIAGPRECON(diagprecon_kokkos_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_seg, Seg, 1, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_quad, Quad, 2, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_kokkos_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tri, Tri, 2, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_kokkos_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_square_all_elements,
+                    SquareAllElements, 2, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_kokkos_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_hex, Hex, 3, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_kokkos_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_prism, Prism, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_pyr, Pyr, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tet, Tet, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_cube_prism_hex, CubePrismHex, 3,
+                    1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_cube_all_elements, CubeAllElements, 3,
+                    1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

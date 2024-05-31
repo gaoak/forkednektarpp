@@ -80,14 +80,16 @@ public:
         out.template copyArray<MemSpace>(outArray);
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<OperatorMultiplyByElmtInvMassImpl<
             ExecSpace, Implementation, TData>>(expansionList);
     }
-
-    static std::string className;
 };
 
 } // namespace Nektar::Operators::detail

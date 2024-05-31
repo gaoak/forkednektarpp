@@ -34,7 +34,6 @@
 
 #define BOOST_TEST_MODULE TestAssmbScatrKokkos
 
-#include "Operators/OperatorAssmbScatr.hpp"
 #include "init_assmbscatrfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
@@ -63,7 +62,7 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestAssmbScatrKOKKOS)
+BOOST_AUTO_TEST_SUITE(TestAssmbScatrKokkos)
 
 TEST_ASSMBSCATR(assmbscatr_kokkos_seg, Seg, 1.0E-12)
 

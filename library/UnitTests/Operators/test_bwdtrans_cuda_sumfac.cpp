@@ -44,19 +44,15 @@
 #define TEST_BWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace1 = NektarSpaces::Serial;                               \
-        using ExecSpace2 = NektarSpaces::CUDA;                                 \
-        using Impl1      = Operators::StdMat;                                  \
-        using Impl2      = Operators::SumFac;                                  \
+        using ExecSpace = NektarSpaces::CUDA;                                  \
+        using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(fixt_in->GetBlocks(),                                      \
-                    fixt_in->GetPtr<NektarSpaces::HostSpace>());               \
         SetTestCase(fixt_cuda_in->GetBlocks(),                                 \
                     fixt_cuda_in->GetPtr<NektarSpaces::HostSpace>());          \
-        BwdTrans<>::template create<ExecSpace1, Impl1>(fixt_explist)           \
-            ->apply(*fixt_in, *fixt_expected);                                 \
-        BwdTrans<>::template create<ExecSpace2, Impl2>(fixt_explist)           \
+        BwdTrans<>::template create<ExecSpace, Impl>(fixt_explist)             \
             ->apply(*fixt_cuda_in, *fixt_cuda_out);                            \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

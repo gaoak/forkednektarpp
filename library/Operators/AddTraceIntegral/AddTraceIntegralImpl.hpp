@@ -84,6 +84,10 @@ public:
         out.template copyArray<MemSpace>(outArray);
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -91,8 +95,6 @@ public:
             OperatorAddTraceIntegralImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;

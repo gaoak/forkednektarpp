@@ -47,9 +47,10 @@
         using ExecSpace = NektarSpaces::CUDA;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        auto DirBndCondOp =                                                    \
-            DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        DirBndCondOp->apply(*fixt_cuda_out);                                   \
+        SetTestCase(fixt_cuda_out->GetBlocks(),                                \
+                    fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>());         \
+        DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
+            ->apply(*fixt_cuda_out);                                           \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
         BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \

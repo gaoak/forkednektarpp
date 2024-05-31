@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMultiplyByElmtInvMassCuda
+#define BOOST_TEST_MODULE TestMultiplyByElmtInvMassCUDA
 
 #include <boost/test/tools/output_test_stream.hpp>
 

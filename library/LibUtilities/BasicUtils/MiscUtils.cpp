@@ -34,6 +34,8 @@
 
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+
 #if defined(__GNUC__) || defined(__clang__)
 #include <cxxabi.h>
 #elif defined(_MSC_VER)
@@ -51,11 +53,23 @@ std::string demangleTypeName(const std::type_info &info)
     int status;
     char *name(abi::__cxa_demangle(info.name(), nullptr, nullptr, &status));
 
-    std::string ret(name);
+    if (name)
+    {
+        std::string ret(name);
 
-    free(name);
+        free(name);
 
-    return ret;
+        return ret;
+    }
+    else
+    {
+        // WARNINGL0(false, std::string("Cannot demangle: '") + info.name() +
+        // "'");
+
+        std::string ret(info.name());
+
+        return ret;
+    }
 }
 
 #elif defined(_MSC_VER)

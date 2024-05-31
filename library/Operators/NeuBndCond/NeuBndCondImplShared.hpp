@@ -34,12 +34,18 @@
 
 #pragma once
 
+#include "Operators/OperatorNeuBndCond.hpp"
+
 #include "Operators/NeuBndCond/NeuBndCondCUDASumFacKernels.cuh"
 #include "Operators/NeuBndCond/NeuBndCondKokkosStdMatKernels.hpp"
 
-#include "Operators/NeuBndCond/NeuBndCondImplBase.hpp"
-
 #include "Operators/OperatorHelper.hpp"
+
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
+#include <MultiRegions/ContField.h>
+
+using namespace Nektar;
+using namespace Nektar::MultiRegions;
 
 namespace Nektar::Operators::detail
 {
@@ -47,22 +53,19 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)
 #if defined(NEKTAR_ENABLE_CUDA)
-              || (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-                  std::is_same<Implementation, Operators::SumFac>::value)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
 #endif
-              >::type>
-class OperatorNeuBndCondImpl
-    : public OperatorNeuBndCondImplBase<ExecSpace, Implementation, TData>
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+class OperatorNeuBndCondImpl : public OperatorNeuBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorNeuBndCondImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorNeuBndCondImplBase<ExecSpace, Implementation, TData>(
-              expansionList)
+        : OperatorNeuBndCond<TData>(expansionList)
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -140,38 +143,44 @@ public:
             }
         }
 
-#if defined(NEKTAR_ENABLE_CUDA)
         // Deterime CUDA grid parameters.
-        m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
+#if defined(NEKTAR_ENABLE_CUDA)
+        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+        {
+            m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
+        }
 #endif
     }
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        TData *inoutptr = inout.template GetPtr<MemSpace>();
+        TData *inOutPtr = inout.template GetPtr<MemSpace>();
 
-        BoundaryConditionType *p_bctype = m_bctype.template GetPtr<MemSpace>();
-        TData *p_coeff                  = m_coeff.template GetPtr<MemSpace>();
-        int *p_map                      = m_map.template GetPtr<MemSpace>();
-        int *p_ncoeff                   = m_ncoeff.template GetPtr<MemSpace>();
-        int *p_offset                   = m_offset.template GetPtr<MemSpace>();
+        BoundaryConditionType *bctypePtr = m_bctype.template GetPtr<MemSpace>();
+        TData *coeffPtr                  = m_coeff.template GetPtr<MemSpace>();
+        int *mapPtr                      = m_map.template GetPtr<MemSpace>();
+        int *ncoeffPtr                   = m_ncoeff.template GetPtr<MemSpace>();
+        int *offsetPtr                   = m_offset.template GetPtr<MemSpace>();
 
         // Copy memory to the device, if necessary and get raw pointers.
         if (m_signChange)
         {
-            TData *p_sign = m_sign.template GetPtr<MemSpace>();
+            TData *signPtr = m_sign.template GetPtr<MemSpace>();
 
             NeuBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, p_offset, p_bctype,
-                p_ncoeff, p_sign, p_map, p_coeff, inoutptr);
+                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
+                ncoeffPtr, signPtr, mapPtr, coeffPtr, inOutPtr);
         }
         else
         {
             NeuBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, p_offset, p_bctype,
-                p_ncoeff, p_map, p_coeff, inoutptr);
+                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
+                ncoeffPtr, mapPtr, coeffPtr, inOutPtr);
         }
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(

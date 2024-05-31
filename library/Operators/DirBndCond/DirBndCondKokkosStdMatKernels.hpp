@@ -50,19 +50,19 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 DirBndCondKernel([[maybe_unused]] const size_t gridSize,
                  [[maybe_unused]] const size_t blockSize,
-                 const unsigned int nsize, const int *offsetptr,
-                 const BoundaryConditionType *bctypeptr, const int *ncoeffptr,
-                 const int *mapptr, const TData *inptr, TData *outptr)
+                 const unsigned int nsize, const int *offsetPtr,
+                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {
-            if (bctypeptr[i] == eDirichlet)
+            if (bctypePtr[i] == eDirichlet)
             {
-                unsigned int offset = offsetptr[i];
-                unsigned int ncoeff = ncoeffptr[i];
+                unsigned int offset = offsetPtr[i];
+                unsigned int ncoeff = ncoeffPtr[i];
                 for (unsigned int j = 0; j < ncoeff; j++)
                 {
-                    outptr[mapptr[offset + j]] = inptr[offset + j];
+                    outPtr[mapPtr[offset + j]] = inPtr[offset + j];
                 }
             }
         });
@@ -73,21 +73,21 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 DirBndCondKernel([[maybe_unused]] const size_t gridSize,
                  [[maybe_unused]] const size_t blockSize,
-                 const unsigned int nsize, const int *offsetptr,
-                 const BoundaryConditionType *bctypeptr, const int *ncoeffptr,
-                 const TData *signptr, const int *mapptr, const TData *inptr,
-                 TData *outptr)
+                 const unsigned int nsize, const int *offsetPtr,
+                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
+                 const TData *signPtr, const int *mapPtr, const TData *inPtr,
+                 TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {
-            if (bctypeptr[i] == eDirichlet)
+            if (bctypePtr[i] == eDirichlet)
             {
-                unsigned int offset = offsetptr[i];
-                unsigned int ncoeff = ncoeffptr[i];
+                unsigned int offset = offsetPtr[i];
+                unsigned int ncoeff = ncoeffPtr[i];
                 for (unsigned int j = 0; j < ncoeff; j++)
                 {
-                    outptr[mapptr[offset + j]] =
-                        signptr[offset + j] * inptr[offset + j];
+                    outPtr[mapPtr[offset + j]] =
+                        signPtr[offset + j] * inPtr[offset + j];
                 }
             }
         });
@@ -98,12 +98,12 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 LocalDirBndCondKernel([[maybe_unused]] const size_t gridSize,
                       [[maybe_unused]] const size_t blockSize,
-                      const unsigned int nsize, const int *id0ptr,
-                      const int *id1ptr, const TData *signptr, TData *outptr)
+                      const unsigned int nsize, const int *id0Ptr,
+                      const int *id1Ptr, const TData *signPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) {
-            outptr[id0ptr[i]] = outptr[id1ptr[i]] * signptr[i];
+            outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
         });
 }
 

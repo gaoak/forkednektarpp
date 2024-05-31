@@ -112,16 +112,16 @@ public:
                bool APPEND = false) override
     {
         // Copy memory to the host, if necessary and get raw pointers.
-        auto *inptr   = in.template GetConstPtr<MemSpace>();
-        auto *outptr  = out.template GetPtr<MemSpace>();
-        auto *wspptr  = m_wsp.get();
+        auto *inPtr   = in.template GetConstPtr<MemSpace>();
+        auto *outPtr  = out.template GetPtr<MemSpace>();
+        auto *wspPtr  = m_wsp.get();
         auto nSize    = in.GetFieldSize();
         auto nStorage = this->m_expansionList->GetTotPoints();
 
         // Initialize index.
-        size_t expIdx = 0;
-        size_t jacIdx = 0;
-        size_t dfIdx  = 0;
+        size_t exp_idx = 0;
+        size_t jac_idx = 0;
+        size_t df_idx  = 0;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -131,31 +131,34 @@ public:
         for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
              ++block_idx)
         {
-            // Determine shape and type of the element.
-            auto nElmts = out.GetBlocks()[block_idx].num_elements;
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = outblock.num_elements;
 
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nDim         = expPtr->GetShapeDimension();
-            auto nCoord       = expPtr->GetCoordim();
-            auto nqTot        = expPtr->GetTotPoints();
-            auto nmTot        = expPtr->GetNcoeffs();
-            auto deformed     = expPtr->GetMetricInfo()->GetGtype() ==
-                            SpatialDomains::eDeformed;
+            // Determine shape and type of the element.
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+                                  SpatialDomains::eDeformed;
+            auto const nCoord = expPtr->GetCoordim();
+            auto const nqTot  = expPtr->GetTotPoints();
+            auto const nmTot  = expPtr->GetNcoeffs();
 
             // calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2]
             if (deformed)
             {
-                for (size_t d = 0; d < nDim; ++d)
+                for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_derivFac[d].get() + dfIdx, 1,
-                                inptr, 1, wspptr + d * nStorage, 1);
+                    Vmath::Vmul(nqTot * nElmts, m_derivFac[d].get() + df_idx, 1,
+                                inPtr, 1, wspPtr + d * nStorage, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
-                        Vmath::Vvtvp(nqTot * nElmts,
-                                     m_derivFac[d + i * nDim].get() + dfIdx, 1,
-                                     inptr + i * nSize, 1,
-                                     wspptr + d * nStorage, 1,
-                                     wspptr + d * nStorage, 1);
+                        Vmath::Vvtvp(
+                            nqTot * nElmts,
+                            m_derivFac[d + i * dimension].get() + df_idx, 1,
+                            inPtr + i * nSize, 1, wspPtr + d * nStorage, 1,
+                            wspPtr + d * nStorage, 1);
                     }
                 }
             }
@@ -163,18 +166,19 @@ public:
             {
                 for (size_t e = 0; e < nElmts; ++e)
                 {
-                    for (size_t d = 0; d < nDim; ++d)
+                    for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, m_derivFac[d][dfIdx + e],
-                                    inptr + e * nqTot, 1,
-                                    wspptr + d * nStorage + e * nqTot, 1);
+                        Vmath::Smul(nqTot, m_derivFac[d][df_idx + e],
+                                    inPtr + e * nqTot, 1,
+                                    wspPtr + d * nStorage + e * nqTot, 1);
                         for (size_t i = 1; i < nCoord; ++i)
                         {
-                            Vmath::Svtvp(nqTot,
-                                         m_derivFac[d + i * nDim][dfIdx + e],
-                                         inptr + i * nSize + e * nqTot, 1,
-                                         wspptr + d * nStorage + e * nqTot, 1,
-                                         wspptr + d * nStorage + e * nqTot, 1);
+                            Vmath::Svtvp(
+                                nqTot,
+                                m_derivFac[d + i * dimension][df_idx + e],
+                                inPtr + i * nSize + e * nqTot, 1,
+                                wspPtr + d * nStorage + e * nqTot, 1,
+                                wspPtr + d * nStorage + e * nqTot, 1);
                         }
                     }
                 }
@@ -183,10 +187,10 @@ public:
             // Multiply by jacobian.
             if (deformed)
             {
-                for (size_t d = 0; d < nDim; ++d)
+                for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_jac.get() + jacIdx, 1,
-                                wspptr + d * nStorage, 1, wspptr + d * nStorage,
+                    Vmath::Vmul(nqTot * nElmts, m_jac.get() + jac_idx, 1,
+                                wspPtr + d * nStorage, 1, wspPtr + d * nStorage,
                                 1);
                 }
             }
@@ -194,17 +198,17 @@ public:
             {
                 for (size_t e = 0; e < nElmts; ++e)
                 {
-                    for (size_t d = 0; d < nDim; ++d)
+                    for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, m_jac[jacIdx + e],
-                                    wspptr + d * nStorage + e * nqTot, 1,
-                                    wspptr + d * nStorage + e * nqTot, 1);
+                        Vmath::Smul(nqTot, m_jac[jac_idx + e],
+                                    wspPtr + d * nStorage + e * nqTot, 1,
+                                    wspPtr + d * nStorage + e * nqTot, 1);
                     }
                 }
             }
 
             // Fetch basis key for the current element type.
-            for (size_t d = 0; d < nDim; d++)
+            for (size_t d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
@@ -213,22 +217,30 @@ public:
             auto matPtr = m_matPtr[basisKeys];
 
             // Matrix products.
-            for (size_t d = 0; d < nDim; d++)
+            for (size_t d = 0; d < dimension; d++)
             {
                 TData alpha = (d == 0 && !APPEND) ? 0.0 : 1.0;
                 Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nmTot, wspptr + d * nStorage,
-                            nqTot, alpha, outptr, nmTot);
+                            matPtr[d].get(), nmTot, wspPtr + d * nStorage,
+                            nqTot, alpha, outPtr, nmTot);
             }
-            jacIdx += deformed ? nqTot * nElmts : nElmts;
-            dfIdx += deformed ? nqTot * nElmts : nElmts;
-            wspptr += nqTot * nElmts;
-            inptr += in.GetBlocks()[block_idx].block_size;
-            outptr += out.GetBlocks()[block_idx].block_size;
-            expIdx += nElmts;
+
+            // Increment pointer and index for next element type.
+            jac_idx += deformed ? nqTot * nElmts : nElmts;
+            df_idx += deformed ? nqTot * nElmts : nElmts;
+
+            wspPtr += nqTot * nElmts;
+
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -237,15 +249,14 @@ public:
             expansionList);
     }
 
-    static std::string className;
-
 private:
     Array<OneD, TData> m_jac;
+    Array<OneD, TData> m_wsp;
     Array<OneD, Array<OneD, TData>> m_derivFac;
+
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;
-    Array<OneD, TData> m_wsp;
 };
 
 } // namespace Nektar::Operators::detail

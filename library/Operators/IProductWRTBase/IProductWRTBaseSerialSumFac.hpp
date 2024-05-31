@@ -66,69 +66,77 @@ public:
                Field<TData, FieldState::Coeff> &out,
                [[maybe_unused]] const TData lambda = 1.0) override
     {
-        auto *inptr  = in.template GetConstPtr<MemSpace>();
-        auto *outptr = out.template GetPtr<MemSpace>();
+        auto *inPtr  = in.template GetConstPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace>();
 
         size_t exp_idx = 0;
         size_t jac_idx = 0;
+
+        // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            // block dependent
-            auto const block    = in.GetBlocks()[block_idx];
-            auto const numElmts = block.num_elements;
-            auto expPtr         = this->m_expansionList->GetExp(exp_idx);
-            auto shapeType      = this->m_expansionList->GetExp(exp_idx)
-                                 ->GetStdExp()
-                                 ->DetShapeType();
+            // Block dependent
+            auto const &inblock  = in.GetBlocks()[block_idx];
+            auto const &outblock = out.GetBlocks()[block_idx];
+            auto const nElmts    = inblock.num_elements;
+
+            // Determine shape and type of the element.
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const shapeType = expPtr->DetShapeType();
 
             switch (shapeType)
             {
                 // Segment
                 case LibUtilities::Seg:
-                    IProductWRTBaseSumFacSegKernel(inptr, outptr, expPtr, m_jac,
-                                                   numElmts, jac_idx);
+                    IProductWRTBaseSumFacSegKernel(inPtr, outPtr, expPtr, m_jac,
+                                                   nElmts, jac_idx);
                     break;
                 // Triangles
                 case LibUtilities::Tri:
-                    IProductWRTBaseSumFacTriKernel(inptr, outptr, expPtr, m_jac,
-                                                   numElmts, jac_idx);
+                    IProductWRTBaseSumFacTriKernel(inPtr, outPtr, expPtr, m_jac,
+                                                   nElmts, jac_idx);
                     break;
                 // Quads
                 case LibUtilities::Quad:
-                    IProductWRTBaseSumFacQuadKernel(inptr, outptr, expPtr,
-                                                    m_jac, numElmts, jac_idx);
+                    IProductWRTBaseSumFacQuadKernel(inPtr, outPtr, expPtr,
+                                                    m_jac, nElmts, jac_idx);
                     break;
                 // Tet
                 case LibUtilities::Tet:
-                    IProductWRTBaseSumFacTetKernel(inptr, outptr, expPtr, m_jac,
-                                                   numElmts, jac_idx);
+                    IProductWRTBaseSumFacTetKernel(inPtr, outPtr, expPtr, m_jac,
+                                                   nElmts, jac_idx);
                     break;
                 // Pyr
                 case LibUtilities::Pyr:
-                    IProductWRTBaseSumFacPyrKernel(inptr, outptr, expPtr, m_jac,
-                                                   numElmts, jac_idx);
+                    IProductWRTBaseSumFacPyrKernel(inPtr, outPtr, expPtr, m_jac,
+                                                   nElmts, jac_idx);
                     break;
                 // Prism
                 case LibUtilities::Prism:
-                    IProductWRTBaseSumFacPrismKernel(inptr, outptr, expPtr,
-                                                     m_jac, numElmts, jac_idx);
+                    IProductWRTBaseSumFacPrismKernel(inPtr, outPtr, expPtr,
+                                                     m_jac, nElmts, jac_idx);
                     break;
                 // Hexes
                 case LibUtilities::Hex:
-                    IProductWRTBaseSumFacHexKernel(inptr, outptr, expPtr, m_jac,
-                                                   numElmts, jac_idx);
+                    IProductWRTBaseSumFacHexKernel(inPtr, outPtr, expPtr, m_jac,
+                                                   nElmts, jac_idx);
                     break;
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
             }
 
-            inptr += in.GetBlocks()[block_idx].block_size;
-            outptr += out.GetBlocks()[block_idx].block_size;
-            exp_idx += numElmts;
+            // Increment pointer and index for next element type.
+            inPtr += inblock.block_size;
+            outPtr += outblock.block_size;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -136,8 +144,6 @@ public:
             OperatorIProductWRTBaseImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     Array<OneD, TData> m_jac;

@@ -44,20 +44,20 @@
 #define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace1 = NektarSpaces::Serial;                               \
-        using ExecSpace2 = NektarSpaces::CUDA;                                 \
-        using Impl1      = Operators::StdMat;                                  \
-        using Impl2      = Operators::SumFac;                                  \
+        using ExecSpace = NektarSpaces::CUDA;                                  \
+        using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        NeuBndCond<>::template create<ExecSpace1, Impl1>(fixt_explist)         \
-            ->apply(*fixt_out);                                                \
-        NeuBndCond<>::template create<ExecSpace2, Impl2>(fixt_explist)         \
+        SetTestCase(fixt_cuda_out->GetBlocks(),                                \
+                    fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>());         \
+        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
             ->apply(*fixt_cuda_out);                                           \
-        BOOST_TEST(fixt_cuda_out->compare(*fixt_out, tol));                    \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(), \
-                             fixt_out->GetPtr<NektarSpaces::HostSpace>(),      \
+                             fixt_expected->GetPtr<NektarSpaces::HostSpace>(), \
                              tol);                                             \
         }                                                                      \
     }

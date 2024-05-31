@@ -255,8 +255,13 @@ IF (MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_SCL_SECURE_NO_DEPRECATE)
 ENDIF()
 
+# Include Nektar++ common macros
+INCLUDE (NektarCommon)
+
 # Redesign-specific options
 IF (NEKTAR_BUILD_REDESIGN)
+    # All device libraries should be found first as other Thirdparty
+    # libraries may depend on them (Currently not the case).
     IF (NEKTAR_ENABLE_CUDA)
         IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
             MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
@@ -282,8 +287,12 @@ IF (NEKTAR_BUILD_REDESIGN)
     ENDIF ()
 
     IF (NEKTAR_ENABLE_KOKKOS)
-        SET(BOOST_MIN_VERSION "1.80.0")
-        SET(CUDA_MIN_VERSION "12.2")
+      # For now do not require a min version and see what happens. The
+      # incompatibile Boost versions will be caught
+      # below. Incompatible CUDA versions should be caught when
+      # building Kokkos.
+#        SET(BOOST_MIN_VERSION "1.75.0")
+#        SET(CUDA_MIN_VERSION "12.2")
 
         IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
             MESSAGE(FATAL_ERROR "Cannot use both Kokkos and AVX")
@@ -296,9 +305,6 @@ IF (NEKTAR_BUILD_REDESIGN)
         ENDIF()
     ENDIF ()
 ENDIF ()
-
-# Include Nektar++ common macros
-INCLUDE (NektarCommon)
 
 # Set various ThirdParty locations
 OPTION(THIRDPARTY_USE_SSL "Use secure HTTP connection to download third-party files." OFF)
@@ -352,6 +358,12 @@ IF (NEKTAR_USE_ALIGNED_MEM)
 ENDIF()
 
 INCLUDE (ThirdPartyPETSc)
+
+# When building with Kokkos-CUDA nvcc is used for compiling everything
+# and is incompatible with certain versions of Boost.
+IF(Kokkos_ENABLE_CUDA AND Boost_VERSION VERSION_GREATER 1.68 AND Boost_VERSION VERSION_LESS 1.75)
+    MESSAGE(FATAL_ERROR "Boost versions 1.69 to 1.74 cannot be compiled with NVCC")
+endif()
 
 SET(Boost_USE_STATIC_LIBS OFF)
 IF( WIN32 )

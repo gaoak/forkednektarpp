@@ -71,14 +71,16 @@ public:
         m_IProductWRTBaseOp->apply(m_tmp, out);
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         return std::make_unique<
             OperatorMassImpl<ExecSpace, Implementation, TData>>(expansionList);
     }
-
-    static std::string className;
 
 protected:
     std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;

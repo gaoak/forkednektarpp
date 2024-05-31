@@ -43,6 +43,7 @@
 #include <Operators/OperatorsDeclspec.hpp>
 
 #include "Operators/Field.hpp"
+#include "Operators/LoopExecution.hpp"
 #include "Operators/Spaces.hpp"
 
 #define FLAG_QP false
@@ -50,8 +51,8 @@
 namespace Nektar::Operators
 {
 
-extern OPERATORS_EXPORT std::string g_ExecSpace;
-extern OPERATORS_EXPORT std::string g_Impl;
+extern OPERATORS_EXPORT std::string g_OpExecSpace;
+extern OPERATORS_EXPORT std::string g_OpImpl;
 
 // Core implementation types
 class StdMat
@@ -87,6 +88,76 @@ public:
     Operator(const MultiRegions::ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList)
     {
+        std::shared_ptr<LibUtilities::SessionReader> session =
+            m_expansionList->GetSession();
+
+        LoopExecution::SetCmdLineArguments(session);
+
+        if (session->DefinesCmdLineArgument("opExecSpace"))
+        {
+            std::string cmdValue =
+                session->GetCmdLineArgument<std::string>("opExecSpace");
+
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+            if (cmdValue == "AVX")
+            {
+                g_OpExecSpace = "AVX";
+            }
+            else
+#elif defined(NEKTAR_ENABLE_CUDA)
+            if (cmdValue == "CUDA")
+            {
+                g_OpExecSpace = "CUDA";
+            }
+            else
+#elif defined(NEKTAR_ENABLE_HIP)
+            if (cmdValue == "HIP")
+            {
+                g_OpExecSpace = "HIP";
+            }
+            else
+#elif defined(NEKTAR_ENABLE_KOKKOS)
+            if (cmdValue == "Kokkos")
+            {
+                g_OpExecSpace = "Kokkos";
+            }
+            else
+#endif
+                if (cmdValue == "Serial")
+            {
+                g_OpExecSpace = "Serial";
+            }
+            else
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "Bad command line argument for opExecSpace:" +
+                             cmdValue);
+            }
+        }
+
+        if (session->DefinesCmdLineArgument("opImpl"))
+        {
+            std::string cmdValue =
+                session->GetCmdLineArgument<std::string>("opImpl");
+
+#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
+    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+            if (cmdValue == "SumFac")
+            {
+                g_OpImpl = "SumFac";
+            }
+            else
+#endif
+                if (cmdValue == "StdMat")
+            {
+                g_OpImpl = "StdMat";
+            }
+            else
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "Bad command line argument for opImpl:" + cmdValue);
+            }
+        }
     }
 
     template <typename TDescriptor, typename ExecSpace, typename Implementation>
@@ -192,28 +263,29 @@ public:
                 case 1:
                     // Find the operator with the same ExecSpace and the default
                     // implementation.
-                    key = descriptStr + fieldStateStr + execStr + g_Impl;
+                    key = descriptStr + fieldStateStr + execStr + g_OpImpl;
                     break;
                 case 2:
                     // Find the operator with the same ExecSpace and the
-                    // universal implementation.
-                    key = descriptStr + fieldStateStr + execStr + "Universal";
+                    // generic implementation.
+                    key = descriptStr + fieldStateStr + execStr + "Generic";
                     break;
                 case 3:
                     // Find the operator with the default ExecSpace and the
                     // default implementation.
-                    key = descriptStr + fieldStateStr + g_ExecSpace + g_Impl;
+                    key =
+                        descriptStr + fieldStateStr + g_OpExecSpace + g_OpImpl;
                     break;
                 case 4:
                     // Find the operator with the default ExecSpace and the
-                    // universal implementation.
+                    // generic implementation.
                     key =
-                        descriptStr + fieldStateStr + g_ExecSpace + "Universal";
+                        descriptStr + fieldStateStr + g_OpExecSpace + "Generic";
                     break;
                 case 5:
                     // Find the operator with the "Serial" ExecSpace
-                    // and the universal implementation.
-                    key = descriptStr + fieldStateStr + "Serial" + "Universal";
+                    // and the generic implementation.
+                    key = descriptStr + fieldStateStr + "Serial" + "Generic";
                     break;
                 case 6:
                     // Find the operator with the "Serial" ExecSpace and
@@ -269,6 +341,7 @@ protected:
         {
             // Determine shape and type of the element
             auto const expPtr = this->m_expansionList->GetExp(e);
+
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
@@ -291,11 +364,13 @@ protected:
         // Initialise jacobian.
         size_t index     = 0;
         size_t nTotElmts = this->m_expansionList->GetNumElmts();
+
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             auto expPtr = this->m_expansionList->GetExp(e);
             auto &auxJac =
                 expPtr->GetMetricInfo()->GetJac(expPtr->GetPointsKeys());
+
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
@@ -319,7 +394,9 @@ protected:
         // Allocate memory for the derivative factor
         size_t nDim   = this->m_expansionList->GetShapeDimension();
         size_t nCoord = this->m_expansionList->GetCoordim(0);
+
         Array<OneD, Array<OneD, TData>> derivFac(nDim * nCoord);
+
         for (size_t d = 0; d < nDim * nCoord; d++)
         {
             derivFac[d] = Array<OneD, TData>(dfSize);
@@ -328,12 +405,14 @@ protected:
         // Initialise derivative factor.
         size_t dfindex   = 0;
         size_t nTotElmts = this->m_expansionList->GetNumElmts();
+
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             auto expPtr = this->m_expansionList->GetExp(e);
             auto &df    = expPtr->GetMetricInfo()->GetDerivFactors(
                 expPtr->GetPointsKeys());
             size_t nqTot = expPtr->GetTotPoints();
+
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
@@ -344,6 +423,7 @@ protected:
                         derivFac[d][dfindex + i] = df[d][i];
                     }
                 }
+
                 dfindex += nqTot;
             }
             else
@@ -352,6 +432,7 @@ protected:
                 {
                     derivFac[d][dfindex] = df[d][0];
                 }
+
                 dfindex += 1;
             }
         }
@@ -413,6 +494,7 @@ protected:
             {
                 Array<OneD, Array<OneD, NekDouble>> jacArray(vec_t::width);
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+
                 for (size_t e = 0; e < num_metaBlocks - 1; ++e)
                 {
                     for (size_t i = 0; i < vec_t::width; ++i)
@@ -428,6 +510,7 @@ protected:
                         {
                             tmp[i] = jacArray[i][pt];
                         }
+
                         jac[jac_id++].load(&tmp[0]);
                     }
                 }
@@ -447,17 +530,20 @@ protected:
                     {
                         tmp[i] = jacArray[i][pt];
                     }
+
                     for (size_t i = vec_t::width - num_padding_elements;
                          i < vec_t::width; ++i)
                     {
                         tmp[i] = 0.0;
                     }
+
                     jac[jac_id++].load(&tmp[0]);
                 }
             }
             else // regular geometry
             {
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+
                 for (size_t e = 0; e < num_metaBlocks - 1; ++e)
                 {
                     for (size_t i = 0; i < vec_t::width; ++i)
@@ -467,8 +553,10 @@ protected:
                                            ->GetJac(expPtr->GetPointsKeys());
                         tmp[i] = auxJac[0];
                     }
+
                     jac[jac_id++].load(&tmp[0]);
                 }
+
                 // last block: may have padding elements
                 for (size_t i = 0; i < vec_t::width - num_padding_elements; ++i)
                 {
@@ -477,11 +565,13 @@ protected:
                                        ->GetJac(expPtr->GetPointsKeys());
                     tmp[i] = auxJac[0];
                 }
+
                 for (size_t i = vec_t::width - num_padding_elements;
                      i < vec_t::width; ++i)
                 {
                     tmp[i] = 0.0;
                 }
+
                 jac[jac_id++].load(&tmp[0]);
             }
         }
@@ -496,10 +586,12 @@ protected:
         // Allocate memory for the derivative factor
         size_t nDim   = this->m_expansionList->GetShapeDimension();
         size_t nCoord = this->m_expansionList->GetCoordim(0);
+
         std::vector<vec_t, tinysimd::allocator<vec_t>> derivFac;
         derivFac.resize(nDim * nCoord * dfSize);
         // derivFac storage order: vec->dim->coord->point->element->block
         // original df: point->dim->coord->element->block
+
         size_t exp_id = 0;
         size_t jac_id = 0;
 
@@ -516,6 +608,7 @@ protected:
                 SpatialDomains::eDeformed)
             {
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+
                 // loop over meta-blocks: except last one
                 for (size_t e = 0; e < num_metaBlocks - 1; ++e)
                 {
@@ -532,11 +625,14 @@ protected:
                                             expPtr->GetPointsKeys());
                                 tmp[i] = df[d][pt];
                             }
+
                             derivFac[jac_id++].load(&tmp[0]);
                         }
                     }
+
                     exp_id += vec_t::width;
                 }
+
                 // Last block: may have padding elements
                 for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                 {
@@ -551,19 +647,23 @@ protected:
                                     ->GetDerivFactors(expPtr->GetPointsKeys());
                             tmp[i] = df[d][pt];
                         }
+
                         for (size_t i = vec_t::width - num_padding_elements;
                              i < vec_t::width; ++i)
                         {
                             tmp[i] = 0.0;
                         }
+
                         derivFac[jac_id++].load(&tmp[0]);
                     }
                 }
+
                 exp_id += vec_t::width - num_padding_elements;
             }
             else
             {
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
+
                 // loop over meta-blocks: except last one
                 for (size_t e = 0; e < num_metaBlocks - 1; ++e)
                 {
@@ -577,8 +677,10 @@ protected:
                                     ->GetDerivFactors(expPtr->GetPointsKeys());
                             tmp[i] = df[d][0];
                         }
+
                         derivFac[jac_id++].load(&tmp[0]);
                     }
+
                     exp_id += vec_t::width;
                 }
 
@@ -594,13 +696,16 @@ protected:
                                 ->GetDerivFactors(expPtr->GetPointsKeys());
                         tmp[i] = df[d][0];
                     }
+
                     for (size_t i = vec_t::width - num_padding_elements;
                          i < vec_t::width; ++i)
                     {
                         tmp[i] = 0.0;
                     }
+
                     derivFac[jac_id++].load(&tmp[0]);
                 }
+
                 exp_id += vec_t::width - num_padding_elements;
             }
         }

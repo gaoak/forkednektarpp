@@ -34,7 +34,6 @@
 
 #define BOOST_TEST_MODULE TestNeumannKokkos
 
-#include "Operators/OperatorNeuBndCond.hpp"
 #include "init_neumannfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
@@ -45,21 +44,21 @@
 #define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace1 = NektarSpaces::Serial;                               \
-        using ExecSpace2 = Kokkos::DefaultExecutionSpace;                      \
-        using Impl1      = Operators::StdMat;                                  \
-        using Impl2      = Operators::StdMat;                                  \
+        using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
+        using Impl      = Operators::StdMat;                                   \
         Configure();                                                           \
-        NeuBndCond<>::template create<ExecSpace1, Impl1>(fixt_explist)         \
-            ->apply(*fixt_out);                                                \
-        NeuBndCond<>::template create<ExecSpace2, Impl2>(fixt_explist)         \
+        SetTestCase(fixt_kokkos_out->GetBlocks(),                              \
+                    fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace>());       \
+        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
             ->apply(*fixt_kokkos_out);                                         \
-        BOOST_TEST(fixt_kokkos_out->compare(*fixt_out, tol));                  \
+        ExpectedSolution(fixt_expected->GetBlocks(),                           \
+                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(                                                  \
                 fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace>(),            \
-                fixt_out->GetPtr<NektarSpaces::HostSpace>(), tol);             \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace>(), tol);        \
         }                                                                      \
     }
 

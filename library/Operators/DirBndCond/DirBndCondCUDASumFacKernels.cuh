@@ -46,22 +46,22 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 __global__ void DirBndCondKernel(
-    const unsigned int nsize, const int *__restrict__ offsetptr,
-    const BoundaryConditionType *__restrict__ bctypeptr,
-    const int *__restrict__ ncoeffptr, const int *__restrict__ mapptr,
-    const TData *__restrict__ inptr, TData *__restrict__ outptr)
+    const unsigned int nsize, const int *__restrict__ offsetPtr,
+    const BoundaryConditionType *__restrict__ bctypePtr,
+    const int *__restrict__ ncoeffPtr, const int *__restrict__ mapPtr,
+    const TData *__restrict__ inPtr, TData *__restrict__ outPtr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
-        if (bctypeptr[i] == eDirichlet)
+        if (bctypePtr[i] == eDirichlet)
         {
-            unsigned int offset = offsetptr[i];
-            unsigned int ncoeff = ncoeffptr[i];
+            unsigned int offset = offsetPtr[i];
+            unsigned int ncoeff = ncoeffPtr[i];
             for (unsigned int j = 0; j < ncoeff; j++)
             {
-                outptr[mapptr[offset + j]] = inptr[offset + j];
+                outPtr[mapPtr[offset + j]] = inPtr[offset + j];
             }
         }
         i += blockDim.x * gridDim.x;
@@ -70,24 +70,24 @@ __global__ void DirBndCondKernel(
 
 template <typename TData>
 __global__ void DirBndCondKernel(
-    const unsigned int nsize, const int *__restrict__ offsetptr,
-    const BoundaryConditionType *__restrict__ bctypeptr,
-    const int *__restrict__ ncoeffptr, const TData *__restrict__ signptr,
-    const int *__restrict__ mapptr, const TData *__restrict__ inptr,
-    TData *__restrict__ outptr)
+    const unsigned int nsize, const int *__restrict__ offsetPtr,
+    const BoundaryConditionType *__restrict__ bctypePtr,
+    const int *__restrict__ ncoeffPtr, const TData *__restrict__ signPtr,
+    const int *__restrict__ mapPtr, const TData *__restrict__ inPtr,
+    TData *__restrict__ outPtr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
-        if (bctypeptr[i] == eDirichlet)
+        if (bctypePtr[i] == eDirichlet)
         {
-            unsigned int offset = offsetptr[i];
-            unsigned int ncoeff = ncoeffptr[i];
+            unsigned int offset = offsetPtr[i];
+            unsigned int ncoeff = ncoeffPtr[i];
             for (unsigned int j = 0; j < ncoeff; j++)
             {
-                outptr[mapptr[offset + j]] =
-                    signptr[offset + j] * inptr[offset + j];
+                outPtr[mapPtr[offset + j]] =
+                    signPtr[offset + j] * inPtr[offset + j];
             }
         }
         i += blockDim.x * gridDim.x;
@@ -96,16 +96,16 @@ __global__ void DirBndCondKernel(
 
 template <typename TData>
 __global__ void LocalDirBndCondKernel(const unsigned int nsize,
-                                      const int *__restrict__ id0ptr,
-                                      const int *__restrict__ id1ptr,
-                                      const TData *__restrict__ signptr,
-                                      TData *__restrict__ outptr)
+                                      const int *__restrict__ id0Ptr,
+                                      const int *__restrict__ id1Ptr,
+                                      const TData *__restrict__ signPtr,
+                                      TData *__restrict__ outPtr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
-        outptr[id0ptr[i]] = outptr[id1ptr[i]] * signptr[i];
+        outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
         i += blockDim.x * gridDim.x;
     }
 }
@@ -117,13 +117,13 @@ inline
                             void>::type
     DirBndCondKernel([[maybe_unused]] const size_t gridSize,
                              [[maybe_unused]] const size_t blockSize,
-                             const unsigned int nsize, const int *offsetptr,
-                             const BoundaryConditionType *bctypeptr,
-                             const int *ncoeffptr, const int *mapptr,
-                             const TData *inptr, TData *outptr)
+                             const unsigned int nsize, const int *offsetPtr,
+                             const BoundaryConditionType *bctypePtr,
+                             const int *ncoeffPtr, const int *mapPtr,
+                             const TData *inPtr, TData *outPtr)
 {
     DirBndCondKernel<TData><<<gridSize, blockSize>>>(
-        nsize, offsetptr, bctypeptr, ncoeffptr, mapptr, inptr, outptr);
+        nsize, offsetPtr, bctypePtr, ncoeffPtr, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -132,14 +132,14 @@ inline
                             void>::type
     DirBndCondKernel([[maybe_unused]] const size_t gridSize,
                              [[maybe_unused]] const size_t blockSize,
-                             const unsigned int nsize, const int *offsetptr,
-                             const BoundaryConditionType *bctypeptr,
-                             const int *ncoeffptr, const TData *signptr,
-                             const int *mapptr, const TData *inptr,
-                             TData *outptr)
+                             const unsigned int nsize, const int *offsetPtr,
+                             const BoundaryConditionType *bctypePtr,
+                             const int *ncoeffPtr, const TData *signPtr,
+                             const int *mapPtr, const TData *inPtr,
+                             TData *outPtr)
 {
     DirBndCondKernel<TData><<<gridSize, blockSize>>>(
-        nsize, offsetptr, bctypeptr, ncoeffptr, signptr, mapptr, inptr, outptr);
+        nsize, offsetPtr, bctypePtr, ncoeffPtr, signPtr, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -148,12 +148,12 @@ inline
                             void>::type
     LocalDirBndCondKernel([[maybe_unused]] const size_t gridSize,
                                   [[maybe_unused]] const size_t blockSize,
-                                  const unsigned int nsize, const int *id0ptr,
-                                  const int *id1ptr, const TData *signptr,
-                                  TData *outptr)
+                                  const unsigned int nsize, const int *id0Ptr,
+                                  const int *id1Ptr, const TData *signPtr,
+                                  TData *outPtr)
 {
     LocalDirBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, id0ptr, id1ptr, signptr, outptr);
+        <<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr, signPtr, outPtr);
 }
 
 #endif

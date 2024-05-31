@@ -45,8 +45,12 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-              std::is_same<Implementation, Operators::SumFac>::value>::type>
+#if defined(NEKTAR_ENABLE_CUDA)
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+#endif
+              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+               std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -80,15 +84,15 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
-        const TData *inptr = in.template GetConstPtr<MemSpace>();
-        TData *outptr      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetConstPtr<MemSpace>();
+        TData *outPtr      = out.template GetPtr<MemSpace>();
 
-        const TData *dfptr = m_derivFac.template GetConstPtr<MemSpace>();
+        const TData *dfPtr = m_derivFac.template GetConstPtr<MemSpace>();
 
         size_t nSize = out.GetFieldSize();
 
         // Initialize index.
-        size_t expIdx = 0;
+        size_t exp_idx = 0;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -96,21 +100,26 @@ public:
 
         for (auto const &block : in.GetBlocks())
         {
-            // Determine shape and type of the element.
-            auto nElmts    = block.num_elements;
-            auto nPadElmts = block.num_padding_elements;
+            // Block dependent
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
 
-            auto const expPtr = this->m_expansionList->GetExp(expIdx);
-            auto nqTot        = expPtr->GetTotPoints();
-            auto nDim         = expPtr->GetShapeDimension();
-            auto nCoord       = expPtr->GetCoordim();
-            auto shape        = expPtr->DetShapeType();
-            auto deformed     = expPtr->GetMetricInfo()->GetGtype() ==
-                            SpatialDomains::eDeformed;
+            // Determine shape and type of the element.
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const shape     = expPtr->DetShapeType();
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+                                  SpatialDomains::eDeformed;
+            auto const nqTot  = expPtr->GetTotPoints();
+            auto const nCoord = expPtr->GetCoordim();
 
             // Determine CUDA grid size.
-            m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-
+#if defined(NEKTAR_ENABLE_CUDA)
+            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+            {
+                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
+            }
+#endif
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
             {
@@ -118,7 +127,7 @@ public:
             }
 
             // Function call to kernel functions.
-            if (nDim == 1)
+            if (dimension == 1)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
                               .template GetConstPtr<MemSpace>();
@@ -129,16 +138,16 @@ public:
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, true>(
                         m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, D0, dfptr, inptr, outptr);
+                        m_dfSize, D0, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, false>(
                         m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, D0, dfptr, inptr, outptr);
+                        m_dfSize, D0, dfPtr, inPtr, outPtr);
                 }
             }
-            else if (nDim == 2)
+            else if (dimension == 2)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
                               .template GetConstPtr<MemSpace>();
@@ -156,18 +165,18 @@ public:
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfptr, inptr,
-                        outptr);
+                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr,
+                        outPtr);
                 }
                 else
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfptr, inptr,
-                        outptr);
+                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr,
+                        outPtr);
                 }
             }
-            else if (nDim == 3)
+            else if (dimension == 3)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
                               .template GetConstPtr<MemSpace>();
@@ -190,26 +199,30 @@ public:
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, true>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nElmts,
-                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfptr, inptr,
-                        outptr);
+                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr,
+                        outPtr);
                 }
                 else
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, false>(
                         m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nElmts,
-                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfptr, inptr,
-                        outptr);
+                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr,
+                        outPtr);
                 }
             }
 
             // Increment pointer and index for next element type.
-            dfptr += deformed ? nqTot * nElmts : nElmts;
-            outptr += (nPadElmts + nElmts) * nqTot;
-            inptr += (nPadElmts + nElmts) * nqTot;
-            expIdx += nElmts;
+            dfPtr += deformed ? nqTot * nElmts : nElmts;
+            inPtr += (nPadElmts + nElmts) * nqTot;
+            outPtr += (nPadElmts + nElmts) * nqTot;
+            exp_idx += nElmts;
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
+    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -217,8 +230,6 @@ public:
             OperatorPhysDerivImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    static std::string className;
 
 private:
     BasisDataMap<TData> m_pointMap;

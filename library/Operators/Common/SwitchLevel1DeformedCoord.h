@@ -41,14 +41,14 @@ if (deformed)
 
     if (dimension == 1)
     {
-#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment, true>(inptr, outptr)
+#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment, true>(inPtr, outPtr)
 
         switch (Coordim)
         {
             case 1:
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(inptr, outptr);     \
+        operator1D<LibUtilities::eSegment, true, 1, NQ(i)>(inPtr, outPtr);     \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -57,7 +57,7 @@ if (deformed)
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, true, 2, NQ(i)>(inptr, outptr);     \
+        operator1D<LibUtilities::eSegment, true, 2, NQ(i)>(inPtr, outPtr);     \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -67,7 +67,7 @@ if (deformed)
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, true, 3, NQ(i)>(inptr, outptr);     \
+        operator1D<LibUtilities::eSegment, true, 3, NQ(i)>(inPtr, outPtr);     \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -84,21 +84,21 @@ if (deformed)
             case 2:
 
 #define OPERATOR2D_DEF_TRI                                                     \
-    operator2D<LibUtilities::eTriangle, true>(inptr, outptr)
+    operator2D<LibUtilities::eTriangle, true>(inPtr, outPtr)
 
 #define OPERATOR2D_TRI(r, i)                                                   \
     case NQ(i):                                                                \
-        operator2D<LibUtilities::eTriangle, true, 2, NQ(i), NQ_M1(i)>(inptr,   \
-                                                                      outptr); \
+        operator2D<LibUtilities::eTriangle, true, 2, NQ(i), NQ_M1(i)>(inPtr,   \
+                                                                      outPtr); \
         break;
 
 #define OPERATOR2D_DEF_QUAD                                                    \
-    operator2D<LibUtilities::eQuadrilateral, true>(inptr, outptr)
+    operator2D<LibUtilities::eQuadrilateral, true>(inPtr, outPtr)
 
 #define OPERATOR2D_QUAD(r, i)                                                  \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eQuadrilateral, true, 2, NQ(i), NQ(i)>(       \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
@@ -107,15 +107,15 @@ if (deformed)
 #undef OPERATOR2D_TRI
 #define OPERATOR2D_TRI(r, i)                                                   \
     case NQ(i):                                                                \
-        operator2D<LibUtilities::eTriangle, true, 3, NQ(i), NQ_M1(i)>(inptr,   \
-                                                                      outptr); \
+        operator2D<LibUtilities::eTriangle, true, 3, NQ(i), NQ_M1(i)>(inPtr,   \
+                                                                      outPtr); \
         break;
 
 #undef OPERATOR2D_QUAD
 #define OPERATOR2D_QUAD(r, i)                                                  \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eQuadrilateral, true, 3, NQ(i), NQ(i)>(       \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
@@ -129,39 +129,39 @@ if (deformed)
     {
 
 #define OPERATOR3D_DEF_HEX                                                     \
-    operator3D<LibUtilities::eHexahedron, true>(inptr, outptr)
+    operator3D<LibUtilities::eHexahedron, true>(inPtr, outPtr)
 
 #define OPERATOR3D_HEX(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eHexahedron, true, NQ(i), NQ(i), NQ(i)>(      \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #define OPERATOR3D_DEF_TET                                                     \
-    operator3D<LibUtilities::eTetrahedron, true>(inptr, outptr)
+    operator3D<LibUtilities::eTetrahedron, true>(inPtr, outPtr)
 
 #define OPERATOR3D_TET(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eTetrahedron, true, NQ(i), NQ_M1(i),          \
-                   NQ_M1(i)>(inptr, outptr);                                   \
+                   NQ_M1(i)>(inPtr, outPtr);                                   \
         break;
 
 #define OPERATOR3D_DEF_PRISM                                                   \
-    operator3D<LibUtilities::ePrism, true>(inptr, outptr)
+    operator3D<LibUtilities::ePrism, true>(inPtr, outPtr)
 
 #define OPERATOR3D_PRISM(r, i)                                                 \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePrism, true, NQ(i), NQ(i), NQ_M1(i)>(        \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #define OPERATOR3D_DEF_PYR                                                     \
-    operator3D<LibUtilities::ePyramid, true>(inptr, outptr)
+    operator3D<LibUtilities::ePyramid, true>(inPtr, outPtr)
 
 #define OPERATOR3D_PYR(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePyramid, true, NQ(i), NQ(i), NQ_M1(i)>(      \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_3D.h"
@@ -172,7 +172,7 @@ else
     if (dimension == 1)
     {
 #undef OPERATOR1D_DEF
-#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment, false>(inptr, outptr)
+#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment, false>(inPtr, outPtr)
 
         switch (Coordim)
         {
@@ -180,7 +180,7 @@ else
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, false, 1, NQ(i)>(inptr, outptr);    \
+        operator1D<LibUtilities::eSegment, false, 1, NQ(i)>(inPtr, outPtr);    \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -190,7 +190,7 @@ else
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, false, 2, NQ(i)>(inptr, outptr);    \
+        operator1D<LibUtilities::eSegment, false, 2, NQ(i)>(inPtr, outPtr);    \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -200,7 +200,7 @@ else
 #undef OPERATOR1D
 #define OPERATOR1D(r, i)                                                       \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, false, 3, NQ(i)>(inptr, outptr);    \
+        operator1D<LibUtilities::eSegment, false, 3, NQ(i)>(inPtr, outPtr);    \
         break;
 
 #include "../Common/SwitchLevel1_1D.h"
@@ -218,24 +218,24 @@ else
 
 #undef OPERATOR2D_DEF_TRI
 #define OPERATOR2D_DEF_TRI                                                     \
-    operator2D<LibUtilities::eTriangle, false>(inptr, outptr)
+    operator2D<LibUtilities::eTriangle, false>(inPtr, outPtr)
 
 #undef OPERATOR2D_TRI
 #define OPERATOR2D_TRI(r, i)                                                   \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eTriangle, false, 2, NQ(i), NQ_M1(i)>(        \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #undef OPERATOR2D_DEF_QUAD
 #define OPERATOR2D_DEF_QUAD                                                    \
-    operator2D<LibUtilities::eQuadrilateral, false>(inptr, outptr)
+    operator2D<LibUtilities::eQuadrilateral, false>(inPtr, outPtr)
 
 #undef OPERATOR2D_QUAD
 #define OPERATOR2D_QUAD(r, i)                                                  \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eQuadrilateral, false, 2, NQ(i), NQ(i)>(      \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
@@ -246,14 +246,14 @@ else
 #define OPERATOR2D_TRI(r, i)                                                   \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eTriangle, false, 3, NQ(i), NQ_M1(i)>(        \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #undef OPERATOR2D_QUAD
 #define OPERATOR2D_QUAD(r, i)                                                  \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eQuadrilateral, false, 3, NQ(i), NQ(i)>(      \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_2D.h"
@@ -268,46 +268,46 @@ else
 
 #undef OPERATOR3D_DEF_HEX
 #define OPERATOR3D_DEF_HEX                                                     \
-    operator3D<LibUtilities::eHexahedron, false>(inptr, outptr)
+    operator3D<LibUtilities::eHexahedron, false>(inPtr, outPtr)
 
 #undef OPERATOR3D_HEX
 #define OPERATOR3D_HEX(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eHexahedron, false, NQ(i), NQ(i), NQ(i)>(     \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #undef OPERATOR3D_DEF_TET
 #define OPERATOR3D_DEF_TET                                                     \
-    operator3D<LibUtilities::eTetrahedron, false>(inptr, outptr)
+    operator3D<LibUtilities::eTetrahedron, false>(inPtr, outPtr)
 
 #undef OPERATOR3D_TET
 #define OPERATOR3D_TET(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eTetrahedron, false, NQ(i), NQ_M1(i),         \
-                   NQ_M1(i)>(inptr, outptr);                                   \
+                   NQ_M1(i)>(inPtr, outPtr);                                   \
         break;
 
 #undef OPERATOR3D_DEF_PRISM
 #define OPERATOR3D_DEF_PRISM                                                   \
-    operator3D<LibUtilities::ePrism, false>(inptr, outptr)
+    operator3D<LibUtilities::ePrism, false>(inPtr, outPtr)
 
 #undef OPERATOR3D_PRISM
 #define OPERATOR3D_PRISM(r, i)                                                 \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePrism, false, NQ(i), NQ(i), NQ_M1(i)>(       \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #undef OPERATOR3D_DEF_PYR
 #define OPERATOR3D_DEF_PYR                                                     \
-    operator3D<LibUtilities::ePyramid, false>(inptr, outptr)
+    operator3D<LibUtilities::ePyramid, false>(inPtr, outPtr)
 
 #undef OPERATOR3D_PYR
 #define OPERATOR3D_PYR(r, i)                                                   \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePyramid, false, NQ(i), NQ(i), NQ_M1(i)>(     \
-            inptr, outptr);                                                    \
+            inPtr, outPtr);                                                    \
         break;
 
 #include "../Common/SwitchLevel1_3D.h"

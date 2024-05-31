@@ -33,13 +33,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestIdentityKokkos
+
+#include "init_identityphysfields.hpp"
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
-
-#include "Operators/OperatorIdentity.hpp"
-#include "init_identityphysfields.hpp"
 
 #define TEST_IDENTITY(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

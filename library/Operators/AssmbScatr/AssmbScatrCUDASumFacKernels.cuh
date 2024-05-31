@@ -43,10 +43,10 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict__ assmbptr,
-                               const TData *__restrict__ signptr,
-                               const TData *__restrict__ inptr,
-                               TData *__restrict__ outptr)
+                               const int *__restrict__ assmbPtr,
+                               const TData *__restrict__ signPtr,
+                               const TData *__restrict__ inPtr,
+                               TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -56,8 +56,8 @@ __global__ void AssembleKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            atomicAdd(outptr + assmbptr[index + i],
-                      signptr[index + i] * inptr[index + i]);
+            atomicAdd(outPtr + assmbPtr[index + i],
+                      signPtr[index + i] * inPtr[index + i]);
         }
         e += blockDim.x * gridDim.x;
     }
@@ -67,10 +67,10 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict__ assmbptr,
+                               const int *__restrict__ assmbPtr,
                                const TData sign,
-                               const TData *__restrict__ inptr,
-                               TData *__restrict__ outptr)
+                               const TData *__restrict__ inPtr,
+                               TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -80,7 +80,7 @@ __global__ void AssembleKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            atomicAdd(outptr + assmbptr[index + i], sign * inptr[index + i]);
+            atomicAdd(outPtr + assmbPtr[index + i], sign * inPtr[index + i]);
         }
         e += blockDim.x * gridDim.x;
     }
@@ -90,9 +90,9 @@ template <typename TData>
 __global__ void AssembleKernel(const unsigned int ncoeff,
                                const unsigned int nelmt,
                                const unsigned int offset,
-                               const int *__restrict__ assmbptr,
-                               const TData *__restrict__ inptr,
-                               TData *__restrict__ outptr)
+                               const int *__restrict__ assmbPtr,
+                               const TData *__restrict__ inPtr,
+                               TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -102,7 +102,7 @@ __global__ void AssembleKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            atomicAdd(outptr + assmbptr[index + i], inptr[index + i]);
+            atomicAdd(outPtr + assmbPtr[index + i], inPtr[index + i]);
         }
         e += blockDim.x * gridDim.x;
     }
@@ -112,10 +112,10 @@ template <typename TData>
 __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
                                     const unsigned int nelmt,
                                     const unsigned int offset,
-                                    const int *__restrict__ assmbptr,
-                                    const TData *__restrict__ signptr,
-                                    const TData *__restrict__ inptr,
-                                    TData *__restrict__ outptr)
+                                    const int *__restrict__ assmbPtr,
+                                    const TData *__restrict__ signPtr,
+                                    const TData *__restrict__ inPtr,
+                                    TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -125,7 +125,7 @@ __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            outptr[index + i] = signptr[index + i] * inptr[assmbptr[index + i]];
+            outPtr[index + i] = signPtr[index + i] * inPtr[assmbPtr[index + i]];
         }
         e += blockDim.x * gridDim.x;
     }
@@ -135,10 +135,10 @@ template <typename TData>
 __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
                                     const unsigned int nelmt,
                                     const unsigned int offset,
-                                    const int *__restrict__ assmbptr,
+                                    const int *__restrict__ assmbPtr,
                                     const TData sign,
-                                    const TData *__restrict__ inptr,
-                                    TData *__restrict__ outptr)
+                                    const TData *__restrict__ inPtr,
+                                    TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -148,7 +148,7 @@ __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            outptr[index + i] = sign * inptr[assmbptr[index + i]];
+            outPtr[index + i] = sign * inPtr[assmbPtr[index + i]];
         }
         e += blockDim.x * gridDim.x;
     }
@@ -158,9 +158,9 @@ template <typename TData>
 __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
                                     const unsigned int nelmt,
                                     const unsigned int offset,
-                                    const int *__restrict__ assmbptr,
-                                    const TData *__restrict__ inptr,
-                                    TData *__restrict__ outptr)
+                                    const int *__restrict__ assmbPtr,
+                                    const TData *__restrict__ inPtr,
+                                    TData *__restrict__ outPtr)
 {
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -170,7 +170,7 @@ __global__ void GlobalToLocalKernel(const unsigned int ncoeff,
 
         for (unsigned int i = 0; i < ncoeff; i++)
         {
-            outptr[index + i] = inptr[assmbptr[index + i]];
+            outPtr[index + i] = inPtr[assmbPtr[index + i]];
         }
         e += blockDim.x * gridDim.x;
     }
@@ -184,12 +184,12 @@ inline
     AssembleKernel([[maybe_unused]] const size_t gridSize,
                            [[maybe_unused]] const size_t blockSize,
                            const unsigned int ncoeff, const unsigned int nelmt,
-                           const unsigned int offset, const int *assmbptr,
-                           const TData *signptr, const TData *inptr,
-                           TData *outptr)
+                           const unsigned int offset, const int *assmbPtr,
+                           const TData *signPtr, const TData *inPtr,
+                           TData *outPtr)
 {
     AssembleKernel<TData><<<gridSize, blockSize>>>(
-        ncoeff, nelmt, offset, assmbptr, signptr, inptr, outptr);
+        ncoeff, nelmt, offset, assmbPtr, signPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -199,11 +199,11 @@ inline
     AssembleKernel([[maybe_unused]] const size_t gridSize,
                            [[maybe_unused]] const size_t blockSize,
                            const unsigned int ncoeff, const unsigned int nelmt,
-                           const unsigned int offset, const int *assmbptr,
-                           const TData sign, const TData *inptr, TData *outptr)
+                           const unsigned int offset, const int *assmbPtr,
+                           const TData sign, const TData *inPtr, TData *outPtr)
 {
     AssembleKernel<TData><<<gridSize, blockSize>>>(
-        ncoeff, nelmt, offset, assmbptr, sign, inptr, outptr);
+        ncoeff, nelmt, offset, assmbPtr, sign, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -213,11 +213,11 @@ inline
     AssembleKernel([[maybe_unused]] const size_t gridSize,
                            [[maybe_unused]] const size_t blockSize,
                            const unsigned int ncoeff, const unsigned int nelmt,
-                           const unsigned int offset, const int *assmbptr,
-                           const TData *inptr, TData *outptr)
+                           const unsigned int offset, const int *assmbPtr,
+                           const TData *inPtr, TData *outPtr)
 {
     AssembleKernel<TData><<<gridSize, blockSize>>>(ncoeff, nelmt, offset,
-                                                   assmbptr, inptr, outptr);
+                                                   assmbPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -228,12 +228,12 @@ inline
                                 [[maybe_unused]] const size_t blockSize,
                                 const unsigned int ncoeff,
                                 const unsigned int nelmt,
-                                const unsigned int offset, const int *assmbptr,
-                                const TData *signptr, const TData *inptr,
-                                TData *outptr)
+                                const unsigned int offset, const int *assmbPtr,
+                                const TData *signPtr, const TData *inPtr,
+                                TData *outPtr)
 {
     GlobalToLocalKernel<TData><<<gridSize, blockSize>>>(
-        ncoeff, nelmt, offset, assmbptr, signptr, inptr, outptr);
+        ncoeff, nelmt, offset, assmbPtr, signPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -242,11 +242,11 @@ inline typename std::enable_if<
 GlobalToLocalKernel([[maybe_unused]] const size_t gridSize,
                             [[maybe_unused]] const size_t blockSize,
                             const unsigned int ncoeff, const unsigned int nelmt,
-                            const unsigned int offset, const int *assmbptr,
-                            const TData sign, const TData *inptr, TData *outptr)
+                            const unsigned int offset, const int *assmbPtr,
+                            const TData sign, const TData *inPtr, TData *outPtr)
 {
     GlobalToLocalKernel<TData><<<gridSize, blockSize>>>(
-        ncoeff, nelmt, offset, assmbptr, sign, inptr, outptr);
+        ncoeff, nelmt, offset, assmbPtr, sign, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -257,11 +257,11 @@ inline
                                 [[maybe_unused]] const size_t blockSize,
                                 const unsigned int ncoeff,
                                 const unsigned int nelmt,
-                                const unsigned int offset, const int *assmbptr,
-                                const TData *inptr, TData *outptr)
+                                const unsigned int offset, const int *assmbPtr,
+                                const TData *inPtr, TData *outPtr)
 {
     GlobalToLocalKernel<TData><<<gridSize, blockSize>>>(
-        ncoeff, nelmt, offset, assmbptr, inptr, outptr);
+        ncoeff, nelmt, offset, assmbPtr, inPtr, outPtr);
 }
 
 #endif
