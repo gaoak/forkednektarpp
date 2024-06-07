@@ -100,31 +100,32 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                             [[maybe_unused]] const size_t blockSize,
-                             const size_t bndExpSize, const int *offsetPtr,
-                             const BoundaryConditionType *bctypePtr,
-                             const int *ncoeffPtr, const int *mapPtr,
-                             const TData *inPtr, TData *outPtr)
+    NeuBndCondKernel(const size_t nsize, const int *offsetPtr,
+                     const BoundaryConditionType *bctypePtr,
+                     const int *ncoeffPtr, const int *mapPtr,
+                     const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     NeuBndCondKernel<TData><<<gridSize, blockSize>>>(
-        bndExpSize, offsetPtr, bctypePtr, ncoeffPtr, mapPtr, inPtr, outPtr);
+        nsize, offsetPtr, bctypePtr, ncoeffPtr, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                             [[maybe_unused]] const size_t blockSize,
-                             const size_t bndExpSize, const int *offsetPtr,
-                             const BoundaryConditionType *bctypePtr,
-                             const int *ncoeffPtr, const TData *signPtr,
-                             const int *mapPtr, const TData *inPtr,
-                             TData *outPtr)
+    NeuBndCondKernel(const size_t nsize, const int *offsetPtr,
+                     const BoundaryConditionType *bctypePtr,
+                     const int *ncoeffPtr, const TData *signPtr,
+                     const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     NeuBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(bndExpSize, offsetPtr, bctypePtr, ncoeffPtr,
+        <<<gridSize, blockSize>>>(nsize, offsetPtr, bctypePtr, ncoeffPtr,
                                   signPtr, mapPtr, inPtr, outPtr);
 }
 
