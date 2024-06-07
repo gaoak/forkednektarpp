@@ -52,12 +52,11 @@ inline typename std::enable_if<
 #endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-addKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *addend1, const TData *addend2, TData *sum)
+addKernel(const size_t nsize, const TData *addend1, const TData *addend2,
+          TData *sum)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nloc, KOKKOS_LAMBDA(int i) { sum[i] = addend1[i] + addend2[i]; });
+        0, nsize, KOKKOS_LAMBDA(int i) { sum[i] = addend1[i] + addend2[i]; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -68,12 +67,11 @@ inline typename std::enable_if<
 #endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-divKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *numerator, const TData *denominator, TData *quotient)
+divKernel(const size_t nsize, const TData *numerator, const TData *denominator,
+          TData *quotient)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nloc,
+        0, nsize,
         KOKKOS_LAMBDA(int i) { quotient[i] = numerator[i] / denominator[i]; });
 }
 
@@ -85,12 +83,10 @@ inline typename std::enable_if<
 #endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-negKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *in, TData *out)
+negKernel(const size_t nsize, const TData *in, TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nloc, KOKKOS_LAMBDA(int i) { out[i] = -in[i]; });
+        0, nsize, KOKKOS_LAMBDA(int i) { out[i] = -in[i]; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -101,12 +97,11 @@ inline typename std::enable_if<
 #endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-subKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *subtrahend, const TData *minuend, TData *difference)
+subKernel(const size_t nsize, const TData *subtrahend, const TData *minuend,
+          TData *difference)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nloc,
+        0, nsize,
         KOKKOS_LAMBDA(int i) { difference[i] = subtrahend[i] - minuend[i]; });
 }
 
@@ -116,9 +111,8 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-daxpyKernel([[maybe_unused]] const size_t gridSize,
-            [[maybe_unused]] const size_t blockSize, const unsigned int nsize,
-            const TData alpha, const TData *x, const TData *y, TData *z)
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nsize, KOKKOS_LAMBDA(int i) { z[i] = alpha * x[i] + y[i]; });
@@ -130,9 +124,7 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-dotKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const unsigned int nsize,
-          const TData *x, const TData *y, TData *out)
+dotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     NEKERROR(Nektar::ErrorUtil::efatal,
              "The MathKernels dotKernel is not implemented.");
@@ -148,9 +140,7 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-reduceKernel([[maybe_unused]] const size_t gridSize,
-             [[maybe_unused]] const size_t blockSize, const unsigned int nsize,
-             const TData *x, TData *out)
+reduceKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     NEKERROR(Nektar::ErrorUtil::efatal,
              "The MathKernels reduceKernel is not implemented.");
@@ -169,11 +159,10 @@ inline typename std::enable_if<
                  NektarSpaces::Serial ||
                      std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
     void>::type
-addKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *addend1, const TData *addend2, TData *sum)
+addKernel(const size_t nsize, const TData *addend1, const TData *addend2,
+          TData *sum)
 {
-    std::transform(addend1, addend1 + nloc, addend2, sum,
+    std::transform(addend1, addend1 + nsize, addend2, sum,
                    [](const TData &x, const TData &y) { return x + y; });
 }
 
@@ -183,11 +172,10 @@ inline typename std::enable_if<
                  NektarSpaces::Serial ||
                      std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
     void>::type
-divKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *numerator, const TData *denominator, TData *quotient)
+divKernel(const size_t nsize, const TData *numerator, const TData *denominator,
+          TData *quotient)
 {
-    std::transform(numerator, numerator + nloc, denominator, quotient,
+    std::transform(numerator, numerator + nsize, denominator, quotient,
                    [](TData num, TData denom) { return num / denom; });
 }
 
@@ -197,11 +185,9 @@ inline typename std::enable_if<
                  NektarSpaces::Serial ||
                      std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
     void>::type
-negKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *in, TData *out)
+negKernel(const size_t nsize, const TData *in, TData *out)
 {
-    std::transform(in, in + nloc, out, std::negate<TData>());
+    std::transform(in, in + nsize, out, std::negate<TData>());
 }
 
 template <typename ExecSpace, typename TData>
@@ -210,11 +196,10 @@ inline typename std::enable_if<
                  NektarSpaces::Serial ||
                      std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
     void>::type
-subKernel([[maybe_unused]] const size_t gridSize,
-          [[maybe_unused]] const size_t blockSize, const size_t nloc,
-          const TData *subtrahend, const TData *minuend, TData *difference)
+subKernel(const size_t nsize, const TData *subtrahend, const TData *minuend,
+          TData *difference)
 {
-    std::transform(subtrahend, subtrahend + nloc, minuend, difference,
+    std::transform(subtrahend, subtrahend + nsize, minuend, difference,
                    [](const TData &x, const TData &y) { return x - y; });
 }
 

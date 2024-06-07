@@ -1,6 +1,5 @@
-///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDAMathKernelsLauncher.hpp
+// File: CUDAMathKernels.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,20 +31,12 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-void maxKernelLauncher(const size_t n, const double *x, double *h_out);
-void minKernelLauncher(const size_t n, const double *x, double *h_out);
-void l1normKernelLauncher(const size_t n, const double *x, double *h_out);
-void l2normKernelLauncher(const size_t n, const double *x, double *h_out);
-void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *h_out);
-void linfnormKernelLauncher(const size_t n, const double *x, double *h_out);
-void dotKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *h_out);
-void addKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
-void subKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
-void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
-                         const double *y, double *z);
-void divKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
+#include "CUDAMathKernels.cuh"
+
+namespace Nektar::Operators
+{
+
+unsigned int cudaGridSize  = 1024u;
+unsigned int cudaBlockSize = 256u;
+
+}

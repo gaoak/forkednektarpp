@@ -101,9 +101,9 @@ public:
             m_gridSize = GetCUDAGridSize(m_nGlobal - m_nDir, m_blockSize);
         }
 #endif
-        divKernel<ExecSpace, TData>(m_gridSize, m_blockSize, m_nGlobal - m_nDir,
-                                    wkPtr + m_nDir, diagPtr + m_nDir,
-                                    wkPtr + m_nDir);
+
+        divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
+                                    diagPtr + m_nDir, wkPtr + m_nDir);
 
         m_wk.initialize(0, m_nDir);
 

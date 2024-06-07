@@ -123,14 +123,12 @@ public:
 
             if (negflag)
             {
-                subKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                            nElmts * nmTot, outPtr, robinPtr,
+                subKernel<ExecSpace, TData>(nElmts * nmTot, outPtr, robinPtr,
                                             outPtr);
             }
             else
             {
-                addKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                            nElmts * nmTot, outPtr, robinPtr,
+                addKernel<ExecSpace, TData>(nElmts * nmTot, outPtr, robinPtr,
                                             outPtr);
             }
 
@@ -153,9 +151,6 @@ public:
 
 protected:
     AssemblyMapCGSharedPtr m_assmbMap;
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail
