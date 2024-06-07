@@ -98,31 +98,15 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t nloc = out.size();
+        size_t nloc   = out.size();
+        TData *rhsPtr = m_rhs.template GetPtr<MemSpace>();
+        TData *tmpPtr = m_tmp.template GetPtr<MemSpace>();
+        TData *outPtr = out.template GetPtr<MemSpace>();
 
-        // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-        {
-            m_gridSize = GetCUDAGridSize(nloc, m_blockSize);
-        }
-#endif
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls. The memory region being
-        // used must be copied back.
-        TData *rhsPtr = m_rhs.template GetPtr<MemSpace>();
-
-        negKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, rhsPtr,
-                                    rhsPtr);
-
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls. The memory region being
-        // used must be marked as being valid which more
-        // importantly invalidates the sibling memory region.
-        // m_rhs.template setValid<MemSpace>();
+        negKernel<ExecSpace, TData>(nloc, rhsPtr, rhsPtr);
 
         // Handle Neumann BCs on RHS
         m_NeuBCOp->apply(m_rhs);
@@ -131,20 +115,7 @@ public:
         m_DirBCOp->apply(out);
         m_HelmOp->apply(out, m_tmp);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be copied back.
-        const TData *tmpPtr = m_tmp.template GetConstPtr<MemSpace>();
-        rhsPtr              = m_rhs.template GetPtr<MemSpace>();
-
-        subKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, rhsPtr,
-                                    tmpPtr, rhsPtr);
-
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls. The memory region being
-        // used must be marked as being valid which more
-        // importantly invalidates the sibling memory region.
-        // m_rhs.template setValid<MemSpace>();
+        subKernel<ExecSpace, TData>(nloc, rhsPtr, tmpPtr, rhsPtr);
 
         // Handle Robin BCs
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
@@ -152,19 +123,11 @@ public:
             m_RobBCOp->apply(out, m_rhs, true);
         }
 
-        // Solve for u_hat using Conjugate Gradient
+        // Solve using Conjugate Gradient
         m_CGOp->apply(m_rhs, m_tmp);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be copied back.
-        tmpPtr = m_tmp.template GetPtr<MemSpace>();
-
         // Add Dirichlet BCs
-        TData *outPtr = out.template GetPtr<MemSpace>();
-
-        addKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nloc, outPtr,
-                                    tmpPtr, outPtr);
+        addKernel<ExecSpace, TData>(nloc, outPtr, tmpPtr, outPtr);
     }
 
     void setLambda(const TData &lambda) override
@@ -202,9 +165,6 @@ protected:
 
     Field<TData, FieldState::Coeff> m_rhs;
     Field<TData, FieldState::Coeff> m_tmp;
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

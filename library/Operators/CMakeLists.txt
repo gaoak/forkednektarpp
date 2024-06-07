@@ -236,6 +236,11 @@ if(NEKTAR_ENABLE_CUDA)
       CUDAMathKernels.cuh
     )
 
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      CUDAMathKernels.cu
+    )
+
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKLIB_CUDA_LIBRARIES})

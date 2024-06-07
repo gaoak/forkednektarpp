@@ -49,6 +49,157 @@ using MemSpace  = NektarSpaces::DeviceSpace;
 
 BOOST_AUTO_TEST_SUITE(TestCUDAKernels)
 
+BOOST_FIXTURE_TEST_CASE(_cuda_maxkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    out = *(std::max_element(x, x + n));
+
+    // CUDA results
+    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    maxKernelLauncher(n, x, &h_out);
+
+    // Check results
+    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
+    boost::test_tools::output_test_stream output;
+    {
+        std::cout << "CUDA = " << h_out << " Max = " << out << std::endl;
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(_cuda_minkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    out = *(std::min_element(x, x + n));
+
+    // CUDA results
+    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    minKernelLauncher(n, x, &h_out);
+
+    // Check results
+    BOOST_TEST(fabs(h_out - out) < 5.0E-12);
+    boost::test_tools::output_test_stream output;
+    {
+        std::cout << "CUDA = " << h_out << " Min = " << out << std::endl;
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(_cuda_l1normkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    out = std::transform_reduce(x, x + n, 0.0, std::plus<double>{},
+                                [](const double &x) { return std::abs(x); });
+
+    // CUDA results
+    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    l1normKernelLauncher(n, x, &h_out);
+
+    // Check results
+    BOOST_TEST(fabs(h_out - out) < 5.0E-11);
+    boost::test_tools::output_test_stream output;
+    {
+        std::cout << "CUDA = " << h_out << " L1norm = " << out << std::endl;
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(_cuda_l2normkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    out = std::transform_reduce(x, x + n, 0.0, std::plus<double>{},
+                                [](const double &x) { return x * x; });
+
+    // CUDA results
+    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    l2normKernelLauncher(n, x, &h_out);
+
+    // Check results
+    BOOST_TEST(fabs(h_out - out) < 5.0E-10);
+    boost::test_tools::output_test_stream output;
+    {
+        std::cout << "CUDA = " << std::sqrt(h_out)
+                  << " L2norm = " << std::sqrt(out) << std::endl;
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(_cuda_lpnormkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    for (int p = 1; p < 4; p++)
+    {
+        x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+        out = std::transform_reduce(
+            x, x + n, 0.0, std::plus<double>{},
+            [=](const double &x) { return std::pow(std::abs(x), p); });
+
+        // CUDA results
+        x = fixt_cuda_in->template GetPtr<MemSpace>();
+        lpnormKernelLauncher(n, p, x, &h_out);
+
+        // Check results
+        BOOST_TEST(fabs(h_out - out) < 5.0E-10);
+        boost::test_tools::output_test_stream output;
+        {
+            std::cout << "CUDA = " << std::sqrt(h_out) << " L" << p
+                      << "norm = " << std::sqrt(out) << std::endl;
+        }
+    }
+}
+
+BOOST_FIXTURE_TEST_CASE(_cuda_linfnormkernel, CUDAKernels)
+{
+    Configure();
+    SetTestCase();
+    size_t n = fixt_cuda_in->size();
+    double out, h_out, *x;
+
+    // Vmath results
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    out = std::accumulate(x, x + n, std::numeric_limits<double>::min(),
+                          [](const double &lhs, const double &rhs) {
+                              return std::max(std::abs(lhs), std::abs(rhs));
+                          });
+
+    // CUDA results
+    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    linfnormKernelLauncher(n, x, &h_out);
+
+    // Check results
+    BOOST_TEST(fabs(h_out - out) < 5.0E-10);
+    boost::test_tools::output_test_stream output;
+    {
+        std::cout << "CUDA = " << std::sqrt(h_out)
+                  << " L2norm = " << std::sqrt(out) << std::endl;
+    }
+}
+
 BOOST_FIXTURE_TEST_CASE(_cuda_dotkernel, CUDAKernels)
 {
     Configure();
@@ -70,7 +221,7 @@ BOOST_FIXTURE_TEST_CASE(_cuda_dotkernel, CUDAKernels)
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "CUDA = " << h_out << " Vmath = " << out << std::endl;
+        std::cout << "CUDA = " << h_out << " dot = " << out << std::endl;
     }
 }
 
@@ -152,7 +303,7 @@ BOOST_FIXTURE_TEST_CASE(_cuda_daxpykernel, CUDAKernels)
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(_cuda_vdivkernel, CUDAKernels)
+BOOST_FIXTURE_TEST_CASE(_cuda_divkernel, CUDAKernels)
 {
     Configure();
     SetTestCase();
@@ -167,7 +318,7 @@ BOOST_FIXTURE_TEST_CASE(_cuda_vdivkernel, CUDAKernels)
     // CUDA results
     x = fixt_cuda_in->template GetPtr<MemSpace>();
     y = fixt_cuda_out->template GetPtr<MemSpace>();
-    vdivKernelLauncher(n, x, y, y);
+    divKernelLauncher(n, x, y, y);
 
     // Check results
     BOOST_TEST(fixt_cuda_out->compare(*fixt_out, 1.0E-15));

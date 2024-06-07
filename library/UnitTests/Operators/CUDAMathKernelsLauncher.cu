@@ -35,50 +35,99 @@
 #include <cuda_runtime.h>
 
 #include "Operators/CUDAMathKernels.cuh"
+#include "Operators/MemoryRegionDevice.hpp"
 
 #include "CUDAMathKernelsLauncher.hpp"
 
 using namespace Nektar::Operators;
+using ExecSpace = NektarSpaces::CUDA;
 
-void dotKernelLauncher(const size_t n, double *x, double *y, double *h_out)
+void maxKernelLauncher(const size_t n, const double *x, double *h_out)
 {
-    constexpr size_t gridSize  = 1024;
-    constexpr size_t blockSize = 256;
-    double *buffer, *d_out;
-    cudaMalloc((void **)&buffer, sizeof(double) * gridSize);
-    cudaMemset(buffer, 0, sizeof(double) * gridSize);
+
+    double *d_out;
     cudaMalloc((void **)&d_out, sizeof(double));
-    cudaMemset(d_out, 0, sizeof(double));
-    dotKernel<blockSize><<<gridSize, blockSize>>>(n, x, y, buffer);
-    reduceKernel<gridSize><<<1, gridSize>>>(gridSize, buffer, d_out);
+    reduceMaxKernel<ExecSpace, double>(n, x, d_out);
     cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
 }
 
-void addKernelLauncher(const size_t n, double *x, double *y, double *z)
+void minKernelLauncher(const size_t n, const double *x, double *h_out)
 {
-    constexpr size_t gridSize  = 1024;
-    constexpr size_t blockSize = 256;
-    addKernel<<<gridSize, blockSize>>>(n, x, y, z);
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    reduceMinKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
 }
 
-void subKernelLauncher(const size_t n, double *x, double *y, double *z)
+void l1normKernelLauncher(const size_t n, const double *x, double *h_out)
 {
-    constexpr size_t gridSize  = 1024;
-    constexpr size_t blockSize = 256;
-    subKernel<<<gridSize, blockSize>>>(n, x, y, z);
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    l1normKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
 }
 
-void daxpyKernelLauncher(const size_t n, double alpha, double *x, double *y,
-                         double *z)
+void l2normKernelLauncher(const size_t n, const double *x, double *h_out)
 {
-    constexpr size_t gridSize  = 1024;
-    constexpr size_t blockSize = 256;
-    daxpyKernel<<<gridSize, blockSize>>>(n, alpha, x, y, z);
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    l2normKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
 }
 
-void vdivKernelLauncher(const size_t n, double *x, double *y, double *z)
+void lpnormKernelLauncher(const size_t n, const int p, const double *x,
+                          double *h_out)
 {
-    constexpr size_t gridSize  = 1024;
-    constexpr size_t blockSize = 256;
-    vdivKernel<<<gridSize, blockSize>>>(n, x, y, z);
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    lpnormKernel<ExecSpace, double>(n, p, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
+}
+
+void linfnormKernelLauncher(const size_t n, const double *x, double *h_out)
+{
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    linfnormKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
+}
+
+void dotKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *h_out)
+{
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    dotKernel<ExecSpace, double>(n, x, y, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
+}
+
+void addKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    addKernel<ExecSpace, double>(n, x, y, z);
+}
+
+void subKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    subKernel<ExecSpace, double>(n, x, y, z);
+}
+
+void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
+                         const double *y, double *z)
+{
+    daxpyKernel<ExecSpace, double>(n, alpha, x, y, z);
+}
+
+void divKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    divKernel<ExecSpace, double>(n, x, y, z);
 }
