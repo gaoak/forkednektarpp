@@ -55,7 +55,7 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        size_t nDim      = this->m_expansionList->GetShapeDimension();
+        size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise derivative factor.
         size_t dfSize = Operator<TData>::GetGeometricFactorSize();
@@ -71,7 +71,7 @@ public:
             auto const expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
-            for (size_t d = 0; d < nDim; d++)
+            for (size_t d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
@@ -81,9 +81,9 @@ public:
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 auto &matPtr = m_matPtr[basisKeys];
-                matPtr       = Array<OneD, Array<OneD, TData>>(nDim);
+                matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
                 Array<OneD, NekDouble> tmp(nqTot), t;
-                for (size_t d = 0; d < nDim; ++d)
+                for (size_t d = 0; d < dimension; ++d)
                 {
                     // Get deriv matrix.
                     matPtr[d] = Array<OneD, TData>(nqTot * nqTot);
@@ -139,7 +139,7 @@ public:
             }
 
             // Get derivative matrix.
-            auto &matPtr = m_matPtr[basisKeys];
+            auto const &matPtr = m_matPtr[basisKeys];
 
             for (size_t d = 0; d < dimension; ++d)
             {

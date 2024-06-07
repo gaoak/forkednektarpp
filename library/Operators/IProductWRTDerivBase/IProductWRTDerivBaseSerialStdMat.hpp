@@ -57,7 +57,7 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        size_t nDim      = this->m_expansionList->GetShapeDimension();
+        size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
         size_t jacSize = Operator<TData>::GetGeometricFactorSize();
@@ -74,7 +74,7 @@ public:
             auto const expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
-            for (size_t d = 0; d < nDim; d++)
+            for (size_t d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
@@ -85,9 +85,9 @@ public:
                 size_t nqTot = expPtr->GetTotPoints();
                 size_t nmTot = expPtr->GetNcoeffs();
                 auto &matPtr = m_matPtr[basisKeys];
-                matPtr       = Array<OneD, Array<OneD, TData>>(nDim);
+                matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
                 Array<OneD, TData> tmp(nqTot), t;
-                for (size_t d = 0; d < nDim; ++d)
+                for (size_t d = 0; d < dimension; ++d)
                 {
                     // Get IProductWRTDerivBase matrix.
                     matPtr[d] = Array<OneD, TData>(nqTot * nmTot);
@@ -104,7 +104,7 @@ public:
 
         // Initialize workspace memory.
         auto nStorage = this->m_expansionList->GetTotPoints();
-        m_wsp         = Array<OneD, TData>(nStorage * nDim);
+        m_wsp         = Array<OneD, TData>(nStorage * dimension);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -214,9 +214,9 @@ public:
             }
 
             // Fetch matrix.
-            auto matPtr = m_matPtr[basisKeys];
+            auto const &matPtr = m_matPtr[basisKeys];
 
-            // Matrix products.
+            // Perform matrix-matrix multiply.
             for (size_t d = 0; d < dimension; d++)
             {
                 TData alpha = (d == 0 && !APPEND) ? 0.0 : 1.0;

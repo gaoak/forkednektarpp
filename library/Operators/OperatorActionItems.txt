@@ -52,4 +52,3 @@
     (Kokkos::Range) is used. That is the block range is not used as
     there are no 3D index functors. Could there be?
 
-

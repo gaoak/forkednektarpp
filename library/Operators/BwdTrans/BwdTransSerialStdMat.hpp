@@ -54,6 +54,41 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
+        // Initialize basiskey.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            3, LibUtilities::NullBasisKey);
+
+        // Loop over the elements of expansionList.
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            auto const expPtr = this->m_expansionList->GetExp(e);
+
+            // Fetch basiskeys of current element.
+            for (size_t d = 0; d < dimension; d++)
+            {
+                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+            }
+
+            // Copy data to m_matPtr, if necessary.
+            if (m_matPtr.find(basisKeys) == m_matPtr.end())
+            {
+                size_t nqTot = expPtr->GetTotPoints();
+                size_t nmTot = expPtr->GetNcoeffs();
+                Array<OneD, TData> tmp(nmTot), t;
+                // Get BwdTrans matrix.
+                auto &matPtr = m_matPtr[basisKeys];
+                matPtr       = Array<OneD, TData>(nmTot * nqTot);
+                for (size_t i = 0; i < nmTot; ++i)
+                {
+                    Vmath::Zero(nmTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    expPtr->GetStdExp()->BwdTrans(tmp, t = matPtr + i * nqTot);
+                }
+            }
+        }
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -66,6 +101,11 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        // Initialize basiskey.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            3, LibUtilities::NullBasisKey);
+
+        // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
@@ -75,19 +115,23 @@ public:
             auto const nElmts    = inblock.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
-            auto const nmTot  = expPtr->GetNcoeffs();
-            auto const nqTot  = expPtr->GetTotPoints();
+            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const dimension = expPtr->GetShapeDimension();
+            auto const nmTot     = expPtr->GetNcoeffs();
+            auto const nqTot     = expPtr->GetTotPoints();
 
-            // Get BwdTrans matrix.
-            Nektar::StdRegions::StdMatrixKey key(
-                StdRegions::eBwdTrans, expPtr->DetShapeType(), *expPtr);
-            auto const matPtr = expPtr->GetStdMatrix(key);
+            // Fetch basis key for the current element type.
+            for (size_t d = 0; d < dimension; d++)
+            {
+                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+            }
+
+            // Fetch matrix.
+            auto const &matPtr = m_matPtr[basisKeys];
 
             // Perform matrix-matrix multiply.
-            Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0,
-                        matPtr->GetRawPtr(), nqTot, inPtr, nmTot, 0.0, outPtr,
-                        nqTot);
+            Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
+                        nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
@@ -107,6 +151,9 @@ public:
             OperatorBwdTransImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
+
+private:
+    std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_matPtr;
 };
 
 } // namespace Nektar::Operators::detail

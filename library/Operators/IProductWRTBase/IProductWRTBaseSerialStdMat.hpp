@@ -55,20 +55,63 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTBase<TData>(expansionList)
     {
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // Initialise jacobian.
         size_t jacSize = Operator<TData>::GetGeometricFactorSize();
         m_jac          = Operator<TData>::SetJacobian(jacSize);
+
+        // Initialize basiskey.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            3, LibUtilities::NullBasisKey);
+
+        // Loop over the elements of expansionList.
+        for (size_t e = 0; e < nTotElmts; ++e)
+        {
+            auto const expPtr = this->m_expansionList->GetExp(e);
+
+            // Fetch basiskeys of current element.
+            for (size_t d = 0; d < dimension; d++)
+            {
+                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+            }
+
+            // Copy data to m_matPtr, if necessary.
+            if (m_matPtr.find(basisKeys) == m_matPtr.end())
+            {
+                size_t nqTot = expPtr->GetTotPoints();
+                size_t nmTot = expPtr->GetNcoeffs();
+                Array<OneD, TData> tmp(nqTot), t;
+                // Get IProductWRTBase matrix.
+                auto &matPtr = m_matPtr[basisKeys];
+                matPtr       = Array<OneD, TData>(nqTot * nmTot);
+                for (size_t i = 0; i < nqTot; ++i)
+                {
+                    Vmath::Zero(nqTot, tmp, 1);
+                    tmp[i] = 1.0;
+                    expPtr->GetStdExp()->IProductWRTBase(tmp, t = matPtr +
+                                                                  i * nmTot);
+                }
+            }
+        }
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
+        // Get raw pointers.
         auto *inPtr  = in.template GetConstPtr<MemSpace>();
         auto *outPtr = out.template GetPtr<MemSpace>();
 
+        // Initialize index.
         size_t exp_idx = 0;
         size_t jac_idx = 0;
+
+        // Initialize basiskey.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            3, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -81,15 +124,11 @@ public:
 
             // Determine shape and type of the element.
             auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            auto dimension    = expPtr->GetShapeDimension();
             auto const nqTot  = expPtr->GetTotPoints();
             auto const nmTot  = expPtr->GetNcoeffs();
 
-            Nektar::StdRegions::StdMatrixKey key(
-                StdRegions::eIProductWRTBase, expPtr->DetShapeType(), *expPtr);
-
-            // This is the B^{T} matrix
-            auto const matPtr = expPtr->GetStdMatrix(key);
-
+            // Multiply by jacobian.
             Array<OneD, TData> wsp(nqTot * nElmts, 0.0);
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
@@ -113,10 +152,18 @@ public:
                 }
             }
 
-            Blas::Dgemm('N', 'N', matPtr->GetRows(), nElmts,
-                        matPtr->GetColumns(), lambda, matPtr->GetRawPtr(),
-                        matPtr->GetRows(), wsp.get(), nqTot, 0.0, outPtr,
-                        nmTot);
+            // Fetch basis key for the current element type.
+            for (size_t d = 0; d < dimension; d++)
+            {
+                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+            }
+
+            // Fetch matrix.
+            auto const &matPtr = m_matPtr[basisKeys];
+
+            // Perform matrix-matrix multiply.
+            Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),
+                        nmTot, wsp.get(), nqTot, 0.0, outPtr, nmTot);
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
@@ -139,6 +186,7 @@ public:
 
 private:
     Array<OneD, TData> m_jac;
+    std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_matPtr;
 };
 
 } // namespace Nektar::Operators::detail
