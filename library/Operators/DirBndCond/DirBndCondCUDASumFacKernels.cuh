@@ -115,13 +115,14 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                             [[maybe_unused]] const size_t blockSize,
-                             const unsigned int nsize, const int *offsetPtr,
-                             const BoundaryConditionType *bctypePtr,
-                             const int *ncoeffPtr, const int *mapPtr,
-                             const TData *inPtr, TData *outPtr)
+    DirBndCondKernel(const unsigned int nsize, const int *offsetPtr,
+                     const BoundaryConditionType *bctypePtr,
+                     const int *ncoeffPtr, const int *mapPtr,
+                     const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     DirBndCondKernel<TData><<<gridSize, blockSize>>>(
         nsize, offsetPtr, bctypePtr, ncoeffPtr, mapPtr, inPtr, outPtr);
 }
@@ -130,14 +131,14 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                             [[maybe_unused]] const size_t blockSize,
-                             const unsigned int nsize, const int *offsetPtr,
-                             const BoundaryConditionType *bctypePtr,
-                             const int *ncoeffPtr, const TData *signPtr,
-                             const int *mapPtr, const TData *inPtr,
-                             TData *outPtr)
+    DirBndCondKernel(const unsigned int nsize, const int *offsetPtr,
+                     const BoundaryConditionType *bctypePtr,
+                     const int *ncoeffPtr, const TData *signPtr,
+                     const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     DirBndCondKernel<TData><<<gridSize, blockSize>>>(
         nsize, offsetPtr, bctypePtr, ncoeffPtr, signPtr, mapPtr, inPtr, outPtr);
 }
@@ -146,12 +147,13 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    LocalDirBndCondKernel([[maybe_unused]] const size_t gridSize,
-                                  [[maybe_unused]] const size_t blockSize,
-                                  const unsigned int nsize, const int *id0Ptr,
-                                  const int *id1Ptr, const TData *signPtr,
-                                  TData *outPtr)
+    LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
+                          const int *id1Ptr, const TData *signPtr,
+                          TData *outPtr)
 {
+    unsigned int blockSize = 256u;
+    unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     LocalDirBndCondKernel<TData>
         <<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr, signPtr, outPtr);
 }

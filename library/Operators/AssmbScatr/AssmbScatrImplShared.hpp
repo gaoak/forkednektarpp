@@ -106,27 +106,18 @@ public:
                 auto const expPtr = this->m_expansionList->GetExp(exp_idx);
                 auto nCoeff       = expPtr->GetNcoeffs();
 
-                // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-                if constexpr (std::is_same<ExecSpace,
-                                           NektarSpaces::CUDA>::value)
-                {
-                    m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-                }
-#endif
                 if (m_signChange)
                 {
                     const TData *signPtr =
                         m_sign.template GetConstPtr<MemSpace>();
 
-                    AssembleKernel<ExecSpace, TData>(
-                        m_gridSize, m_blockSize, nCoeff, nElmts, offset,
-                        assmbPtr, signPtr, inPtr, outPtr);
+                    AssembleKernel<ExecSpace, TData>(nCoeff * nElmts, offset,
+                                                     assmbPtr, signPtr, inPtr,
+                                                     outPtr);
                 }
                 else
                 {
-                    AssembleKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                                     nCoeff, nElmts, offset,
+                    AssembleKernel<ExecSpace, TData>(nCoeff * nElmts, offset,
                                                      assmbPtr, inPtr, outPtr);
                 }
 
@@ -162,28 +153,19 @@ public:
                 auto const expPtr = this->m_expansionList->GetExp(exp_idx);
                 auto ncoeff       = expPtr->GetNcoeffs();
 
-                // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-                if constexpr (std::is_same<ExecSpace,
-                                           NektarSpaces::CUDA>::value)
-                {
-                    m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-                }
-#endif
                 if (m_signChange)
                 {
                     const TData *signptr =
                         m_sign.template GetConstPtr<MemSpace>();
 
                     GlobalToLocalKernel<ExecSpace, TData>(
-                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
-                        assmbPtr, signptr, inPtr, outPtr);
+                        ncoeff * nElmts, offset, assmbPtr, signptr, inPtr,
+                        outPtr);
                 }
                 else
                 {
                     GlobalToLocalKernel<ExecSpace, TData>(
-                        m_gridSize, m_blockSize, ncoeff, nElmts, offset,
-                        assmbPtr, inPtr, outPtr);
+                        ncoeff * nElmts, offset, assmbPtr, inPtr, outPtr);
                 }
 
                 // Increment pointer and index for next element type.
@@ -207,9 +189,6 @@ private:
 
     MemoryRegion<TData> m_sign;
     MemoryRegion<int> m_assmb;
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

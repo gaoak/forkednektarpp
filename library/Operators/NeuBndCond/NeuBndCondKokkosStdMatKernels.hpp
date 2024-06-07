@@ -47,9 +47,7 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                 [[maybe_unused]] const size_t blockSize,
-                 const size_t bndExpSize, const int *offsetPtr,
+NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
                  const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
                  const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
@@ -70,9 +68,7 @@ NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel([[maybe_unused]] const size_t gridSize,
-                 [[maybe_unused]] const size_t blockSize,
-                 const size_t bndExpSize, const int *offsetPtr,
+NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
                  const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
                  const TData *signPtr, const int *mapPtr, const TData *inPtr,
                  TData *outPtr)

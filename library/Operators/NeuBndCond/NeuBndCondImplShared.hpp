@@ -75,7 +75,7 @@ public:
 
         // Memory allocation
 
-        // Sign
+        // sign
         if (m_signChange)
         {
             auto &sign = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
@@ -84,29 +84,27 @@ public:
                 sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
         }
 
-        // Map
+        // map
         auto &map = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
             map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
-        // Offset
-        m_offset = MemoryRegion<int>::template create<MemSpace>(m_bndExpSize);
+        // offset
+        Array<OneD, int> offset(m_bndExpSize);
 
-        m_offset.initialize(0);
-
-        int *offset = m_offset.template GetPtr<NektarSpaces::HostSpace>();
-
+        offset[0] = 0;
         for (size_t i = 1; i < m_bndExpSize; ++i)
         {
             offset[i] = offset[i - 1] +
                         contfield->GetBndCondExpansions()[i - 1]->GetNcoeffs();
         }
 
-        // NCoeff
-        m_ncoeff = MemoryRegion<int>::template create<MemSpace>(m_bndExpSize);
+        m_offset = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            offset, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
-        int *ncoeff = m_ncoeff.template GetPtr<NektarSpaces::HostSpace>();
+        // ncoeff
+        Array<OneD, int> ncoeff(m_bndExpSize);
 
         size_t ntotcoeff = 0;
         for (size_t i = 0; i < m_bndExpSize; ++i)
@@ -115,13 +113,11 @@ public:
             ntotcoeff += contfield->GetBndCondExpansions()[i]->GetNcoeffs();
         }
 
-        // BC type
-        m_bctype =
-            MemoryRegion<BoundaryConditionType>::template create<MemSpace>(
-                m_bndExpSize);
+        m_ncoeff = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            ncoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
-        BoundaryConditionType *bctype =
-            m_bctype.template GetPtr<NektarSpaces::HostSpace>();
+        // BC type
+        Array<OneD, BoundaryConditionType> bctype(m_bndExpSize);
 
         for (size_t i = 0; i < m_bndExpSize; ++i)
         {
@@ -129,10 +125,12 @@ public:
                 contfield->GetBndConditions()[i]->GetBoundaryConditionType();
         }
 
-        // Coeff
-        m_coeff = MemoryRegion<TData>::template create<MemSpace>(ntotcoeff);
+        m_bctype = MemoryRegion<BoundaryConditionType>::template fromArray<
+            MemSpace, BoundaryConditionType>(
+            bctype, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
-        TData *coeff = m_coeff.template GetPtr<NektarSpaces::HostSpace>();
+        // Coeff
+        Array<OneD, TData> coeff(ntotcoeff);
 
         for (size_t i = 0; i < m_bndExpSize; ++i)
         {
@@ -143,39 +141,35 @@ public:
             }
         }
 
-        // Deterime CUDA grid parameters.
-#if defined(NEKTAR_ENABLE_CUDA)
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-        {
-            m_gridSize = GetCUDAGridSize(m_bndExpSize, m_blockSize);
-        }
-#endif
+        m_coeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            coeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
     }
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        TData *inOutPtr = inout.template GetPtr<MemSpace>();
+        // Copy memory to the device, if necessary and get raw pointers.
+        TData *inoutPtr = inout.template GetPtr<MemSpace>();
 
         BoundaryConditionType *bctypePtr = m_bctype.template GetPtr<MemSpace>();
-        TData *coeffPtr                  = m_coeff.template GetPtr<MemSpace>();
-        int *mapPtr                      = m_map.template GetPtr<MemSpace>();
-        int *ncoeffPtr                   = m_ncoeff.template GetPtr<MemSpace>();
-        int *offsetPtr                   = m_offset.template GetPtr<MemSpace>();
 
-        // Copy memory to the device, if necessary and get raw pointers.
+        TData *coeffPtr = m_coeff.template GetPtr<MemSpace>();
+        int *mapPtr     = m_map.template GetPtr<MemSpace>();
+        int *ncoeffPtr  = m_ncoeff.template GetPtr<MemSpace>();
+        int *offsetPtr  = m_offset.template GetPtr<MemSpace>();
+
         if (m_signChange)
         {
             TData *signPtr = m_sign.template GetPtr<MemSpace>();
 
-            NeuBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
-                ncoeffPtr, signPtr, mapPtr, coeffPtr, inOutPtr);
+            NeuBndCondKernel<ExecSpace, TData>(m_bndExpSize, offsetPtr,
+                                               bctypePtr, ncoeffPtr, signPtr,
+                                               mapPtr, coeffPtr, inoutPtr);
         }
         else
         {
-            NeuBndCondKernel<ExecSpace, TData>(
-                m_gridSize, m_blockSize, m_bndExpSize, offsetPtr, bctypePtr,
-                ncoeffPtr, mapPtr, coeffPtr, inOutPtr);
+            NeuBndCondKernel<ExecSpace, TData>(m_bndExpSize, offsetPtr,
+                                               bctypePtr, ncoeffPtr, mapPtr,
+                                               coeffPtr, inoutPtr);
         }
     }
 
@@ -201,9 +195,6 @@ protected:
     MemoryRegion<int> m_map;
     MemoryRegion<int> m_ncoeff;
     MemoryRegion<int> m_offset;
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail
