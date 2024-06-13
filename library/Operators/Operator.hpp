@@ -251,43 +251,48 @@ public:
 
         bool notFound = true;
 
-        for (size_t i = 0; i < 7; ++i)
+        for (size_t i = 0; i < 8; ++i)
         {
             switch (i)
             {
                 case 0:
-                    // Find the operator with the same ExecSpace and the
+                    // Find the operator with the requested ExecSpace and the
                     // same implementation.
                     key = descriptStr + fieldStateStr + execStr + implStr;
                     break;
                 case 1:
-                    // Find the operator with the same ExecSpace and the default
-                    // implementation.
-                    key = descriptStr + fieldStateStr + execStr + g_OpImpl;
-                    break;
-                case 2:
-                    // Find the operator with the same ExecSpace and the
-                    // generic implementation.
-                    key = descriptStr + fieldStateStr + execStr + "Generic";
-                    break;
-                case 3:
                     // Find the operator with the default ExecSpace and the
                     // default implementation.
                     key =
                         descriptStr + fieldStateStr + g_OpExecSpace + g_OpImpl;
                     break;
-                case 4:
+                case 2:
                     // Find the operator with the default ExecSpace and the
                     // generic implementation.
                     key =
                         descriptStr + fieldStateStr + g_OpExecSpace + "Generic";
                     break;
+                case 3:
+                    // Find the operator with the same ExecSpace and the default
+                    // implementation.
+                    key = descriptStr + fieldStateStr + execStr + g_OpImpl;
+                    break;
+                case 4:
+                    // Find the operator with the same ExecSpace and the
+                    // generic implementation.
+                    key = descriptStr + fieldStateStr + execStr + "Generic";
+                    break;
                 case 5:
+                    // Find the operator with the "Serial" ExecSpace
+                    // and the generic implementation.
+                    key = descriptStr + fieldStateStr + "Kokkos" + "Generic";
+                    break;
+                case 6:
                     // Find the operator with the "Serial" ExecSpace
                     // and the generic implementation.
                     key = descriptStr + fieldStateStr + "Serial" + "Generic";
                     break;
-                case 6:
+                case 7:
                     // Find the operator with the "Serial" ExecSpace and
                     // the "StdMat" implementation.
                     key = descriptStr + fieldStateStr + "Serial" + "StdMat";

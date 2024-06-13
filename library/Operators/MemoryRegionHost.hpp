@@ -377,22 +377,48 @@ public:
      *
      * @param rhs - MemoryRegionHost to copy from
      *
-     * This is a virtual function so that subclasses can copy memory.
      */
-    virtual void HostToHost(MemoryRegionHost<TData> &rhs)
+    template <typename TDataIn> void HostToHost(MemoryRegionHost<TDataIn> &rhs)
     {
+        // Throw an error.
         if (m_host == nullptr || rhs.m_host == nullptr)
         {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "HostToHost::HostToHost - "
-                     "attempt to access host memory (" +
-                         m_name + ") without it being allocated.");
+            std::stringstream msg;
+
+            msg << "HostToHost::HostToHost - "
+                << "attempt to access host memory (";
+
+            if (m_host == nullptr)
+            {
+                msg << m_name;
+            }
+
+            if (m_host == nullptr && rhs.m_host == nullptr)
+            {
+                msg << " and ";
+            }
+
+            if (rhs.m_host == nullptr)
+            {
+                msg << rhs.m_name;
+            }
+
+            msg << ") without it being allocated.";
+
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
         size_t size = m_size < rhs.m_size ? m_size : rhs.m_size;
 
-        std::memcpy(m_host, rhs.m_host, size * sizeof(TData));
+        if (std::is_same<TDataIn, TData>::value &&
+            m_alignment >= rhs.m_alignment)
+        {
+            std::memcpy(m_host, rhs.m_host, size * sizeof(TData));
+        }
+        else
+        {
+            std::copy(rhs.m_host, rhs.m_host + size, m_host);
+        }
     }
 
     /**
@@ -402,7 +428,8 @@ public:
      *
      * This is a virtual function so that subclasses can copy memory.
      */
-    virtual void DeviceToDevice(MemoryRegionHost<TData> &rhs)
+    template <typename TDataIn>
+    void DeviceToDevice(MemoryRegionHost<TDataIn> &rhs)
     {
         HostToHost(rhs);
     }
@@ -413,7 +440,6 @@ public:
      * @param val   - value to set
      * @param count - number of values
      *
-     * This is a virtual function so that subclasses can copy memory.
      */
     virtual void initialize(TData val, size_t count = 0)
     {

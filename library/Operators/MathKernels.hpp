@@ -107,8 +107,10 @@ subKernel(const size_t nsize, const TData *subtrahend, const TData *minuend,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
+#if !defined(NEKTAR_USE_STD_TRANSFORM)
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
+#endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
@@ -118,36 +120,40 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
         0, nsize, KOKKOS_LAMBDA(int i) { z[i] = alpha * x[i] + y[i]; });
 }
 
-template <typename ExecSpace, typename TData, int iBlockSize>
+template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
+#if !defined(NEKTAR_USE_STD_TRANSFORM)
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
+#endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-dotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
+dotProductKernel(const unsigned int nsize, const TData *x, const TData *y,
+                 TData *out)
 {
-    NEKERROR(Nektar::ErrorUtil::efatal,
-             "The MathKernels dotKernel is not implemented.");
+    *out = 0;
 
-    // Do something dumb to prevent warnings
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, KOKKOS_LAMBDA(int i) { out[i] = x[i] + y[i]; });
+    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+        0, nsize, KOKKOS_LAMBDA(int i, TData &sum) { sum += x[i] * y[i]; },
+        *out);
 }
 
-template <typename ExecSpace, typename TData, int iBlockSize>
+template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
+#if !defined(NEKTAR_USE_STD_TRANSFORM)
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
+#endif
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-reduceKernel(const unsigned int nsize, const TData *x, TData *out)
+innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
+                   TData *out)
 {
-    NEKERROR(Nektar::ErrorUtil::efatal,
-             "The MathKernels reduceKernel is not implemented.");
+    *out = 0;
 
-    // Do something dumb to prevent warnings
-    Nektar::parallel_for<ExecSpace>(
-        0, nsize, KOKKOS_LAMBDA(int i) { out[i] = x[i]; });
+    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+        0, nsize, KOKKOS_LAMBDA(int i, TData &sum) { sum += x[i] * y[i]; },
+        *out);
 }
 
 // Std transform versions
@@ -155,9 +161,8 @@ reduceKernel(const unsigned int nsize, const TData *x, TData *out)
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace,
-                 NektarSpaces::Serial ||
-                     std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 addKernel(const size_t nsize, const TData *addend1, const TData *addend2,
           TData *sum)
@@ -168,9 +173,8 @@ addKernel(const size_t nsize, const TData *addend1, const TData *addend2,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace,
-                 NektarSpaces::Serial ||
-                     std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 divKernel(const size_t nsize, const TData *numerator, const TData *denominator,
           TData *quotient)
@@ -181,9 +185,8 @@ divKernel(const size_t nsize, const TData *numerator, const TData *denominator,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace,
-                 NektarSpaces::Serial ||
-                     std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 negKernel(const size_t nsize, const TData *in, TData *out)
 {
@@ -192,15 +195,38 @@ negKernel(const size_t nsize, const TData *in, TData *out)
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace,
-                 NektarSpaces::Serial ||
-                     std::is_same<ExecSpace, NektarSpaces::AVX>::value>::value,
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 subKernel(const size_t nsize, const TData *subtrahend, const TData *minuend,
           TData *difference)
 {
     std::transform(subtrahend, subtrahend + nsize, minuend, difference,
                    [](const TData &x, const TData &y) { return x - y; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+daxpyKernel(const unsigned int nloc, const TData alpha, const TData *addend1,
+            const TData *addend2, TData *sum)
+{
+    std::transform(
+        addend1, addend1 + nloc, addend2, sum,
+        [&](const TData &x, const TData &y) { return alpha * x + y; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
+                   TData *out)
+{
+    *out = std::inner_product(x, x + nsize, y, 0.0);
 }
 
 #endif
