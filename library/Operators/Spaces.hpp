@@ -199,13 +199,13 @@ using DefaultExecutionSpace = DefaultHostExecutionSpace;
 #include <Kokkos_Random.hpp>
 
 // These are used for LoopExecution.hpp reductions. There are
-// equivalent for when Kokkoks is not defined.
-namespace Nektar
+// equivalent for when Kokkos is not defined.
+namespace NektarSpaces
 {
 template <typename TData> using ReduceSum = Kokkos::Sum<TData>;
 template <typename TData> using ReduceMin = Kokkos::Min<TData>;
 template <typename TData> using ReduceMax = Kokkos::Max<TData>;
-} // namespace Nektar
+} // namespace NektarSpaces
 
 // For decaring functions.  There are equivalent for when Kokkoks is
 // not defined.
@@ -261,7 +261,7 @@ GPU_INLINE_FUNCTION void atomic_add(T *const dest, const T val)
 
 } // namespace Kokkos
 
-namespace Nektar
+namespace NektarSpaces
 {
 // These classes duplicate the basic Kokkos reducers
 template <class Scalar> class Sum
@@ -396,11 +396,11 @@ private:
     value_type m_value;
 };
 
-template <typename TData> using ReduceSum = Nektar::Sum<TData>;
-template <typename TData> using ReduceMin = Nektar::Min<TData>;
-template <typename TData> using ReduceMax = Nektar::Max<TData>;
+template <typename TData> using ReduceSum = NektarSpaces::Sum<TData>;
+template <typename TData> using ReduceMin = NektarSpaces::Min<TData>;
+template <typename TData> using ReduceMax = NektarSpaces::Max<TData>;
 
-} // namespace Nektar
+} // namespace NektarSpaces
 
 #endif // !defined(NEKTAR_ENABLE_KOKKOS)
 

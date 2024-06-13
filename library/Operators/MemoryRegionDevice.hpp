@@ -470,6 +470,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::operator=(std::move(rhs));
+#else
+        this->m_host_valid = false;
 #endif
         m_device       = rhs.m_device;
         m_device_valid = rhs.m_device_valid;
@@ -742,7 +744,7 @@ public:
      *
      * @param rhs - MemoryRegionHost to copy from
      */
-    void HostToHost(MemoryRegionHost<TData> &rhs) override
+    template <typename TDataIn> void HostToHost(MemoryRegionHost<TDataIn> &rhs)
     {
         MemoryRegionHost<TData>::HostToHost(rhs);
     }
@@ -752,7 +754,8 @@ public:
      *
      * @param rhs - MemoryRegionHost to copy from
      */
-    void DeviceToDevice(MemoryRegionHost<TData> &rhs) override
+    template <typename TDataIn>
+    void DeviceToDevice(MemoryRegionHost<TDataIn> &rhs)
     {
         // Make sure the source region is a device memory region.
         try
@@ -779,10 +782,10 @@ public:
             //     dstPtr, this->m_size * sizeof(TData));
 
             // Create unmanage Kokkos views from the raw pointers.
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(
-                rhsRet.m_device, this->m_size);
+            Kokkos::View<TDataIn *, Kokkos::DefaultExecutionSpace> srcView(
+                rhsRet.m_device, size);
             Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(
-                m_device, this->m_size);
+                m_device, size);
 
             // Deep copy the host view to the device view.
             Kokkos::deep_copy(dstView, srcView);
@@ -812,6 +815,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::initialize(val, count);
+#else
+        this->m_host_valid = false;
 #endif
         if (count == 0)
         {
@@ -917,6 +922,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyVector<TDataIn>(array);
+#else
+        this->m_host_valid = false;
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value &&
                       std::is_same<Alloc, std::allocator<TDataIn>>::value)
@@ -1002,6 +1009,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
+#else
+        this->m_host_valid = false;
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
         {
@@ -1088,6 +1097,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyArray<TDataIn>(array);
+#else
+        this->m_host_valid = false;
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
         {
@@ -1205,6 +1216,8 @@ public:
     {
 #ifdef SYNC_WITH_HOST
         MemoryRegionHost<TData>::template copyRaw<TDataIn>(dest, src, size);
+#else
+        this->m_host_valid = false;
 #endif
         if constexpr (std::is_same<TDataIn, TData>::value)
         {

@@ -371,8 +371,8 @@ __global__ void dotKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceKernel(const unsigned int nsize, const TData *data,
-                             TData *out)
+__global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
+                                TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -896,7 +896,7 @@ inline
     cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
     dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
-    reduceKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
     cudaFree(buffer);
 }
 
@@ -904,9 +904,22 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    reduceKernel(const unsigned int nsize, const TData *x, TData *out)
+    reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    reduceKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, out);
+    reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, out);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
+                       TData *buffer, TData *out)
+{
+    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    cudaMemset(out, 0, sizeof(TData));
+    dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -950,7 +963,7 @@ inline
     cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
     l1normKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
     cudaFree(buffer);
 }
 
@@ -965,7 +978,7 @@ inline
     cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
     l2normKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
     cudaFree(buffer);
 }
 
@@ -981,7 +994,7 @@ inline
     cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
     lpnormKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, p, x, buffer);
-    reduceKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
     cudaFree(buffer);
 }
 

@@ -165,6 +165,11 @@ public:
      */
     template <typename MemSpace> const TData *GetConstPtr()
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -208,6 +213,11 @@ public:
      */
     template <typename MemSpace> TData *GetPtr()
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -524,6 +534,11 @@ public:
               class Alloc = std::allocator<TDataIn>>
     void copyVector(std::vector<TDataIn, Alloc> const &array)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -570,6 +585,11 @@ public:
     template <typename MemSpace, typename TDataIn = TData>
     void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -618,6 +638,11 @@ public:
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -664,6 +689,11 @@ public:
     template <typename MemSpace, typename TDataIn = TData>
     void copyRaw(TData *dest, TDataIn *src, size_t size)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
@@ -715,6 +745,11 @@ public:
     template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
     std::vector<TData, Alloc> toVector() const
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<TDataOut, TData>::value)
         {
             return std::vector<TDataOut, Alloc>(m_storage->size(),
@@ -742,6 +777,11 @@ public:
     template <typename TDataOut = TData>
     Nektar::Array<Nektar::OneD, TDataOut> toArray() const
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         if constexpr (std::is_same<TDataOut, TData>::value)
         {
             return Nektar::Array<Nektar::OneD, TDataOut>(
@@ -779,6 +819,11 @@ public:
      */
     void initialize(TData val, size_t count = 0)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         m_storage->initialize(val, count);
     }
 
@@ -788,6 +833,11 @@ public:
      */
     std::string getName() const
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         return m_storage->getName();
     }
 
@@ -798,6 +848,11 @@ public:
      */
     template <typename MemSpace> void setValid()
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         // Set the Host memory as being valid.
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
@@ -859,6 +914,11 @@ public:
      */
     template <typename MemSpace> void HostToDevice(bool force = true)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         // Check the memory space type so to not do any more checks as
         // necessary.
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
@@ -895,6 +955,11 @@ public:
      */
     template <typename MemSpace> void DeviceToHost(bool force = true)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         // Check the memory space type so to not do any more checks as
         // necessary.
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
@@ -923,7 +988,7 @@ public:
                                 "the memory region (");
                 msg += m_storage->getName() +
                        ") is not a MemoryRegionDevice but a " +
-                       typeid(*m_storage).name();
+                       Nektar::demangleTypeName(typeid(*m_storage));
 
                 NEKERROR(Nektar::ErrorUtil::efatal, msg);
 
@@ -949,6 +1014,11 @@ public:
      */
     template <typename MemSpace> void RegionToRegion(MemoryRegion &rhs)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         // Check the memory space type to determine the copy.
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
@@ -971,6 +1041,11 @@ public:
      */
     void HostToHost(const MemoryRegion &rhs)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         try
         {
             // This cast fails if e.g. a MemoryRegionDevice is requested
@@ -996,6 +1071,11 @@ public:
      */
     void DeviceToDevice(MemoryRegion &rhs)
     {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
         // Make sure the source region has a device memory region.
         try
         {
@@ -1025,17 +1105,22 @@ public:
         {
             // This cast fails if e.g. a MemoryRegionDevice is requested
             // from a MemoryRegionHost storage
-            [[maybe_unused]] auto &ret =
+            auto &ret =
                 dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+            ret.DeviceToDevice(*(rhs.m_storage));
         }
 
         catch (const std::bad_cast &e)
         {
             // Convert the storage to device.
             GetStorage<MemoryRegionDevice>();
-        }
 
-        m_storage->DeviceToDevice(*(rhs.m_storage));
+            auto &ret =
+                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+            ret.DeviceToDevice(*(rhs.m_storage));
+        }
     }
 
 protected:
@@ -1108,5 +1193,5 @@ protected:
         }
     }
 
-    std::unique_ptr<MemoryRegionHost<TData>> m_storage;
+    std::unique_ptr<MemoryRegionHost<TData>> m_storage = nullptr;
 };

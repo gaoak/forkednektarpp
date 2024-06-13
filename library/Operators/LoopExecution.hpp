@@ -210,12 +210,16 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     for (int i = begin; i < end; ++i)
     {
-        functor(i, red);
+        typename Reduction::value_type tmp;
+        reduction.init(tmp);
+
+        functor(i, tmp);
+
+        reduction.join(red, tmp);
     }
 }
 
@@ -257,7 +261,6 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     const int rbegin0 = r.begin(0);
@@ -274,7 +277,12 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
         {
             for (int i = rbegin0; i < rend0; ++i)
             {
-                functor(i, j, k, red);
+                typename Reduction::value_type tmp;
+                reduction.init(tmp);
+
+                functor(i, j, k, tmp);
+
+                reduction.join(red, tmp);
             }
         }
     }
@@ -316,12 +324,16 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     for (int i = begin; i < end; ++i)
     {
-        functor(i, red);
+        typename Reduction::value_type tmp;
+        reduction.init(tmp);
+
+        functor(i, tmp);
+
+        reduction.join(red, tmp);
     }
 }
 
@@ -363,7 +375,6 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     const int rbegin0 = r.begin(0);
@@ -380,7 +391,12 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
         {
             for (int i = rbegin0; i < rend0; ++i)
             {
-                functor(i, j, k, red);
+                typename Reduction::value_type tmp;
+                reduction.init(tmp);
+
+                functor(i, j, k, tmp);
+
+                reduction.join(red, tmp);
             }
         }
     }
@@ -918,12 +934,16 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     for (int i = begin; i < end; ++i)
     {
-        functor(i, red);
+        typename Reduction::value_type tmp;
+        reduction.init(tmp);
+
+        functor(i, tmp);
+
+        reduction.join(red, tmp);
     }
 }
 
@@ -961,7 +981,6 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     Reduction reduction(red);
-
     reduction.init(red);
 
     const int rbegin0 = r.begin(0);
@@ -978,7 +997,12 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
         {
             for (int i = rbegin0; i < rend0; ++i)
             {
-                functor(i, j, k, red);
+                typename Reduction::value_type tmp;
+                reduction.init(tmp);
+
+                functor(i, j, k, tmp);
+
+                reduction.join(red, tmp);
             }
         }
     }
