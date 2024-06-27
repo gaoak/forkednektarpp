@@ -102,7 +102,8 @@ public:
         for (auto const &block : in.GetBlocks())
         {
             // Block dependent
-            auto const nElmts = block.num_elements;
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
 
             // Determine shape and type of the element.
             auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -114,13 +115,6 @@ public:
             auto const nmTot   = expPtr->GetNcoeffs();
             auto const ptsKeys = expPtr->GetPointsKeys();
 
-            // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-            }
-#endif
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
                            LibUtilities::eModified_A;
@@ -148,15 +142,15 @@ public:
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, false, false,
                                                 true>(
-                            m_gridSize, m_blockSize, nm0, nq0, nElmts, basis0,
-                            w0, jacPtr, inPtr, outPtr);
+                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
+                            inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, true, false,
                                                 true>(
-                            m_gridSize, m_blockSize, nm0, nq0, nElmts, basis0,
-                            w0, jacPtr, inPtr, outPtr, lambda);
+                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
+                            inPtr, outPtr, lambda);
                     }
                 }
                 else
@@ -165,15 +159,15 @@ public:
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, false, false,
                                                 false>(
-                            m_gridSize, m_blockSize, nm0, nq0, nElmts, basis0,
-                            w0, jacPtr, inPtr, outPtr);
+                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
+                            inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, true, false,
                                                 false>(
-                            m_gridSize, m_blockSize, nm0, nq0, nElmts, basis0,
-                            w0, jacPtr, inPtr, outPtr, lambda);
+                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
+                            inPtr, outPtr, lambda);
                     }
                 }
             }
@@ -199,11 +193,11 @@ public:
 
                     if (shapeType == LibUtilities::Quad)
                     {
-                        wspsize = nq1 * nElmts;
+                        wspsize = nq1 * (nElmts + nPadElmts);
                     }
                     else if (shapeType == LibUtilities::Tri)
                     {
-                        wspsize = nq0 * nElmts;
+                        wspsize = nq0 * (nElmts + nPadElmts);
                     }
 
                     if (m_wspsize < wspsize)
@@ -223,17 +217,17 @@ public:
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, false, false,
                                                 true>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0,
-                            nq1, nElmts, correct, basis0, basis1, w0, w1,
-                            jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
+                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
+                            inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, true, false,
                                                 true>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0,
-                            nq1, nElmts, correct, basis0, basis1, w0, w1,
-                            jacPtr, wspPtr, inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
+                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
+                            inPtr, outPtr, lambda);
                     }
                 }
                 else
@@ -242,17 +236,17 @@ public:
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, false, false,
                                                 false>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0,
-                            nq1, nElmts, correct, basis0, basis1, w0, w1,
-                            jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
+                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
+                            inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, true, false,
                                                 false>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0,
-                            nq1, nElmts, correct, basis0, basis1, w0, w1,
-                            jacPtr, wspPtr, inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
+                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
+                            inPtr, outPtr, lambda);
                     }
                 }
             }
@@ -284,19 +278,21 @@ public:
 
                     if (shapeType == LibUtilities::Hex)
                     {
-                        wspsize = (nq2 * nq1 + nq2) * nElmts;
+                        wspsize = (nq2 * nq1 + nq2) * (nElmts + nPadElmts);
                     }
                     else if (shapeType == LibUtilities::Tet)
                     {
-                        wspsize = (nq2 * nq1 + nq2 + nm2) * nElmts;
+                        wspsize =
+                            (nq2 * nq1 + nq2 + nm2) * (nElmts + nPadElmts);
                     }
                     else if (shapeType == LibUtilities::Prism)
                     {
-                        wspsize = (nq2 * nq1 + nq2 + nm1) * nElmts;
+                        wspsize =
+                            (nq2 * nq1 + nq2 + nm1) * (nElmts + nPadElmts);
                     }
                     else if (shapeType == LibUtilities::Pyr)
                     {
-                        wspsize = (nq2 * nq1 + nq2) * nElmts;
+                        wspsize = (nq2 * nq1 + nq2) * (nElmts + nPadElmts);
                     }
 
                     if (m_wspsize < wspsize)
@@ -316,18 +312,17 @@ public:
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, false, false,
                                                 true>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2,
-                            nq0, nq1, nq2, nElmts, correct, basis0, basis1,
-                            basis2, w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
+                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
+                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, true, false,
                                                 true>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2,
-                            nq0, nq1, nq2, nElmts, correct, basis0, basis1,
-                            basis2, w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr,
-                            lambda);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
+                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
+                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr, lambda);
                     }
                 }
                 else
@@ -336,26 +331,25 @@ public:
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, false, false,
                                                 false>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2,
-                            nq0, nq1, nq2, nElmts, correct, basis0, basis1,
-                            basis2, w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
+                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
+                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, true, false,
                                                 false>(
-                            m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2,
-                            nq0, nq1, nq2, nElmts, correct, basis0, basis1,
-                            basis2, w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr,
-                            lambda);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
+                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
+                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr, lambda);
                     }
                 }
             }
 
             // Increment pointer and index for next element type.
             jacPtr += deformed ? nqTot * nElmts : nElmts;
-            inPtr += nqTot * nElmts;
-            outPtr += nmTot * nElmts;
+            inPtr += nqTot * (nElmts + nPadElmts);
+            outPtr += nmTot * (nElmts + nPadElmts);
             exp_idx += nElmts;
         }
     }
@@ -375,13 +369,9 @@ public:
 private:
     BasisDataMap<TData> m_basisMap;
     BasisDataMap<TData> m_weightMap;
-
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_wsp;
-
-    size_t m_wspsize   = 0;
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
+    size_t m_wspsize = 0;
 };
 
 } // namespace Nektar::Operators::detail
