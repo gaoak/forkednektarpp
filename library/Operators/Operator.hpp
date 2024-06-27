@@ -46,7 +46,7 @@
 #include "Operators/LoopExecution.hpp"
 #include "Operators/Spaces.hpp"
 
-#define FLAG_QP false
+#define FLAG_QP false // to be removed
 
 namespace Nektar::Operators
 {
