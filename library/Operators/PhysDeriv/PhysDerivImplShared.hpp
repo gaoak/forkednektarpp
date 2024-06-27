@@ -113,13 +113,6 @@ public:
             auto const nqTot  = expPtr->GetTotPoints();
             auto const nCoord = expPtr->GetCoordim();
 
-            // Determine CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-            }
-#endif
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
             {
@@ -137,14 +130,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, true>(
-                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, D0, dfPtr, inPtr, outPtr);
+                        nq0, nCoord, nElmts + nPadElmts, nSize, m_dfSize, D0,
+                        dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, false>(
-                        m_gridSize, m_blockSize, nq0, nCoord, nElmts, nSize,
-                        m_dfSize, D0, dfPtr, inPtr, outPtr);
+                        nq0, nCoord, nElmts + nPadElmts, nSize, m_dfSize, D0,
+                        dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 2)
@@ -164,16 +157,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, true>(
-                        m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr,
-                        outPtr);
+                        shape, nq0, nq1, nCoord, nElmts + nPadElmts, nSize,
+                        m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, false>(
-                        m_gridSize, m_blockSize, shape, nq0, nq1, nCoord,
-                        nElmts, nSize, m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr,
-                        outPtr);
+                        shape, nq0, nq1, nCoord, nElmts + nPadElmts, nSize,
+                        m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 3)
@@ -198,23 +189,21 @@ public:
                 if (deformed)
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, true>(
-                        m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nElmts,
-                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr,
-                        outPtr);
+                        shape, nq0, nq1, nq2, nElmts + nPadElmts, nSize,
+                        m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, false>(
-                        m_gridSize, m_blockSize, shape, nq0, nq1, nq2, nElmts,
-                        nSize, m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr,
-                        outPtr);
+                        shape, nq0, nq1, nq2, nElmts + nPadElmts, nSize,
+                        m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
                 }
             }
 
             // Increment pointer and index for next element type.
             dfPtr += deformed ? nqTot * nElmts : nElmts;
-            inPtr += (nPadElmts + nElmts) * nqTot;
-            outPtr += (nPadElmts + nElmts) * nqTot;
+            inPtr += (nElmts + nPadElmts) * nqTot;
+            outPtr += (nElmts + nPadElmts) * nqTot;
             exp_idx += nElmts;
         }
     }
@@ -234,12 +223,8 @@ public:
 private:
     BasisDataMap<TData> m_pointMap;
     BasisDataMap<TData> m_derivativeMap;
-
     MemoryRegion<TData> m_derivFac;
-
     size_t m_dfSize;
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail
