@@ -88,7 +88,8 @@ public:
             // Block dependent
             auto const &inblock  = in.GetBlocks()[block_idx];
             auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
+            auto const nElmts =
+                inblock.num_elements + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
             auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -97,13 +98,6 @@ public:
             auto const nmTot     = expPtr->GetNcoeffs();
             auto const nqTot     = expPtr->GetTotPoints();
 
-            // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-            }
-#endif
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
                            LibUtilities::eModified_A;
@@ -122,9 +116,8 @@ public:
 
                 auto nm0 = expPtr->GetBasisNumModes(0);
                 auto nq0 = expPtr->GetNumPoints(0);
-                BwdTrans1DKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nm0,
-                                                   nq0, nElmts, basis0, inPtr,
-                                                   outPtr);
+                BwdTrans1DKernel<ExecSpace, TData>(nm0, nq0, nElmts, basis0,
+                                                   inPtr, outPtr);
             }
             else if (dimension == 2)
             {
@@ -163,8 +156,8 @@ public:
                 }
 
                 BwdTrans2DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, shapeType, nm0, nm1, nq0, nq1,
-                    nElmts, correct, basis0, basis1, wspPtr, inPtr, outPtr);
+                    shapeType, nm0, nm1, nq0, nq1, nElmts, correct, basis0,
+                    basis1, wspPtr, inPtr, outPtr);
             }
             else if (dimension == 3)
             {
@@ -217,15 +210,14 @@ public:
                 }
 
                 BwdTrans3DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, shapeType, nm0, nm1, nm2, nq0, nq1,
-                    nq2, nElmts, correct, basis0, basis1, basis2, wspPtr, inPtr,
-                    outPtr);
+                    shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmts, correct,
+                    basis0, basis1, basis2, wspPtr, inPtr, outPtr);
             }
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
-            exp_idx += nElmts;
+            exp_idx += inblock.num_elements;
         }
     }
 
@@ -245,9 +237,7 @@ private:
     BasisDataMap<TData> m_basisMap;
     MemoryRegion<TData> m_wsp;
 
-    size_t m_wspsize   = 0;
-    size_t m_gridSize  = 32;
-    size_t m_blockSize = 32;
+    size_t m_wspsize = 0;
 };
 
 } // namespace Nektar::Operators::detail
