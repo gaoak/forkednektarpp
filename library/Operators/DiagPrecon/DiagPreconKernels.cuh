@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiagPreconKernels.hpp
+// File: DiagPreconKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -42,36 +42,62 @@
 namespace Nektar::Operators::detail
 {
 
-// Generic kernels except for CUDA.
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-    void>::type
-SetDiagonalKernel([[maybe_unused]] const size_t gridSize,
-                  [[maybe_unused]] const size_t blockSize, const size_t nmTot,
-                  const size_t nElmts, const size_t mode, const TData val,
-                  TData *out)
+// CUDA Kernels
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+
+template <typename TData>
+__global__ void SetDiagonalKernel(const size_t nm, const size_t nelmt,
+                                  const size_t mode, const TData val,
+                                  TData *out)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nElmts, KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = val; });
+    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        out[e * nm + mode] = val;
+
+        e += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData>
+__global__ void CopyDiagonalKernel(const size_t nm, const size_t nelmt,
+                                   const size_t mode, const TData *in,
+                                   TData *out)
+{
+    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        out[e * nm + mode] = in[e * nm + mode];
+
+        e += blockDim.x * gridDim.x;
+    }
+}
+
+// CUDA Kernel launchers
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    SetDiagonalKernel(const size_t gridSize, const size_t blockSize,
+                      const size_t nmTot, const size_t nElmts,
+                      const size_t mode, const TData val, TData *out)
+{
+    SetDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, val, out);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-    void>::type
-CopyDiagonalKernel([[maybe_unused]] const size_t gridSize,
-                   [[maybe_unused]] const size_t blockSize, const size_t nmTot,
-                   const size_t nElmts, const size_t mode, TData *in,
-                   TData *out)
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    CopyDiagonalKernel(const size_t gridSize, const size_t blockSize,
+                       const size_t nmTot, const size_t nElmts,
+                       const size_t mode, TData *in, TData *out)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nElmts,
-        KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = in[e * nmTot + mode]; });
+    CopyDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, in, out);
 }
+
+#endif
 
 } // namespace Nektar::Operators::detail

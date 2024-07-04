@@ -36,14 +36,15 @@
 
 #include "Operators/OperatorDiagPrecon.hpp"
 
+#include "Operators/DiagPrecon/DiagPreconKernels.cuh"
+#include "Operators/DiagPrecon/DiagPreconKernels.hpp"
+
 #include "Operators/Field.hpp"
 #include "Operators/LoopExecution.hpp"
 #include "Operators/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
-
-#include "Operators/DiagPrecon/DiagPreconKernels.hpp"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
@@ -95,12 +96,10 @@ public:
         TData *wkPtr   = m_wk.template GetPtr<MemSpace>();
 
         // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
         if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
         {
             m_gridSize = GetCUDAGridSize(m_nGlobal - m_nDir, m_blockSize);
         }
-#endif
 
         divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
                                     diagPtr + m_nDir, wkPtr + m_nDir);
@@ -157,12 +156,11 @@ public:
             // auto const nmTot  = expPtr->GetNcoeffs();
 
             // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
             if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
             {
                 m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
             }
-#endif
+
             for (size_t i = 0; i < nmTot; ++i)
             {
                 // Set ith term in unit vector to be 1.
@@ -186,8 +184,9 @@ public:
                 }
 
                 // Anytime there is a mix of internal kernel calls and
-                // external operator calls. The memory region being
-                // used must be copied back.
+                // external operator calls the memory region being
+                // used must be in the correct space. Getting the
+                // pointer does that.
                 action.template GetPtr<MemSpace>();
 
                 // Copy the ith row term from the action field to get

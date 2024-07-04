@@ -16,7 +16,7 @@
 # DiagPrecon             creaate operator - Helmholtz - Helmholtz1D_Seg, etc.
 
 # FwdTrans               creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
-# Helmsolve              creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
+# HelmSolve              creaate operator - DiagPrecon - Helmholtz1D_Seg, etc.
 
 # Dirichlet              only output - Nodepend - Helmholtz1D_Seg, etc.
 # Neumann                only output - Nodepend - Helmholtz1D_Seg, etc.
@@ -241,7 +241,7 @@ IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
     SET_UNIT_TEST(Dirichlet_kokkos_stdmat test_dirichlet_kokkos_stdmat FALSE)
     SET_UNIT_TEST(FwdTrans_kokkos_stdmat test_fwdtrans_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Helmholtz_kokkos_stdmat test_helmholtz_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Helmsolve_kokkos_stdmat test_helmsolve_kokkos_stdmat FALSE)
+    SET_UNIT_TEST(HelmSolve_kokkos_stdmat test_helmsolve_kokkos_stdmat FALSE)
     SET_UNIT_TEST(IdentityCoeff_kokkos_stdmat test_identitycoeff_kokkos_stdmat FALSE)
     SET_UNIT_TEST(IdentityPhys_kokkos_stdmat test_identityphys_kokkos_stdmat FALSE)
     SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)

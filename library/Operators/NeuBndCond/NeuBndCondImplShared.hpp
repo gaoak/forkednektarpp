@@ -53,10 +53,8 @@ namespace Nektar::Operators::detail
 // Shared implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-#if defined(NEKTAR_ENABLE_CUDA)
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
-#endif
               (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
                std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorNeuBndCondImpl : public OperatorNeuBndCond<TData>

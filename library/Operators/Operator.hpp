@@ -251,7 +251,12 @@ public:
 
         bool notFound = true;
 
-        for (size_t i = 0; i < 8; ++i)
+#if defined(REQUESTED_OPERATOR_ONLY)
+        constexpr size_t nOpTests = 1;
+#else
+        constexpr size_t nOpTests = 8;
+#endif
+        for (size_t i = 0; i < nOpTests; ++i)
         {
             switch (i)
             {

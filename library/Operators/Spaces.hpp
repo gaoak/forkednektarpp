@@ -105,11 +105,12 @@ class DeviceSpace
 
 #define NEKTAR_USING_GPU
 
+#else
+// No specific GPU so the device is the host.
+using DeviceSpace           = HostSpace;
 #endif
 
 // Native pure CUDA execution
-#if defined(NEKTAR_ENABLE_CUDA)
-
 class CUDA
 {
     // Used for legacy Nektar CUDA tasks (e.g. no Kokkos)
@@ -118,13 +119,7 @@ public:
     using memory_layout = Nektar::MemoryLayout::Interlaced;
 };
 
-using DefaultExecutionSpace = CUDA;
-
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
-
 // Native pure HIP execution
-#elif defined(NEKTAR_ENABLE_HIP)
-
 class HIP
 {
     // Used for legacy Nektar HIP tasks (e.g. no Kokkos)
@@ -133,13 +128,7 @@ public:
     using memory_layout = Nektar::MemoryLayout::Interlaced;
 };
 
-using DefaultExecutionSpace = HIP;
-
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
-
 // Native pure SYCL execution
-#elif defined(NEKTAR_ENABLE_SYCL)
-
 class SYCL
 {
     // Used for legacy Nektar SYCL tasks (e.g. no Kokkos)
@@ -148,14 +137,23 @@ public:
     using memory_layout = Nektar::MemoryLayout::Interlaced;
 };
 
+// Specific pure GPU execution
+#if defined(NEKTAR_ENABLE_CUDA)
+using DefaultExecutionSpace = CUDA;
+
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
+
+#elif defined(NEKTAR_ENABLE_HIP)
+using DefaultExecutionSpace = HIP;
+
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
+
+#elif defined(NEKTAR_ENABLE_SYCL)
 using DefaultExecutionSpace = SYCL;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
 
-// No specific GPU so the device is the host.
 #else
-
-using DeviceSpace           = HostSpace;
 using DefaultExecutionSpace = DefaultHostExecutionSpace;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::DefaultHostExecutionSpace

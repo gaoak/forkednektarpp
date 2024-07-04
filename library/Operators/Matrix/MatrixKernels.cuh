@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjGradKernels.hpp
+// File: MatrixKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,22 +34,49 @@
 
 #pragma once
 
-#include "Operators/MathKernels.hpp"
+#include "Operators/LoopExecution.hpp"
 
-namespace Nektar::Operators
+namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-    void>::type
-innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
-                   [[maybe_unused]] TData *buffer, TData *output)
+// CUDA Kernels
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+
+template <typename TData>
+__global__ void MatrixKernel(const size_t nelmt, const size_t numPts,
+                             const size_t size, const TData *mat,
+                             const TData *in, TData *out)
 {
-    // Perform inner-product exchanges
-    innerProductKernel<ExecSpace, TData>(nsize, x, y, output);
+    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (e < nelmt)
+    {
+        const TData *matrix = mat + e * numPts;
+        const TData *inPtr  = in + e * numPts;
+        TData *outPtr       = out + e * numPts;
+
+        for (size_t j = 0; j < size * size; j += size)
+        {
+            for (size_t i = 0; i < numPts; ++i)
+            {
+                outPtr[i] += inPtr[i] * matrix[j + i];
+            }
+        }
+        e += blockDim.x * gridDim.x;
+    }
 }
 
-} // namespace Nektar::Operators
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    MatrixKernel(const size_t gridSize, const size_t blockSize,
+                 const size_t nelmt, const size_t numPts, const size_t size,
+                 const TData *mat, const TData *in, TData *out)
+{
+    MatrixKernel<<<gridSize, blockSize>>>(nelmt, numPts, size, mat, in, out);
+}
+
+#endif
+
+} // namespace Nektar::Operators::detail
