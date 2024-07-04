@@ -1105,8 +1105,7 @@ public:
         {
             // This cast fails if e.g. a MemoryRegionDevice is requested
             // from a MemoryRegionHost storage
-            auto &ret =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
             ret.DeviceToDevice(*(rhs.m_storage));
         }
@@ -1116,8 +1115,7 @@ public:
             // Convert the storage to device.
             GetStorage<MemoryRegionDevice>();
 
-            auto &ret =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
             ret.DeviceToDevice(*(rhs.m_storage));
         }

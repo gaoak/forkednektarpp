@@ -47,10 +47,8 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
                std::is_same<Implementation, Operators::StdMat>::value) ||
-#if defined(NEKTAR_ENABLE_CUDA)
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
-#endif
               (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
                std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorHelmholtzImpl
@@ -106,13 +104,12 @@ public:
         this->m_IProductWRTBaseOp->apply(this->m_bwd, out, this->m_lambda);
 
         // CUDA and Kokkos "in-place" version
-        if constexpr (
-#if defined(NEKTAR_ENABLE_CUDA)
-            (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-             std::is_same<Implementation, Operators::SumFac>::value) ||
-#endif
-            (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-             std::is_same<Implementation, Operators::StdMat>::value))
+        if constexpr ((std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+                       std::is_same<Implementation,
+                                    Operators::SumFac>::value) ||
+                      (std::is_same<ExecSpace,
+                                    Kokkos::DefaultExecutionSpace>::value &&
+                       std::is_same<Implementation, Operators::StdMat>::value))
         {
             // Step 4: Multiply by diffusion coefficient
             DiffusionCoeff(this->m_deriv);
@@ -157,12 +154,11 @@ public:
             auto nqTot        = expPtr->GetTotPoints();
 
             // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
             if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
             {
                 m_gridSize = GetCUDAGridSize(nqTot * nElmts, m_blockSize);
             }
-#endif
+
             // Multiply by diffusion coefficient.
             if (nCoord == 1)
             {

@@ -95,10 +95,7 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t nloc  = out.size();
-        auto *rhsPtr = m_rhs.template GetPtr<MemSpace>();
-        auto *tmpPtr = m_tmp.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        size_t nloc = out.size();
 
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
@@ -106,6 +103,12 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_MassOp->apply(out, m_tmp);
+
+        // Anytime there is a mix of internal kernel calls and
+        // external operator calls the memory region being used must
+        // be in the correct space. Getting the pointer does that.
+        auto *rhsPtr = m_rhs.template GetPtr<MemSpace>();
+        auto *tmpPtr = m_tmp.template GetConstPtr<MemSpace>();
 
         subKernel<ExecSpace, TData>(nloc, rhsPtr, tmpPtr, rhsPtr);
 
@@ -119,6 +122,7 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
+        auto *outPtr = out.template GetPtr<MemSpace>();
         addKernel<ExecSpace, TData>(nloc, outPtr, tmpPtr, outPtr);
     }
 

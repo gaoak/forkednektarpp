@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Operators/Matrix/MatrixImplBase.hpp"
+#include "Operators/Matrix/MatrixKernels.cuh"
 #include "Operators/Matrix/MatrixKernels.hpp"
 
 namespace Nektar::Operators::detail
@@ -44,10 +45,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, FieldState TFieldState,
           typename TData,
           typename = typename std::enable_if<
-#if defined(NEKTAR_ENABLE_CUDA)
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
-#endif
               (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
                std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorMatrixImpl
@@ -87,12 +86,11 @@ public:
                                     : expPtr->GetTotPoints();
 
             // Deterime CUDA grid size.
-#if defined(NEKTAR_ENABLE_CUDA)
             if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
             {
                 m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
             }
-#endif
+
             MatrixKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nElmts,
                                            numPts, this->m_size, matrixPtr,
                                            inPtr, outPtr);

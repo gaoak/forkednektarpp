@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: ConjGradKernels.hpp
+// File: ConjGradKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,22 +34,24 @@
 
 #pragma once
 
-#include "Operators/MathKernels.hpp"
+#include "Operators/CUDAMathKernels.cuh"
 
 namespace Nektar::Operators
 {
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
-    void>::type
-innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
-                   [[maybe_unused]] TData *buffer, TData *output)
-{
-    // Perform inner-product exchanges
-    innerProductKernel<ExecSpace, TData>(nsize, x, y, output);
-}
+// #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
+// template <typename ExecSpace, typename TData>
+// inline
+//     typename std::enable_if<std::is_same<ExecSpace,
+//     NektarSpaces::CUDA>::value,
+//                             void>::type
+//     sumProductKernel(const unsigned int nsize, const TData *x, const TData
+//     *y,
+//                        TData *buffer, TData *output)
+// {
+//     innerProductKernel<ExecSpace, TData>(nsize, x, y, buffer, output);
+// }
+
+// #endif
 } // namespace Nektar::Operators

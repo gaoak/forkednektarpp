@@ -36,7 +36,8 @@
 
 #include "Operators/OperatorConjGrad.hpp"
 
-#include "ConjGradKernels.hpp"
+#include "Operators/ConjGrad/ConjGradKernels.cuh"
+#include "Operators/ConjGrad/ConjGradKernels.hpp"
 
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorHelper.hpp"
@@ -55,9 +56,7 @@
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
 
-#if defined(NEKTAR_ENABLE_CUDA)
 extern unsigned int cudaGridSize;
-#endif
 
 namespace Nektar::Operators::detail
 {
@@ -112,7 +111,6 @@ public:
 
             m_vExchangeArray = Array<OneD, TData>(4, 0.0);
         }
-#if defined(NEKTAR_ENABLE_CUDA)
         else if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
         {
             m_vExchange = MemoryRegion<TData>::template create<MemSpace>(4);
@@ -121,7 +119,6 @@ public:
             m_buffer = MemoryRegion<TData>::template create<MemSpace>(
                 cudaGridSize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
         }
-#endif
         else if constexpr (std::is_same<ExecSpace,
                                         Kokkos::DefaultExecutionSpace>::value)
         {
@@ -197,7 +194,6 @@ public:
 
         [[maybe_unused]] TData *bufferPtr = nullptr;
 
-#if defined(NEKTAR_ENABLE_CUDA)
         // Temporary buffer for calculating the inner product
         // reduction.
         if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
@@ -205,7 +201,7 @@ public:
             m_buffer.initialize(0);
             bufferPtr = m_buffer.template GetPtr<MemSpace>();
         }
-#endif
+
         TData *vExchangePtr;
         TData const *vExchangeHostPtr;
 
@@ -264,7 +260,7 @@ public:
 
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
-        // be copied back.
+        // be in the correct space. Getting the pointer does that.
         wkPtr = m_wk.template GetPtr<MemSpace>();
 
         innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr, bufferPtr,
@@ -275,7 +271,7 @@ public:
 
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
-        // be copied back.
+        // be in the correct space. Getting the pointer does that.
         wkPtr = m_wk.template GetPtr<MemSpace>();
 
         innerProductKernel<ExecSpace, TData>(m_nloc, inPtr, wkPtr, bufferPtr,
@@ -307,8 +303,8 @@ public:
         }
 
         // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used
-        // must be copied back.
+        // external operator calls the memory region being used must
+        // be in the correct space. Getting the pointer does that.
         w_APtr = m_w_A.template GetPtr<MemSpace>();
         s_APtr = m_s_A.template GetPtr<MemSpace>();
 
@@ -374,8 +370,9 @@ public:
             }
 
             // Anytime there is a mix of internal kernel calls and
-            // external operator calls the memory region being
-            // used must be copied back.
+            // external operator calls the memory region being used
+            // must be in the correct space. Getting the pointer does
+            // that.
             w_APtr = m_w_A.template GetPtr<MemSpace>();
             s_APtr = m_s_A.template GetPtr<MemSpace>();
 
@@ -391,8 +388,9 @@ public:
             m_assmbScatrOp->apply(m_r_A, m_wk, true);
 
             // Anytime there is a mix of internal kernel calls and
-            // external operator calls the memory region being used must
-            // be copied back.
+            // external operator calls the memory region being used
+            // must be in the correct space. Getting the pointer does
+            // that.
             wkPtr = m_wk.template GetPtr<MemSpace>();
 
             innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
@@ -452,13 +450,11 @@ protected:
                                  Nektar::LibUtilities::ReduceSum);
         }
 
-#if defined(NEKTAR_ENABLE_CUDA)
         // For CUDA reduction values are on the device side.
         if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
         {
             m_vExchange.template DeviceToHost<MemSpace>();
         }
-#endif
     }
 
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
