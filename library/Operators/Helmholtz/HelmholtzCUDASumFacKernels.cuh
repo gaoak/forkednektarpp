@@ -120,31 +120,32 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DiffusionCoeff1DKernel(const size_t gridSize,
-                                   const size_t blockSize,
-                                   const unsigned int nsize,
-                                   const TData *diffCoeff, TData *deriv0)
+    DiffusionCoeff1DKernel(const size_t gridSize, const size_t blockSize,
+                           const unsigned int nsize, const TData *diffCoeff,
+                           TData *deriv0)
 {
     DiffusionCoeff1DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value, void>::type
-DiffusionCoeff2DKernel(const size_t gridSize, const size_t blockSize,
-                               const unsigned int nsize, const TData *diffCoeff,
-                               TData *deriv0, TData *deriv1)
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    DiffusionCoeff2DKernel(const size_t gridSize, const size_t blockSize,
+                           const unsigned int nsize, const TData *diffCoeff,
+                           TData *deriv0, TData *deriv1)
 {
     DiffusionCoeff2DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,
                                                     deriv1);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value, void>::type
-DiffusionCoeff3DKernel(const size_t gridSize, const size_t blockSize,
-                               const unsigned int nsize, const TData *diffCoeff,
-                               TData *deriv0, TData *deriv1, TData *deriv2)
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    DiffusionCoeff3DKernel(const size_t gridSize, const size_t blockSize,
+                           const unsigned int nsize, const TData *diffCoeff,
+                           TData *deriv0, TData *deriv1, TData *deriv2)
 {
     DiffusionCoeff3DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,
                                                     deriv1, deriv2);

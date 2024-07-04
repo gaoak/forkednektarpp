@@ -710,7 +710,7 @@ public:
     /**
      * @brief Copy data to a std:vector.
      *
-     * @return Array<Nektar::OneD, TData>
+     * @return std::vector<TDataOut>
      */
     template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
     std::vector<TData, Alloc> toVector() const

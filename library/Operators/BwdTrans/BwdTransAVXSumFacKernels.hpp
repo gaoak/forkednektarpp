@@ -554,20 +554,16 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
                   nm0 == nm2 && nq0 == nq1 && nq0 == nq2 + 1),
              "BwdTrans3DWorkspace: Requires homogenous points.");
 
-    // #if defined(SHAPE_TYPE_HEX)
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         wsp0Size = std::max(wsp0Size, nq0 * nm1 * nm2); // nm1 == nm2
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nm2); // nq0 == nq1
     }
-    // #elif defined(SHAPE_TYPE_TET) || defined(SHAPE_TYPE_PRISM) ||
-    // defined(SHAPE_TYPE_PYR)
     else
     {
         wsp0Size = std::max(wsp0Size, nm0 * nm1); // nm0 == nm1 == nm2
         wsp1Size = std::max(wsp1Size, nm0);
     }
-    // #endif
 }
 
 // #endif // SHAPE_DIMENSION

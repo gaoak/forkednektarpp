@@ -60,8 +60,8 @@ public:
         : OperatorBwdTrans<TData>(expansionList)
     {
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(expansionList,
-                                                          BASIS_BASIS_DATA);
+        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(
+            expansionList, BASIS_BASIS_DATA, vec_t::alignment);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -88,10 +88,8 @@ public:
         auto *inPtr  = in.template GetConstPtr<MemSpace>();
         auto *outPtr = out.template GetPtr<MemSpace>();
 
-        // Initialize index.
-        size_t exp_idx = 0;
+        m_exp_idx = 0; // accumulated across each block.
 
-        // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
@@ -102,7 +100,7 @@ public:
             auto const nPadElmts = inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             auto const shapeType = expPtr->DetShapeType();
             auto const dimension = expPtr->GetShapeDimension();
 
@@ -121,7 +119,7 @@ public:
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
-            exp_idx += inblock.num_elements;
+            m_exp_idx += nElmts;
         }
     }
 
@@ -142,26 +140,7 @@ private:
     // std::array<LibUtilities::BasisKey, 3> m_basisKeys;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
 
-    int m_nElmtGroup;
-
-    // void copy_to_vec_t(const NekDouble *in, const std::uint32_t nVec,
-    //                    std::vector<vec_t, allocator<vec_t>> &out)
-    // {
-    //     for (size_t i = 0; i < nVec; ++i)
-    //     {
-    //         out[i].load(in);
-    //         in += vec_t::width;
-    //     }
-    // }
-    // void copy_from_vec_t(const std::vector<vec_t, allocator<vec_t>> &in,
-    //                      const std::uint32_t nVec, NekDouble *out)
-    // {
-    //     for (size_t i = 0; i < nVec; ++i)
-    //     {
-    //         in[i].store(out);
-    //         out += vec_t::width;
-    //     }
-    // }
+    int m_nElmtGroup, m_exp_idx;
 
     // templated operator(), which is instantiated by SwitchNodesPoints.h
     // and used in apply().
@@ -207,8 +186,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator1D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nq0 = expPtr->GetNumPoints(0);
@@ -252,8 +230,7 @@ private:
               int nq1>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1;
         auto const nmTot =
@@ -303,8 +280,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nm1 = expPtr->GetBasisNumModes(1);
@@ -361,8 +337,7 @@ private:
               int nq0, int nq1, int nq2>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1 * nq2;
         auto const nmTot =
@@ -416,8 +391,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nm1 = expPtr->GetBasisNumModes(1);

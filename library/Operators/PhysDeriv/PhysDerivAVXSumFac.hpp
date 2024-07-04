@@ -47,6 +47,8 @@
 namespace Nektar::Operators::detail
 {
 
+typedef std::vector<vec_t, tinysimd::allocator<vec_t>> VecVec_t;
+
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
@@ -64,20 +66,24 @@ public:
         auto blocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
 
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize();
-        Array<OneD, Array<OneD, TData>> derivFac =
-            Operator<TData>::SetDerivativeFactor(jacSize);
+        // size_t jacSize = Operator<TData>::GetGeometricFactorSize();
+        // Array<OneD, Array<OneD, TData>> derivFac =
+        //     Operator<TData>::SetDerivativeFactor(jacSize);
 
-        m_derivFac =
-            MemoryRegion<vec_t>::template fromArray<MemSpace, TData>(derivFac);
+        size_t dfSize = Operator<TData>::GetGeometricFactorSize(blocks);
+        std::shared_ptr<VecVec_t> derivFac =
+            Operator<TData>::SetDerivativeFactor(dfSize, blocks);
+
+        m_derivFac = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
+            *derivFac, vec_t::alignment);
 
         // Initialize the points.
-        m_pointMap = GetBasisData<MemSpace, TData, vec_t>(expansionList,
-                                                          BASIS_POINT_DATA);
+        m_pointMap = GetBasisData<MemSpace, TData, vec_t>(
+            expansionList, BASIS_POINT_DATA, vec_t::alignment);
 
         // Initialize the derivative matrix.
         m_derivativeMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_DERIVATIVE_DATA);
+            expansionList, BASIS_DERIVATIVE_DATA, vec_t::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -120,8 +126,8 @@ public:
             outPtr[d] = outOrig + d * scalar_field_size;
         }
 
-        size_t exp_idx = 0; // accumulates over blocks, not used in operatorND()
-        m_jac_idx      = 0; // accumulates over blocks, accessed in operatorND()
+        m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
+        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
 
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
@@ -131,9 +137,9 @@ public:
             auto const &outblock = out.GetBlocks()[block_idx];
             auto const nElmts    = inblock.num_elements;
             auto const nPadElmts = inblock.num_padding_elements;
-
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
+            auto const nqTot     = expPtr->GetTotPoints();
             auto const shapeType = expPtr->DetShapeType();
             auto const dimension = expPtr->GetShapeDimension();
             auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
@@ -159,7 +165,15 @@ public:
                 outPtr[d] += outblock.block_size;
             }
 
-            exp_idx += nElmts;
+            if (deformed)
+            {
+                m_jac_idx += nqTot * m_nElmtGroup;
+            }
+            else
+            {
+                m_jac_idx += m_nElmtGroup;
+            }
+            m_exp_idx += nElmts;
         }
     }
 
@@ -176,7 +190,7 @@ public:
     }
 
 private:
-    int m_nElmtGroup, m_jac_idx;
+    int m_nElmtGroup, m_jac_idx, m_exp_idx;
 
     MemoryRegion<vec_t> m_derivFac;
     BasisDataMap<vec_t> m_pointMap;
@@ -188,8 +202,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator1D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nq0     = expPtr->GetNumPoints(0);
         auto const nqTot   = nq0;
@@ -234,14 +247,6 @@ private:
             {
                 tmpOut[d] += nqBlock;
             }
-        }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
         }
     }
 
@@ -294,22 +299,13 @@ private:
                 tmpOut[d] += nqBlock;
             }
         }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
-        }
     }
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator2D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nq0 = expPtr->GetNumPoints(0);
         auto const nq1 = expPtr->GetNumPoints(1);
@@ -358,14 +354,6 @@ private:
             {
                 tmpOut[d] += nqBlock;
             }
-        }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
         }
     }
 
@@ -418,22 +406,13 @@ private:
                 tmpOut[d] += nqBlock;
             }
         }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
-        }
     }
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator3D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nq0 = expPtr->GetNumPoints(0);
         auto const nq1 = expPtr->GetNumPoints(1);
@@ -488,14 +467,6 @@ private:
             tmpOut[0] += nqBlocks;
             tmpOut[1] += nqBlocks;
             tmpOut[2] += nqBlocks;
-        }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
         }
     }
 
@@ -553,14 +524,6 @@ private:
             tmpOut[0] += nqBlocks;
             tmpOut[1] += nqBlocks;
             tmpOut[2] += nqBlocks;
-        }
-        if constexpr (DEFORMED)
-        {
-            m_jac_idx += nqTot * m_nElmtGroup;
-        }
-        else
-        {
-            m_jac_idx += m_nElmtGroup;
         }
     }
 };

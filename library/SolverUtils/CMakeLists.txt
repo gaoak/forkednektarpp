@@ -134,12 +134,21 @@ ENDIF (NEKTAR_USE_CWIPI)
 
 ADD_DEFINITIONS(-DSOLVER_UTILS_EXPORTS)
 
-ADD_NEKTAR_LIBRARY(SolverUtils
-    SOURCES ${SOLVER_UTILS_SOURCES}
-    HEADERS ${SOLVER_UTILS_HEADERS}
-    DEPENDS FieldUtils
-    SUMMARY "Nektar++ SolverUtils library"
-    DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
+IF (NEKTAR_BUILD_REDESIGN)
+    ADD_NEKTAR_LIBRARY(SolverUtils
+        SOURCES ${SOLVER_UTILS_SOURCES}
+        HEADERS ${SOLVER_UTILS_HEADERS}
+        DEPENDS FieldUtils Operators
+        SUMMARY "Nektar++ SolverUtils library"
+        DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
+ELSE()
+    ADD_NEKTAR_LIBRARY(SolverUtils
+        SOURCES ${SOLVER_UTILS_SOURCES}
+        HEADERS ${SOLVER_UTILS_HEADERS}
+        DEPENDS FieldUtils
+        SUMMARY "Nektar++ SolverUtils library"
+        DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
+ENDIF()
 
 IF (NEKTAR_USE_VTK)
     IF (VTK_MAJOR_VERSION LESS 6)

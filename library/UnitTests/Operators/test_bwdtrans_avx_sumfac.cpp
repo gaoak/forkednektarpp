@@ -52,10 +52,10 @@
                     fixt_in->GetPtr<NektarSpaces::HostSpace>());               \
         BwdTrans<>::template create<ExecSpace, Impl>(fixt_explist)             \
             ->apply(*fixt_in, *fixt_out);                                      \
-        fixt_out->ReshapeStorage<1>();                                         \
-        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        fixt_out->ReshapeStorage<1>();                                         \
+        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(fixt_out->GetPtr<NektarSpaces::HostSpace>(),      \
