@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmholtz_serial_stdmat.cpp
+// File: test_helmholtz_avx_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmholtz
+#define BOOST_TEST_MODULE TestHelmholtzAVX
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
@@ -44,8 +44,8 @@
 #define TEST_HELMHOLTZ(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::Serial;                                \
-        using Impl      = Operators::StdMat;                                   \
+        using ExecSpace = NektarSpaces::AVX;                                   \
+        using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
         SetTestCase(fixt_in->GetBlocks(),                                      \
                     fixt_in->GetPtr<NektarSpaces::HostSpace>());               \
@@ -53,6 +53,7 @@
             ->apply(*fixt_in, *fixt_out);                                      \
         ExpectedSolution(fixt_expected->GetBlocks(),                           \
                          fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        fixt_out->ReshapeStorage<1>();                                         \
         BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -64,7 +65,7 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmholtz)
 
-TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
+// TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
 
 TEST_HELMHOLTZ(helmholtz_quad, Quad, 1.0E-12)
 

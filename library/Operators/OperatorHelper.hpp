@@ -67,20 +67,21 @@ using BasisDataMap = std::map<LibUtilities::BasisKey, MemoryRegion<TData>>;
  * @return MemoryRegion<TDataOut>
  */
 template <typename MemSpace, typename TDataIn, typename TDataOut = TDataIn>
-MemoryRegion<TDataOut> GetBasisData(const LibUtilities::BasisSharedPtr &basis,
-                                    BasisDataType basisDataType)
+MemoryRegion<TDataOut> GetBasisData(
+    const LibUtilities::BasisSharedPtr &basis, BasisDataType basisDataType,
+    size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
 {
     switch (basisDataType)
     {
         case BASIS_BASIS_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
-                basis->GetBdata());
+                basis->GetBdata(), alignment);
 
         case BASIS_BASIS_DERIVATIVE_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
-                basis->GetDbdata());
+                basis->GetDbdata(), alignment);
 
         case BASIS_WEIGHT_DATA:
         {
@@ -102,18 +103,19 @@ MemoryRegion<TDataOut> GetBasisData(const LibUtilities::BasisSharedPtr &basis,
             }
 
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
-                                                              TDataIn>(wTmp);
+                                                              TDataIn>(
+                wTmp, alignment);
         }
 
         case BASIS_POINT_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
-                basis->GetZ());
+                basis->GetZ(), alignment);
 
         case BASIS_DERIVATIVE_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
-                basis->GetD()->GetPtr());
+                basis->GetD()->GetPtr(), alignment);
 
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
@@ -137,7 +139,8 @@ MemoryRegion<TDataOut> GetBasisData(const LibUtilities::BasisSharedPtr &basis,
 template <typename MemSpace, typename TDataIn, typename TDataOut = TDataIn>
 BasisDataMap<TDataOut> GetBasisData(
     const MultiRegions::ExpListSharedPtr &expansionList,
-    BasisDataType basisDataType)
+    BasisDataType basisDataType,
+    size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
 {
     // Initialize the data map.
     BasisDataMap<TDataOut> basisDataMap;
@@ -160,7 +163,7 @@ BasisDataMap<TDataOut> GetBasisData(
             {
                 basisDataMap[basisKey] =
                     GetBasisData<MemSpace, TDataIn, TDataOut>(
-                        expPtr->GetBasis(d), basisDataType);
+                        expPtr->GetBasis(d), basisDataType, alignment);
             }
         }
     }

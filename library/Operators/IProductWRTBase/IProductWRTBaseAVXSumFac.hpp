@@ -47,6 +47,8 @@
 namespace Nektar::Operators::detail
 {
 
+typedef std::vector<vec_t, tinysimd::allocator<vec_t>> VecVec_t;
+
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
@@ -65,16 +67,24 @@ public:
         auto blocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
 
-        size_t jacSize         = Operator<TData>::GetGeometricFactorSize();
-        Array<OneD, TData> jac = Operator<TData>::SetJacobian(jacSize);
+        // size_t jacSize         = Operator<TData>::GetGeometricFactorSize();
+        // Array<OneD, TData> jac = Operator<TData>::SetJacobian(jacSize);
 
-        m_jac = MemoryRegion<vec_t>::template fromArray<MemSpace, TData>(jac);
+        // This jac is interleaved and ready to use.
+        size_t jacSize = Operator<TData>::GetGeometricFactorSize(blocks);
+        std::shared_ptr<VecVec_t> jac =
+            Operator<TData>::SetJacobian(jacSize, blocks);
+        // but to integrate with kokkos and more, we need to transform it to
+        // MemoryRegion<vec_t>. If TData and TDataIn are the same, the following
+        // function will use memcpy to perform plain hard-copy.
+        m_jac = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
+            *jac, vec_t::alignment);
 
         // Initialize the basis data.
-        m_basisMap  = GetBasisData<MemSpace, TData, vec_t>(expansionList,
-                                                          BASIS_BASIS_DATA);
-        m_weightMap = GetBasisData<MemSpace, TData, vec_t>(expansionList,
-                                                           BASIS_WEIGHT_DATA);
+        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(
+            expansionList, BASIS_BASIS_DATA, vec_t::alignment);
+        m_weightMap = GetBasisData<MemSpace, TData, vec_t>(
+            expansionList, BASIS_WEIGHT_DATA, vec_t::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -106,8 +116,8 @@ public:
         // std::cout << "Print Vectorized Jacobian:" << std::endl;
         // size_t jac_idx = 0;
 
-        size_t exp_idx = 0; // accumulates over blocks, not used in operatorND()
-        m_jac_idx      = 0; // accumulates over blocks, accessed in operatorND()
+        m_exp_idx = 0; // accumulates over blocks, accessed in operatorND()
+        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -120,7 +130,8 @@ public:
             auto const nPadElmts = inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
+            auto const nqTot     = expPtr->GetTotPoints();
             auto const shapeType = expPtr->DetShapeType();
             auto const dimension = expPtr->GetShapeDimension();
             auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
@@ -136,54 +147,24 @@ public:
                 m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
             }
 
-            //---debug-----
-            /*
-            std::cout << "block_idx: " << block_idx << std::endl;
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
-                for (size_t e = 0; e < m_nElmtGroup; ++e)
-                {
-                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
-                    {
-                        (*m_jac)[jac_idx++].store(&tmp[0]);
-                        for (auto g : tmp)
-                        {
-                            std::cout << g << " ";
-                        }
-                    }
-                }
-                std::cout << std::endl;
-            }
-            else
-            {
-                alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
-                for (size_t e = 0; e < m_nElmtGroup; ++e)
-                {
-                    (*m_jac)[jac_idx++].store(&tmp[0]);
-                    for (auto g : tmp)
-                    {
-                        std::cout << g << " ";
-                    }
-                }
-                std::cout << std::endl;
-            }
-            */
-
 #include "../Common/SwitchLevel2Deformed.h"
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
-            exp_idx += nElmts;
+            m_exp_idx += nElmts;
+
+            if (deformed) // update m_jac_idx globally
+            {
+                m_jac_idx += nqTot * m_nElmtGroup;
+            }
+            else
+            {
+                m_jac_idx += m_nElmtGroup;
+            }
         }
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
-    // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
@@ -192,9 +173,11 @@ public:
             expansionList);
     }
 
+    static std::string className;
+
 private:
     int m_nElmtGroup;
-    int m_jac_idx;
+    int m_jac_idx, m_exp_idx;
 
     MemoryRegion<vec_t> m_jac;
     BasisDataMap<vec_t> m_basisMap;
@@ -206,8 +189,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator1D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nq0 = expPtr->GetNumPoints(0);
@@ -223,9 +205,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto wPtr0 =
@@ -233,17 +220,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -255,6 +231,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 
@@ -274,9 +251,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto wPtr0 =
@@ -284,17 +266,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -306,6 +277,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 
@@ -313,8 +285,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nm1 = expPtr->GetBasisNumModes(1);
@@ -346,9 +317,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto bPtr1 =
@@ -359,17 +335,6 @@ private:
             m_weightMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -382,6 +347,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 
@@ -390,8 +356,7 @@ private:
               int nm1, int nq0, int nq1>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1;
         auto const nmTot =
@@ -417,9 +382,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto bPtr1 =
@@ -431,17 +401,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -454,6 +413,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 
@@ -461,8 +421,7 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         auto const nm0 = expPtr->GetBasisNumModes(0);
         auto const nm1 = expPtr->GetBasisNumModes(1);
@@ -498,9 +457,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto bPtr1 =
@@ -516,17 +480,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -539,6 +492,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 
@@ -547,8 +501,7 @@ private:
               int nm1, int nm2, int nq0, int nq1, int nq2>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        const size_t exp_idx = 0;
-        auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
+        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1 * nq2;
         auto const nmTot =
@@ -576,9 +529,14 @@ private:
         vec_t::scalarType *tmpOut =
             reinterpret_cast<vec_t::scalarType *>(output);
 
-        vec_t *jacPtr;
+        // Get jac and df pointers
+        auto jacSize = 1;
+        if constexpr (DEFORMED)
+        {
+            jacSize *= nqTot;
+        }
+        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
 
-        auto jPtr = m_jac.template GetPtr<MemSpace>();
         auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
         auto bPtr1 =
@@ -594,17 +552,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            jacPtr = &(jPtr[m_jac_idx]);
-
-            if constexpr (DEFORMED)
-            {
-                m_jac_idx += nqTot;
-            }
-            else
-            {
-                m_jac_idx++;
-            }
-
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
 
@@ -617,6 +564,7 @@ private:
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
+            jacPtr += jacSize;
         }
     }
 };

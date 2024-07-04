@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorHelmholtzImplBase.hpp
+// File: HelmholtzImplBase.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
