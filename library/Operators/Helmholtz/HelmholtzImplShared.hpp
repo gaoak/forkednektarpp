@@ -153,26 +153,18 @@ public:
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
 
-            // Deterime CUDA grid size.
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nqTot * nElmts, m_blockSize);
-            }
-
             // Multiply by diffusion coefficient.
             if (nCoord == 1)
             {
                 DiffusionCoeff1DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nqTot * nElmts, diffCoeffPtr,
-                    derivPtr0);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr0);
 
                 derivPtr0 += nqTot * nElmts;
             }
             else if (nCoord == 2)
             {
                 DiffusionCoeff2DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nqTot * nElmts, diffCoeffPtr,
-                    derivPtr0, derivPtr1);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr0, derivPtr1);
 
                 derivPtr0 += nqTot * nElmts;
                 derivPtr1 += nqTot * nElmts;
@@ -180,8 +172,8 @@ public:
             else
             {
                 DiffusionCoeff3DKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nqTot * nElmts, diffCoeffPtr,
-                    derivPtr0, derivPtr1, derivPtr2);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr0, derivPtr1,
+                    derivPtr2);
 
                 derivPtr0 += nqTot * nElmts;
                 derivPtr1 += nqTot * nElmts;
@@ -267,9 +259,6 @@ private:
     Field<TData, FieldState::Phys> m_bwd;
     Field<TData, FieldState::Phys> m_deriv;
     Field<TData, FieldState::Phys> m_derivCoeff; // Serial Only
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

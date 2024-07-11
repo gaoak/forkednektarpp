@@ -46,10 +46,8 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-MatrixKernel([[maybe_unused]] const size_t gridSize,
-             [[maybe_unused]] const size_t blockSize, const size_t nElmts,
-             const size_t numPts, const size_t size, const TData *mat,
-             const TData *in, TData *out)
+MatrixKernel(const size_t nElmts, const size_t numPts, const size_t size,
+             const TData *mat, const TData *in, TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
         0, nElmts, KOKKOS_LAMBDA(int e) {

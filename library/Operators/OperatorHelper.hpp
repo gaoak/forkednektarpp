@@ -42,8 +42,6 @@
 namespace Nektar::Operators
 {
 
-size_t GetCUDAGridSize(size_t ndata, size_t blockSize);
-
 enum BasisDataType
 {
     BASIS_UNKNOWN_DATA          = 0,

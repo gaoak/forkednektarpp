@@ -70,10 +70,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    MatrixKernel(const size_t gridSize, const size_t blockSize,
-                 const size_t nelmt, const size_t numPts, const size_t size,
+    MatrixKernel(const size_t nelmt, const size_t numPts, const size_t size,
                  const TData *mat, const TData *in, TData *out)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
+
     MatrixKernel<<<gridSize, blockSize>>>(nelmt, numPts, size, mat, in, out);
 }
 
