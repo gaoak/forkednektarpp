@@ -34,12 +34,9 @@
 
 #pragma once
 
-#include "Operators/OperatorConjGrad.hpp"
-
-#include "Operators/ConjGrad/ConjGradKernels.cuh"
-#include "Operators/ConjGrad/ConjGradKernels.hpp"
-
+#include "Operators/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
@@ -55,8 +52,6 @@
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
-
-extern unsigned int cudaGridSize;
 
 namespace Nektar::Operators::detail
 {
@@ -114,10 +109,6 @@ public:
         else if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
         {
             m_vExchange = MemoryRegion<TData>::template create<MemSpace>(4);
-
-            // Temporary buffer for calculating the inner product.
-            m_buffer = MemoryRegion<TData>::template create<MemSpace>(
-                cudaGridSize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
         }
         else if constexpr (std::is_same<ExecSpace,
                                         Kokkos::DefaultExecutionSpace>::value)
@@ -192,16 +183,6 @@ public:
         TData *p_APtr = m_p_A.template GetPtr<MemSpace>();
         TData *q_APtr = m_q_A.template GetPtr<MemSpace>();
 
-        [[maybe_unused]] TData *bufferPtr = nullptr;
-
-        // Temporary buffer for calculating the inner product
-        // reduction.
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-        {
-            m_buffer.initialize(0);
-            bufferPtr = m_buffer.template GetPtr<MemSpace>();
-        }
-
         TData *vExchangePtr;
         TData const *vExchangeHostPtr;
 
@@ -263,7 +244,7 @@ public:
         // be in the correct space. Getting the pointer does that.
         wkPtr = m_wk.template GetPtr<MemSpace>();
 
-        innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr, bufferPtr,
+        innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
                                              vExchangePtr + 2);
 
         // Calculate rhs magnitude
@@ -274,7 +255,7 @@ public:
         // be in the correct space. Getting the pointer does that.
         wkPtr = m_wk.template GetPtr<MemSpace>();
 
-        innerProductKernel<ExecSpace, TData>(m_nloc, inPtr, wkPtr, bufferPtr,
+        innerProductKernel<ExecSpace, TData>(m_nloc, inPtr, wkPtr,
                                              vExchangePtr + 3);
 
         reduceMemcpy();
@@ -308,10 +289,10 @@ public:
         w_APtr = m_w_A.template GetPtr<MemSpace>();
         s_APtr = m_s_A.template GetPtr<MemSpace>();
 
-        innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr, bufferPtr,
+        innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
                                              vExchangePtr + 0);
 
-        innerProductKernel<ExecSpace, TData>(m_nloc, s_APtr, w_APtr, bufferPtr,
+        innerProductKernel<ExecSpace, TData>(m_nloc, s_APtr, w_APtr,
                                              vExchangePtr + 1);
 
         reduceMemcpy();
@@ -378,11 +359,11 @@ public:
 
             // <r_{k+1}, w_{k+1}>
             innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
-                                                 bufferPtr, vExchangePtr + 0);
+                                                 vExchangePtr + 0);
 
             // <s_{k+1}, w_{k+1}>
             innerProductKernel<ExecSpace, TData>(m_nloc, s_APtr, w_APtr,
-                                                 bufferPtr, vExchangePtr + 1);
+                                                 vExchangePtr + 1);
 
             // <r_{k+1}, r_{k+1}>
             m_assmbScatrOp->apply(m_r_A, m_wk, true);
@@ -394,7 +375,7 @@ public:
             wkPtr = m_wk.template GetPtr<MemSpace>();
 
             innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
-                                                 bufferPtr, vExchangePtr + 2);
+                                                 vExchangePtr + 2);
 
             reduceMemcpy();
 
@@ -470,7 +451,6 @@ protected:
     MemoryRegion<TData> m_q_A;
     MemoryRegion<TData> m_p_A;
 
-    MemoryRegion<TData> m_buffer;
     MemoryRegion<TData> m_vExchange;
 
     Array<OneD, TData> m_vExchangeArray;

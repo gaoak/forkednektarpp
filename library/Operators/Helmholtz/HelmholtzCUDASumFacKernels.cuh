@@ -120,10 +120,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DiffusionCoeff1DKernel(const size_t gridSize, const size_t blockSize,
-                           const unsigned int nsize, const TData *diffCoeff,
+    DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     DiffusionCoeff1DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0);
 }
 
@@ -131,10 +133,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DiffusionCoeff2DKernel(const size_t gridSize, const size_t blockSize,
-                           const unsigned int nsize, const TData *diffCoeff,
+    DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0, TData *deriv1)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     DiffusionCoeff2DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,
                                                     deriv1);
 }
@@ -143,10 +147,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DiffusionCoeff3DKernel(const size_t gridSize, const size_t blockSize,
-                           const unsigned int nsize, const TData *diffCoeff,
+    DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0, TData *deriv1, TData *deriv2)
 {
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
     DiffusionCoeff3DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,
                                                     deriv1, deriv2);
 }

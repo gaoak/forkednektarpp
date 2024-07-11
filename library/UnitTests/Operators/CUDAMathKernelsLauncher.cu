@@ -103,7 +103,7 @@ void dotKernelLauncher(const size_t n, const double *x, const double *y,
 {
     double *d_out;
     cudaMalloc((void **)&d_out, sizeof(double));
-    dotKernel<ExecSpace, double>(n, x, y, d_out);
+    innerProductKernel<ExecSpace, double>(n, x, y, d_out);
     cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }

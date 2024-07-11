@@ -151,8 +151,8 @@ inline
                           const int *id1Ptr, const TData *signPtr,
                           TData *outPtr)
 {
-    unsigned int blockSize = 256u;
-    unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     LocalDirBndCondKernel<TData>
         <<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr, signPtr, outPtr);

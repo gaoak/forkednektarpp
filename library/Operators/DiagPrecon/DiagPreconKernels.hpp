@@ -49,13 +49,11 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-SetDiagonalKernel([[maybe_unused]] const size_t gridSize,
-                  [[maybe_unused]] const size_t blockSize, const size_t nmTot,
-                  const size_t nElmts, const size_t mode, const TData val,
-                  TData *out)
+SetDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
+                  const TData val, TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nElmts, KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = val; });
+        0, nelmts, KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = val; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -64,13 +62,11 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-CopyDiagonalKernel([[maybe_unused]] const size_t gridSize,
-                   [[maybe_unused]] const size_t blockSize, const size_t nmTot,
-                   const size_t nElmts, const size_t mode, TData *in,
-                   TData *out)
+CopyDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
+                   TData *in, TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nElmts,
+        0, nelmts,
         KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = in[e * nmTot + mode]; });
 }
 

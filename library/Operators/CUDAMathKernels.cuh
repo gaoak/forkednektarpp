@@ -45,8 +45,8 @@
 namespace Nektar::Operators
 {
 
-extern unsigned int cudaGridSize;
-extern unsigned int cudaBlockSize;
+static unsigned int cudaGridSize = 1024u;
+static unsigned int cudaBlockSize = 256u;
 
 namespace cg = cooperative_groups;
 
@@ -888,38 +888,9 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    dotKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *out)
-{
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
-}
-
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
     reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, out);
-}
-
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
-                       TData *buffer, TData *out)
-{
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -949,6 +920,22 @@ inline
     cudaMemset(out, 0, sizeof(TData));
     reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
     reduceMinKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
+    cudaFree(buffer);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *out)
+{
+    TData *buffer;
+    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
+    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    cudaMemset(out, 0, sizeof(TData));
+    dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
+    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
     cudaFree(buffer);
 }
 

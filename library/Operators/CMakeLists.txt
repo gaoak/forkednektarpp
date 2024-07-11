@@ -211,7 +211,6 @@ SET(OPERATORS_SOURCES
     Field.cpp
     LoopExecution.cpp
     Operator.cpp
-    OperatorHelper.cpp
     )
 
 # Only these cpp files go into the group set below.
@@ -238,7 +237,6 @@ if(NEKTAR_ENABLE_CUDA)
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      CUDAMathKernels.cu
     )
 
     SET(OPERATORS_DEPENDS

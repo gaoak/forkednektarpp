@@ -95,12 +95,6 @@ public:
         TData *diagPtr = m_diag.template GetPtr<MemSpace>();
         TData *wkPtr   = m_wk.template GetPtr<MemSpace>();
 
-        // Deterime CUDA grid size.
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-        {
-            m_gridSize = GetCUDAGridSize(m_nGlobal - m_nDir, m_blockSize);
-        }
-
         divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
                                     diagPtr + m_nDir, wkPtr + m_nDir);
 
@@ -155,17 +149,11 @@ public:
             // auto const expPtr = this->m_expansionList->GetExp(exp_idx);
             // auto const nmTot  = expPtr->GetNcoeffs();
 
-            // Deterime CUDA grid size.
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-            }
-
             for (size_t i = 0; i < nmTot; ++i)
             {
                 // Set ith term in unit vector to be 1.
-                SetDiagonalKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nmTot, nElmts, i, 1.0, uvecPtr);
+                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, 1.0,
+                                                    uvecPtr);
 
                 // Anytime there is a mix of internal kernel calls and
                 // external operator calls. The memory region being
@@ -191,13 +179,12 @@ public:
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
-                CopyDiagonalKernel<ExecSpace, TData>(m_gridSize, m_blockSize,
-                                                     nmTot, nElmts, i, actnPtr,
+                CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, actnPtr,
                                                      diagPtr);
 
                 // Reset the ith term in the unit vector to be 0
-                SetDiagonalKernel<ExecSpace, TData>(
-                    m_gridSize, m_blockSize, nmTot, nElmts, i, 0.0, uvecPtr);
+                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, 0.0,
+                                                    uvecPtr);
             }
 
             uvecPtr += nSize;
@@ -247,9 +234,6 @@ protected:
     size_t m_nGlobal;
     size_t m_nLocal;
     size_t m_nDir;
-
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

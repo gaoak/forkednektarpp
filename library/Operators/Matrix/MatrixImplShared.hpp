@@ -85,15 +85,8 @@ public:
                                     ? expPtr->GetNcoeffs()
                                     : expPtr->GetTotPoints();
 
-            // Deterime CUDA grid size.
-            if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
-            {
-                m_gridSize = GetCUDAGridSize(nElmts, m_blockSize);
-            }
-
-            MatrixKernel<ExecSpace, TData>(m_gridSize, m_blockSize, nElmts,
-                                           numPts, this->m_size, matrixPtr,
-                                           inPtr, outPtr);
+            MatrixKernel<ExecSpace, TData>(nElmts, numPts, this->m_size,
+                                           matrixPtr, inPtr, outPtr);
 
             // Increment pointer and index for next element type.
             matrixPtr += numPts * nElmts;
@@ -111,10 +104,6 @@ public:
             OperatorMatrixImpl<ExecSpace, Implementation, TFieldState, TData>>(
             expansionList);
     }
-
-private:
-    size_t m_gridSize  = 1024;
-    size_t m_blockSize = 32;
 };
 
 } // namespace Nektar::Operators::detail

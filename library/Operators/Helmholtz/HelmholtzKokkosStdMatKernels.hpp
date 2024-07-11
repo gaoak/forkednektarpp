@@ -46,9 +46,7 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-DiffusionCoeff1DKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int nsize, const TData *diffCoeff,
+DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -61,9 +59,7 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-DiffusionCoeff2DKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int nsize, const TData *diffCoeff,
+DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -81,9 +77,7 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
-DiffusionCoeff3DKernel([[maybe_unused]] const size_t gridSize,
-                       [[maybe_unused]] const size_t blockSize,
-                       const unsigned int nsize, const TData *diffCoeff,
+DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1, TData *deriv2)
 {
     Nektar::parallel_for<ExecSpace>(

@@ -80,10 +80,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    SetDiagonalKernel(const size_t gridSize, const size_t blockSize,
-                      const size_t nmTot, const size_t nElmts,
+    SetDiagonalKernel(const size_t nmTot, const size_t nElmts,
                       const size_t mode, const TData val, TData *out)
 {
+    unsigned int blockSize = 256u;
+    unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
+
     SetDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, val, out);
 }
 
@@ -91,10 +93,12 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    CopyDiagonalKernel(const size_t gridSize, const size_t blockSize,
-                       const size_t nmTot, const size_t nElmts,
+    CopyDiagonalKernel(const size_t nmTot, const size_t nElmts,
                        const size_t mode, TData *in, TData *out)
 {
+    unsigned int blockSize = 256u;
+    unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
+
     CopyDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, in, out);
 }
 
