@@ -129,8 +129,8 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
         //---debug-----
         // std::cout << "Print Vectorized Jacobian:" << std::endl;
@@ -265,8 +265,10 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            auto Z0 = m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-            auto Z1 = m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace>();
+            const auto Z0 =
+                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 =
+                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz2DHalfSpace<SHAPE_TYPE>(nq0, nq1, Z0, Z1, m_h0, m_h1);
         }
 
@@ -301,18 +303,27 @@ private:
         }
         // m_jac_idx is an offset, accumulates over blocks
         const vec_t *dfPtr =
-            &(m_df.template GetPtr<MemSpace>()[m_jac_idx * ndf]);
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
         // Get basis data pointers
-        auto B0  = m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto B1  = m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D0  = m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1  = m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto BD0 = m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto BD1 = m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto W0  = m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto W1  = m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace>();
+        const auto B0 =
+            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B1 =
+            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D0 =
+            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 =
+            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD0 =
+            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD1 =
+            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W0 =
+            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W1 =
+            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -381,8 +392,10 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            auto Z0 = m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-            auto Z1 = m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace>();
+            const auto Z0 =
+                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 =
+                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz2DHalfSpace<SHAPE_TYPE>(nq0, nq1, Z0, Z1, m_h0, m_h1);
         }
 
@@ -411,18 +424,27 @@ private:
         }
         // m_jac_idx is an offset, accumulates over blocks
         const vec_t *dfPtr =
-            &(m_df.template GetPtr<MemSpace>()[m_jac_idx * ndf]);
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
         // Get basis data pointers
-        auto B0  = m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto B1  = m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D0  = m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1  = m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto BD0 = m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto BD1 = m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto W0  = m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto W1  = m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace>();
+        const auto B0 =
+            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B1 =
+            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D0 =
+            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 =
+            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD0 =
+            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD1 =
+            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W0 =
+            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W1 =
+            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -497,9 +519,12 @@ private:
                       SHAPE_TYPE == LibUtilities::ePrism ||
                       SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            auto Z0 = m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-            auto Z1 = m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-            auto Z2 = m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace>();
+            const auto Z0 =
+                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 =
+                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z2 =
+                m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz3DHalfSpace<SHAPE_TYPE>(nq0, nq1, nq2, Z0, Z1, Z2, m_h0,
                                                 m_h1, m_h2, m_h3);
         }
@@ -543,22 +568,35 @@ private:
         }
         // m_jac_idx is an offset, accumulates over blocks
         const vec_t *dfPtr =
-            &(m_df.template GetPtr<MemSpace>()[m_jac_idx * ndf]);
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
         // Get basis data pointers
-        auto B0  = m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto B1  = m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto B2  = m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto D0  = m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1  = m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D2  = m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto BD0 = m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto BD1 = m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto BD2 = m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto W0  = m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto W1  = m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto W2  = m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace>();
+        const auto B0 =
+            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B1 =
+            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B2 =
+            m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D0 =
+            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 =
+            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D2 =
+            m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD0 =
+            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD1 =
+            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD2 =
+            m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W0 =
+            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W1 =
+            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W2 =
+            m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -637,9 +675,12 @@ private:
                       SHAPE_TYPE == LibUtilities::ePrism ||
                       SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            auto Z0 = m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-            auto Z1 = m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-            auto Z2 = m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace>();
+            const auto Z0 =
+                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 =
+                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            const auto Z2 =
+                m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz3DHalfSpace<SHAPE_TYPE>(nq0, nq1, nq2, Z0, Z1, Z2, m_h0,
                                                 m_h1, m_h2, m_h3);
         }
@@ -675,22 +716,35 @@ private:
         }
         // m_jac_idx is an offset, accumulates over blocks
         const vec_t *dfPtr =
-            &(m_df.template GetPtr<MemSpace>()[m_jac_idx * ndf]);
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
         // Get basis data pointers
-        auto B0  = m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto B1  = m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto B2  = m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto D0  = m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1  = m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D2  = m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto BD0 = m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto BD1 = m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto BD2 = m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto W0  = m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto W1  = m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto W2  = m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace>();
+        const auto B0 =
+            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B1 =
+            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto B2 =
+            m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D0 =
+            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 =
+            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto D2 =
+            m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD0 =
+            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD1 =
+            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto BD2 =
+            m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W0 =
+            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W1 =
+            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto W2 =
+            m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {

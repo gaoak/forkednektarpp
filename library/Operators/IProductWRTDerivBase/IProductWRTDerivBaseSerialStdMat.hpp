@@ -112,11 +112,11 @@ public:
                bool APPEND = false) override
     {
         // Copy memory to the host, if necessary and get raw pointers.
-        auto *inPtr   = in.template GetConstPtr<MemSpace>();
-        auto *outPtr  = out.template GetPtr<MemSpace>();
-        auto *wspPtr  = m_wsp.get();
-        auto nSize    = in.GetFieldSize();
-        auto nStorage = this->m_expansionList->GetTotPoints();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
+        auto *wspPtr      = m_wsp.get();
+        auto nSize        = in.GetFieldSize();
+        auto nStorage     = this->m_expansionList->GetTotPoints();
 
         // Initialize index.
         size_t exp_idx = 0;

@@ -171,17 +171,17 @@ public:
         }
         else
         {
-            inPtr  = in.template GetConstPtr<MemSpace>();
-            outPtr = out.template GetPtr<MemSpace>();
+            inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+            outPtr = out.template GetPtr<MemSpace, ReadWrite>();
         }
 
-        TData *r_APtr = m_r_A.template GetPtr<MemSpace>();
-        TData *w_APtr = m_w_A.template GetPtr<MemSpace>();
-        TData *s_APtr = m_s_A.template GetPtr<MemSpace>();
-        TData *wkPtr  = m_wk.template GetPtr<MemSpace>();
+        TData *r_APtr = m_r_A.template GetPtr<MemSpace, ReadWrite>();
+        TData *w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
+        TData *s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
+        TData *wkPtr  = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
-        TData *p_APtr = m_p_A.template GetPtr<MemSpace>();
-        TData *q_APtr = m_q_A.template GetPtr<MemSpace>();
+        TData *p_APtr = m_p_A.template GetPtr<MemSpace, ReadWrite>();
+        TData *q_APtr = m_q_A.template GetPtr<MemSpace, ReadWrite>();
 
         TData *vExchangePtr;
         TData const *vExchangeHostPtr;
@@ -202,18 +202,21 @@ public:
             m_vExchange.initialize(0);
 
             vExchangePtr =
-                m_vExchange.template GetPtr<NektarSpaces::HostSpace>();
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
             vExchangeHostPtr =
-                m_vExchange.template GetConstPtr<NektarSpaces::HostSpace>();
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         }
         // For all others, the reduction values are on the MemSpace side.
         else
         {
             m_vExchange.initialize(0);
 
-            vExchangePtr = m_vExchange.template GetPtr<MemSpace>();
+            vExchangePtr = m_vExchange.template GetPtr<MemSpace, ReadWrite>();
             vExchangeHostPtr =
-                m_vExchange.template GetConstPtr<NektarSpaces::HostSpace>();
+                m_vExchange
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         }
 
         // Convergence parameters (host)
@@ -233,7 +236,7 @@ public:
         }
         else
         {
-            m_r_A.template RegionToRegion<MemSpace>(in);
+            m_r_A.template copyRegion<MemSpace>(in);
         }
 
         // Assembly (communication)
@@ -242,7 +245,7 @@ public:
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
         // be in the correct space. Getting the pointer does that.
-        wkPtr = m_wk.template GetPtr<MemSpace>();
+        wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
         innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
                                              vExchangePtr + 2);
@@ -253,7 +256,7 @@ public:
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
         // be in the correct space. Getting the pointer does that.
-        wkPtr = m_wk.template GetPtr<MemSpace>();
+        wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
         innerProductKernel<ExecSpace, TData>(m_nloc, inPtr, wkPtr,
                                              vExchangePtr + 3);
@@ -286,8 +289,8 @@ public:
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
         // be in the correct space. Getting the pointer does that.
-        w_APtr = m_w_A.template GetPtr<MemSpace>();
-        s_APtr = m_s_A.template GetPtr<MemSpace>();
+        w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
+        s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
 
         innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
                                              vExchangePtr + 0);
@@ -354,8 +357,8 @@ public:
             // external operator calls the memory region being used
             // must be in the correct space. Getting the pointer does
             // that.
-            w_APtr = m_w_A.template GetPtr<MemSpace>();
-            s_APtr = m_s_A.template GetPtr<MemSpace>();
+            w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
+            s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
 
             // <r_{k+1}, w_{k+1}>
             innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
@@ -372,7 +375,7 @@ public:
             // external operator calls the memory region being used
             // must be in the correct space. Getting the pointer does
             // that.
-            wkPtr = m_wk.template GetPtr<MemSpace>();
+            wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
             innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
                                                  vExchangePtr + 2);
@@ -434,7 +437,7 @@ protected:
         // For CUDA reduction values are on the device side.
         if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
         {
-            m_vExchange.template DeviceToHost<MemSpace>();
+            m_vExchange.template DeviceToHostCopy<MemSpace>();
         }
     }
 

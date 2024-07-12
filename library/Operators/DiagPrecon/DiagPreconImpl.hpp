@@ -92,8 +92,8 @@ public:
     {
         m_assmbScatrOp->Assemble(in, m_wk);
 
-        TData *diagPtr = m_diag.template GetPtr<MemSpace>();
-        TData *wkPtr   = m_wk.template GetPtr<MemSpace>();
+        const TData *diagPtr = m_diag.template GetPtr<MemSpace, ReadOnly>();
+        TData *wkPtr         = m_wk.template GetPtr<MemSpace, ReadWrite>();
 
         divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
                                     diagPtr + m_nDir, wkPtr + m_nDir);
@@ -118,7 +118,7 @@ public:
             MemoryRegion<TData>::template create<MemSpace>("DiagPrecon local",
                                                            m_nLocal);
 
-        TData *diag = diagMR.template GetPtr<MemSpace>();
+        TData *diag = diagMR.template GetPtr<MemSpace, ReadWrite>();
 
         // create unit vector field to extract diagonal
         Field<TData, FieldState::Coeff> unit_vec =
@@ -132,8 +132,8 @@ public:
                 "DiagPrecon action",
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
 
-        TData *uvecPtr = unit_vec.template GetPtr<MemSpace>();
-        TData *actnPtr = action.template GetPtr<MemSpace>();
+        TData *uvecPtr = unit_vec.template GetPtr<MemSpace, ReadWrite>();
+        TData *actnPtr = action.template GetPtr<MemSpace, ReadWrite>();
         TData *diagPtr = diag;
 
         size_t exp_idx = 0;
@@ -175,7 +175,7 @@ public:
                 // external operator calls the memory region being
                 // used must be in the correct space. Getting the
                 // pointer does that.
-                action.template GetPtr<MemSpace>();
+                action.template GetPtr<MemSpace, ReadWrite>();
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
@@ -195,7 +195,7 @@ public:
 
         // Assembly
         const TData *diagHost =
-            diagMR.template GetConstPtr<NektarSpaces::HostSpace>();
+            diagMR.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
         Array<OneD, TData> glodiag(m_nGlobal, 0.0);
 

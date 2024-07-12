@@ -85,8 +85,8 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
         m_exp_idx = 0; // accumulated across each block.
 
@@ -168,8 +168,8 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
@@ -211,8 +211,8 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
@@ -259,10 +259,10 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bPtr1 =
-                m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
@@ -315,10 +315,10 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bPtr1 =
-                m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
@@ -367,12 +367,12 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bPtr1 =
-                m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-            auto bPtr2 =
-                m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr2 = m_basisMap[m_basisKeys[2]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
                                          bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
@@ -429,12 +429,12 @@ private:
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
-            auto bPtr0 =
-                m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-            auto bPtr1 =
-                m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-            auto bPtr2 =
-                m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
+            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+            const auto bPtr2 = m_basisMap[m_basisKeys[2]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
                                          bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,

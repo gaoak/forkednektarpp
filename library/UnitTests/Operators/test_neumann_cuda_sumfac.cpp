@@ -47,18 +47,21 @@
         using ExecSpace = NektarSpaces::CUDA;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(fixt_cuda_out->GetBlocks(),                                \
-                    fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>());         \
+        SetTestCase(                                                           \
+            fixt_cuda_out->GetBlocks(),                                        \
+            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>());      \
         NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
             ->apply(*fixt_cuda_out);                                           \
-        ExpectedSolution(fixt_expected->GetBlocks(),                           \
-                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        ExpectedSolution(                                                      \
+            fixt_expected->GetBlocks(),                                        \
+            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(), \
-                             fixt_expected->GetPtr<NektarSpaces::HostSpace>(), \
-                             tol);                                             \
+            OutputIfNotMatch(                                                  \
+                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                tol);                                                          \
         }                                                                      \
     }
 

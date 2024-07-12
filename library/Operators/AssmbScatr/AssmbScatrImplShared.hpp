@@ -82,13 +82,12 @@ public:
     void Assemble(Field<TData, FieldState::Coeff> &in,
                   MemoryRegion<TData> &out) override
     {
+        const TData *inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        TData *outPtr       = out.template GetPtr<MemSpace, WriteOnly>();
+        const int *assmbPtr = m_assmb.template GetPtr<MemSpace, ReadOnly>();
+
         // Zero the output
         out.initialize(0, this->m_nGlobal);
-
-        const TData *inPtr = in.template GetConstPtr<MemSpace>();
-        TData *outPtr      = out.template GetPtr<MemSpace>();
-
-        const int *assmbPtr = m_assmb.template GetConstPtr<MemSpace>();
 
         if (this->m_solnType == eIterativeFull)
         {
@@ -107,7 +106,7 @@ public:
                 if (m_signChange)
                 {
                     const TData *signPtr =
-                        m_sign.template GetConstPtr<MemSpace>();
+                        m_sign.template GetPtr<MemSpace, ReadOnly>();
 
                     AssembleKernel<ExecSpace, TData>(nCoeff * nElmts, offset,
                                                      assmbPtr, signPtr, inPtr,
@@ -129,13 +128,12 @@ public:
     void GlobalToLocal(MemoryRegion<TData> &in,
                        Field<TData, FieldState::Coeff> &out) override
     {
+        const TData *inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        TData *outPtr       = out.template GetPtr<MemSpace, WriteOnly>();
+        const int *assmbPtr = m_assmb.template GetPtr<MemSpace, ReadOnly>();
+
         // Zero the output
         out.initialize(0, this->m_nLocal);
-
-        const TData *inPtr = in.template GetConstPtr<MemSpace>();
-        TData *outPtr      = out.template GetPtr<MemSpace>();
-
-        const int *assmbPtr = m_assmb.template GetConstPtr<MemSpace>();
 
         if (this->m_solnType == eIterativeFull)
         {
@@ -154,7 +152,7 @@ public:
                 if (m_signChange)
                 {
                     const TData *signptr =
-                        m_sign.template GetConstPtr<MemSpace>();
+                        m_sign.template GetPtr<MemSpace, ReadOnly>();
 
                     GlobalToLocalKernel<ExecSpace, TData>(
                         ncoeff * nElmts, offset, assmbPtr, signptr, inPtr,

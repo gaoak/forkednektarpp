@@ -292,7 +292,8 @@ public:
 #endif
     }
 
-    void OutputIfNotMatch(double *outptr, double *expptr, double tol)
+    void OutputIfNotMatch(const double *outptr, const double *expptr,
+                          double tol)
     {
         printf(
             "#elm #pts output               expected            difference\n");

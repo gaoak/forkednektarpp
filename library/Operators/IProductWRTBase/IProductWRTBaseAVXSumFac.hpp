@@ -109,8 +109,8 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
         //---debug-----
         // std::cout << "Print Vectorized Jacobian:" << std::endl;
@@ -211,12 +211,13 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -257,12 +258,13 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -323,16 +325,17 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto bPtr1 =
-            m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr1 =
-            m_weightMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr1 =
+            m_basisMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr1 =
+            m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Load and transpose data
@@ -388,16 +391,17 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto bPtr1 =
-            m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr1 =
-            m_weightMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr1 =
+            m_basisMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr1 =
+            m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -463,20 +467,21 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto bPtr1 =
-            m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto bPtr2 =
-            m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr1 =
-            m_weightMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto wPtr2 =
-            m_weightMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr1 =
+            m_basisMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr2 =
+            m_basisMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr1 =
+            m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr2 =
+            m_weightMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -535,20 +540,21 @@ private:
         {
             jacSize *= nqTot;
         }
-        const vec_t *jacPtr = &(m_jac.template GetPtr<MemSpace>()[m_jac_idx]);
+        const vec_t *jacPtr =
+            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]);
 
-        auto bPtr0 =
-            m_basisMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto bPtr1 =
-            m_basisMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto bPtr2 =
-            m_basisMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
-        auto wPtr0 =
-            m_weightMap[m_basisKeys[0]].template GetConstPtr<MemSpace>();
-        auto wPtr1 =
-            m_weightMap[m_basisKeys[1]].template GetConstPtr<MemSpace>();
-        auto wPtr2 =
-            m_weightMap[m_basisKeys[2]].template GetConstPtr<MemSpace>();
+        const auto bPtr0 =
+            m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr1 =
+            m_basisMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto bPtr2 =
+            m_basisMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr0 =
+            m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr1 =
+            m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto wPtr2 =
+            m_weightMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {

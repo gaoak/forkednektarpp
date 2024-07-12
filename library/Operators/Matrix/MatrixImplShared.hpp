@@ -66,9 +66,9 @@ public:
                Field<TData, TFieldState> &out) override
     {
         // Copy memory to the device, if necessary and get raw pointers.
-        auto *inPtr     = in.template GetConstPtr<MemSpace>();
-        auto *outPtr    = out.template GetPtr<MemSpace>();
-        auto *matrixPtr = this->m_matrix.template GetConstPtr<MemSpace>();
+        auto *inPtr     = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr    = out.template GetPtr<MemSpace, WriteOnly>();
+        auto *matrixPtr = this->m_matrix.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialise index
         size_t exp_idx = 0;

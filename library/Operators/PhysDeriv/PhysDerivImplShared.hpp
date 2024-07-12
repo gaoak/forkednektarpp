@@ -82,10 +82,10 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
-        const TData *inPtr = in.template GetConstPtr<MemSpace>();
-        TData *outPtr      = out.template GetPtr<MemSpace>();
+        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
-        const TData *dfPtr = m_derivFac.template GetConstPtr<MemSpace>();
+        const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
 
         size_t nSize = out.GetFieldSize();
 
@@ -121,7 +121,7 @@ public:
             if (dimension == 1)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nq0 = expPtr->GetNumPoints(0);
 
@@ -141,13 +141,13 @@ public:
             else if (dimension == 2)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetConstPtr<MemSpace>();
-                auto Z0 =
-                    m_pointMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto Z1 =
-                    m_pointMap[basisKeys[1]].template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z0 = m_pointMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z1 = m_pointMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nq0 = expPtr->GetNumPoints(0);
                 auto nq1 = expPtr->GetNumPoints(1);
@@ -168,17 +168,17 @@ public:
             else if (dimension == 3)
             {
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D2 = m_derivativeMap[basisKeys[2]]
-                              .template GetConstPtr<MemSpace>();
-                auto Z0 =
-                    m_pointMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto Z1 =
-                    m_pointMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto Z2 =
-                    m_pointMap[basisKeys[2]].template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z0 = m_pointMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z1 = m_pointMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z2 = m_pointMap[basisKeys[2]]
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nq0 = expPtr->GetNumPoints(0);
                 auto nq1 = expPtr->GetNumPoints(1);

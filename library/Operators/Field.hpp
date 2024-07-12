@@ -154,100 +154,6 @@ public:
     }
 
     /**
-     * @brief Compare this field to another field, with absolute
-     * tolerance tol. Two fields must have same storage shape
-     * and same components.
-     *
-     * @return bool
-     */
-    bool compare(Field<TData, TState> &rhs, TData tol)
-    {
-        if (rhs.GetNumComponents() != GetNumComponents())
-        {
-            return false;
-        }
-
-        const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
-
-        if ((rhs_blocks.size() != block_attributes.size()) ||
-            (rhs.m_curVecWidth != m_curVecWidth))
-        {
-            return false;
-        }
-
-        bool isMatched = true;
-
-        TData *store     = this->m_storage->GetHostPtr();
-        TData *rhs_store = rhs.m_storage->GetHostPtr();
-
-        for (size_t component = 0; component < GetNumComponents(); ++component)
-        {
-            for (size_t bl = 0; bl < block_attributes.size(); ++bl)
-            {
-                size_t num_pts      = block_attributes[bl].num_pts;
-                size_t num_elements = block_attributes[bl].num_elements;
-                size_t num_padding_elements =
-                    block_attributes[bl].num_padding_elements;
-                size_t num_metaBlocks =
-                    (num_elements + num_padding_elements) / m_curVecWidth;
-
-                // Check that each block have the same structure
-                if ((num_elements != rhs_blocks[bl].num_elements) ||
-                    (num_pts != rhs_blocks[bl].num_pts))
-                {
-                    return false;
-                }
-
-                int MisMatchcnt = 0, total = 0;
-
-                for (size_t metaBlock = 0; metaBlock < num_metaBlocks;
-                     ++metaBlock)
-                {
-                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
-                    {
-                        for (size_t k = 0; k < m_curVecWidth; ++k)
-                        {
-                            // skip padding elements
-                            if (metaBlock * m_curVecWidth + k + 1 <=
-                                num_elements)
-                            {
-                                total++;
-                                if (std::abs(*store - *rhs_store) > tol)
-                                {
-                                    if (MisMatchcnt == 0)
-                                    {
-                                        isMatched = false;
-                                    }
-
-                                    MisMatchcnt++;
-                                }
-                            }
-
-                            store++;
-                            rhs_store++;
-                        }
-                    }
-                }
-
-                if (!isMatched)
-                {
-                    std::cout << "Number of mismatches in block " << bl
-                              << " is " << MisMatchcnt << " out of " << total
-                              << std::endl;
-                }
-            }
-        }
-        if (isMatched)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
@@ -303,7 +209,7 @@ public:
         }
 
         // Zero memory
-        field.m_storage->initialize(0);
+        field.template initialize<DeviceOnly>(0);
 
         return field;
     }
@@ -385,7 +291,7 @@ public:
         }
 
         // Zero memory
-        field.m_storage->initialize(0);
+        field.template initialize<DeviceOnly>(0);
 
         return field;
     }
@@ -443,8 +349,9 @@ public:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TData *hostPtr =
-                this->m_storage->GetHostPtr() + component * scalar_field_size;
+            auto *hostPtr =
+                this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
+                component * scalar_field_size;
 
             for (auto const &block : block_attributes)
             {
@@ -472,12 +379,59 @@ public:
     }
 
     /**
+     * @brief Copy the data from a pointer
+     *
+     * @param const TDataIn*
+     */
+    template <typename MemSpace, typename TDataOut,
+              typename MemCopy = HostToDevice>
+    void copyTo(TDataOut *dst)
+    {
+        auto *src = this->template GetPtr<MemSpace, ReadOnly>();
+        for (auto const &block : this->GetBlocks())
+        {
+            auto nSize  = block.block_size;
+            auto nElmts = block.num_elements;
+            auto nPts   = block.num_pts;
+
+            std::copy(src, src + nElmts * nPts, dst);
+
+            dst += nElmts * nPts;
+            src += nSize;
+        }
+    }
+
+    /**
+     * @brief Copy the data to a Nektar::Array
+     *
+     * @return std::vector
+     */
+    template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
+    std::vector<TDataOut, Alloc> toVector(size_t size = 0)
+    {
+        if (size == 0)
+        {
+            for (auto const &block : this->GetBlocks())
+            {
+                size += block.block_size;
+            }
+        }
+
+        std::vector<TDataOut, Alloc> array(size);
+
+        // Copy the data from the input field
+        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(array.data());
+
+        return array;
+    }
+
+    /**
      * @brief Copy the data to a Nektar::Array
      *
      * @return Array<Nektar::OneD, TDataOut>
      */
     template <typename TDataOut = TData>
-    Nektar::Array<Nektar::OneD, TDataOut> toArray(size_t size = 0) const
+    Nektar::Array<Nektar::OneD, TDataOut> toArray(size_t size = 0)
     {
         if (size == 0)
         {
@@ -490,46 +444,196 @@ public:
         Nektar::Array<Nektar::OneD, TDataOut> array(size);
 
         // Copy the data from the input field
-        auto *ptr    = this->m_storage->GetHostConstPtr();
-        auto *arrptr = array.data();
-
-        for (auto const &block : this->GetBlocks())
-        {
-            auto nSize  = block.block_size;
-            auto nElmts = block.num_elements;
-            auto nmTot  = block.num_pts;
-
-            std::copy(ptr, ptr + nElmts * nmTot, arrptr);
-
-            arrptr += nElmts * nmTot;
-            ptr += nSize;
-        }
+        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(array.data());
 
         return array;
     }
 
     /**
-     * @brief Copy the data from a Nektar::Array
+     * @brief Copy the data from a pointer
      *
-     * @param Array<Nektar::OneD, TDataIn>
+     * @param const TDataIn*
      */
-    template <typename MemSpace, typename TDataIn = TData>
-    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice>
+    void copyFrom(const TDataIn *src)
     {
-        // Copy the data from the input array
-        auto *ptr    = this->m_storage->GetHostPtr();
-        auto *arrptr = array.data();
-
+        size_t offset = 0;
         for (auto const &block : this->GetBlocks())
         {
             auto nSize  = block.block_size;
             auto nElmts = block.num_elements;
-            auto nmTot  = block.num_pts;
+            auto nPts   = block.num_pts;
 
-            this->template copyRaw<MemSpace>(ptr, arrptr, nElmts * nmTot);
+            this->MemoryRegion<TData>::template copyFrom<MemSpace, TDataIn,
+                                                         MemCopy>(
+                src, nElmts * nPts, offset);
 
-            arrptr += nElmts * nmTot;
-            ptr += nSize;
+            src += nElmts * nPts;
+            offset += nSize;
+        }
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        std::vector
+     *
+     * @param array - std::vector to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice,
+              class Alloc      = std::allocator<TDataIn>>
+    void copyVector(std::vector<TDataIn, Alloc> const &array)
+    {
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::copyVector - Can only copy std::vector "
+                     "from HostToHost or from "
+                     "HostToDevice.");
+        }
+
+        /*if (this->size() != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::copyVector - "
+                << "Memory size mismatch between (std::vector) and ("
+                << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }*/
+
+        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        Nektar::Array<Nektar::OneD, TDataIn>
+     *
+     * @param array - Nektar::Array to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice>
+    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
+    {
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::copyArray - Can only copy Nektar::Array "
+                     "from HostToHost or from "
+                     "HostToDevice.");
+        }
+
+        /*if (this->size() != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::copyArray - "
+                << "Memory size mismatch between (Nektar::array) and ("
+                << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }*/
+
+        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
+    }
+
+    /**
+     * @brief Compare this field to another field, with absolute
+     * tolerance tol. Two fields must have same storage shape
+     * and same components.
+     *
+     * @return bool
+     */
+    bool compare(Field<TData, TState> &rhs, TData tol)
+    {
+        if (rhs.GetNumComponents() != GetNumComponents())
+        {
+            return false;
+        }
+
+        const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
+
+        if ((rhs_blocks.size() != block_attributes.size()) ||
+            (rhs.m_curVecWidth != m_curVecWidth))
+        {
+            return false;
+        }
+
+        bool isMatched = true;
+
+        const TData *store =
+            this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        const TData *rhs_store =
+            rhs.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        for (size_t component = 0; component < GetNumComponents(); ++component)
+        {
+            for (size_t bl = 0; bl < block_attributes.size(); ++bl)
+            {
+                size_t num_pts      = block_attributes[bl].num_pts;
+                size_t num_elements = block_attributes[bl].num_elements;
+                size_t num_padding_elements =
+                    block_attributes[bl].num_padding_elements;
+                size_t num_metaBlocks =
+                    (num_elements + num_padding_elements) / m_curVecWidth;
+
+                // Check that each block have the same structure
+                if ((num_elements != rhs_blocks[bl].num_elements) ||
+                    (num_pts != rhs_blocks[bl].num_pts))
+                {
+                    return false;
+                }
+
+                int MisMatchcnt = 0, total = 0;
+
+                for (size_t metaBlock = 0; metaBlock < num_metaBlocks;
+                     ++metaBlock)
+                {
+                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
+                    {
+                        for (size_t k = 0; k < m_curVecWidth; ++k)
+                        {
+                            // skip padding elements
+                            if (metaBlock * m_curVecWidth + k + 1 <=
+                                num_elements)
+                            {
+                                total++;
+                                if (std::abs(*store - *rhs_store) > tol)
+                                {
+                                    if (MisMatchcnt == 0)
+                                    {
+                                        isMatched = false;
+                                    }
+
+                                    MisMatchcnt++;
+                                }
+                            }
+
+                            store++;
+                            rhs_store++;
+                        }
+                    }
+                }
+
+                if (!isMatched)
+                {
+                    std::cout << "Number of mismatches in block " << bl
+                              << " is " << MisMatchcnt << " out of " << total
+                              << std::endl;
+                }
+            }
+        }
+        if (isMatched)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 
@@ -556,10 +660,12 @@ public:
 
         size_t scalar_field_size = GetFieldSize();
 
-        const TData *rhs_ptr =
-            rhs.m_storage->GetHostPtr() + rhs_component * scalar_field_size;
-        TData *ptr =
-            this->m_storage->GetHostPtr() + component * scalar_field_size;
+        auto *rhs_ptr =
+            rhs.template GetPtr<NektarSpaces::HostSpace, ReadOnly>() +
+            rhs_component * scalar_field_size;
+        auto *ptr =
+            this->template GetPtr<NektarSpaces::HostSpace, WriteOnly>() +
+            component * scalar_field_size;
 
         for (auto const &block : block_attributes)
         {
@@ -637,8 +743,9 @@ private:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            TData *inPtr =
-                this->m_storage->GetHostPtr() + component * scalar_field_size;
+            auto *inPtr =
+                this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
+                component * scalar_field_size;
 
             for (auto const &block : block_attributes)
             {

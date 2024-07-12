@@ -83,7 +83,7 @@ public:
     {
         // Copy the device memory to the host memory for printing
         const TData *pMat =
-            m_matrix.template GetConstPtr<NektarSpaces::HostSpace>();
+            m_matrix.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
         std::string str;
         for (size_t i = 0; i < m_size; ++i)
