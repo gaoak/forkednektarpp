@@ -39,6 +39,7 @@
 #include "Spaces.hpp"
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include <array>
 #include <memory>
@@ -46,6 +47,29 @@
 #include <stdexcept>
 
 using default_fp_type = double;
+
+// MemoryQualifier
+class ReadOnly
+{
+};
+class WriteOnly
+{
+};
+class ReadWrite
+{
+};
+
+// const_if metafunction return "const T" type if B = true and "T" type
+// otherwise.
+template <bool B, class T = void> struct const_if
+{
+    typedef T type;
+};
+
+template <class T> struct const_if<true, T>
+{
+    typedef const T type;
+};
 
 /**
  * @brief This function will return an alignment based on the memory type.
@@ -159,59 +183,14 @@ public:
     }
 
     /**
-     * @brief Get the const pointer to the host/device memory.
-     *
-     * @return    - TData*
-     */
-    template <typename MemSpace> const TData *GetConstPtr()
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            return m_storage->GetHostConstPtr();
-        }
-
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                return ret.GetDeviceConstPtr();
-            }
-
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                return ret.GetDeviceConstPtr();
-            }
-        }
-
-        return nullptr;
-    }
-
-    /**
      * @brief Get the pointer to the host/device memory.
      *
      * @return    - TData*
      */
-    template <typename MemSpace> TData *GetPtr()
+    template <typename MemSpace, typename MemQualifier>
+    typename const_if<std::is_same<MemQualifier, ReadOnly>::value, TData>::type
+        *
+        GetPtr()
     {
         if (m_storage == nullptr)
         {
@@ -221,9 +200,19 @@ public:
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
-            return m_storage->GetHostPtr();
+            if constexpr (std::is_same<MemQualifier, ReadOnly>::value)
+            {
+                return m_storage->GetHostConstPtr();
+            }
+            else if constexpr (std::is_same<MemQualifier, WriteOnly>::value)
+            {
+                return m_storage->GetHostPtr(true);
+            }
+            else if constexpr (std::is_same<MemQualifier, ReadWrite>::value)
+            {
+                return m_storage->GetHostPtr();
+            }
         }
-
         else if constexpr (
 #if defined(NEKTAR_ENABLE_KOKKOS)
             std::is_same<MemSpace,
@@ -238,7 +227,18 @@ public:
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
-                return ret.GetDevicePtr();
+                if constexpr (std::is_same<MemQualifier, ReadOnly>::value)
+                {
+                    return ret.GetDeviceConstPtr();
+                }
+                else if constexpr (std::is_same<MemQualifier, WriteOnly>::value)
+                {
+                    return ret.GetDevicePtr(true);
+                }
+                else if constexpr (std::is_same<MemQualifier, ReadWrite>::value)
+                {
+                    return ret.GetDevicePtr();
+                }
             }
 
             catch (const std::bad_cast &e)
@@ -249,7 +249,18 @@ public:
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
-                return ret.GetDevicePtr();
+                if constexpr (std::is_same<MemQualifier, ReadOnly>::value)
+                {
+                    return ret.GetDeviceConstPtr();
+                }
+                else if constexpr (std::is_same<MemQualifier, WriteOnly>::value)
+                {
+                    return ret.GetDevicePtr(true);
+                }
+                else if constexpr (std::is_same<MemQualifier, ReadWrite>::value)
+                {
+                    return ret.GetDevicePtr();
+                }
             }
         }
 
@@ -322,18 +333,17 @@ public:
 
     /**
      * @brief Static templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a std::vector
+     *        new MemoryRegion that copies data from a pointer
      *
      * @param name      - name of the memory region
-     * @param array     - std::vector to copy from
+     * @param src       - src pointer to copy from
      * @param alignment - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData,
-              class Alloc = std::allocator<TDataIn>>
-    static MemoryRegion<TData> fromVector(
-        std::string name, std::vector<TDataIn, Alloc> const &array,
+    template <typename MemSpace, typename TDataIn>
+    static MemoryRegion<TData> fromData(
+        std::string name, const TDataIn *src, const size_t size,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
         auto mr = MemoryRegion();
@@ -344,7 +354,7 @@ public:
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, array, alignment);
+                name, src, size, alignment);
         }
         else if constexpr (
 #if defined(NEKTAR_ENABLE_KOKKOS)
@@ -354,11 +364,11 @@ public:
             std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, array, alignment);
+                name, src, size, alignment);
         }
         else
         {
-            std::string msg("MemoryRegion::fromVector - "
+            std::string msg("MemoryRegion::fromData - "
                             "invaid memory space (");
             msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
 
@@ -372,12 +382,32 @@ public:
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from a std::vector
      *
+     * @param name      - name of the memory region
      * @param array     - std::vector to copy from
      * @param alignment - Memory alignment to use.
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData,
+    template <typename MemSpace, typename TDataIn,
+              class Alloc = std::allocator<TDataIn>>
+    static MemoryRegion<TData> fromVector(
+        std::string name, std::vector<TDataIn, Alloc> const &array,
+        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    {
+        return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
+            name, array.data(), array.size(), alignment);
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion that copies data from a std::vector
+     *
+     * @param array     - std::vector to copy from
+     * @param alignment - Memory alignment to use.
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace, typename TDataIn,
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
         std::vector<TDataIn, Alloc> const &array,
@@ -398,41 +428,13 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         std::string name, Nektar::Array<Nektar::OneD, TDataIn> const &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
-        auto mr = MemoryRegion();
-
-        // Create a new MemoryRegion and polymorphically store as
-        // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, array, alignment);
-        }
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, array, alignment);
-        }
-        else
-        {
-            std::string msg("MemoryRegion::fromArray1D - "
-                            "invaid memory space (");
-            msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg);
-        }
-
-        return mr;
+        return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
+            name, array.data(), array.size(), alignment);
     }
 
     /**
@@ -444,7 +446,7 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         Nektar::Array<Nektar::OneD, TDataIn> const &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
@@ -464,43 +466,32 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         std::string name,
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
         size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
-        auto mr = MemoryRegion();
-
-        // Create a new MemoryRegion and polymorphically store as
-        // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        size_t size = 0;
+        for (auto i = 0; i < array.size(); ++i)
         {
-            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, array, alignment);
-        }
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, array, alignment);
-        }
-        else
-        {
-            std::string msg("MemoryRegion::fromArray2D - "
-                            "invaid memory space (");
-            msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg);
+            size += array[i].size();
         }
 
-        return mr;
+        std::vector<TData> tmp(size);
+
+        TData *tmpPtr = tmp.data();
+
+        for (auto i = 0; i < array.size(); ++i)
+        {
+            std::copy(array[i].begin(), array[i].end(), tmpPtr);
+
+            tmpPtr += array[i].size();
+        }
+
+        return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
+            name, tmp.data(), tmp.size(), alignment);
     }
 
     /**
@@ -513,7 +504,7 @@ public:
      *
      * @return MemoryRegion<TData>
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
@@ -524,55 +515,119 @@ public:
     }
 
     /**
+     * @brief initialize the storage memory.
+     *
+     * @param val   - value to set
+     * @param count - number of values
+     */
+    template <typename MemWrite = DeviceOnly>
+    void initialize(TData val, size_t count = 0, size_t offset = 0)
+    {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
+        try
+        {
+            // This cast fails if e.g. a MemoryRegionDevice is requested
+            // from a MemoryRegionHost storage.
+            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+            ret.template initialize<MemWrite>(val, count, offset);
+        }
+        catch (const std::bad_cast &e)
+        {
+            // MemWrite is ignored for host-only memory region.
+            m_storage->initialize(val, count, offset);
+        }
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        src pointer
+     *
+     * @param src - pointer to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice>
+    void copyFrom(const TDataIn *src, const size_t size,
+                  const size_t offset = 0)
+    {
+        if (m_storage == nullptr)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+        }
+
+        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
+                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        {
+            // MemCopy is ignored for host-only memory region.
+            m_storage->copyFrom(src, size, offset);
+        }
+
+        else if constexpr (
+            std::is_same<MemSpace,
+                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
+            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        {
+            try
+            {
+                // This cast fails if e.g. a MemoryRegionDevice is requested
+                // from a MemoryRegionHost storage
+                auto &ret =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+                ret.template copyFrom<TDataIn, MemCopy>(src, size, offset);
+            }
+
+            catch (const std::bad_cast &e)
+            {
+                // Convert the storage to device
+                GetStorage<MemoryRegionDevice>();
+
+                auto &ret =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+                ret.template copyFrom<TDataIn, MemCopy>(src, size, offset);
+            }
+        }
+    }
+
+    /**
      * @brief Templated copy method. This method copies data from a
      *        std::vector
      *
      * @param array - std::vector to copy from
      *
      */
-    template <typename MemSpace, typename TDataIn = TData,
-              class Alloc = std::allocator<TDataIn>>
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice,
+              class Alloc      = std::allocator<TDataIn>>
     void copyVector(std::vector<TDataIn, Alloc> const &array)
     {
-        if (m_storage == nullptr)
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
         {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::copyVector - Can only copy std::vector "
+                     "from HostToHost or from "
+                     "HostToDevice.");
         }
 
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if (this->size() != array.size())
         {
-            m_storage->copyVector(array);
+            std::stringstream msg;
+
+            msg << "MemoryRegion::copyVector - "
+                << "Memory size mismatch between (std::vector) and ("
+                << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyVector(array);
-            }
-
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyVector(array);
-            }
-        }
+        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data(),
+                                                            array.size());
     }
 
     /**
@@ -582,159 +637,53 @@ public:
      * @param array - Nektar::Array to copy from
      *
      */
-    template <typename MemSpace, typename TDataIn = TData>
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice>
     void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
     {
-        if (m_storage == nullptr)
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
         {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegion::copyArray - Can only copy Nektar::Array "
+                     "from HostToHost or from "
+                     "HostToDevice.");
         }
 
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if (this->size() != array.size())
         {
-            m_storage->copyArray(array);
+            std::stringstream msg;
+
+            msg << "MemoryRegion::copyArray - "
+                << "Memory size mismatch between (Nektar::array) and ("
+                << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyArray(array);
-            }
-
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyArray(array);
-            }
-        }
+        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data(),
+                                                            array.size());
     }
 
     /**
-     * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>>
+     * @brief Copy data from one region to another region.
      *
-     * @param array - Nektar::Array to copy from
-     *
+     * @param rhs - MemoryRegion to copy from
      */
-    template <typename MemSpace, typename TDataIn = TData>
-    void copyArray(
-        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
-            &array)
+    template <typename MemSpace, typename MemCopy = DeviceToDevice>
+    void copyRegion(MemoryRegion &rhs)
     {
-        if (m_storage == nullptr)
+        if (this->size() != rhs.size())
         {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
+            std::stringstream msg;
+
+            msg << "MemoryRegion::copyRegion - "
+                << "Memory size mismatch between (" << rhs.getName()
+                << ") and (" << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            m_storage->copyArray(array);
-        }
-
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyArray(array);
-            }
-
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.copyArray(array);
-            }
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, TDataIn>
-     *
-     * @param array - Nektar::Array to copy from
-     *
-     */
-    template <typename MemSpace, typename TDataIn = TData>
-    void copyRaw(TData *dest, TDataIn *src, size_t size)
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            m_storage->copyRaw(dest, src, size);
-        }
-
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                [[maybe_unused]] auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                m_storage->copyRaw(dest, src, size);
-            }
-
-            catch (const std::bad_cast &e)
-            {
-                // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                [[maybe_unused]] auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                m_storage->copyRaw(dest, src, size);
-            }
-        }
-        else
-        {
-            std::string msg("MemoryRegion::copyRaw - "
-                            "invaid memory space (");
-            msg += m_storage->getName() +
-                   "): " + Nektar::demangleTypeName(typeid(MemSpace));
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg);
-        }
+        this->template copyFrom<MemSpace, TData, MemCopy>(
+            rhs.template GetPtr<MemSpace, ReadOnly>(), rhs.size());
     }
 
     /**
@@ -743,7 +692,7 @@ public:
      * @return std::vector<TDataOut>
      */
     template <typename TDataOut = TData, class Alloc = std::allocator<TData>>
-    std::vector<TData, Alloc> toVector() const
+    std::vector<TDataOut, Alloc> toVector() const
     {
         if (m_storage == nullptr)
         {
@@ -753,7 +702,7 @@ public:
         if constexpr (std::is_same<TDataOut, TData>::value)
         {
             return std::vector<TDataOut, Alloc>(m_storage->size(),
-                                                m_storage->GetHostPtr());
+                                                m_storage->GetHostConstPtr());
         }
         else
         {
@@ -785,7 +734,7 @@ public:
         if constexpr (std::is_same<TDataOut, TData>::value)
         {
             return Nektar::Array<Nektar::OneD, TDataOut>(
-                m_storage->size(), m_storage->GetHostPtr());
+                m_storage->size(), m_storage->GetHostConstPtr());
         }
         else
         {
@@ -809,22 +758,6 @@ public:
     size_t size() const
     {
         return m_storage->size();
-    }
-
-    /**
-     * @brief initialize the storage memory.
-     *
-     * @param val   - value to set
-     * @param count - number of values
-     */
-    void initialize(TData val, size_t count = 0)
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        m_storage->initialize(val, count);
     }
 
     /**
@@ -912,7 +845,7 @@ public:
      * @brief Force a host to device copy.
      *
      */
-    template <typename MemSpace> void HostToDevice(bool force = true)
+    template <typename MemSpace> void HostToDeviceCopy(bool force = true)
     {
         if (m_storage == nullptr)
         {
@@ -924,7 +857,7 @@ public:
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
-            m_storage->HostToDevice(force);
+            m_storage->HostToDeviceCopy(force);
         }
         else if constexpr (
             std::is_same<MemSpace,
@@ -945,7 +878,7 @@ public:
                 GetStorage<MemoryRegionDevice>();
             }
 
-            m_storage->HostToDevice(force);
+            m_storage->HostToDeviceCopy(force);
         }
     }
 
@@ -953,7 +886,7 @@ public:
      * @brief Force a device to host copy.
      *
      */
-    template <typename MemSpace> void DeviceToHost(bool force = true)
+    template <typename MemSpace> void DeviceToHostCopy(bool force = true)
     {
         if (m_storage == nullptr)
         {
@@ -965,7 +898,7 @@ public:
         if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
                       std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
-            m_storage->DeviceToHost(force);
+            m_storage->DeviceToHostCopy(force);
         }
         else if constexpr (
             std::is_same<MemSpace,
@@ -979,7 +912,7 @@ public:
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
-                m_storage->DeviceToHost(force);
+                m_storage->DeviceToHostCopy(force);
             }
 
             catch (const std::bad_cast &e)
@@ -993,7 +926,7 @@ public:
                 NEKERROR(Nektar::ErrorUtil::efatal, msg);
 
                 // Convert the storage to device.
-                // GetStorage<MemoryRegionDevice>();
+                GetStorage<MemoryRegionDevice>();
             }
         }
         else
@@ -1004,120 +937,6 @@ public:
                    "): " + Nektar::demangleTypeName(typeid(MemSpace));
 
             NEKERROR(Nektar::ErrorUtil::efatal, msg);
-        }
-    }
-
-    /**
-     * @brief Copy data from one region to another region.
-     *
-     * @param rhs - MemoryRegion to copy from
-     */
-    template <typename MemSpace> void RegionToRegion(MemoryRegion &rhs)
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        // Check the memory space type to determine the copy.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            this->HostToHost(rhs);
-        }
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            this->DeviceToDevice(rhs);
-        }
-    }
-
-    /**
-     * @brief Copy data from one host to another host.
-     *
-     * @param rhs - MemoryRegion to copy from
-     */
-    void HostToHost(const MemoryRegion &rhs)
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionDevice is requested
-            // from a MemoryRegionHost storage
-            auto &rhsRet =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*(rhs.m_storage));
-
-            // Make sure the data is on the host side.
-            rhsRet.DeviceToHost();
-        }
-
-        catch (const std::bad_cast &e)
-        {
-        }
-
-        m_storage->HostToHost(*(rhs.m_storage));
-    }
-
-    /**
-     * @brief Copy data from one device to another device.
-     *
-     * @param rhs - MemoryRegion to copy from
-     */
-    void DeviceToDevice(MemoryRegion &rhs)
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        // Make sure the source region has a device memory region.
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionDevice is requested
-            // from a MemoryRegionHost storage
-            auto &rhsRet =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*(rhs.m_storage));
-
-            // Make sure the data is on the device side.
-            rhsRet.HostToDevice();
-        }
-
-        catch (const std::bad_cast &e)
-        {
-            // Convert the storage to device
-            rhs.template GetStorage<MemoryRegionDevice>();
-
-            auto &rhsRet =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*(rhs.m_storage));
-
-            // Make sure the data is on the device side.
-            rhsRet.HostToDevice();
-        }
-
-        // Make sure the destination region has a device memory region.
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionDevice is requested
-            // from a MemoryRegionHost storage
-            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-            ret.DeviceToDevice(*(rhs.m_storage));
-        }
-
-        catch (const std::bad_cast &e)
-        {
-            // Convert the storage to device.
-            GetStorage<MemoryRegionDevice>();
-
-            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-            ret.DeviceToDevice(*(rhs.m_storage));
         }
     }
 
@@ -1178,7 +997,7 @@ protected:
             WARNINGL0(false, msg);
 
             // Make sure the memory is on the host.
-            m_storage->DeviceToHost();
+            m_storage->DeviceToHostCopy();
 
             // Cast to the MemoryRegionHost base class.
             auto &ret = dynamic_cast<MemoryRegionHost<TData> &>(*m_storage);

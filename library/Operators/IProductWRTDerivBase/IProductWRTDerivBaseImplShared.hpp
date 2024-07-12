@@ -96,18 +96,19 @@ public:
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
+        // Copy memory to the device, if necessary and get raw pointers.
+        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        TData *outPtr      = APPEND ? out.template GetPtr<MemSpace, ReadWrite>()
+                                    : out.template GetPtr<MemSpace, WriteOnly>();
+
+        const TData *jacPtr = m_jac.template GetPtr<MemSpace, ReadOnly>();
+        const TData *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
+
         // Zero output.
         if (!APPEND)
         {
             out.initialize(0);
         }
-
-        // Copy memory to the device, if necessary and get raw pointers.
-        const TData *inPtr = in.template GetConstPtr<MemSpace>();
-        TData *outPtr      = out.template GetPtr<MemSpace>();
-
-        const TData *jacPtr = m_jac.template GetConstPtr<MemSpace>();
-        const TData *dfPtr  = m_derivFac.template GetConstPtr<MemSpace>();
 
         // Initialize the workspace memory.
         auto nSize = in.GetFieldSize();
@@ -118,7 +119,7 @@ public:
                 nSize * this->m_expansionList->GetExp(0)->GetCoordim());
         }
 
-        TData *tmpPtr = m_tmp.template GetPtr<MemSpace>();
+        TData *tmpPtr = m_tmp.template GetPtr<MemSpace, WriteOnly>();
         TData *wspPtr = nullptr;
 
         // Initialize basiskey.
@@ -158,12 +159,12 @@ public:
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                auto dbasis0 =
-                    m_dbasisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto w0 =
-                    m_weightMap[basisKeys[0]].template GetConstPtr<MemSpace>();
+                auto dbasis0 = m_dbasisMap[basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto w0 = m_weightMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nm0 = expPtr->GetBasisNumModes(0);
                 auto nq0 = expPtr->GetNumPoints(0);
@@ -191,26 +192,26 @@ public:
             }
             else if (dimension == 2)
             {
-                auto basis0 =
-                    m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto basis1 =
-                    m_basisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto dbasis0 =
-                    m_dbasisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto dbasis1 =
-                    m_dbasisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto w0 =
-                    m_weightMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto w1 =
-                    m_weightMap[basisKeys[1]].template GetConstPtr<MemSpace>();
+                auto basis0 = m_basisMap[basisKeys[0]]
+                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto basis1 = m_basisMap[basisKeys[1]]
+                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto dbasis0 = m_dbasisMap[basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto dbasis1 = m_dbasisMap[basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto w0 = m_weightMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto w1 = m_weightMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetConstPtr<MemSpace>();
-                auto Z0 =
-                    m_pointMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto Z1 =
-                    m_pointMap[basisKeys[1]].template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z0 = m_pointMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z1 = m_pointMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nm0 = expPtr->GetBasisNumModes(0);
                 auto nm1 = expPtr->GetBasisNumModes(1);
@@ -237,7 +238,7 @@ public:
                             EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
                     }
 
-                    wspPtr = m_wsp.template GetPtr<MemSpace>();
+                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
                 }
                 if (deformed)
                 {
@@ -274,36 +275,36 @@ public:
             }
             else if (dimension == 3)
             {
-                auto basis0 =
-                    m_basisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto basis1 =
-                    m_basisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto basis2 =
-                    m_basisMap[basisKeys[2]].template GetConstPtr<MemSpace>();
-                auto dbasis0 =
-                    m_dbasisMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto dbasis1 =
-                    m_dbasisMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto dbasis2 =
-                    m_dbasisMap[basisKeys[2]].template GetConstPtr<MemSpace>();
-                auto w0 =
-                    m_weightMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto w1 =
-                    m_weightMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto w2 =
-                    m_weightMap[basisKeys[2]].template GetConstPtr<MemSpace>();
+                auto basis0 = m_basisMap[basisKeys[0]]
+                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto basis1 = m_basisMap[basisKeys[1]]
+                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto basis2 = m_basisMap[basisKeys[2]]
+                                  .template GetPtr<MemSpace, ReadOnly>();
+                auto dbasis0 = m_dbasisMap[basisKeys[0]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto dbasis1 = m_dbasisMap[basisKeys[1]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto dbasis2 = m_dbasisMap[basisKeys[2]]
+                                   .template GetPtr<MemSpace, ReadOnly>();
+                auto w0 = m_weightMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto w1 = m_weightMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto w2 = m_weightMap[basisKeys[2]]
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
                 auto D2 = m_derivativeMap[basisKeys[2]]
-                              .template GetConstPtr<MemSpace>();
-                auto Z0 =
-                    m_pointMap[basisKeys[0]].template GetConstPtr<MemSpace>();
-                auto Z1 =
-                    m_pointMap[basisKeys[1]].template GetConstPtr<MemSpace>();
-                auto Z2 =
-                    m_pointMap[basisKeys[2]].template GetConstPtr<MemSpace>();
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z0 = m_pointMap[basisKeys[0]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z1 = m_pointMap[basisKeys[1]]
+                              .template GetPtr<MemSpace, ReadOnly>();
+                auto Z2 = m_pointMap[basisKeys[2]]
+                              .template GetPtr<MemSpace, ReadOnly>();
 
                 auto nm0 = expPtr->GetBasisNumModes(0);
                 auto nm1 = expPtr->GetBasisNumModes(1);
@@ -342,7 +343,7 @@ public:
                             EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
                     }
 
-                    wspPtr = m_wsp.template GetPtr<MemSpace>();
+                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
                 }
 
                 if (deformed)

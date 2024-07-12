@@ -102,8 +102,8 @@ public:
                const TData lambda = 1.0) override
     {
         // Get raw pointers.
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;

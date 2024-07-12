@@ -54,14 +54,15 @@ BOOST_FIXTURE_TEST_CASE(_cuda_maxkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = *(std::max_element(x, x + n));
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     maxKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -77,14 +78,15 @@ BOOST_FIXTURE_TEST_CASE(_cuda_minkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = *(std::min_element(x, x + n));
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     minKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -100,15 +102,16 @@ BOOST_FIXTURE_TEST_CASE(_cuda_l1normkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = std::transform_reduce(x, x + n, 0.0, std::plus<double>{},
                                 [](const double &x) { return std::abs(x); });
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     l1normKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -124,15 +127,16 @@ BOOST_FIXTURE_TEST_CASE(_cuda_l2normkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = std::transform_reduce(x, x + n, 0.0, std::plus<double>{},
                                 [](const double &x) { return x * x; });
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     l2normKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -149,18 +153,19 @@ BOOST_FIXTURE_TEST_CASE(_cuda_lpnormkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
     for (int p = 1; p < 4; p++)
     {
-        x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+        x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         out = std::transform_reduce(
             x, x + n, 0.0, std::plus<double>{},
             [=](const double &x) { return std::pow(std::abs(x), p); });
 
         // CUDA results
-        x = fixt_cuda_in->template GetPtr<MemSpace>();
+        x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
         lpnormKernelLauncher(n, p, x, &h_out);
 
         // Check results
@@ -178,17 +183,18 @@ BOOST_FIXTURE_TEST_CASE(_cuda_linfnormkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x;
+    double out, h_out;
+    const double *x;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = std::accumulate(x, x + n, std::numeric_limits<double>::min(),
                           [](const double &lhs, const double &rhs) {
                               return std::max(std::abs(lhs), std::abs(rhs));
                           });
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     linfnormKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -205,16 +211,17 @@ BOOST_FIXTURE_TEST_CASE(_cuda_dotkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double out, h_out, *x, *y;
+    double out, h_out;
+    const double *x, *y;
 
     // Vmath results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace>();
-    y   = fixt_out->GetPtr<NektarSpaces::HostSpace>();
+    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y   = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = Vmath::Dot(n, x, 1, y, 1);
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
-    y = fixt_cuda_out->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_cuda_out->template GetPtr<MemSpace, ReadOnly>();
     dotKernelLauncher(n, x, y, &h_out);
 
     // Check results
@@ -230,24 +237,26 @@ BOOST_FIXTURE_TEST_CASE(_cuda_addkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double *x, *y;
+    const double *x;
+    double *y;
 
     // Vmath results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace>();
+    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
     Vmath::Vadd(n, x, 1, y, 1, y, 1);
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
-    y = fixt_cuda_out->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_cuda_out->template GetPtr<MemSpace, ReadWrite>();
     addKernelLauncher(n, x, y, y);
 
     // Check results
     BOOST_TEST(fixt_cuda_out->compare(*fixt_out, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(),
-                         fixt_out->GetPtr<NektarSpaces::HostSpace>(), 1.0E-15);
+        OutputIfNotMatch(
+            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(), 1.0E-15);
     }
 }
 
@@ -256,24 +265,26 @@ BOOST_FIXTURE_TEST_CASE(_cuda_subkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double *x, *y;
+    const double *x;
+    double *y;
 
     // Vmath results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace>();
+    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
     Vmath::Vsub(n, x, 1, y, 1, y, 1);
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
-    y = fixt_cuda_out->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_cuda_out->template GetPtr<MemSpace, ReadWrite>();
     subKernelLauncher(n, x, y, y);
 
     // Check results
     BOOST_TEST(fixt_cuda_out->compare(*fixt_out, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(),
-                         fixt_out->GetPtr<NektarSpaces::HostSpace>(), 1.0E-15);
+        OutputIfNotMatch(
+            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(), 1.0E-15);
     }
 }
 
@@ -281,25 +292,28 @@ BOOST_FIXTURE_TEST_CASE(_cuda_daxpykernel, CUDAKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_cuda_in->size();
-    double *x, *y, alpha = 1.5;
+    size_t n     = fixt_cuda_in->size();
+    double alpha = 1.5;
+    const double *x;
+    double *y;
 
     // Vmath results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace>();
+    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
     Vmath::Svtvp(n, alpha, x, 1, y, 1, y, 1);
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
-    y = fixt_cuda_out->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_cuda_out->template GetPtr<MemSpace, ReadWrite>();
     daxpyKernelLauncher(n, alpha, x, y, y);
 
     // Check results
     BOOST_TEST(fixt_cuda_out->compare(*fixt_out, 1.0E-14));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(),
-                         fixt_out->GetPtr<NektarSpaces::HostSpace>(), 1.0E-14);
+        OutputIfNotMatch(
+            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(), 1.0E-14);
     }
 }
 
@@ -308,24 +322,26 @@ BOOST_FIXTURE_TEST_CASE(_cuda_divkernel, CUDAKernels)
     Configure();
     SetTestCase();
     size_t n = fixt_cuda_in->size();
-    double *x, *y;
+    const double *x;
+    double *y;
 
     // Vmath results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace>();
+    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
     Vmath::Vdiv(n, x, 1, y, 1, y, 1);
 
     // CUDA results
-    x = fixt_cuda_in->template GetPtr<MemSpace>();
-    y = fixt_cuda_out->template GetPtr<MemSpace>();
+    x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_cuda_out->template GetPtr<MemSpace, ReadWrite>();
     divKernelLauncher(n, x, y, y);
 
     // Check results
     BOOST_TEST(fixt_cuda_out->compare(*fixt_out, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(),
-                         fixt_out->GetPtr<NektarSpaces::HostSpace>(), 1.0E-15);
+        OutputIfNotMatch(
+            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(), 1.0E-15);
     }
 }
 

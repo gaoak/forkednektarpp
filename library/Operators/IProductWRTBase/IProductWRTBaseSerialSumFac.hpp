@@ -66,8 +66,8 @@ public:
                Field<TData, FieldState::Coeff> &out,
                [[maybe_unused]] const TData lambda = 1.0) override
     {
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
         size_t exp_idx = 0;
         size_t jac_idx = 0;

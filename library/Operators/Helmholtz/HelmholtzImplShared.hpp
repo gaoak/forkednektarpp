@@ -135,9 +135,10 @@ public:
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)
     {
         // Initialize pointers.
-        TData *diffCoeffPtr = this->m_diffCoeff.template GetPtr<MemSpace>();
+        TData *diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
 
-        auto *derivPtr0 = deriv.template GetPtr<MemSpace>();
+        auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
         auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
         auto *derivPtr2 = derivPtr1 + deriv.GetFieldSize();
 
@@ -189,13 +190,15 @@ public:
                         Field<TData, FieldState::Phys> &derivCoeff)
     {
         // Initialize pointers.
-        TData *diffCoeffPtr = this->m_diffCoeff.template GetPtr<MemSpace>();
+        TData *diffCoeffPtr =
+            this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
 
-        auto *derivPtr0 = deriv.template GetPtr<MemSpace>();
+        auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
         auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
         auto *derivPtr2 = derivPtr1 + deriv.GetFieldSize();
 
-        auto *derivCoeffPtr0 = derivCoeff.template GetPtr<MemSpace>();
+        auto *derivCoeffPtr0 =
+            derivCoeff.template GetPtr<MemSpace, ReadWrite>();
         auto *derivCoeffPtr1 = derivCoeffPtr0 + derivCoeff.GetFieldSize();
         auto *derivCoeffPtr2 = derivCoeffPtr1 + derivCoeff.GetFieldSize();
 

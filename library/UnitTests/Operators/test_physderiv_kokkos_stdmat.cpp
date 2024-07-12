@@ -47,18 +47,21 @@
         using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
         using Impl      = Operators::StdMat;                                   \
         Configure(1, dim);                                                     \
-        SetTestCase(fixt_kokkos_in->GetBlocks(),                               \
-                    fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace>());        \
-        NektarSolution(fixt_expected->GetBlocks(),                             \
-                       fixt_expected->GetPtr<NektarSpaces::HostSpace>());      \
+        SetTestCase(                                                           \
+            fixt_kokkos_in->GetBlocks(),                                       \
+            fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
+        NektarSolution(                                                        \
+            fixt_expected->GetBlocks(),                                        \
+            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
             ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(                                                  \
-                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace>(),            \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace>(), tol);        \
+                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),  \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                tol);                                                          \
         }                                                                      \
     }
 

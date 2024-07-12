@@ -65,7 +65,7 @@ public:
         m_diffCoeff.initialize(0);
 
         TData *diffCoeff =
-            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace>();
+            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
 
         for (size_t d = 0; d < nCoord; d++)
         {

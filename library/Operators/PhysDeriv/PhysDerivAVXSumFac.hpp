@@ -107,8 +107,8 @@ public:
         in.template ReshapeStorage<vec_t::width>();
         out.template ReshapeStorage<vec_t::width>();
 
-        auto *inPtr   = in.template GetConstPtr<MemSpace>();
-        auto *outOrig = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outOrig     = out.template GetPtr<MemSpace, ReadWrite>();
 
         auto const Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
         ASSERTL0(Coordim <= out.GetNumComponents(),
@@ -217,11 +217,13 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        // auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        // const auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace,
+        // ReadOnly>();
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
 
@@ -267,11 +269,13 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        // auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        // const auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace,
+        // ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -322,13 +326,17 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto Z1 = m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 = m_derivativeMap[m_basisKeys[1]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto Z0 =
+            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z1 =
+            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -373,13 +381,17 @@ private:
         }
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto Z1 = m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 = m_derivativeMap[m_basisKeys[1]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto Z0 =
+            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z1 =
+            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -434,15 +446,21 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D2 = m_derivativeMap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto Z1 = m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto Z2 = m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 = m_derivativeMap[m_basisKeys[1]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D2 = m_derivativeMap[m_basisKeys[2]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto Z0 =
+            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z1 =
+            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z2 =
+            m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -491,15 +509,21 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        vec_t *dfPtr        = m_derivFac.template GetPtr<MemSpace>();
+        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
         const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
 
-        auto D0 = m_derivativeMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto D1 = m_derivativeMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto D2 = m_derivativeMap[m_basisKeys[2]].template GetPtr<MemSpace>();
-        auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace>();
-        auto Z1 = m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace>();
-        auto Z2 = m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace>();
+        const auto D0 = m_derivativeMap[m_basisKeys[0]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D1 = m_derivativeMap[m_basisKeys[1]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto D2 = m_derivativeMap[m_basisKeys[2]]
+                            .template GetPtr<MemSpace, ReadOnly>();
+        const auto Z0 =
+            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z1 =
+            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        const auto Z2 =
+            m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);

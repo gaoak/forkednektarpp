@@ -36,15 +36,13 @@
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include <cstring>
 #include <iostream>
 #include <new>
-
-using vec_t = tinysimd::simd<double>;
+#include <sstream>
 
 template <typename TData> class MemoryRegion;
 
@@ -109,51 +107,18 @@ public:
 
     /**
      * @brief Templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a std::vector
-     *
-     * @param array     - std::vector to copy from
-     * @param alignment - memory alignment
-     */
-    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
-    MemoryRegionHost(std::string name, std::vector<TDataIn, Alloc> const &array,
-                     size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-    {
-        m_size = array.size();
-
-        createMemory(name, alignment);
-
-        if (alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            if constexpr (std::is_same<TDataIn, TData>::value &&
-                          std::is_same<Alloc, std::allocator<TDataIn>>::value)
-            {
-                std::memcpy(m_host, array.data(), m_size * sizeof(TData));
-            }
-            else
-            {
-                std::copy(array.begin(), array.end(), m_host);
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated creation method. This method creates a
      *        new MemoryRegion that copies data from a
-     *        Nektar::Array<Nektar::OneD, TDataIn>
+     *        src pointer
      *
-     * @param array     - Nektar::Array to copy from
+     * @param src       - pointer data type TDataIn to copy from
+     * @param size      - number of element of type TDataIn to copy
      * @param alignment - memory alignment
      */
-    template <typename TDataIn = TData>
-    MemoryRegionHost(std::string name,
-                     Nektar::Array<Nektar::OneD, TDataIn> const &array,
+    template <typename TDataIn>
+    MemoryRegionHost(std::string name, const TDataIn *src, const size_t size,
                      size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
     {
-        m_size = array.size();
+        m_size = size;
 
         createMemory(name, alignment);
 
@@ -161,60 +126,11 @@ public:
         {
             if constexpr (std::is_same<TDataIn, TData>::value)
             {
-                std::memcpy(m_host, array.data(), m_size * sizeof(TData));
+                std::memcpy(m_host, src, m_size * sizeof(TData));
             }
             else
             {
-                std::copy(array.begin(), array.end(), m_host);
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a
-     *        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>>
-     *
-     * @param array     - Nektar::Array to copy from
-     * @param alignment - memory alignment
-     */
-    template <typename TDataIn = TData>
-    MemoryRegionHost(
-        std::string name,
-        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
-            &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
-    {
-        m_size = 0;
-
-        for (auto i = 0; i < array.size(); ++i)
-        {
-            m_size += array[i].size();
-        }
-
-        createMemory(name, alignment);
-
-        if (alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            TData *hostPtr = m_host;
-
-            for (auto i = 0; i < array.size(); ++i)
-            {
-                if constexpr (std::is_same<TDataIn, TData>::value)
-                {
-                    std::memcpy(hostPtr, array[i].data(),
-                                array[i].size() * sizeof(TData));
-                }
-                else
-                {
-                    std::copy(array[i].begin(), array[i].end(), hostPtr);
-                }
-
-                hostPtr += array[i].size();
+                std::copy(src, src + size, m_host);
             }
 
             m_host_valid = true;
@@ -293,303 +209,6 @@ public:
         }
 
         return os << msg.str();
-    }
-
-    /**
-     * @brief Get the const pointer to the host memory - assumes the data
-     *        will not be modified.
-     *
-     * @return - TData*
-     *
-     * This is a virtual function so that subclasses can get const host memory
-     */
-    virtual const TData *GetHostConstPtr()
-    {
-        if (m_host == nullptr)
-        {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostConstPtr - "
-                     "attempt to access host memory (" +
-                         m_name + ") without it being allocated.");
-        }
-
-        if (m_initialize)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostConstPtr - "
-                     "attempt to get a const host pointer (" +
-                         m_name + ") before the data is initialized.");
-        }
-
-        return m_host;
-    }
-
-    /**
-     * @brief Get the pointer to the host memory - assumes the data
-     *        will be modified.
-     *
-     * @return - TData*
-     *
-     * This is a virtual function so that subclasses can get host memory
-     */
-    virtual TData *GetHostPtr()
-    {
-        if (m_host == nullptr)
-        {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostPtr - "
-                     "attempt to access host data (" +
-                         m_name + ") without it being allocated.");
-        }
-
-        m_host_valid = true;
-        m_initialize = false;
-
-        return m_host;
-    }
-
-    /**
-     * @brief Perform a host to device copy.
-     *
-     * @param force - copy regardless of status
-     *
-     * This is a virtual function so that subclasses can copy memory.
-     */
-    virtual void HostToDevice([[maybe_unused]] bool force = false)
-    {
-    }
-
-    /**
-     * @brief Perform a device to host copy.
-     *
-     * @param force - copy regardless of status
-     *
-     * This is a virtual function so that subclasses can copy memory.
-     */
-    virtual void DeviceToHost([[maybe_unused]] bool force = false)
-    {
-    }
-
-    /**
-     * @brief Copy data from one host to another host.
-     *
-     * @param rhs - MemoryRegionHost to copy from
-     *
-     */
-    template <typename TDataIn> void HostToHost(MemoryRegionHost<TDataIn> &rhs)
-    {
-        // Throw an error.
-        if (m_host == nullptr || rhs.m_host == nullptr)
-        {
-            std::stringstream msg;
-
-            msg << "HostToHost::HostToHost - "
-                << "attempt to access host memory (";
-
-            if (m_host == nullptr)
-            {
-                msg << m_name;
-            }
-
-            if (m_host == nullptr && rhs.m_host == nullptr)
-            {
-                msg << " and ";
-            }
-
-            if (rhs.m_host == nullptr)
-            {
-                msg << rhs.m_name;
-            }
-
-            msg << ") without it being allocated.";
-
-            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }
-
-        size_t size = m_size < rhs.m_size ? m_size : rhs.m_size;
-
-        if (std::is_same<TDataIn, TData>::value &&
-            m_alignment >= rhs.m_alignment)
-        {
-            std::memcpy(m_host, rhs.m_host, size * sizeof(TData));
-        }
-        else
-        {
-            std::copy(rhs.m_host, rhs.m_host + size, m_host);
-        }
-    }
-
-    /**
-     * @brief Copy data from one device to another device.
-     *
-     * @param rhs - MemoryRegionHost to copy from
-     *
-     * This is a virtual function so that subclasses can copy memory.
-     */
-    template <typename TDataIn>
-    void DeviceToDevice(MemoryRegionHost<TDataIn> &rhs)
-    {
-        HostToHost(rhs);
-    }
-
-    /**
-     * @brief Initialize the storage memory.
-     *
-     * @param val   - value to set
-     * @param count - number of values
-     *
-     */
-    virtual void initialize(TData val, size_t count = 0)
-    {
-        if (m_host)
-        {
-            if (count == 0)
-            {
-                count = m_size;
-            }
-
-            // Special handling for the vec_t.
-            if constexpr (std::is_same<vec_t, TData>::value)
-            {
-                std::fill(m_host, m_host + count, val);
-            }
-            else
-            {
-                // If the value is zero, memset is the most efficent.
-                if (val == TData(0))
-                {
-                    std::memset(m_host, 0, count * sizeof(TData));
-                }
-                // Otherwuse use the fill function.
-                else
-                {
-                    std::fill(m_host, m_host + count, val);
-                }
-            }
-
-            m_host_valid = true;
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        std::vector
-     *
-     * @param array - std::vector to copy from
-     */
-    template <typename TDataIn = TData, class Alloc = std::allocator<TDataIn>>
-    void copyVector(std::vector<TDataIn, Alloc> const &array)
-    {
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            if constexpr (std::is_same<TDataIn, TData>::value &&
-                          std::is_same<Alloc, std::allocator<TDataIn>>::value)
-            {
-                std::memcpy(m_host, array.get(), m_size * sizeof(TData));
-            }
-            else
-            {
-                std::copy(array.begin(), array.end(), m_host);
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, TDataIn>
-     *
-     * @param array - Nektar::Array to copy from
-     */
-    template <typename TDataIn = TData>
-    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
-    {
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            if constexpr (std::is_same<TDataIn, TData>::value)
-            {
-                std::memcpy(m_host, array.get(), m_size * sizeof(TData));
-            }
-            else
-            {
-                std::copy(array.begin(), array.end(), m_host);
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>>
-     *
-     * @param array - Nektar::Array to copy from
-     */
-    template <typename TDataIn = TData>
-    void copyArray(
-        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
-            &array)
-    {
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            TData *hostPtr = m_host;
-
-            for (auto i = 0; i < array.size(); ++i)
-            {
-                if constexpr (std::is_same<TDataIn, TData>::value)
-                {
-                    std::memcpy(hostPtr, array[i].data(),
-                                array[i].size() * sizeof(TData));
-                }
-                else
-                {
-                    std::copy(array[i].begin(), array[i].end(), hostPtr);
-                }
-
-                hostPtr += array[i].size();
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>>
-     *
-     * @param array - Nektar::Array to copy from
-     */
-    template <typename TDataIn = TData>
-    void copyRaw(TData *dest, TDataIn *src, size_t size)
-    {
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
-        {
-            if constexpr (std::is_same<TDataIn, TData>::value)
-            {
-                std::memcpy(dest, src, size * sizeof(TData));
-            }
-            else
-            {
-                for (size_t i = 0; i < size; ++i)
-                {
-                    dest[i] = src[i];
-                }
-            }
-
-            m_host_valid = true;
-
-            m_initialize = false;
-        }
     }
 
     /**
@@ -677,6 +296,157 @@ protected:
 
         m_initialize = true;
         m_name       = name;
+    }
+
+    /**
+     * @brief Get the const pointer to the host memory - assumes the data
+     *        will not be modified.
+     *
+     * @return - TData*
+     *
+     * This is a virtual function so that subclasses can get const host memory
+     */
+    virtual const TData *GetHostConstPtr()
+    {
+        if (m_host == nullptr)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetHostConstPtr - "
+                     "attempt to access host memory (" +
+                         m_name + ") without it being allocated.");
+        }
+
+        if (m_initialize)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetHostConstPtr - "
+                     "attempt to get a const host pointer (" +
+                         m_name + ") before the data is initialized.");
+        }
+
+        return m_host;
+    }
+
+    /**
+     * @brief Get the pointer to the host memory - assumes the data
+     *        will be modified.
+     *
+     * @return - TData*
+     *
+     * This is a virtual function so that subclasses can get host memory
+     */
+    virtual TData *GetHostPtr([[maybe_unused]] bool write_only = false)
+    {
+        if (m_host == nullptr)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetHostPtr - "
+                     "attempt to access host data (" +
+                         m_name + ") without it being allocated.");
+        }
+
+        m_host_valid = true;
+        m_initialize = false;
+
+        return m_host;
+    }
+
+    /**
+     * @brief Initialize the storage memory.
+     *
+     * @param val   - value to set
+     * @param count - number of values
+     *
+     */
+    void initialize(TData val, size_t count = 0, size_t offset = 0)
+    {
+        if (m_host)
+        {
+            if (count == 0)
+            {
+                count = m_size;
+            }
+
+            TData *dst = m_host + offset;
+
+            // Special handling for the vec_t.
+            using vec_t = tinysimd::simd<double>;
+
+            if constexpr (std::is_same<vec_t, TData>::value)
+            {
+                std::fill(dst, dst + count, val);
+            }
+            else
+            {
+                // If the value is zero, memset is the most efficent.
+                if (val == TData(0))
+                {
+                    std::memset(dst, 0, count * sizeof(TData));
+                }
+                // Otherwuse use the fill function.
+                else
+                {
+                    std::fill(dst, dst + count, val);
+                }
+            }
+
+            m_host_valid = true;
+            m_initialize = false;
+        }
+    }
+
+    /**
+     * @brief Templated copy method.
+     *
+     * @param src       - pointer data type TDataIn to copy from
+     * @param size      - number of element of type TDataIn to copy
+     * @param offset    - offset to m_host pointer
+     */
+    template <typename TDataIn>
+    void copyFrom(const TDataIn *src, const size_t size,
+                  const size_t offset = 0)
+    {
+        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
+        {
+            TData *dst = m_host + offset;
+
+            if constexpr (std::is_same<TDataIn, TData>::value)
+            {
+                std::memcpy(dst, src, size * sizeof(TData));
+            }
+            else
+            {
+                std::copy(src, src + size, dst);
+            }
+
+            m_host_valid = true;
+
+            m_initialize = false;
+        }
+    }
+
+    /**
+     * @brief Perform a host to device copy.
+     *
+     * @param force - copy regardless of status
+     *
+     * This is a virtual function so that subclasses can copy memory.
+     */
+    virtual void HostToDeviceCopy([[maybe_unused]] bool force = false)
+    {
+    }
+
+    /**
+     * @brief Perform a device to host copy.
+     *
+     * @param force - copy regardless of status
+     *
+     * This is a virtual function so that subclasses can copy memory.
+     */
+    virtual void DeviceToHostCopy([[maybe_unused]] bool force = false)
+    {
     }
 
     TData *m_host      = nullptr;

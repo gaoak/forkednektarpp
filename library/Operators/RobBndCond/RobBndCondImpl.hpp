@@ -109,11 +109,11 @@ public:
             robinMR = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
                 "robin", robinArray, __EXECSPACE_MEMORY_REGION_ONLY__);
 
-            robinPtr = out.template GetPtr<MemSpace>();
+            robinPtr = out.template GetPtr<MemSpace, ReadWrite>();
         }
 
         // Copy the data to the output field.
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        auto *outPtr = out.template GetPtr<MemSpace, ReadWrite>();
 
         for (auto const &block : out.GetBlocks())
         {

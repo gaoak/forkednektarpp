@@ -146,18 +146,19 @@ public:
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // Copy memory to the device, if necessary and get raw pointers.
-        TData *inoutPtr = inout.template GetPtr<MemSpace>();
+        TData *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
 
-        BoundaryConditionType *bctypePtr = m_bctype.template GetPtr<MemSpace>();
+        const BoundaryConditionType *bctypePtr =
+            m_bctype.template GetPtr<MemSpace, ReadOnly>();
 
-        TData *coeffPtr = m_coeff.template GetPtr<MemSpace>();
-        int *mapPtr     = m_map.template GetPtr<MemSpace>();
-        int *ncoeffPtr  = m_ncoeff.template GetPtr<MemSpace>();
-        int *offsetPtr  = m_offset.template GetPtr<MemSpace>();
+        const TData *coeffPtr = m_coeff.template GetPtr<MemSpace, ReadOnly>();
+        const int *mapPtr     = m_map.template GetPtr<MemSpace, ReadOnly>();
+        const int *ncoeffPtr  = m_ncoeff.template GetPtr<MemSpace, ReadOnly>();
+        const int *offsetPtr  = m_offset.template GetPtr<MemSpace, ReadOnly>();
 
         if (m_signChange)
         {
-            TData *signPtr = m_sign.template GetPtr<MemSpace>();
+            const TData *signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
 
             NeuBndCondKernel<ExecSpace, TData>(m_bndExpSize, offsetPtr,
                                                bctypePtr, ncoeffPtr, signPtr,

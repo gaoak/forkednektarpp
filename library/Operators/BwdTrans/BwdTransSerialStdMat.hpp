@@ -95,8 +95,8 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // Initialize pointers.
-        auto *inPtr  = in.template GetConstPtr<MemSpace>();
-        auto *outPtr = out.template GetPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;

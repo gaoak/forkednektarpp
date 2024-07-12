@@ -106,7 +106,7 @@ public:
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
         // be in the correct space. Getting the pointer does that.
-        TData *rhsPtr = m_rhs.template GetPtr<MemSpace>();
+        TData *rhsPtr = m_rhs.template GetPtr<MemSpace, ReadWrite>();
         negKernel<ExecSpace, TData>(nloc, rhsPtr, rhsPtr);
 
         // Handle Neumann BCs on RHS
@@ -119,7 +119,7 @@ public:
         // Anytime there is a mix of internal kernel calls and
         // external operator calls the memory region being used must
         // be in the correct space. Getting the pointer does that.
-        TData *tmpPtr = m_tmp.template GetPtr<MemSpace>();
+        TData *tmpPtr = m_tmp.template GetPtr<MemSpace, ReadWrite>();
         subKernel<ExecSpace, TData>(nloc, rhsPtr, tmpPtr, rhsPtr);
 
         // Handle Robin BCs
@@ -132,7 +132,7 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
-        TData *outPtr = out.template GetPtr<MemSpace>();
+        TData *outPtr = out.template GetPtr<MemSpace, ReadWrite>();
         addKernel<ExecSpace, TData>(nloc, outPtr, tmpPtr, outPtr);
     }
 

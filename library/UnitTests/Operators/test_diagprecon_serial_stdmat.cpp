@@ -49,7 +49,7 @@
         using Impl      = Operators::StdMat;                                   \
         Configure();                                                           \
         SetTestCase(fixt_in->GetBlocks(),                                      \
-                    fixt_in->GetPtr<NektarSpaces::HostSpace>());               \
+                    fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
         auto HelmholtzOp =                                                     \
             Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
         auto DiagPreconOp =                                                    \
@@ -57,14 +57,16 @@
         HelmholtzOp->setLambda(1.0);                                           \
         DiagPreconOp->configure(HelmholtzOp);                                  \
         DiagPreconOp->apply(*fixt_in, *fixt_out);                              \
-        ExpectedSolution(fixt_expected->GetBlocks(),                           \
-                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        ExpectedSolution(                                                      \
+            fixt_expected->GetBlocks(),                                        \
+            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(fixt_out->GetPtr<NektarSpaces::HostSpace>(),      \
-                             fixt_expected->GetPtr<NektarSpaces::HostSpace>(), \
-                             tol);                                             \
+            OutputIfNotMatch(                                                  \
+                fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),         \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                tol);                                                          \
         }                                                                      \
     }
 

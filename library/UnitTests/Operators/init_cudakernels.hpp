@@ -58,16 +58,16 @@ public:
         auto func1 = fixt_explist->GetSession()->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_in->GetPtr<NektarSpaces::HostSpace>());
+                  fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_cuda_in->GetPtr<NektarSpaces::HostSpace>());
+                  fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
         auto func2 =
             fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_out->GetPtr<NektarSpaces::HostSpace>());
+                  fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>());
+                  fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
     }
 };
 

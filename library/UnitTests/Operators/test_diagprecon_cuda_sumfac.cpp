@@ -48,8 +48,9 @@
         using ExecSpace = NektarSpaces::CUDA;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(fixt_cuda_in->GetBlocks(),                                 \
-                    fixt_cuda_in->GetPtr<NektarSpaces::HostSpace>());          \
+        SetTestCase(                                                           \
+            fixt_cuda_in->GetBlocks(),                                         \
+            fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
         auto HelmholtzOp =                                                     \
             Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
         auto DiagPreconOp =                                                    \
@@ -57,14 +58,16 @@
         HelmholtzOp->setLambda(1.0);                                           \
         DiagPreconOp->configure(HelmholtzOp);                                  \
         DiagPreconOp->apply(*fixt_cuda_in, *fixt_cuda_out);                    \
-        ExpectedSolution(fixt_expected->GetBlocks(),                           \
-                         fixt_expected->GetPtr<NektarSpaces::HostSpace>());    \
+        ExpectedSolution(                                                      \
+            fixt_expected->GetBlocks(),                                        \
+            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(fixt_cuda_out->GetPtr<NektarSpaces::HostSpace>(), \
-                             fixt_expected->GetPtr<NektarSpaces::HostSpace>(), \
-                             tol);                                             \
+            OutputIfNotMatch(                                                  \
+                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                tol);                                                          \
         }                                                                      \
     }
 

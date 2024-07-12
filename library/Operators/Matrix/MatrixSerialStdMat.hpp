@@ -63,9 +63,10 @@ public:
     void apply(Field<TData, TFieldState> &in,
                Field<TData, TFieldState> &out) override
     {
-        auto *inPtr     = in.template GetConstPtr<MemSpace>();
-        auto *outPtr    = out.template GetPtr<MemSpace>();
-        auto *matrixPtr = this->m_matrix.template GetConstPtr<MemSpace>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
+        const auto *matrixPtr =
+            this->m_matrix.template GetPtr<MemSpace, ReadOnly>();
 
         auto *pIn     = inPtr;
         auto *pOut    = outPtr;
