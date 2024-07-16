@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDAMathKernelsLauncher.hpp
+// File: MathKernelsLauncher.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,15 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-void maxKernelLauncher(const size_t n, const double *x, double *h_out);
-void minKernelLauncher(const size_t n, const double *x, double *h_out);
-void l1normKernelLauncher(const size_t n, const double *x, double *h_out);
-void l2normKernelLauncher(const size_t n, const double *x, double *h_out);
-void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *h_out);
-void linfnormKernelLauncher(const size_t n, const double *x, double *h_out);
-void dotKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *h_out);
+void negKernelLauncher(const size_t n, const double *x, double *y);
 void addKernelLauncher(const size_t n, const double *x, const double *y,
                        double *z);
 void subKernelLauncher(const size_t n, const double *x, const double *y,
@@ -49,3 +41,13 @@ void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
                          const double *y, double *z);
 void divKernelLauncher(const size_t n, const double *x, const double *y,
                        double *z);
+void sumKernelLauncher(const size_t n, const double *x, double *h_out);
+void maxKernelLauncher(const size_t n, const double *x, double *h_out);
+void minKernelLauncher(const size_t n, const double *x, double *h_out);
+void innerproductKernelLauncher(const size_t n, const double *x,
+                                const double *y, double *h_out);
+void l1normKernelLauncher(const size_t n, const double *x, double *h_out);
+void l2normKernelLauncher(const size_t n, const double *x, double *h_out);
+void lpnormKernelLauncher(const size_t n, const int p, const double *x,
+                          double *h_out);
+void linfnormKernelLauncher(const size_t n, const double *x, double *h_out);

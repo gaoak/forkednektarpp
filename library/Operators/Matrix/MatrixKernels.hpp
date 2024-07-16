@@ -50,7 +50,7 @@ MatrixKernel(const size_t nElmts, const size_t numPts, const size_t size,
              const TData *mat, const TData *in, TData *out)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nElmts, KOKKOS_LAMBDA(int e) {
+        0, nElmts, NEKTAR_LAMBDA(int e) {
             const TData *matrix = mat + e * numPts;
             const TData *inPtr  = in + e * numPts;
             TData *outPtr       = out + e * numPts;

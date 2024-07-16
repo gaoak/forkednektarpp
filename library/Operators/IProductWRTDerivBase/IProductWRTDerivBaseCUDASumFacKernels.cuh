@@ -115,7 +115,7 @@ __global__ void IProductWRTDerivBase2DKernel(
 
     constexpr unsigned int warpsize = 32u;
 
-    const unsigned int nqTot        = nq0 * nq1;
+    const unsigned int nqTot = nq0 * nq1;
     TData *s_f0, *s_f1;
 
     // Copy to shared memory.
@@ -312,7 +312,7 @@ __global__ void IProductWRTDerivBase3DKernel(
 
     constexpr unsigned int warpsize = 32u;
 
-    const unsigned int nqTot        = nq0 * nq1 * nq2;
+    const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_f0, *s_f1, *s_f2, *s_f3;
 
     // Copy to shared memory.

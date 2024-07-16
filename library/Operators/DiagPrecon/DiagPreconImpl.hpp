@@ -40,8 +40,7 @@
 #include "Operators/DiagPrecon/DiagPreconKernels.hpp"
 
 #include "Operators/Field.hpp"
-#include "Operators/LoopExecution.hpp"
-#include "Operators/MathKernels.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
@@ -118,48 +117,41 @@ public:
             MemoryRegion<TData>::template create<MemSpace>("DiagPrecon local",
                                                            m_nLocal);
 
-        TData *diag = diagMR.template GetPtr<MemSpace, ReadWrite>();
-
         // create unit vector field to extract diagonal
         Field<TData, FieldState::Coeff> unit_vec =
             Field<TData, FieldState::Coeff>::template create<MemSpace>(
                 "DiagPrecon unit vec",
-                GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
+                GetBlockAttributes(FieldState::Coeff, this->m_expansionList,
+                                   vec_t::width),
+                1, vec_t::alignment);
 
         // create action field to receive column action from unit vector
         Field<TData, FieldState::Coeff> action =
             Field<TData, FieldState::Coeff>::template create<MemSpace>(
                 "DiagPrecon action",
-                GetBlockAttributes(FieldState::Coeff, this->m_expansionList));
+                GetBlockAttributes(FieldState::Coeff, this->m_expansionList,
+                                   vec_t::width),
+                1, vec_t::alignment);
 
-        TData *uvecPtr = unit_vec.template GetPtr<MemSpace, ReadWrite>();
-        TData *actnPtr = action.template GetPtr<MemSpace, ReadWrite>();
-        TData *diagPtr = diag;
+        diagMR.template initialize<HostDevice>(0);
+        unit_vec.template initialize<HostDevice>(0);
 
+        size_t offset1 = 0;
+        size_t offset2 = 0;
         size_t exp_idx = 0;
 
         for (auto const &block : unit_vec.GetBlocks())
         {
             // Block dependent
-            auto const nSize  = block.block_size;
-            auto const nElmts = block.num_elements;
-            auto const nmTot  = block.num_pts;
-
-            // Determine shape and type of the element.
-            // auto const expPtr = this->m_expansionList->GetExp(exp_idx);
-            // auto const nmTot  = expPtr->GetNcoeffs();
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
+            auto const nmTot     = block.num_pts;
 
             for (size_t i = 0; i < nmTot; ++i)
             {
                 // Set ith term in unit vector to be 1.
-                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, 1.0,
-                                                    uvecPtr);
-
-                // Anytime there is a mix of internal kernel calls and
-                // external operator calls. The memory region being
-                // used must be marked as being valid which more
-                // importantly invalidates the sibling memory region.
-                unit_vec.template setValid<MemSpace>();
+                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, offset1,
+                                                    1.0, unit_vec);
 
                 // Apply the operator to unit vector and store in the
                 // action field.
@@ -171,25 +163,18 @@ public:
                     m_robBCOp->apply(unit_vec, action);
                 }
 
-                // Anytime there is a mix of internal kernel calls and
-                // external operator calls the memory region being
-                // used must be in the correct space. Getting the
-                // pointer does that.
-                action.template GetPtr<MemSpace, ReadWrite>();
-
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
-                CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, actnPtr,
-                                                     diagPtr);
+                CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, offset1,
+                                                     offset2, action, diagMR);
 
                 // Reset the ith term in the unit vector to be 0
-                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, 0.0,
-                                                    uvecPtr);
+                SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, offset1,
+                                                    0.0, unit_vec);
             }
 
-            uvecPtr += nSize;
-            diagPtr += nSize;
-            actnPtr += nSize;
+            offset1 += (nElmts + nPadElmts) * nmTot;
+            offset2 += nElmts * nmTot;
             exp_idx += nElmts;
         }
 

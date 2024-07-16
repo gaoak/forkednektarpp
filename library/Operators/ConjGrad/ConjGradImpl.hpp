@@ -34,14 +34,14 @@
 
 #pragma once
 
-#include "Operators/MathKernels.hpp"
-#include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorConjGrad.hpp"
+
+#include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/OperatorHelper.hpp"
 #include "Operators/OperatorRobBndCond.hpp"
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <MultiRegions/ContField.h>
 
 #include <algorithm>
@@ -67,16 +67,34 @@ public:
         : OperatorConjGrad<TData>(expansionList),
           m_w_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad w_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList))),
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
           m_s_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad s_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList))),
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
           m_r_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad r_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList))),
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
           m_wk(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
-              GetBlockAttributes(FieldState::Coeff, expansionList)))
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
+          m_q_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+              "ConjGrad wk",
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment)),
+          m_p_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+              "ConjGrad wk",
+              GetBlockAttributes(FieldState::Coeff, expansionList,
+                                 vec_t::width),
+              1, vec_t::alignment))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -93,11 +111,6 @@ public:
         m_robBndCondOp =
             RobBndCond<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
-
-        m_p_A = MemoryRegion<TData>::template create<MemSpace>("ConjGrad p_A",
-                                                               m_nloc);
-        m_q_A = MemoryRegion<TData>::template create<MemSpace>("ConjGrad q_A",
-                                                               m_nloc);
 
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
                       std::is_same<ExecSpace, NektarSpaces::AVX>::value)
@@ -123,26 +136,6 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // When using AVX there can be an aligment mismach as such the
-        // data must be transfered to/from a Nektar::Array.
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-        bool alignmentMismatch = ((in.GetAlignment() != m_r_A.GetAlignment()) ||
-                                  (out.GetAlignment() != m_r_A.GetAlignment()));
-#else
-        bool alignmentMismatch = false;
-#endif
-        if (alignmentMismatch)
-        {
-            std::stringstream msg;
-            msg << "OperatorConjGradImpl::apply - "
-                << "Alignment mismatch between the input (" << in.GetAlignment()
-                << ") and/or output data (" << out.GetAlignment()
-                << ") and the intermediate data (" << m_r_A.GetAlignment()
-                << "). A data transfer has been performed.";
-
-            WARNINGL0(false, msg.str());
-        }
-
         // Set the fields to zero
         out.initialize(0);
 
@@ -152,36 +145,6 @@ public:
 
         m_p_A.initialize(0);
         m_q_A.initialize(0);
-
-        // Pointers to the raw data.
-        TData const *inPtr;
-        TData *outPtr;
-
-        Array<OneD, TData> inArray;
-        Array<OneD, TData> outArray;
-
-        if (alignmentMismatch)
-        {
-            // Copy the data from the input field.
-            inArray  = in.toArray();
-            outArray = Array<OneD, TData>(m_nloc, 0.0);
-
-            inPtr  = inArray.get();
-            outPtr = outArray.get();
-        }
-        else
-        {
-            inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-            outPtr = out.template GetPtr<MemSpace, ReadWrite>();
-        }
-
-        TData *r_APtr = m_r_A.template GetPtr<MemSpace, ReadWrite>();
-        TData *w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
-        TData *s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
-        TData *wkPtr  = m_wk.template GetPtr<MemSpace, ReadWrite>();
-
-        TData *p_APtr = m_p_A.template GetPtr<MemSpace, ReadWrite>();
-        TData *q_APtr = m_q_A.template GetPtr<MemSpace, ReadWrite>();
 
         TData *vExchangePtr;
         TData const *vExchangeHostPtr;
@@ -230,36 +193,17 @@ public:
         TData eps;
 
         // Copy RHS into initial residual
-        if (alignmentMismatch)
-        {
-            std::copy(inPtr, inPtr + m_nloc, r_APtr);
-        }
-        else
-        {
-            m_r_A.template copyRegion<MemSpace>(in);
-        }
+        m_r_A.template copyField<MemSpace>(in);
 
         // Assembly (communication)
         m_assmbScatrOp->apply(m_r_A, m_wk, true);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
-
-        innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
-                                             vExchangePtr + 2);
+        ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
         // Calculate rhs magnitude
         m_assmbScatrOp->apply(m_r_A, m_wk);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
-
-        innerProductKernel<ExecSpace, TData>(m_nloc, inPtr, wkPtr,
-                                             vExchangePtr + 3);
+        ddot<ExecSpace, TData>(in, m_wk, vExchangePtr + 3);
 
         reduceMemcpy();
 
@@ -286,17 +230,9 @@ public:
             m_robBndCondOp->apply(m_w_A, m_s_A);
         }
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
-        s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
+        ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);
 
-        innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
-                                             vExchangePtr + 0);
-
-        innerProductKernel<ExecSpace, TData>(m_nloc, s_APtr, w_APtr,
-                                             vExchangePtr + 1);
+        ddot<ExecSpace, TData>(m_s_A, m_w_A, vExchangePtr + 1);
 
         reduceMemcpy();
 
@@ -319,24 +255,16 @@ public:
             }
 
             // Compute new search direction p_k
-            daxpyKernel<ExecSpace, TData>(m_nloc, beta, p_APtr, w_APtr, p_APtr);
+            daxpy<ExecSpace, TData>(beta, m_p_A, m_w_A, m_p_A);
 
             // Compute new search direction q_k
-            daxpyKernel<ExecSpace, TData>(m_nloc, beta, q_APtr, s_APtr, q_APtr);
+            daxpy<ExecSpace, TData>(beta, m_q_A, m_s_A, m_q_A);
 
             // Update solution x_{k+1}
-            daxpyKernel<ExecSpace, TData>(m_nloc, alpha, p_APtr, outPtr,
-                                          outPtr);
+            daxpy<ExecSpace, TData>(alpha, m_p_A, out, out);
 
             // Update residual vector r_{k+1}
-            daxpyKernel<ExecSpace, TData>(m_nloc, -alpha, q_APtr, r_APtr,
-                                          r_APtr);
-
-            // Anytime there is a mix of internal kernel calls and
-            // external operator calls. The memory region being
-            // used must be marked as being valid which more
-            // importantly invalidates the sibling memory region.
-            m_r_A.template setValid<MemSpace>();
+            daxpy<ExecSpace, TData>(-alpha, m_q_A, m_r_A, m_r_A);
 
             // Apply preconditioner
             this->m_precon->apply(m_r_A, m_w_A);
@@ -353,32 +281,16 @@ public:
                 m_robBndCondOp->apply(m_w_A, m_s_A);
             }
 
-            // Anytime there is a mix of internal kernel calls and
-            // external operator calls the memory region being used
-            // must be in the correct space. Getting the pointer does
-            // that.
-            w_APtr = m_w_A.template GetPtr<MemSpace, ReadWrite>();
-            s_APtr = m_s_A.template GetPtr<MemSpace, ReadWrite>();
-
             // <r_{k+1}, w_{k+1}>
-            innerProductKernel<ExecSpace, TData>(m_nloc, r_APtr, w_APtr,
-                                                 vExchangePtr + 0);
+            ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);
 
             // <s_{k+1}, w_{k+1}>
-            innerProductKernel<ExecSpace, TData>(m_nloc, s_APtr, w_APtr,
-                                                 vExchangePtr + 1);
+            ddot<ExecSpace, TData>(m_s_A, m_w_A, vExchangePtr + 1);
 
             // <r_{k+1}, r_{k+1}>
             m_assmbScatrOp->apply(m_r_A, m_wk, true);
 
-            // Anytime there is a mix of internal kernel calls and
-            // external operator calls the memory region being used
-            // must be in the correct space. Getting the pointer does
-            // that.
-            wkPtr = m_wk.template GetPtr<MemSpace, ReadWrite>();
-
-            innerProductKernel<ExecSpace, TData>(m_nloc, wkPtr, r_APtr,
-                                                 vExchangePtr + 2);
+            ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
             reduceMemcpy();
 
@@ -402,12 +314,6 @@ public:
             beta  = rho_new / rho;
             alpha = rho_new / (mu - rho_new * beta / alpha);
             rho   = rho_new;
-        }
-
-        if (alignmentMismatch)
-        {
-            // Copy the data to the output field.
-            out.template copyArray<MemSpace>(outArray);
         }
     }
 
@@ -450,9 +356,8 @@ protected:
     Field<TData, FieldState::Coeff> m_s_A;
     Field<TData, FieldState::Coeff> m_r_A;
     Field<TData, FieldState::Coeff> m_wk;
-
-    MemoryRegion<TData> m_q_A;
-    MemoryRegion<TData> m_p_A;
+    Field<TData, FieldState::Coeff> m_q_A;
+    Field<TData, FieldState::Coeff> m_p_A;
 
     MemoryRegion<TData> m_vExchange;
 

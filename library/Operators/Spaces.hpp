@@ -31,6 +31,7 @@
 // Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
 #include <type_traits>
@@ -142,21 +143,25 @@ public:
 using DefaultExecutionSpace = CUDA;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
+#define NEKTAR_LAMBDA [=] __device__
 
 #elif defined(NEKTAR_ENABLE_HIP)
 using DefaultExecutionSpace = HIP;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
+#define NEKTAR_LAMBDA [=] __device__
 
 #elif defined(NEKTAR_ENABLE_SYCL)
 using DefaultExecutionSpace = SYCL;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
+#define NEKTAR_LAMBDA [=] __device__
 
 #else
 using DefaultExecutionSpace = DefaultHostExecutionSpace;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::DefaultHostExecutionSpace
+#define NEKTAR_LAMBDA [&]
 
 #endif // GPU specific
 
@@ -220,6 +225,7 @@ template <typename TData> using ReduceMax = Kokkos::Max<TData>;
 
 #define KOKKOS_DEFAULT_HOST_TAG Kokkos::DefaultHostExecutionSpace
 #define KOKKOS_DEFAULT_DEVICE_TAG Kokkos::DefaultExecutionSpace
+#define NEKTAR_LAMBDA KOKKOS_LAMBDA
 
 #else // !defined(NEKTAR_ENABLE_KOKKOS)
 
@@ -227,7 +233,6 @@ template <typename TData> using ReduceMax = Kokkos::Max<TData>;
 #define GPU_FUNCTION
 #define GPU_INLINE_FUNCTION inline
 #define GPU_FORCEINLINE_FUNCTION inline
-
 #define KOKKOS_LAMBDA [&]
 
 // Kokkos is not included in this build. Create some stub types so
@@ -258,6 +263,8 @@ GPU_INLINE_FUNCTION void atomic_add(T *const dest, const T val)
 #define KOKKOS_DEFAULT_DEVICE_TAG Kokkos::DefaultExecutionSpace
 
 } // namespace Kokkos
+
+#endif // !defined(NEKTAR_ENABLE_KOKKOS)
 
 namespace NektarSpaces
 {
@@ -307,10 +314,7 @@ public:
     GPU_INLINE_FUNCTION
     void join(Scalar &dest, const Scalar &src) const
     {
-        if (dest > src)
-        {
-            dest = src;
-        }
+        dest = min(src, dest);
     }
 
     GPU_INLINE_FUNCTION
@@ -357,10 +361,7 @@ public:
     GPU_INLINE_FUNCTION
     void join(Scalar &dest, const Scalar &src) const
     {
-        if (dest < src)
-        {
-            dest = src;
-        }
+        dest = max(src, dest);
     }
 
     GPU_INLINE_FUNCTION
@@ -394,6 +395,11 @@ private:
     value_type m_value;
 };
 
+} // namespace NektarSpaces
+
+#if !defined(NEKTAR_ENABLE_KOKKOS)
+namespace NektarSpaces
+{
 template <typename TData> using ReduceSum = NektarSpaces::Sum<TData>;
 template <typename TData> using ReduceMin = NektarSpaces::Min<TData>;
 template <typename TData> using ReduceMax = NektarSpaces::Max<TData>;
@@ -401,15 +407,3 @@ template <typename TData> using ReduceMax = NektarSpaces::Max<TData>;
 } // namespace NektarSpaces
 
 #endif // !defined(NEKTAR_ENABLE_KOKKOS)
-
-// #pragma message "The value of NEKTAR_DEFAULT_HOST_TAG:
-// "STRVX(NEKTAR_DEFAULT_HOST_TAG)
-
-// #pragma message "The value of NEKTAR_DEFAULT_DEVICE_TAG: "
-// STRVX(NEKTAR_DEFAULT_DEVICE_TAG)
-
-// #pragma message "The value of KOKKOS_DEFAULT_HOST_TAG:
-// "STRVX(KOKKOS_DEFAULT_HOST_TAG)
-
-// #pragma message "The value of KOKKOS_DEFAULT_DEVICE_TAG: "
-// STRVX(KOKKOS_DEFAULT_DEVICE_TAG)

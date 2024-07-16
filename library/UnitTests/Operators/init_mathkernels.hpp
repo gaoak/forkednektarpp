@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: init_cudakernels.hpp
+// File: init_mathkernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,12 +37,12 @@
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
-class CUDAKernelsField
+class MathKernelsField
     : public InitFields<double, FieldState::Phys, FieldState::Phys,
                         MultiRegions::ContField>
 {
 public:
-    CUDAKernelsField()
+    MathKernelsField()
         : InitFields<double, FieldState::Phys, FieldState::Phys,
                      MultiRegions::ContField>()
     {
@@ -59,22 +59,50 @@ public:
         func1->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
-        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#if defined(NEKTAR_ENABLE_CUDA)
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#endif
         auto func2 =
             fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
-        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#if defined(NEKTAR_ENABLE_CUDA)
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#endif
     }
 };
 
-class CUDAKernels : public CUDAKernelsField
+class MathKernels : public MathKernelsField
 {
 public:
-    CUDAKernels()
+    MathKernels()
     {
         meshName = "run/Helmholtz3D_Hex_AllBCs_P6.xml";
     }

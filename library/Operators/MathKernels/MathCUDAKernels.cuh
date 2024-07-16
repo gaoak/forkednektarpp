@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDAMathKernels.cuh
+// File: MathCUDAKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,19 +34,21 @@
 
 #pragma once
 
-#include "Operators/Spaces.hpp"
-#include <float.h>
-
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+
+#include "Operators/Spaces.hpp"
 
 #include <cooperative_groups.h>
 #include <cuda/std/limits>
+#include <float.h>
 
-namespace Nektar::Operators
+namespace Nektar //::Operators
 {
 
-static unsigned int cudaGridSize = 1024u;
-static unsigned int cudaBlockSize = 256u;
+static unsigned int cudaBlockSize  = 256u;
+static unsigned int cudaGridSize   = 1024u;
+static unsigned int cudaBufferSize = 0u;
+static void *cudaBuffer            = nullptr;
 
 namespace cg = cooperative_groups;
 
@@ -236,6 +238,52 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
     return make_double2(a.x + b, a.y + b);
 }
 
+template <typename Functor>
+__global__ void parallel_for(const unsigned int begin, const unsigned int end,
+                             const Functor functor)
+{
+    unsigned int i = begin + blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (i < end)
+    {
+        functor(i);
+        i += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData, typename Functor>
+__global__ void reduceSumKernel(const unsigned int begin,
+                                const unsigned int end, TData *buffer,
+                                const Functor functor)
+{
+    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
+
+    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
+         tid += grid.size())
+    {
+        functor(tid, v);
+    }
+
+    warp.sync();
+    v += warp.shfl_down(v, 16); // |
+    v += warp.shfl_down(v, 8);  // | warp level
+    v += warp.shfl_down(v, 4);  // | reduce here
+    v += warp.shfl_down(v, 2);  // |
+    v += warp.shfl_down(v, 1);  // |
+
+    // use atomicAdd to sum over warps
+    if (warp.thread_rank() == 0)
+    {
+        atomicAdd(&buffer[block.group_index().x], v);
+    }
+}
+
 template <typename TData>
 __global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
@@ -301,17 +349,311 @@ __global__ void vdivKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void dotKernel(const unsigned int nsize, const TData *x,
-                          const TData *y, TData *out)
+__global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
+                                TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = 0;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
+
+    if constexpr (vl && std::is_same_v<TData, float>)
+    {
+        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            v4 += reinterpret_cast<const float4 *>(data)[tid];
+        }
+        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
+    }
+    else if constexpr (vl && std::is_same_v<TData, double>)
+    {
+        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            v2 += reinterpret_cast<const double2 *>(data)[tid];
+        }
+        v = v2.x + v2.y; // accumulate thread sums in v
+    }
+    else
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize;
+             tid += grid.size())
+        {
+            v += data[tid];
+        }
+    }
+
+    // process final elements (if there are any)
+    if constexpr (vl)
+    {
+        if (grid.thread_rank() < nsize % vecsize)
+        {
+            unsigned int tid = nsize - 1u - grid.thread_rank();
+            v += data[tid];
+        }
+    }
+
+    warp.sync();
+    v += warp.shfl_down(v, 16); // |
+    v += warp.shfl_down(v, 8);  // | warp level
+    v += warp.shfl_down(v, 4);  // | reduce here
+    v += warp.shfl_down(v, 2);  // |
+    v += warp.shfl_down(v, 1);  // |
+
+    // use atomicAdd to sum over warps
+    if (warp.thread_rank() == 0)
+    {
+        atomicAdd(&out[block.group_index().x], v);
+    }
+}
+
+template <typename TData, typename Functor>
+__global__ void reduceMaxKernel(const unsigned int begin,
+                                const unsigned int end, TData *buffer,
+                                const Functor functor)
+{
+    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    constexpr TData min = ::cuda::std::numeric_limits<TData>::min();
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = min;
+
+    if (block.thread_rank() == 0)
+    {
+        buffer[block.group_index().x] = min;
+    }
+
+    block.sync();
+
+    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
+         tid += grid.size())
+    {
+        functor(tid, v);
+    }
+
+    warp.sync();
+    v = max(v, warp.shfl_down(v, 16)); // |
+    v = max(v, warp.shfl_down(v, 8));  // | warp level
+    v = max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = max(v, warp.shfl_down(v, 2));  // |
+    v = max(v, warp.shfl_down(v, 1));  // |
+
+    if (warp.thread_rank() == 0)
+    {
+        atomicMax(&buffer[block.group_index().x], v);
+    }
+}
+
+template <typename TData, bool vl = true>
+__global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
+                                TData *out)
+{
+    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    constexpr TData min            = ::cuda::std::numeric_limits<TData>::min();
+    constexpr unsigned int vecsize = (16u / sizeof(TData));
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = min;
+
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = min;
+    }
+
+    block.sync();
+
+    if constexpr (vl && std::is_same_v<TData, float>)
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
+            v               = max(v, max(max(v4.x, v4.y), max(v4.z, v4.w)));
+        }
+    }
+    else if constexpr (vl && std::is_same_v<TData, double>)
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
+            v                = max(v, max(v2.x, v2.y));
+        }
+    }
+    else
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize;
+             tid += grid.size())
+        {
+            v = max(v, data[tid]);
+        }
+    }
+
+    // process final elements (if there are any)
+    if constexpr (vl)
+    {
+        if (grid.thread_rank() < nsize % vecsize)
+        {
+            unsigned int tid = nsize - 1u - grid.thread_rank();
+            v                = max(v, data[tid]);
+        }
+    }
+
+    warp.sync();
+    v = max(v, warp.shfl_down(v, 16)); // |
+    v = max(v, warp.shfl_down(v, 8));  // | warp level
+    v = max(v, warp.shfl_down(v, 4));  // | reduce here
+    v = max(v, warp.shfl_down(v, 2));  // |
+    v = max(v, warp.shfl_down(v, 1));  // |
+
+    if (warp.thread_rank() == 0)
+    {
+        atomicMax(&out[block.group_index().x], v);
+    }
+}
+
+template <typename TData, typename Functor>
+__global__ void reduceMinKernel(const unsigned int begin,
+                                const unsigned int end, TData *buffer,
+                                const Functor functor)
+{
+    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    constexpr TData max = ::cuda::std::numeric_limits<TData>::max();
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = max;
+
+    if (block.thread_rank() == 0)
+    {
+        buffer[block.group_index().x] = max;
+    }
+
+    block.sync();
+
+    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
+         tid += grid.size())
+    {
+        functor(tid, v);
+    }
+
+    warp.sync();
+    v = min(v, warp.shfl_down(v, 16)); // |
+    v = min(v, warp.shfl_down(v, 8));  // | warp level
+    v = min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = min(v, warp.shfl_down(v, 2));  // |
+    v = min(v, warp.shfl_down(v, 1));  // |
+
+    if (warp.thread_rank() == 0)
+    {
+        atomicMin(&buffer[block.group_index().x], v);
+    }
+}
+
+template <typename TData, bool vl = true>
+__global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
+                                TData *out)
+{
+    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    constexpr TData max            = ::cuda::std::numeric_limits<TData>::max();
+    constexpr unsigned int vecsize = (16u / sizeof(TData));
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = max;
+
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = max;
+    }
+
+    block.sync();
+
+    if constexpr (vl && std::is_same_v<TData, float>)
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
+            v               = min(v, min(min(v4.x, v4.y), min(v4.z, v4.w)));
+        }
+    }
+    else if constexpr (vl && std::is_same_v<TData, double>)
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
+             tid += grid.size())
+        {
+            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
+            v                = min(v, min(v2.x, v2.y));
+        }
+    }
+    else
+    {
+        for (unsigned int tid = grid.thread_rank(); tid < nsize;
+             tid += grid.size())
+        {
+            v = min(v, data[tid]);
+        }
+    }
+
+    // process final elements (if there are any)
+    if constexpr (vl)
+    {
+        if (grid.thread_rank() < nsize % vecsize)
+        {
+            unsigned int tid = nsize - 1u - grid.thread_rank();
+            v                = min(v, data[tid]);
+        }
+    }
+
+    warp.sync();
+    v = min(v, warp.shfl_down(v, 16)); // |
+    v = min(v, warp.shfl_down(v, 8));  // | warp level
+    v = min(v, warp.shfl_down(v, 4));  // | reduce here
+    v = min(v, warp.shfl_down(v, 2));  // |
+    v = min(v, warp.shfl_down(v, 1));  // |
+
+    if (warp.thread_rank() == 0)
+    {
+        atomicMin(&out[block.group_index().x], v);
+    }
+}
+
+template <typename TData, bool vl = true>
+__global__ void ddotKernel(const unsigned int nsize, const TData *x,
+                           const TData *y, TData *out)
+{
+    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
+    // parallel with CUDA: a practical guide. Cambridge University Press."
+
+    constexpr unsigned int vecsize = (16u / sizeof(TData));
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -371,198 +713,6 @@ __global__ void dotKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
-                                TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = 0;
-
-    if constexpr (vl && std::is_same_v<TData, float>)
-    {
-        float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            v4 += reinterpret_cast<const float4 *>(data)[tid];
-        }
-        v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
-    }
-    else if constexpr (vl && std::is_same_v<TData, double>)
-    {
-        double2 v2 = {0.0, 0.0}; // use v2 to read global memory
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            v2 += reinterpret_cast<const double2 *>(data)[tid];
-        }
-        v = v2.x + v2.y; // accumulate thread sums in v
-    }
-    else
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
-        {
-            v += data[tid];
-        }
-    }
-
-    // process final elements (if there are any)
-    if constexpr (vl)
-    {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v += data[tid];
-        }
-    }
-
-    warp.sync();
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-        atomicAdd(&out[block.group_index().x], v);
-    }
-}
-
-template <typename TData, bool vl = true>
-__global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
-                                TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = ::cuda::std::numeric_limits<TData>::min();
-
-    if constexpr (vl && std::is_same_v<TData, float>)
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
-            v               = max(v, max(max(v4.x, v4.y), max(v4.z, v4.w)));
-        }
-    }
-    else if constexpr (vl && std::is_same_v<TData, double>)
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
-            v                = max(v, max(v2.x, v2.y));
-        }
-    }
-    else
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
-        {
-            v = max(v, data[tid]);
-        }
-    }
-
-    // process final elements (if there are any)
-    if constexpr (vl)
-    {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = max(v, data[tid]);
-        }
-    }
-
-    warp.sync();
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
-
-    if (warp.thread_rank() == 0)
-    {
-        atomicMax(&out[block.group_index().x], v);
-    }
-}
-
-template <typename TData, bool vl = true>
-__global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
-                                TData *out)
-{
-    // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = ::cuda::std::numeric_limits<TData>::max();
-
-    if constexpr (vl && std::is_same_v<TData, float>)
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
-            v               = min(v, min(min(v4.x, v4.y), min(v4.z, v4.w)));
-        }
-    }
-    else if constexpr (vl && std::is_same_v<TData, double>)
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
-             tid += grid.size())
-        {
-            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
-            v                = min(v, min(v2.x, v2.y));
-        }
-    }
-    else
-    {
-        for (unsigned int tid = grid.thread_rank(); tid < nsize;
-             tid += grid.size())
-        {
-            v = min(v, data[tid]);
-        }
-    }
-
-    // process final elements (if there are any)
-    if constexpr (vl)
-    {
-        if (grid.thread_rank() < nsize % vecsize)
-        {
-            unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = min(v, data[tid]);
-        }
-    }
-
-    warp.sync();
-    v = min(v, warp.shfl_down(v, 16)); // |
-    v = min(v, warp.shfl_down(v, 8));  // | warp level
-    v = min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = min(v, warp.shfl_down(v, 2));  // |
-    v = min(v, warp.shfl_down(v, 1));  // |
-
-    if (warp.thread_rank() == 0)
-    {
-        atomicMin(&out[block.group_index().x], v);
-    }
-}
-
-template <typename TData, bool vl = true>
 __global__ void l1normKernel(const unsigned int nsize, const TData *data,
                              TData *out)
 {
@@ -570,10 +720,11 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = 0;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -638,10 +789,11 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = 0;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -706,10 +858,11 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = 0;
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = 0;
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -774,11 +927,20 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
+    constexpr TData min            = ::cuda::std::numeric_limits<TData>::min();
     constexpr unsigned int vecsize = (16u / sizeof(TData));
-    auto grid                      = cg::this_grid();
-    auto block                     = cg::this_thread_block();
-    auto warp                      = cg::tiled_partition<32>(block);
-    TData v                        = ::cuda::std::numeric_limits<TData>::min();
+
+    auto grid  = cg::this_grid();
+    auto block = cg::this_thread_block();
+    auto warp  = cg::tiled_partition<32>(block);
+    TData v    = min;
+
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = min;
+    }
+
+    block.sync();
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -787,7 +949,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
         {
             const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
             v               = max(v,
-                                  max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
+                    max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
         }
     }
     else if constexpr (vl && std::is_same_v<TData, double>)
@@ -833,34 +995,86 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
 
 // Launchers for the kernels
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Functor>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    negKernel(const size_t nsize, const TData *in, TData *out)
+    parallel_for(const unsigned int begin, const unsigned int end,
+                 const Functor &functor)
 {
-    negKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, in, out);
+    parallel_for<<<cudaGridSize, cudaBlockSize>>>(begin, end, functor);
+}
+
+template <typename ExecSpace, typename Reduction, typename Functor>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    parallel_reduce(const unsigned int begin, const unsigned int end,
+                    const Functor &functor, typename Reduction::value_type *out)
+{
+    using TData = typename Reduction::value_type;
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
+    cudaMemset(out, 0, sizeof(TData));
+
+    if constexpr (std::is_same_v<Reduction, NektarSpaces::Sum<TData>>)
+    {
+        reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
+            begin, end, (TData *)cudaBuffer, functor);
+        reduceSumKernel<TData>
+            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+    }
+    else if constexpr (std::is_same_v<Reduction, NektarSpaces::Max<TData>>)
+    {
+        reduceMaxKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
+            begin, end, (TData *)cudaBuffer, functor);
+        reduceMaxKernel<TData>
+            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+    }
+    else if constexpr (std::is_same_v<Reduction, NektarSpaces::Min<TData>>)
+    {
+        reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
+            begin, end, (TData *)cudaBuffer, functor);
+        reduceMinKernel<TData>
+            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+    }
 }
 
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    addKernel(const size_t nsize, const TData *addend1, const TData *addend2,
-              TData *sum)
+    negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    addKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, addend1, addend2, sum);
+    negKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y);
 }
 
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    subKernel(const size_t nsize, const TData *subtrahend, const TData *minuend,
-              TData *difference)
+    addKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
 {
-    subKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, subtrahend, minuend,
-                                               difference);
+    addKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    subKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
+{
+    subKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -877,11 +1091,10 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    divKernel(const size_t nsize, const TData *numerator,
-              const TData *denominator, TData *quotient)
+    divKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
 {
-    vdivKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, numerator, denominator,
-                                                quotient);
+    vdivKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -890,7 +1103,21 @@ inline
                             void>::type
     reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, out);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
+    cudaMemset(out, 0, sizeof(TData));
+    reduceSumKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceSumKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -899,13 +1126,19 @@ inline
                             void>::type
     reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    reduceMaxKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceMaxKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    reduceMaxKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceMaxKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -914,29 +1147,43 @@ inline
                             void>::type
     reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceMinKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    reduceMinKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceMinKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    innerProductKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *out)
+    ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
+               TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
-    dotKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    ddotKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, (TData *)cudaBuffer);
+    reduceSumKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -945,13 +1192,21 @@ inline
                             void>::type
     l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
-    l1normKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    l1normKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceSumKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -960,13 +1215,21 @@ inline
                             void>::type
     l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
-    l2normKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    l2normKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceSumKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -976,13 +1239,21 @@ inline
     lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
                  TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
-    lpnormKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, p, x, buffer);
-    reduceSumKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    lpnormKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, p, x, (TData *)cudaBuffer);
+    reduceSumKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
 template <typename ExecSpace, typename TData>
@@ -991,15 +1262,21 @@ inline
                             void>::type
     linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    TData *buffer;
-    cudaMalloc((void **)&buffer, sizeof(TData) * cudaGridSize);
-    cudaMemset(buffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-    linfnormKernel<TData><<<cudaGridSize, cudaBlockSize>>>(nsize, x, buffer);
-    reduceMaxKernel<TData><<<1, cudaGridSize>>>(cudaGridSize, buffer, out);
-    cudaFree(buffer);
+    if (cudaBuffer == nullptr)
+    {
+        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
+        {
+            cudaFree(cudaBuffer);
+        }
+        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaMalloc(&cudaBuffer, cudaBufferSize);
+    }
+    linfnormKernel<TData>
+        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    reduceMaxKernel<TData>
+        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
 }
 
-} // namespace Nektar::Operators
+} // namespace Nektar
 
 #endif

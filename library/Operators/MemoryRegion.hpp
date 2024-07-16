@@ -670,13 +670,13 @@ public:
      * @param rhs - MemoryRegion to copy from
      */
     template <typename MemSpace, typename MemCopy = DeviceToDevice>
-    void copyRegion(MemoryRegion &rhs)
+    void copyMemoryRegion(MemoryRegion &rhs)
     {
         if (this->size() != rhs.size())
         {
             std::stringstream msg;
 
-            msg << "MemoryRegion::copyRegion - "
+            msg << "MemoryRegion::copyMemoryRegion - "
                 << "Memory size mismatch between (" << rhs.getName()
                 << ") and (" << this->getName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
@@ -772,73 +772,6 @@ public:
         }
 
         return m_storage->getName();
-    }
-
-    /**
-     * @brief Set this memory as being valid on the selected MemSpace
-     * and the other (if it exists) as invlaid.
-     *
-     */
-    template <typename MemSpace> void setValid()
-    {
-        if (m_storage == nullptr)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
-        }
-
-        // Set the Host memory as being valid.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-        {
-            // If the memory region is a MemoryRegionDevice then
-            // invalidate the device side which validates the host
-            // side.
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.setValid(false);
-            }
-
-            // If the memory region is a MemoryRegionHost then
-            // just validate the host side.
-            catch (const std::bad_cast &e)
-            {
-                m_storage->setValid(true);
-            }
-        }
-
-        // Set the Device memory as being valid.
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-        {
-            // If the memory region is a MemoryRegionDevice then
-            // validate the device side which invalidates the host
-            // side.
-            try
-            {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-                ret.setValid(true);
-            }
-
-            // If the memory region is a MemoryRegionHost then
-            // just validate the host side.
-            catch (const std::bad_cast &e)
-            {
-                m_storage->setValid(true);
-            }
-        }
     }
 
     /**

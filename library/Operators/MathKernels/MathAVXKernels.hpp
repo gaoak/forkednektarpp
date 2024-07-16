@@ -1,0 +1,1272 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// File: MathAVXKernels.hpp
+//
+// For more information, please see: http://www.nektar.info
+//
+// The MIT License
+//
+// Copyright (c) 2006 Division of Applied Mathematics, Brown University (USA),
+// Department of Aeronautics, Imperial College London (UK), and Scientific
+// Computing and Imaging Institute, University of Utah (USA).
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+// DEALINGS IN THE SOFTWARE.
+//
+// Description:
+//
+///////////////////////////////////////////////////////////////////////////////
+
+#pragma once
+
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
+#include "Operators/LoopExecution.hpp"
+#include "Operators/Spaces.hpp"
+
+#include <cmath>
+#include <cstddef>
+#include <type_traits>
+
+namespace Nektar //::Operators
+{
+
+// NOTE: Those AVX Math kernels assumed aligned memory. Using non-aligned memory
+// would result in memory fault.
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    negKernel(const unsigned int nsize, const TData *x, TData *y)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        // y = -x
+        vec_t yChunk0 = -xChunk0;
+        vec_t yChunk1 = -xChunk1;
+        vec_t yChunk2 = -xChunk2;
+        vec_t yChunk3 = -xChunk3;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + vec_t::width, is_aligned);
+        yChunk2.store(y + 2 * vec_t::width, is_aligned);
+        yChunk3.store(y + 3 * vec_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        // y = -x
+        vec_t yChunk0 = -xChunk0;
+        vec_t yChunk1 = -xChunk1;
+
+        // store
+        yChunk0.store(y, is_aligned);
+        yChunk1.store(y + vec_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = -x
+        vec_t yChunk = -xChunk;
+
+        // store
+        yChunk.store(y, is_aligned);
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        cnt -= vec_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // y = -x;
+        *y = -(*x);
+        // update pointers
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    addKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk2.load(y + 2 * vec_t::width, is_aligned);
+        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        // z = x + y
+        vec_t zChunk0 = xChunk0 + yChunk0;
+        vec_t zChunk1 = xChunk1 + yChunk1;
+        vec_t zChunk2 = xChunk2 + yChunk2;
+        vec_t zChunk3 = xChunk3 + yChunk3;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk2.store(z + 2 * vec_t::width, is_aligned);
+        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        z += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        // z = x + y
+        vec_t zChunk0 = xChunk0 + yChunk0;
+        vec_t zChunk1 = xChunk1 + yChunk1;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        z += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t yChunk;
+        yChunk.load(y, is_aligned);
+        vec_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = x + y
+        vec_t zChunk = xChunk + yChunk;
+
+        // store
+        zChunk.store(z, is_aligned);
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        z += vec_t::width;
+        cnt -= vec_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // z = x + y;
+        *z = (*x) + (*y);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    subKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk2.load(y + 2 * vec_t::width, is_aligned);
+        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        // z = x - y
+        vec_t zChunk0 = xChunk0 - yChunk0;
+        vec_t zChunk1 = xChunk1 - yChunk1;
+        vec_t zChunk2 = xChunk2 - yChunk2;
+        vec_t zChunk3 = xChunk3 - yChunk3;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk2.store(z + 2 * vec_t::width, is_aligned);
+        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        z += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        // z = x - y
+        vec_t zChunk0 = xChunk0 - yChunk0;
+        vec_t zChunk1 = xChunk1 - yChunk1;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        z += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t yChunk;
+        yChunk.load(y, is_aligned);
+        vec_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = x - y
+        vec_t zChunk = xChunk - yChunk;
+
+        // store
+        zChunk.store(z, is_aligned);
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        z += vec_t::width;
+        cnt -= vec_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // z = x - y;
+        *z = (*x) - (*y);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+                const TData *y, TData *z)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk2.load(y + 2 * vec_t::width, is_aligned);
+        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        // z = alpha * x + y
+        yChunk0.fma(vec_t(xChunk0), alpha);
+        yChunk1.fma(vec_t(xChunk1), alpha);
+        yChunk2.fma(vec_t(xChunk2), alpha);
+        yChunk3.fma(vec_t(xChunk3), alpha);
+
+        // store
+        yChunk0.store(z, is_aligned);
+        yChunk1.store(z + vec_t::width, is_aligned);
+        yChunk2.store(z + 2 * vec_t::width, is_aligned);
+        yChunk3.store(z + 3 * vec_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        z += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        // z = alpha * x + y
+        yChunk0.fma(vec_t(xChunk0), alpha);
+        yChunk1.fma(vec_t(xChunk1), alpha);
+
+        // store
+        yChunk0.store(z, is_aligned);
+        yChunk1.store(z + vec_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        z += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t yChunk;
+        yChunk.load(y, is_aligned);
+        vec_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = alpha * x + y
+        yChunk.fma(vec_t(xChunk), alpha);
+
+        // store
+        yChunk.store(z, is_aligned);
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        z += vec_t::width;
+        cnt -= vec_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // z = alpha * x + y;
+        *z = alpha * (*x) + (*y);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    divKernel(const unsigned int nsize, const TData *x, const TData *y,
+              TData *z)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk2.load(y + 2 * vec_t::width, is_aligned);
+        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        // z = x / y
+        vec_t zChunk0 = xChunk0 / yChunk0;
+        vec_t zChunk1 = xChunk1 / yChunk1;
+        vec_t zChunk2 = xChunk2 / yChunk2;
+        vec_t zChunk3 = xChunk3 / yChunk3;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk2.store(z + 2 * vec_t::width, is_aligned);
+        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        z += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        // z = x / y
+        vec_t zChunk0 = xChunk0 / yChunk0;
+        vec_t zChunk1 = xChunk1 / yChunk1;
+
+        // store
+        zChunk0.store(z, is_aligned);
+        zChunk1.store(z + vec_t::width, is_aligned);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        z += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t yChunk;
+        yChunk.load(y, is_aligned);
+        vec_t xChunk;
+        xChunk.load(x, is_aligned);
+
+        // z = x / y
+        vec_t zChunk = xChunk / yChunk;
+
+        // store
+        zChunk.store(z, is_aligned);
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        z += vec_t::width;
+        cnt -= vec_t::width;
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        // z = x / y;
+        *z = (*x) / (*y);
+        // update pointers
+        ++x;
+        ++y;
+        ++z;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = 0.0;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0 += xChunk0;
+        yChunk1 += xChunk1;
+        yChunk2 += xChunk2;
+        yChunk3 += xChunk3;
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0 += xChunk0;
+        yChunk1 += xChunk1;
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0 += xChunk0;
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out += *x;
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = std::numeric_limits<TData>::min();
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0 = max(xChunk0, yChunk0);
+        yChunk1 = max(xChunk1, yChunk1);
+        yChunk2 = max(xChunk2, yChunk2);
+        yChunk3 = max(xChunk3, yChunk3);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(tmp[i], *out);
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(tmp[i], *out);
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0 = max(xChunk0, yChunk0);
+        yChunk1 = max(xChunk1, yChunk1);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(tmp[i], *out);
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0 = max(xChunk0, yChunk0);
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(tmp[i], *out);
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out = std::max(*x, *out);
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = std::numeric_limits<TData>::max();
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0 = min(xChunk0, yChunk0);
+        yChunk1 = min(xChunk1, yChunk1);
+        yChunk2 = min(xChunk2, yChunk2);
+        yChunk3 = min(xChunk3, yChunk3);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::min(tmp[i], *out);
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::min(tmp[i], *out);
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0 = min(xChunk0, yChunk0);
+        yChunk1 = min(xChunk1, yChunk1);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::min(tmp[i], *out);
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0 = min(xChunk0, yChunk0);
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::min(tmp[i], *out);
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out = std::min(*x, *out);
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
+               TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t zChunk0 = 0, zChunk1 = 0, zChunk2 = 0, zChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = 0.0;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk2.load(y + 2 * vec_t::width, is_aligned);
+        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+
+        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
+        zChunk1.fma(vec_t(xChunk1), vec_t(yChunk1));
+        zChunk2.fma(vec_t(xChunk2), vec_t(yChunk2));
+        zChunk3.fma(vec_t(xChunk3), vec_t(yChunk3));
+
+        // update pointers
+        x += 4 * vec_t::width;
+        y += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    zChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+    zChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        vec_t yChunk0, yChunk1;
+        yChunk0.load(y, is_aligned);
+        yChunk1.load(y + vec_t::width, is_aligned);
+
+        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
+        zChunk1.fma(vec_t(xChunk1), vec_t(yChunk1));
+
+        // update pointers
+        x += 2 * vec_t::width;
+        y += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    zChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        vec_t yChunk0;
+        yChunk0.load(y, is_aligned);
+
+        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
+
+        // update pointers
+        x += vec_t::width;
+        y += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    zChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out += (*x) * (*y);
+        // update pointers
+        ++x;
+        ++y;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = 0.0;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0 += abs(xChunk0);
+        yChunk1 += abs(xChunk1);
+        yChunk2 += abs(xChunk2);
+        yChunk3 += abs(xChunk3);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0 += abs(xChunk0);
+        yChunk1 += abs(xChunk1);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0 += abs(xChunk0);
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out += abs(*x);
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = 0.0;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
+        yChunk1.fma(vec_t(xChunk1), vec_t(xChunk1));
+        yChunk2.fma(vec_t(xChunk2), vec_t(xChunk2));
+        yChunk3.fma(vec_t(xChunk3), vec_t(xChunk3));
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
+        yChunk1.fma(vec_t(xChunk1), vec_t(xChunk1));
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out += tmp[i];
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out += (*x) * (*x);
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+                 TData *out)
+{
+    // TODO: SIMD/AVX
+    *out = std::accumulate(x, x + nsize, (TData)0.0,
+                           [&](const TData &acc, const TData &val) {
+                               return acc + std::pow(std::abs(val), p);
+                           });
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+{
+    using namespace tinysimd;
+    using vec_t = simd<TData>;
+
+    unsigned int cnt = nsize;
+    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+
+    *out = 0;
+
+    // Vectorized loop unroll 4x
+    while (cnt >= 4 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk2.load(x + 2 * vec_t::width, is_aligned);
+        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+
+        yChunk0 = max(abs(xChunk0), yChunk0);
+        yChunk1 = max(abs(xChunk1), yChunk1);
+        yChunk2 = max(abs(xChunk2), yChunk2);
+        yChunk3 = max(abs(xChunk3), yChunk3);
+
+        // update pointers
+        x += 4 * vec_t::width;
+        cnt -= 4 * vec_t::width;
+    }
+    yChunk3.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(std::abs(tmp[i]), *out);
+    }
+    yChunk2.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(std::abs(tmp[i]), *out);
+    }
+
+    // Vectorized loop unroll 2x
+    while (cnt >= 2 * vec_t::width)
+    {
+        // load
+        vec_t xChunk0, xChunk1;
+        xChunk0.load(x, is_aligned);
+        xChunk1.load(x + vec_t::width, is_aligned);
+
+        yChunk0 = max(abs(xChunk0), yChunk0);
+        yChunk1 = max(abs(xChunk1), yChunk1);
+
+        // update pointers
+        x += 2 * vec_t::width;
+        cnt -= 2 * vec_t::width;
+    }
+    yChunk1.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(std::abs(tmp[i]), *out);
+    }
+
+    // Vectorized loop
+    while (cnt >= vec_t::width)
+    {
+        // load
+        vec_t xChunk0;
+        xChunk0.load(x, is_aligned);
+
+        yChunk0 = max(abs(xChunk0), yChunk0);
+
+        // update pointers
+        x += vec_t::width;
+        cnt -= vec_t::width;
+    }
+    yChunk0.store(tmp, is_aligned);
+    for (unsigned int i = 0; i < vec_t::width; i++)
+    {
+        *out = std::max(std::abs(tmp[i]), *out);
+    }
+
+    // spillover loop
+    while (cnt)
+    {
+        *out = std::max(std::abs(*x), *out);
+        // update pointers
+        ++x;
+        --cnt;
+    }
+}
+
+} // namespace Nektar

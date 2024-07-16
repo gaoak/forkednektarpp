@@ -36,7 +36,7 @@
 
 #include "Operators/OperatorRobBndCond.hpp"
 
-#include "Operators/MathKernels.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>

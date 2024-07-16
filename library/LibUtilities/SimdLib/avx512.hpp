@@ -558,6 +558,12 @@ inline avx512Double8 operator-(avx512Double8 lhs, avx512Double8 rhs)
     return _mm512_sub_pd(lhs._data, rhs._data);
 }
 
+inline avx512Double8 operator-(avx512Double8 in)
+{
+    return _mm512_sub_pd(_mm512_set1_pd(-0.0), in._data);
+    // return _mm512_xor_pd(in._data, _mm512_set1_pd(-0.0));
+}
+
 inline avx512Double8 operator*(avx512Double8 lhs, avx512Double8 rhs)
 {
     return _mm512_mul_pd(lhs._data, rhs._data);
@@ -576,6 +582,16 @@ inline avx512Double8 sqrt(avx512Double8 in)
 inline avx512Double8 abs(avx512Double8 in)
 {
     return _mm512_abs_pd(in._data);
+}
+
+inline avx512Double8 min(avx512Double8 lhs, avx512Double8 rhs)
+{
+    return _mm512_min_pd(lhs._data, rhs._data);
+}
+
+inline avx512Double8 max(avx512Double8 lhs, avx512Double8 rhs)
+{
+    return _mm512_max_pd(lhs._data, rhs._data);
 }
 
 inline avx512Double8 log(avx512Double8 in)
@@ -813,6 +829,12 @@ inline avx512Float16 operator-(avx512Float16 lhs, avx512Float16 rhs)
     return _mm512_sub_ps(lhs._data, rhs._data);
 }
 
+inline avx512Float16 operator-(avx512Float16 in)
+{
+    return _mm512_sub_ps(_mm512_set1_ps(-0.0), in._data);
+    // return _mm512_xor_ps(in._data, _mm512_set1_ps(-0.0));
+}
+
 inline avx512Float16 operator*(avx512Float16 lhs, avx512Float16 rhs)
 {
     return _mm512_mul_ps(lhs._data, rhs._data);
@@ -831,6 +853,16 @@ inline avx512Float16 sqrt(avx512Float16 in)
 inline avx512Float16 abs(avx512Float16 in)
 {
     return _mm512_abs_ps(in._data);
+}
+
+inline avx512Float16 min(avx512Float16 lhs, avx512Float16 rhs)
+{
+    return _mm512_min_ps(lhs._data, rhs._data);
+}
+
+inline avx512Float16 max(avx512Float16 lhs, avx512Float16 rhs)
+{
+    return _mm512_max_ps(lhs._data, rhs._data);
 }
 
 inline avx512Float16 log(avx512Float16 in)
