@@ -251,6 +251,11 @@ inline scalarT<T> operator-(scalarT<T> lhs, U rhs)
     return lhs._data - rhs;
 }
 
+template <typename T> inline scalarT<T> operator-(scalarT<T> in)
+{
+    return -in._data;
+}
+
 template <typename T>
 inline scalarT<T> operator*(scalarT<T> lhs, scalarT<T> rhs)
 {
@@ -295,9 +300,20 @@ template <typename T> inline scalarT<T> sqrt(scalarT<T> in)
 {
     return std::sqrt(in._data);
 }
+
 template <typename T> inline scalarT<T> abs(scalarT<T> in)
 {
     return std::abs(in._data);
+}
+
+template <typename T> inline scalarT<T> min(scalarT<T> lhs, scalarT<T> rhs)
+{
+    return std::min(lhs._data, rhs._data);
+}
+
+template <typename T> inline scalarT<T> max(scalarT<T> lhs, scalarT<T> rhs)
+{
+    return std::max(lhs._data, rhs._data);
 }
 
 template <typename T> inline scalarT<T> log(scalarT<T> in)

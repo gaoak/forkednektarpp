@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: CUDAMathKernelsLauncher.cu
+// File: MathCUDAKernelsLauncher.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,13 +34,52 @@
 
 #include <cuda_runtime.h>
 
-#include "Operators/CUDAMathKernels.cuh"
+#include "Operators/MathKernels/MathCUDAKernels.cuh"
 #include "Operators/MemoryRegionDevice.hpp"
 
-#include "CUDAMathKernelsLauncher.hpp"
+#include "MathKernelsLauncher.hpp"
 
-using namespace Nektar::Operators;
+using namespace Nektar;
 using ExecSpace = NektarSpaces::CUDA;
+
+void negKernelLauncher(const size_t n, const double *x, double *y)
+{
+    negKernel<ExecSpace, double>(n, x, y);
+}
+
+void addKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    addKernel<ExecSpace, double>(n, x, y, z);
+}
+
+void subKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    subKernel<ExecSpace, double>(n, x, y, z);
+}
+
+void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
+                         const double *y, double *z)
+{
+    daxpyKernel<ExecSpace, double>(n, alpha, x, y, z);
+}
+
+void divKernelLauncher(const size_t n, const double *x, const double *y,
+                       double *z)
+{
+    divKernel<ExecSpace, double>(n, x, y, z);
+}
+
+void sumKernelLauncher(const size_t n, const double *x, double *h_out)
+{
+
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    reduceSumKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
+}
 
 void maxKernelLauncher(const size_t n, const double *x, double *h_out)
 {
@@ -57,6 +96,16 @@ void minKernelLauncher(const size_t n, const double *x, double *h_out)
     double *d_out;
     cudaMalloc((void **)&d_out, sizeof(double));
     reduceMinKernel<ExecSpace, double>(n, x, d_out);
+    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
+}
+
+void innerproductKernelLauncher(const size_t n, const double *x,
+                                const double *y, double *h_out)
+{
+    double *d_out;
+    cudaMalloc((void **)&d_out, sizeof(double));
+    ddotKernel<ExecSpace, double>(n, x, y, d_out);
     cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -96,38 +145,4 @@ void linfnormKernelLauncher(const size_t n, const double *x, double *h_out)
     linfnormKernel<ExecSpace, double>(n, x, d_out);
     cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
-}
-
-void dotKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *h_out)
-{
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    innerProductKernel<ExecSpace, double>(n, x, y, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
-}
-
-void addKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
-{
-    addKernel<ExecSpace, double>(n, x, y, z);
-}
-
-void subKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
-{
-    subKernel<ExecSpace, double>(n, x, y, z);
-}
-
-void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
-                         const double *y, double *z)
-{
-    daxpyKernel<ExecSpace, double>(n, alpha, x, y, z);
-}
-
-void divKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
-{
-    divKernel<ExecSpace, double>(n, x, y, z);
 }

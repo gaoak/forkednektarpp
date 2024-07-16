@@ -402,7 +402,7 @@ public:
     }
 
     /**
-     * @brief Copy the data to a Nektar::Array
+     * @brief Copy the data to a std::vector
      *
      * @return std::vector
      */
@@ -423,6 +423,34 @@ public:
         this->template copyTo<NektarSpaces::HostSpace, TDataOut>(array.data());
 
         return array;
+    }
+
+    /**
+     * @brief Copy the data to a MemoryRegion
+     *
+     * @return MemoryRegion
+     */
+    template <typename TDataOut = TData>
+    MemoryRegion<TDataOut> toMemoryRegion(size_t size = 0)
+    {
+        if (size == 0)
+        {
+            for (auto const &block : this->GetBlocks())
+            {
+                size += block.block_size;
+            }
+        }
+
+        MemoryRegion<TDataOut> region;
+        region =
+            MemoryRegion<TDataOut>::template create<NektarSpaces::HostSpace>(
+                size);
+
+        // Copy the data from the input field
+        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(
+            region.template GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+
+        return region;
     }
 
     /**
@@ -471,6 +499,80 @@ public:
 
             src += nElmts * nPts;
             offset += nSize;
+        }
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        Field
+     *
+     * @param region - Field to copy from
+     *
+     */
+    template <typename MemSpace, typename MemCopy = HostToDevice>
+    void copyField(Field &field)
+    {
+        if (this->size() != field.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::copyField - "
+                << "Memory size mismatch between (" << field.getName()
+                << ") and (" << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
+        {
+            this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
+                                                         MemCopy>(
+                field.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(),
+                field.size());
+        }
+        else if constexpr (std::is_same<MemCopy, HostToDevice>::value ||
+                           std::is_same<MemCopy, HostToHost>::value)
+        {
+            this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
+                                                         MemCopy>(
+                field.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+                field.size());
+        }
+    }
+
+    /**
+     * @brief Templated copy method. This method copies data from a
+     *        MemoryRegion
+     *
+     * @param region - MemoryRegion to copy from
+     *
+     */
+    template <typename MemSpace, typename TDataIn,
+              typename MemCopy = HostToDevice>
+    void copyMemoryRegion(MemoryRegion<TDataIn> &region)
+    {
+        /*if (this->size() != region.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::copyMemoryRegion - "
+                << "Memory size mismatch between (" << region.getName()
+                << ") and (" << this->getName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }*/
+
+        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
+                      std::is_same<MemCopy, DeviceToHost>::value)
+        {
+            this->template copyFrom<MemSpace, TDataIn, MemCopy>(
+                region.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>());
+        }
+
+        if constexpr (std::is_same<MemCopy, HostToDevice>::value ||
+                      std::is_same<MemCopy, HostToHost>::value)
+        {
+            this->template copyFrom<MemSpace, TDataIn, MemCopy>(
+                region.template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
         }
     }
 

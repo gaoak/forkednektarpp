@@ -36,7 +36,7 @@
 
 #include "Operators/OperatorFwdTrans.hpp"
 
-#include "Operators/MathKernels.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorDirBndCond.hpp"
 #include "Operators/OperatorHelper.hpp"
@@ -95,8 +95,6 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t nloc = out.size();
-
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
@@ -104,13 +102,7 @@ public:
         m_DirBCOp->apply(out);
         m_MassOp->apply(out, m_tmp);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        auto *rhsPtr = m_rhs.template GetPtr<MemSpace, ReadWrite>();
-        auto *tmpPtr = m_tmp.template GetPtr<MemSpace, ReadOnly>();
-
-        subKernel<ExecSpace, TData>(nloc, rhsPtr, tmpPtr, rhsPtr);
+        sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
@@ -122,8 +114,7 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
-        auto *outPtr = out.template GetPtr<MemSpace, ReadWrite>();
-        addKernel<ExecSpace, TData>(nloc, outPtr, tmpPtr, outPtr);
+        add<ExecSpace, TData>(out, m_tmp, out);
     }
 
     void setPrecon(

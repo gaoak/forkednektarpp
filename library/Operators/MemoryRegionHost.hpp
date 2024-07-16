@@ -222,40 +222,6 @@ public:
     }
 
     /**
-     * @brief Set all storage data as being valid.
-     *
-     * This is a virtual function so that subclasses can set values.
-     */
-    virtual void setValid(bool valid)
-    {
-        if (m_host)
-        {
-            m_host_valid = valid;
-            m_initialize = false;
-        }
-    }
-
-    /**
-     * @brief Get the storage valid.
-     *
-     * This is a virtual function so that subclasses can set values.
-     */
-    virtual bool getValid() const
-    {
-        return m_host_valid;
-    }
-
-    /**
-     * @brief Get the initialize valid.
-     *
-     * This is a virtual function so that subclasses can set values.
-     */
-    bool getInitialize() const
-    {
-        return m_initialize;
-    }
-
-    /**
      * @brief Get the storage alignment
      *
      * @return - size_t

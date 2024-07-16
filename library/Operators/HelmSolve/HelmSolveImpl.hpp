@@ -36,7 +36,7 @@
 
 #include "Operators/OperatorHelmSolve.hpp"
 
-#include "Operators/MathKernels.hpp"
+#include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorConjGrad.hpp"
 #include "Operators/OperatorDirBndCond.hpp"
 #include "Operators/OperatorHelmholtz.hpp"
@@ -98,16 +98,10 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t nloc = out.size();
-
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        TData *rhsPtr = m_rhs.template GetPtr<MemSpace, ReadWrite>();
-        negKernel<ExecSpace, TData>(nloc, rhsPtr, rhsPtr);
+        neg<ExecSpace, TData>(m_rhs, m_rhs);
 
         // Handle Neumann BCs on RHS
         m_NeuBCOp->apply(m_rhs);
@@ -116,11 +110,7 @@ public:
         m_DirBCOp->apply(out);
         m_HelmOp->apply(out, m_tmp);
 
-        // Anytime there is a mix of internal kernel calls and
-        // external operator calls the memory region being used must
-        // be in the correct space. Getting the pointer does that.
-        TData *tmpPtr = m_tmp.template GetPtr<MemSpace, ReadWrite>();
-        subKernel<ExecSpace, TData>(nloc, rhsPtr, tmpPtr, rhsPtr);
+        sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
@@ -132,8 +122,7 @@ public:
         m_CGOp->apply(m_rhs, m_tmp);
 
         // Add Dirichlet BCs
-        TData *outPtr = out.template GetPtr<MemSpace, ReadWrite>();
-        addKernel<ExecSpace, TData>(nloc, outPtr, tmpPtr, outPtr);
+        add<ExecSpace, TData>(out, m_tmp, out);
     }
 
     void setLambda(const TData &lambda) override

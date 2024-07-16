@@ -55,7 +55,7 @@ public:
     void apply(Field<TData, TFieldState> &in,
                Field<TData, TFieldState> &out) override
     {
-        out.template copyRegion<MemSpace>(in);
+        out.template copyField<MemSpace>(in);
     }
 
     // instantiation function for CreatorFunction in OperatorFactory

@@ -204,7 +204,7 @@ SET(OPERATORS_HEADERS
     Operator.hpp
     OperatorHelper.hpp
     Spaces.hpp
-    MathKernels.hpp
+    MathKernels/MathKernels.hpp
     )
 
 SET(OPERATORS_SOURCES
@@ -232,7 +232,6 @@ SET(OPERATORS_DEPENDS
 if(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      CUDAMathKernels.cuh
     )
 
     SET(OPERATORS_SOURCES

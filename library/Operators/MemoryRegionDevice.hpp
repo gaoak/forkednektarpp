@@ -286,27 +286,6 @@ public:
         return os << msg.str();
     }
 
-    /**
-     * @brief Set all storage data as being valid.
-     *
-     */
-    void setValid(bool valid) override
-    {
-        m_device_valid     = valid;
-        this->m_host_valid = !valid;
-        this->m_initialize = false;
-    }
-
-    /**
-     * @brief Get the storage valid.
-     *
-     * This is a virtual function so that subclasses can set values.
-     */
-    bool getValid() const override
-    {
-        return m_device_valid;
-    }
-
 protected:
     /**
      * @brief Create hostmemory
@@ -357,6 +336,7 @@ protected:
         if (write_only)
         {
             this->m_host_valid = true;
+            this->m_initialize = false;
         }
         else
         {
@@ -399,7 +379,8 @@ protected:
     {
         if (write_only)
         {
-            m_device_valid = true;
+            m_device_valid     = true;
+            this->m_initialize = false;
         }
         else
         {
@@ -518,7 +499,7 @@ protected:
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(src,
+            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(v_src,
                                                                          size);
             Kokkos::View<TData *, Kokkos::HostSpace> hostView(dst, size);
 

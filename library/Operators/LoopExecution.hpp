@@ -300,7 +300,7 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
 // block size.
 // ----------------------------------------------------------------------------
 
-// GPU Simple 1D range parallel_for
+/*// GPU Simple 1D range parallel_for
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<
     !std::is_same<ExecSpace, NektarSpaces::DefaultHostExecutionSpace>::value &&
@@ -400,7 +400,7 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
             }
         }
     }
-}
+}*/
 
 //----------------------------------------------------------------------------
 // Parallel loops when Kokkos is enabled.

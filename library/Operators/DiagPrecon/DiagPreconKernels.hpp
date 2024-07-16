@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include "Operators/MemoryRegion.hpp"
 #include "Operators/Spaces.hpp"
 
 #include <cstddef>
@@ -50,10 +51,15 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
 SetDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
-                  const TData val, TData *out)
+                  const size_t offset, const TData val,
+                  MemoryRegion<TData> &out)
 {
+    using MemSpace = typename ExecSpace::memory_space;
+
+    TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
     Nektar::parallel_for<ExecSpace>(
-        0, nelmts, KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = val; });
+        0, nelmts,
+        NEKTAR_LAMBDA(int e) { outptr[offset + e * nmTot + mode] = val; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -63,11 +69,19 @@ inline typename std::enable_if<
         std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
     void>::type
 CopyDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
-                   TData *in, TData *out)
+                   const size_t inoffset, const size_t outoffset,
+                   Field<TData, FieldState::Coeff> &in,
+                   MemoryRegion<TData> &out)
 {
+    using MemSpace = typename ExecSpace::memory_space;
+
+    const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
+    TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();
     Nektar::parallel_for<ExecSpace>(
-        0, nelmts,
-        KOKKOS_LAMBDA(int e) { out[e * nmTot + mode] = in[e * nmTot + mode]; });
+        0, nelmts, NEKTAR_LAMBDA(int e) {
+            outptr[outoffset + e * nmTot + mode] =
+                inptr[inoffset + e * nmTot + mode];
+        });
 }
 
 } // namespace Nektar::Operators::detail

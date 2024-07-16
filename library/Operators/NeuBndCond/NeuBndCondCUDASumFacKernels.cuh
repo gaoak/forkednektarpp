@@ -124,9 +124,8 @@ inline
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    NeuBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, offsetPtr, bctypePtr, ncoeffPtr,
-                                  signPtr, mapPtr, inPtr, outPtr);
+    NeuBndCondKernel<TData><<<gridSize, blockSize>>>(
+        nsize, offsetPtr, bctypePtr, ncoeffPtr, signPtr, mapPtr, inPtr, outPtr);
 }
 
 #endif

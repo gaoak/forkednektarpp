@@ -27,14 +27,15 @@
 # COMMON FORMAT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-SET(OPERATOR_UNIT_TEST_DEPENDS
-  Operators )
+SET(OPERATOR_UNIT_TEST_DEPENDS Operators)
 
 IF(BOOST_TEST_DYN_LINK)
     SET(OPERATOR_UNIT_TEST_DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS}
         ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
 ENDIF()
 
+ADD_NEKTAR_EXECUTABLE(test_math_serial
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_serial.cpp MathSerialKernelsLauncher.cpp)
 # Serial StdMat
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_stdmat.cpp)
@@ -78,6 +79,8 @@ ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
 # These AVX test do not work
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    ADD_NEKTAR_EXECUTABLE(test_math_avx
+            COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp MathAVXKernelsLauncher.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac
@@ -90,8 +93,8 @@ ENDIF()
 
 # CUDA
 IF(NEKTAR_ENABLE_CUDA)
-    ADD_NEKTAR_EXECUTABLE(test_cudamathkernels
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_cudamathkernels.cpp CUDAMathKernelsLauncher.cu)
+    ADD_NEKTAR_EXECUTABLE(test_math_cuda
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_cuda.cpp MathCUDAKernelsLauncher.cu)
 # CUDA SumFac
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_cuda_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_cuda_sumfac.cpp)
@@ -130,6 +133,10 @@ IF(NEKTAR_ENABLE_CUDA)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial
+IF(NEKTAR_ENABLE_KOKKOS)
+    ADD_NEKTAR_EXECUTABLE(test_math_kokkos
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_kokkos.cpp MathKokkosKernelsLauncher.cpp)
+ENDIF()
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr_kokkos_stdmat
@@ -181,6 +188,7 @@ MACRO(SET_UNIT_TEST testname name mpi_flag)
 ENDMACRO()
 
 # Serial StdMat
+SET_UNIT_TEST(Math_serial test_math_serial FALSE)
 SET_UNIT_TEST(AssmbScatr_serial_stdmat test_assmbscatr_serial_stdmat FALSE)
 SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral_serial_stdmat FALSE)
 SET_UNIT_TEST(BwdTrans_serial_stdmat test_bwdtrans_serial_stdmat FALSE)
@@ -204,15 +212,16 @@ SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
-   SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
-   SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
-   SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
-   SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
+    SET_UNIT_TEST(Math_avx test_math_avx FALSE)
+    SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
+    SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
+    SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
+    SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
 ENDIF()
 
 # CUDA SumFac
 IF(NEKTAR_ENABLE_CUDA)
-    SET_UNIT_TEST(CUDAMathKernels test_cudamathkernels FALSE)
+    SET_UNIT_TEST(Math_cuda test_math_cuda FALSE)
     SET_UNIT_TEST(AddTraceIntegral_cuda_sumfac test_addtraceintegral_cuda_sumfac FALSE)
     SET_UNIT_TEST(AssmbScatr_cuda_sumfac test_assmbscatr_cuda_sumfac FALSE)
     SET_UNIT_TEST(BwdTrans_cuda_sumfac test_bwdtrans_cuda_sumfac FALSE)
@@ -237,6 +246,9 @@ ENDIF()
 # interleaaving and slightly different results??? Once AVX is fully
 # built try to run them.
 IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
+    IF(NEKTAR_ENABLE_KOKKOS)
+        SET_UNIT_TEST(Math_kokkos test_math_kokkos FALSE)
+    ENDIF()
     SET_UNIT_TEST(AddTraceIntegral_kokkos_stdmat test_addtraceintegral_kokkos_stdmat FALSE)
     SET_UNIT_TEST(Assmbscatr_kokkos_stdmat test_assmbscatr_kokkos_stdmat FALSE)
     SET_UNIT_TEST(BwdTrans_kokkos_stdmat test_bwdtrans_kokkos_stdmat FALSE)
