@@ -132,45 +132,45 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac.cpp)
 ENDIF()
 
-# Kokkos - if no Kokkos loops are serial
+# Kokkos
 IF(NEKTAR_ENABLE_KOKKOS)
     ADD_NEKTAR_EXECUTABLE(test_math_kokkos
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_kokkos.cpp MathKokkosKernelsLauncher.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_diagprecon_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_dirichlet_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identityphys_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_neumann_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_nullprecon_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_kokkos_stdmat.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_kokkos_stdmat
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_stdmat.cpp)
 ENDIF()
-ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_assmbscatr_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_bwdtrans_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_diagprecon_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_dirichlet_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_fwdtrans_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmholtz_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_identitycoeff_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_identityphys_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_mass_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_neumann_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_nullprecon_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_kokkos_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_physderiv_kokkos_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_kokkos_stdmat.cpp)
 
 # Macro
 MACRO(SET_UNIT_TEST testname name mpi_flag)
@@ -248,24 +248,24 @@ ENDIF()
 IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
     IF(NEKTAR_ENABLE_KOKKOS)
         SET_UNIT_TEST(Math_kokkos test_math_kokkos FALSE)
+        SET_UNIT_TEST(AddTraceIntegral_kokkos_stdmat test_addtraceintegral_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(Assmbscatr_kokkos_stdmat test_assmbscatr_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(BwdTrans_kokkos_stdmat test_bwdtrans_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(DiagPrecon_kokkos_stdmat test_diagprecon_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(Dirichlet_kokkos_stdmat test_dirichlet_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(FwdTrans_kokkos_stdmat test_fwdtrans_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(Helmholtz_kokkos_stdmat test_helmholtz_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(HelmSolve_kokkos_stdmat test_helmsolve_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(IdentityCoeff_kokkos_stdmat test_identitycoeff_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(IdentityPhys_kokkos_stdmat test_identityphys_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(IProductWRTDerivBase_kokkos_stdmat test_ipwrtderivbase_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(Mass_kokkos_stdmat test_mass_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_stdmat test_multiplybyelmtinvmass_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(Neumann_kokkos_stdmat test_neumann_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(NullPrecon_kokkos_stdmat test_nullprecon_kokkos_stdmat FALSE)
+        SET_UNIT_TEST(PhysDeriv_kokkos_stdmat test_physderiv_kokkos_stdmat FALSE)
     ENDIF()
-    SET_UNIT_TEST(AddTraceIntegral_kokkos_stdmat test_addtraceintegral_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Assmbscatr_kokkos_stdmat test_assmbscatr_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(BwdTrans_kokkos_stdmat test_bwdtrans_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(DiagPrecon_kokkos_stdmat test_diagprecon_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Dirichlet_kokkos_stdmat test_dirichlet_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(FwdTrans_kokkos_stdmat test_fwdtrans_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Helmholtz_kokkos_stdmat test_helmholtz_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(HelmSolve_kokkos_stdmat test_helmsolve_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(IdentityCoeff_kokkos_stdmat test_identitycoeff_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(IdentityPhys_kokkos_stdmat test_identityphys_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTBase_kokkos_stdmat test_ipwrtbase_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(IProductWRTDerivBase_kokkos_stdmat test_ipwrtderivbase_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Mass_kokkos_stdmat test_mass_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(MultiplyByElmtInvMass_kokkos_stdmat test_multiplybyelmtinvmass_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(Neumann_kokkos_stdmat test_neumann_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(NullPrecon_kokkos_stdmat test_nullprecon_kokkos_stdmat FALSE)
-    SET_UNIT_TEST(PhysDeriv_kokkos_stdmat test_physderiv_kokkos_stdmat FALSE)
 ENDIF()
 
 # Copy XML file to build directory

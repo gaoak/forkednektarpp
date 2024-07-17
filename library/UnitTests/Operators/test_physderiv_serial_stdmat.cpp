@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "init_physderivfields.hpp"
 
 #define TEST_PHYSDERIV(test_name, test, dim, tol)                              \

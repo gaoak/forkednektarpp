@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Spaces.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 #include <cooperative_groups.h>
 #include <cuda/std/limits>
@@ -1025,21 +1025,23 @@ inline
     cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
     cudaMemset(out, 0, sizeof(TData));
 
-    if constexpr (std::is_same_v<Reduction, NektarSpaces::Sum<TData>>)
+    if constexpr (std::is_same_v<Reduction, NektarSpaces::ReduceSum<TData>>)
     {
         reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
             begin, end, (TData *)cudaBuffer, functor);
         reduceSumKernel<TData>
             <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
     }
-    else if constexpr (std::is_same_v<Reduction, NektarSpaces::Max<TData>>)
+    else if constexpr (std::is_same_v<Reduction,
+                                      NektarSpaces::ReduceMax<TData>>)
     {
         reduceMaxKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
             begin, end, (TData *)cudaBuffer, functor);
         reduceMaxKernel<TData>
             <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
     }
-    else if constexpr (std::is_same_v<Reduction, NektarSpaces::Min<TData>>)
+    else if constexpr (std::is_same_v<Reduction,
+                                      NektarSpaces::ReduceMin<TData>>)
     {
         reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
             begin, end, (TData *)cudaBuffer, functor);

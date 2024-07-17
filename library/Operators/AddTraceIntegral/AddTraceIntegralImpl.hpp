@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/IProductWRTBase/IProductWRTBaseSerialStdMat.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialStdMat.hpp"
 #include "Operators/OperatorAddTraceIntegral.hpp"
 
 using namespace Nektar::MultiRegions;

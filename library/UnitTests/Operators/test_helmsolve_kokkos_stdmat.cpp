@@ -36,7 +36,7 @@
 
 #include "init_helmsolvefields.hpp"
 
-#include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 

@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 #include "init_helmholtzfields.hpp"
 
 #define TEST_HELMHOLTZ(test_name, test, tol)                                   \

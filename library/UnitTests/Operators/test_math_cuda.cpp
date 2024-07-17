@@ -36,7 +36,7 @@
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include "MathKernelsLauncher.hpp"
-#include "Operators/MemoryRegionDevice.hpp"
+#include "Operators/Field/MemoryRegionDevice.hpp"
 #include "init_mathkernels.hpp"
 
 #include <iostream>

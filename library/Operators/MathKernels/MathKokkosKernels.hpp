@@ -34,8 +34,10 @@
 
 #pragma once
 
-#include "Operators/LoopExecution.hpp"
-#include "Operators/Spaces.hpp"
+#if defined(NEKTAR_ENABLE_KOKKOS)
+
+#include "Operators/Common/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -190,3 +192,5 @@ linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 } // namespace Nektar
+
+#endif

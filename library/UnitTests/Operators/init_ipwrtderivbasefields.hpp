@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorNullPrecon.hpp"
+#include "Operators/PreconOps/OperatorNullPrecon.hpp"
 #include "init_nullpreconfields.hpp"
 
 #define TEST_NULLPRECON(test_name, test, tol)                                  \

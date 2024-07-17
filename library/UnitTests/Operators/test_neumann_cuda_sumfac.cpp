@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorNeuBndCond.hpp"
+#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 #include "init_neumannfields.hpp"
 
 #define TEST_NEUMANN(test_name, test, tol)                                     \

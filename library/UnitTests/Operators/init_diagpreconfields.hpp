@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>

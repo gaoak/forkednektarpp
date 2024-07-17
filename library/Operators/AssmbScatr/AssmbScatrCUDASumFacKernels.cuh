@@ -34,10 +34,12 @@
 
 #pragma once
 
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+
+#include "Operators/Common/Spaces.hpp"
+
 namespace Nektar::Operators::detail
 {
-
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
 template <typename TData>
 __global__ void AssembleKernel(const unsigned int nsize,
@@ -240,6 +242,6 @@ inline
         <<<gridSize, blockSize>>>(nsize, offset, assmbPtr, inPtr, outPtr);
 }
 
-#endif
-
 } // namespace Nektar::Operators::detail
+
+#endif

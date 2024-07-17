@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorNullPrecon.hpp"
+#include "Operators/PreconOps/OperatorNullPrecon.hpp"
 
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/Preconditioner.h>

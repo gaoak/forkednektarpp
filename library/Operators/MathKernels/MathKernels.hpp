@@ -34,7 +34,7 @@
 
 #pragma once
 
-#include "Operators/Field.hpp"
+#include "Operators/Field/Field.hpp"
 #include "Operators/MathKernels/MathAVXKernels.hpp"
 #include "Operators/MathKernels/MathCUDAKernels.cuh"
 #include "Operators/MathKernels/MathKokkosKernels.hpp"

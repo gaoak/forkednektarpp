@@ -39,7 +39,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
 #include "init_multiplybyelmtinvmassfields.hpp"
 
 #define TEST_MULTIPLYBYELMTINVMASS(test_name, test, tol)                       \

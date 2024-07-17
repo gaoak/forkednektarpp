@@ -38,8 +38,8 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorDiagPrecon.hpp"
-#include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 #include "init_diagpreconfields.hpp"
 
 #define TEST_DIAGPRECON(test_name, test, tol)                                  \

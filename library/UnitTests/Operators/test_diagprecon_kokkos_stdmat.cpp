@@ -36,7 +36,7 @@
 
 #include "init_diagpreconfields.hpp"
 
-#include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 

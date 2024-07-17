@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operator.hpp"
-#include "Operators/Field.hpp"
+#include "Common/Operator.hpp"
+#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
