@@ -38,8 +38,8 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorDiagPrecon.hpp"
-#include "Operators/OperatorFwdTrans.hpp"
+#include "Operators/GlobalLinSysOps/OperatorFwdTrans.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 #include "init_fwdtransfields.hpp"
 
 #define TEST_FWDTRANS(test_name, test, tol)                                    \

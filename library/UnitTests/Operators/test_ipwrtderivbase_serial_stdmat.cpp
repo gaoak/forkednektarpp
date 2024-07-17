@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "init_ipwrtderivbasefields.hpp"
 
 #define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \

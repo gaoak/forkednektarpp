@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "init_ipwrtbasefields.hpp"
 
 #define TEST_IPWRTBASE(test_name, test, tol)                                   \

@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

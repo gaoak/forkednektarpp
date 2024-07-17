@@ -38,8 +38,8 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorDiagPrecon.hpp"
-#include "Operators/OperatorHelmSolve.hpp"
+#include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 #include "init_helmsolvefields.hpp"
 
 #define TEST_HELMSOLVE(test_name, test, tol)                                   \

@@ -36,8 +36,8 @@
 
 #include "Operators/OperatorMatrix.hpp"
 
-#include "Operators/MemoryRegion.hpp"
-#include "Operators/OperatorHelper.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/Field/MemoryRegion.hpp"
 
 namespace Nektar::Operators::detail
 {

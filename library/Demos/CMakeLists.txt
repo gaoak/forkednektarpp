@@ -3,3 +3,7 @@ SUBDIRS(LibUtilities StdRegions SpatialDomains LocalRegions Collections MultiReg
 IF(NEKTAR_BUILD_PYTHON)
     SUBDIRS(Python)
 ENDIF()
+
+IF (NEKTAR_BUILD_REDESIGN)
+    SUBDIRS(Operators)
+ENDIF()

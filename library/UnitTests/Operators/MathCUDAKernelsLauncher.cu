@@ -34,8 +34,8 @@
 
 #include <cuda_runtime.h>
 
+#include "Operators/Field/MemoryRegionDevice.hpp"
 #include "Operators/MathKernels/MathCUDAKernels.cuh"
-#include "Operators/MemoryRegionDevice.hpp"
 
 #include "MathKernelsLauncher.hpp"
 

@@ -34,7 +34,9 @@
 
 #pragma once
 
-#include "Operators/LoopExecution.hpp"
+#if defined(NEKTAR_ENABLE_KOKKOS)
+
+#include "Operators/Common/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -46,8 +48,8 @@ AssembleKernel(const unsigned int nsize, const unsigned int offset,
                const int *assmbPtr, const TData *signPtr, const TData *inPtr,
                TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[offset + i],
                                signPtr[offset + i] * inPtr[offset + i]);
         });
@@ -60,8 +62,8 @@ AssembleKernel(const unsigned int nsize, const unsigned int offset,
                const int *assmbPtr, const TData sign, const TData *inPtr,
                TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[offset + i],
                                sign * inPtr[offset + i]);
         });
@@ -73,8 +75,8 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const unsigned int offset,
                const int *assmbPtr, const TData *inPtr, TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[offset + i],
                                inPtr[offset + i]);
         });
@@ -87,8 +89,8 @@ GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
                     const int *assmbPtr, const TData *signPtr,
                     const TData *inPtr, TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[offset + i] =
                 signPtr[offset + i] * inPtr[assmbPtr[offset + i]];
         });
@@ -101,8 +103,8 @@ GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
                     const int *assmbPtr, const TData sign, const TData *inPtr,
                     TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[offset + i] = sign * inPtr[assmbPtr[offset + i]];
         });
 }
@@ -113,10 +115,12 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
                     const int *assmbPtr, const TData *inPtr, TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, KOKKOS_LAMBDA(unsigned int i) {
+    Kokkos::parallel_for(
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[offset + i] = inPtr[assmbPtr[offset + i]];
         });
 }
 
 } // namespace Nektar::Operators::detail
+
+#endif

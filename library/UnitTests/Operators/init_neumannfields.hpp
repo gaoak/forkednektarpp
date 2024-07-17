@@ -34,7 +34,7 @@
 
 #include "init_fields.hpp"
 
-#include "Operators/OperatorNeuBndCond.hpp"
+#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;

@@ -34,14 +34,14 @@
 
 #pragma once
 
-#include "Operators/LoopExecution.hpp"
+#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+
+#include "Operators/Common/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 // CUDA Kernels
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
-
 template <typename TData>
 __global__ void MatrixKernel(const size_t nelmt, const size_t numPts,
                              const size_t size, const TData *mat,
@@ -79,6 +79,6 @@ inline
     MatrixKernel<<<gridSize, blockSize>>>(nelmt, numPts, size, mat, in, out);
 }
 
-#endif
-
 } // namespace Nektar::Operators::detail
+
+#endif

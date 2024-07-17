@@ -39,7 +39,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "init_bwdtransfields.hpp"
 
 #define TEST_BWDTRANS(test_name, test, tol)                                    \

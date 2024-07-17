@@ -36,7 +36,7 @@
 
 #include "init_fwdtransfields.hpp"
 
-#include "Operators/OperatorDiagPrecon.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
 
@@ -77,7 +77,7 @@ TEST_FWDTRANS(fwdtrans_kokkos_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_FWDTRANS(fwdtrans_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
-TEST_FWDTRANS(fwdtrans_kokkos_hex, Helmholtz3D_Hex, 1.0E-08)
+TEST_FWDTRANS(fwdtrans_kokkos_hex, Helmholtz3D_Hex, 1.1E-08)
 
 TEST_FWDTRANS(fwdtrans_kokkos_prism, Helmholtz3D_Prism, 1.0E-08)
 

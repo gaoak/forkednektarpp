@@ -10,14 +10,25 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(ExecSpaces ${ExecSpaces} CUDA)
 ENDIF()
 
-# Kokkos execution space - if no Kokkos loops are serial
-SET(ExecSpaces ${ExecSpaces} Kokkos)
+# Kokkos execution space
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(ExecSpaces ${ExecSpaces} Kokkos)
+ENDIF()
 
 # Currently two primary implementation types.
 SET(Implementations StdMat SumFac)
 
 # Macro for each operator
-MACRO(ADD_OPERATOR name)
+MACRO(ADD_OPERATOR dir)
+
+    #extract operator name form directory if it exists
+    IF(IS_DIRECTORY ${dir})
+        get_filename_component(name "${dir}" NAME)
+        message("Name identified from dir: " "${name}")
+    ELSE()
+        continue()
+    ENDIF()
+
     SET(NAME_HEADERS ${name}_HEADERS)
     SET(NAME_SOURCES ${name}_SOURCES)
 
@@ -27,13 +38,13 @@ MACRO(ADD_OPERATOR name)
     # which requires two delcarations.
     IF("${OPERATOR}" STREQUAL "Identity" OR
         "${OPERATOR}" STREQUAL "Matrix")
-      SET(CONFIG_FILE OperatorFactoryDecCoeffPhys.cpp.in)
+        SET(CONFIG_FILE OperatorFactoryDecCoeffPhys.cpp.in)
     ELSE()
       SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
     ENDIF()
 
     # Add the main operator header to the list of headers.
-    SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
+    # Does no seem to do abything     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
 
     # These are variales used to determine the operator
     # implementation.
@@ -42,28 +53,31 @@ MACRO(ADD_OPERATOR name)
     UNSET(BASE)
     UNSET(HAS_KERNELS)
 
+                 
     # Generic header (*Impl.hpp) that can be used without a specific
     # implementation. It may have specific implementation kerenels.
-    IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${name}/${name}Impl.hpp")
-        SET(GENERIC_HEADER "#include \"${name}/${name}Impl.hpp\"")
+    IF(EXISTS "${dir}/${name}Impl.hpp")
+         FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                 ${dir}/${name}Impl.hpp)
+         SET(GENERIC_HEADER "#include \"${include_file}\"")
 
         # Check for implementation specific kernels (Note the "?*" in
         # the glob which skips general kernels). If there are kernels
         # then each implementation must have a kernel header file.
-        FILE(GLOB HAS_KERNELS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${name}/${name}?*Kernels.*)
+        FILE(GLOB HAS_KERNELS RELATIVE ${dir} ${name}?*Kernels.*)
 
     # A base header (*ImplBase.hpp) defines part but not all of the
     # implementation and as such requires a specific implementation
     # header.
-    ELSEIF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${name}/${name}ImplBase.hpp")
-        SET(BASE_HEADER "#include \"${name}/${name}ImplBase.hpp\"")
+    ELSEIF(EXISTS "${dir}/${name}ImplBase.hpp")
+         FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                 ${dir}/${name}ImplBase.hpp)
+        SET(BASE_HEADER "#include \"${include_file}\"")
         SET(BASE Base) # Used in the Impl.cpp.in file
     ENDIF()
 
     # Loop through each possible execution space.
     foreach (ExecSpace IN LISTS ExecSpaces)
-
         # CUDA has cu and cuh extentions
         IF("${ExecSpace}" STREQUAL "CUDA")
             SET(SOURCE_EXT cu)
@@ -109,38 +123,35 @@ MACRO(ADD_OPERATOR name)
             # Get the headers matching the name, execution space, and
             # Implementation (specific and kernel).
             FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-                ${name}/${name}${ExecSpace}${Impl}*.${HEADER_EXT})
+                 ${dir}/${name}${ExecSpace}${Impl}*.${HEADER_EXT})
 
             # If there are headers then there is a specific
             # implementation of some sort.
             IF(${CURRENT_HEADERS})
 		# Look for a specific header and a kernel header.
-                foreach (file ${${CURRENT_HEADERS}})
-                    IF("${file}" STREQUAL "${name}/${name}${ExecSpace}${Impl}.${HEADER_EXT}")
-                        SET(SPECIFIC_HEADER "#include \"${name}/${name}${ExecSpace}${Impl}.${HEADER_EXT}\"")
-                    ELSEIF("${file}" STREQUAL "${name}/${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}")
-                        SET(KERNEL_HEADER "#include \"${name}/${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}\"")
+                foreach (header_file ${${CURRENT_HEADERS}})
+                    get_filename_component(file "${header_file}" NAME)
+                    get_filename_component(file_dir "${header_file}" DIRECTORY)
+                    IF("${file}" STREQUAL "${name}${ExecSpace}${Impl}.${HEADER_EXT}")
+                        SET(SPECIFIC_HEADER "#include \"${file_dir}/${name}${ExecSpace}${Impl}.${HEADER_EXT}\"")
+                    ELSEIF("${file}" STREQUAL "${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}")
+                        SET(KERNEL_HEADER "#include \"${file_dir}/${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}\"")
                     ENDIF()
                 endforeach()
 
                 IF(GENERIC_HEADER AND KERNEL_HEADER)
-                    message("Adding operator with a generic implementation and kernels: " "${FactoryDeclName}")
+                    message("Add Op with a generic impl. and kernels: " "${FactoryDeclName}")
                 ELSEIF(BASE_HEADER AND SPECIFIC_HEADER AND KERNEL_HEADER)
-                    message("Adding operator with a base and specific implementation and kernels: " "${FactoryDeclName}")
+                    message("Add OP with a base and specific impl. and kernels: " "${FactoryDeclName}")
                     UNSET(KERNEL_HEADER) # The kernel header should be in the specific implementation.
                 ELSEIF(BASE_HEADER AND SPECIFIC_HEADER)
-                    message("Adding operator with a base and specific implementations: " "${FactoryDeclName}")
+                    message("Add Op with a base and specific impl.: " "${FactoryDeclName}")
                 ELSEIF(SPECIFIC_HEADER AND KERNEL_HEADER)
-                    message("Adding operator with a specific implementation and kernels: " "${FactoryDeclName}")
+                    message("Add Op with a specific impl. and kernels: " "${FactoryDeclName}")
                     UNSET(KERNEL_HEADER) # The kernel header should be in the specific implementation.
                 ELSEIF(SPECIFIC_HEADER)
-                    message("Adding operator with a specific implementation: " "${FactoryDeclName}")
+                    message("Add Op with a specific impl.: " "${FactoryDeclName}")
                 ENDIF()
-
-                # Replace this GLOB with a declaration based on what
-                # was found above.
-#               FILE(GLOB ${CURRENT_SOURCES} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-#                    ${name}/${name}${ExecSpace}${Impl}*.${SOURCE_EXT})
 
                 # Create the cpp file from the implementation file.
                 configure_file(${CONFIG_FILE} ${FactoryDeclName})
@@ -155,18 +166,10 @@ MACRO(ADD_OPERATOR name)
             # No headers so totally generic but those with kernels
             # would be declared above.
             ELSEIF(GENERIC_HEADER)
-                # Replace this GLOB with a generic declaration (no
-                # addtional headers other than the generic header).
-#               FILE(GLOB ${CURRENT_SOURCES} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-#                    ${name}/${name}${ExecSpace}${Impl}*.${SOURCE_EXT})
-
-#               IF(${CURRENT_SOURCES})
-#                   message("-Adding operator with a generic implementation: " "${FactoryDeclName}")
-#               ENDIF()
 
                 # If there are kernels the declaration would be above.
                 IF(NOT HAS_KERNELS)
-                    message("Adding operator with a generic implementation: " "${FactoryDeclName}")
+                    message("Add Op using kernel: " "${FactoryDeclName}")
 
                     # Create the cpp file from the implementation file.
                     configure_file(${CONFIG_FILE} ${FactoryDeclName})
@@ -197,33 +200,30 @@ ENDMACRO()
 
 
 SET(OPERATORS_HEADERS
-    Field.hpp
-    LoopExecution.hpp
-    MemoryRegionHost.hpp
-    MemoryRegionDevice.hpp
-    Operator.hpp
-    OperatorHelper.hpp
-    Spaces.hpp
+    Field/Field.hpp
+    Field/MemoryRegionHost.hpp
+    Field/MemoryRegionDevice.hpp
+    Common/LoopExecution.hpp
+    Common/Operator.hpp
+    Common/OperatorHelper.hpp
+    Common/Spaces.hpp
     MathKernels/MathKernels.hpp
     )
 
 SET(OPERATORS_SOURCES
-    Field.cpp
-    LoopExecution.cpp
-    Operator.cpp
+    Field/Field.cpp
+    Common/LoopExecution.cpp
+    Common/Operator.cpp
     )
 
 # Only these cpp files go into the group set below.
 SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
-# Loop through all of the directories (which are operators) and add
+# Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children ${CMAKE_CURRENT_SOURCE_DIR}/*)
+FILE(GLOB children ./*  ElmtOps/* GlobalLinSysOps/* PreconOps/* BndCondOps/*)
 FOREACH(child ${children})
-    IF(IS_DIRECTORY ${child})
-        get_filename_component(operator "${child}" NAME)
-        ADD_OPERATOR(${operator})
-    ENDIF()
+    ADD_OPERATOR(${child})
 ENDFOREACH()
 
 SET(OPERATORS_DEPENDS

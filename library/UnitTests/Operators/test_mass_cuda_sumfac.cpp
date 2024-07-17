@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorMass.hpp"
+#include "Operators/ElmtOps/OperatorMass.hpp"
 #include "init_massfields.hpp"
 
 #define TEST_MASS(test_name, test, tol)                                        \

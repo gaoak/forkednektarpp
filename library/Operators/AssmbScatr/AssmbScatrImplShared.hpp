@@ -39,7 +39,7 @@
 #include "Operators/AssmbScatr/AssmbScatrCUDASumFacKernels.cuh"
 #include "Operators/AssmbScatr/AssmbScatrKokkosStdMatKernels.hpp"
 
-#include "Operators/OperatorHelper.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
 
 namespace Nektar::Operators::detail
 {

@@ -38,7 +38,7 @@
 #include <iostream>
 #include <memory>
 
-#include "Operators/OperatorDirBndCond.hpp"
+#include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 #include "init_dirichletfields.hpp"
 
 #define TEST_DIRICHLET(test_name, test, tol)                                   \
