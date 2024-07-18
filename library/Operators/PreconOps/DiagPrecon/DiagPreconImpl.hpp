@@ -34,8 +34,6 @@
 
 #pragma once
 
-
-
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.cuh"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 #include "Operators/PreconOps/OperatorDiagPrecon.hpp"
@@ -48,7 +46,6 @@
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
-
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -108,12 +105,9 @@ public:
                    OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
                        &op) override
     {
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
-        {
-            m_robBCOp =
-                RobBndCond<TData>::template create<ExecSpace, Implementation>(
-                    this->m_expansionList);
-        }
+        m_robBCOp =
+            RobBndCond<TData>::template create<ExecSpace, Implementation>(
+                this->m_expansionList);
 
         MemoryRegion<TData> diagMR =
             MemoryRegion<TData>::template create<MemSpace>("DiagPrecon local",

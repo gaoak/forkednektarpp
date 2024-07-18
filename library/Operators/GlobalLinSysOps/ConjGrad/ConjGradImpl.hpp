@@ -221,12 +221,7 @@ public:
         // Perform the method-specific matrix-vector multiply operation.
         this->m_LHS->apply(m_w_A, m_s_A);
 
-        // Apply Robin BCs - AVX???
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-                      std::is_same<ExecSpace, NektarSpaces::AVX>::value)
-        {
-            m_robBndCondOp->apply(m_w_A, m_s_A);
-        }
+        m_robBndCondOp->apply(m_w_A, m_s_A);
 
         ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);
 
@@ -271,13 +266,7 @@ public:
             // operation.
             this->m_LHS->apply(m_w_A, m_s_A);
 
-            // Apply Robin BCs - AVX???
-            if constexpr (std::is_same<ExecSpace,
-                                       NektarSpaces::Serial>::value ||
-                          std::is_same<ExecSpace, NektarSpaces::AVX>::value)
-            {
-                m_robBndCondOp->apply(m_w_A, m_s_A);
-            }
+            m_robBndCondOp->apply(m_w_A, m_s_A);
 
             // <r_{k+1}, w_{k+1}>
             ddot<ExecSpace, TData>(m_r_A, m_w_A, vExchangePtr + 0);

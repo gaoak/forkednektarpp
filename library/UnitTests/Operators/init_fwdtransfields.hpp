@@ -178,8 +178,9 @@ public:
 
 TEST(Helmholtz1D_Seg, "run/Helmholtz1D_P8.xml")
 
-// TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_P7_AllBCs.xml")
 TEST(Helmholtz2D_Tri_Quad, "run/Helmholtz2D_varP.xml")
+
+TEST(Helmholtz2D_AllBCs, "run/Helmholtz2D_P7_AllBCs.xml")
 
 TEST(Helmholtz3D_Hex, "run/Helmholtz3D_Hex_Heterogeneous.xml")
 

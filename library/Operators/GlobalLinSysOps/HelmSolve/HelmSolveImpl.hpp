@@ -81,14 +81,9 @@ public:
         m_NeuBCOp =
             NeuBndCond<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
-
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
-        {
-            m_RobBCOp =
-                RobBndCond<TData>::template create<ExecSpace, Implementation>(
-                    this->m_expansionList);
-        }
-
+        m_RobBCOp =
+            RobBndCond<TData>::template create<ExecSpace, Implementation>(
+                this->m_expansionList);
         m_HelmOp = Helmholtz<TData>::template create<ExecSpace, Implementation>(
             this->m_expansionList);
         m_CGOp = ConjGrad<TData>::template create<ExecSpace, Implementation>(
@@ -114,10 +109,7 @@ public:
         sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
-        {
-            m_RobBCOp->apply(out, m_rhs, true);
-        }
+        m_RobBCOp->apply(out, m_rhs, true);
 
         // Solve using Conjugate Gradient
         m_CGOp->apply(m_rhs, m_tmp);
