@@ -34,8 +34,6 @@
 
 #pragma once
 
-
-
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.cuh"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
 #include "Operators/PreconOps/OperatorDiagPrecon.hpp"
@@ -48,7 +46,6 @@
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
-
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralImpl.hpp
+// File: AddTraceIntegralImplShared.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include "Operators/AddTraceIntegral/AddTraceIntegralCUDASumFacKernels.cuh"
+#include "Operators/AddTraceIntegral/AddTraceIntegralKokkosStdMatKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialStdMat.hpp"
 #include "Operators/OperatorAddTraceIntegral.hpp"
 
@@ -43,7 +45,11 @@ namespace Nektar::Operators::detail
 {
 
 // Standard matrix implementation
-template <typename ExecSpace, typename Implementation, typename TData>
+template <
+    typename ExecSpace, typename Implementation, typename TData,
+    typename = typename std::enable_if<
+        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
 class OperatorAddTraceIntegralImpl : public OperatorAddTraceIntegral<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -56,7 +62,25 @@ public:
               GetBlockAttributes(FieldState::Coeff, expansionList->GetTrace())))
     {
         // Get Trace-to-Element Map
-        m_locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();
+        auto locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();
+
+        m_traceCoeffsToElmtMap =
+            MemoryRegion<int>::template fromArray<MemSpace, int>(
+                locTraceToTraceMap->GetTraceCoeffsToElmtMap()[0],
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+
+        m_traceCoeffsToElmtSign =
+            MemoryRegion<int>::template fromArray<MemSpace, int>(
+                locTraceToTraceMap->GetTraceCoeffsToElmtSign()[0],
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+
+        m_traceCoeffsToElmtTrace =
+            MemoryRegion<int>::template fromArray<MemSpace, int>(
+                locTraceToTraceMap->GetTraceCoeffsToElmtTrace()[0],
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+
+        m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
+                          locTraceToTraceMap->GetNBwdCoeffs();
 
         // Initialise IProductWRTBase operator
         m_IProductWRTBaseOp =
@@ -70,18 +94,26 @@ public:
         // Step 1: Inner product for trace integral
         m_IProductWRTBaseOp->apply(in, m_trace);
 
-        // Step 2: LEGACY Map Trace to Element
-        // TODO: Make this Field-only
+        // Step 2: Map Trace to Element
+        AddTraceIntegral(out);
+    }
 
-        // Copy the data to from the trace field.
-        Array<OneD, TData> traceArray = m_trace.toArray();
-        Array<OneD, TData> outArray(this->m_expansionList->GetNcoeffs(), 0.0);
+    void AddTraceIntegral(Field<TData, FieldState::Coeff> &out)
+    {
+        // Copy memory to the device, if necessary and get raw pointers.
+        TData *outPtr         = out.template GetPtr<MemSpace, ReadWrite>();
+        const TData *tracePtr = m_trace.template GetPtr<MemSpace, ReadOnly>();
+        const int *traceCoeffsToElmtMapPtr =
+            m_traceCoeffsToElmtMap.template GetPtr<MemSpace, ReadOnly>();
+        const int *traceCoeffsToElmtSignPtr =
+            m_traceCoeffsToElmtSign.template GetPtr<MemSpace, ReadOnly>();
+        const int *traceCoeffsToElmtTracePtr =
+            m_traceCoeffsToElmtTrace.template GetPtr<MemSpace, ReadOnly>();
 
-        // The legacy map (that needs to be vectorised)
-        m_locTraceToTraceMap->AddTraceCoeffsToFieldCoeffs(traceArray, outArray);
-
-        // Copy the data to the output field.
-        out.template copyArray<MemSpace>(outArray);
+        AddTraceIntegralKernel<ExecSpace, TData>(
+            m_nFwdBwdCoeffs, 0, traceCoeffsToElmtMapPtr,
+            traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr, tracePtr,
+            outPtr);
     }
 
     // className - for OperatorFactory
@@ -98,8 +130,10 @@ public:
 
 private:
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
-    Nektar::MultiRegions::LocTraceToTraceMapSharedPtr m_locTraceToTraceMap;
-
     Field<TData, FieldState::Coeff> m_trace;
+    MemoryRegion<int> m_traceCoeffsToElmtMap;
+    MemoryRegion<int> m_traceCoeffsToElmtSign;
+    MemoryRegion<int> m_traceCoeffsToElmtTrace;
+    int m_nFwdBwdCoeffs;
 };
 } // namespace Nektar::Operators::detail

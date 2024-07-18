@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondKokkosStdMatKernels.hpp
+// File: AddTraceIntegralKokkosStdMatKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -38,55 +38,24 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#include <SpatialDomains/Conditions.h>
-
-using namespace Nektar;
-using namespace Nektar::SpatialDomains;
-
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
-                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+AddTraceIntegralKernel(const unsigned int nsize, const unsigned int offset,
+                       const int *traceCoeffsToElmtMapPtr,
+                       const int *traceCoeffsToElmtSignPtr,
+                       const int *traceCoeffsToElmtTracePtr,
+                       const TData *tracePtr, TData *outPtr)
 {
     Kokkos::parallel_for(
-        bndExpSize, KOKKOS_LAMBDA(const unsigned int i) {
-            if (bctypePtr[i] == eNeumann || bctypePtr[i] == eRobin)
-            {
-                unsigned int offset = offsetPtr[i];
-                unsigned int ncoeff = ncoeffPtr[i];
-                for (unsigned int j = 0; j < ncoeff; j++)
-                {
-                    outPtr[mapPtr[offset + j]] += inPtr[offset + j];
-                }
-            }
-        });
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
-                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
-                 const TData *signPtr, const int *mapPtr, const TData *inPtr,
-                 TData *outPtr)
-{
-    Kokkos::parallel_for(
-        bndExpSize, KOKKOS_LAMBDA(const unsigned int i) {
-            if (bctypePtr[i] == eNeumann || bctypePtr[i] == eRobin)
-            {
-                unsigned int offset = offsetPtr[i];
-                unsigned int ncoeff = ncoeffPtr[i];
-                for (unsigned int j = 0; j < ncoeff; j++)
-                {
-                    outPtr[mapPtr[offset + j]] +=
-                        signPtr[offset + j] * inPtr[offset + j];
-                }
-            }
+        nsize, KOKKOS_LAMBDA(unsigned int i) {
+            unsigned int index = offset + i;
+            Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[index],
+                               traceCoeffsToElmtSignPtr[index] *
+                                   tracePtr[traceCoeffsToElmtTracePtr[index]]);
         });
 }
 
