@@ -75,18 +75,12 @@ public:
         m_DirBCOp =
             DirBndCond<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
-
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
-        {
-            m_RobBCOp =
-                RobBndCond<TData>::template create<ExecSpace, Implementation>(
-                    this->m_expansionList);
-        }
-
+        m_RobBCOp =
+            RobBndCond<TData>::template create<ExecSpace, Implementation>(
+                this->m_expansionList);
         m_IProdOp =
             IProductWRTBase<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
-
         m_CGOp = ConjGrad<TData>::template create<ExecSpace, Implementation>(
             this->m_expansionList);
         m_CGOp->setLHS(m_MassOp);
@@ -105,10 +99,7 @@ public:
         sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
-        {
-            m_RobBCOp->apply(out, m_rhs, true);
-        }
+        m_RobBCOp->apply(out, m_rhs, true);
 
         // Solve for u_hat using Conjugate Gradient
         m_CGOp->apply(m_rhs, m_tmp);
