@@ -36,8 +36,8 @@
 
 #include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondCUDASumFacKernels.cuh"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondKokkosStdMatKernels.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondCUDAKernels.cuh"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondKokkosKernels.hpp"
 #include "Operators/Common/OperatorHelper.hpp"
 
 #include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
@@ -50,12 +50,11 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+template <
+    typename ExecSpace, typename Implementation, typename TData,
+    typename = typename std::enable_if<
+        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
 class OperatorNeuBndCondImpl : public OperatorNeuBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

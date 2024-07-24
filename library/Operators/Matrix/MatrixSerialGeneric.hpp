@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MatrixImplShared.hpp
+// File: MatrixSerialGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,19 +35,17 @@
 #pragma once
 
 #include "Operators/Matrix/MatrixImplBase.hpp"
-#include "Operators/Matrix/MatrixKernels.cuh"
-#include "Operators/Matrix/MatrixKernels.hpp"
+
+#include <numeric>
 
 namespace Nektar::Operators::detail
 {
 
-// Shared implementation
-template <
-    typename ExecSpace, typename Implementation, FieldState TFieldState,
-    typename TData,
-    typename = typename std::enable_if<
-        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
+// Standard matrix implementation
+template <typename ExecSpace, typename Implementation, FieldState TFieldState,
+          typename TData,
+          typename = typename std::enable_if<
+              std::is_same<ExecSpace, NektarSpaces::Serial>::value>::type>
 class OperatorMatrixImpl
     : public OperatorMatrixImplBase<ExecSpace, Implementation, TFieldState,
                                     TData>
@@ -64,34 +62,28 @@ public:
     void apply(Field<TData, TFieldState> &in,
                Field<TData, TFieldState> &out) override
     {
-        // Copy memory to the device, if necessary and get raw pointers.
-        auto *inPtr     = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr    = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *matrixPtr = this->m_matrix.template GetPtr<MemSpace, ReadOnly>();
+        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
+        const auto *matrixPtr =
+            this->m_matrix.template GetPtr<MemSpace, ReadOnly>();
 
-        // Initialise index
-        size_t exp_idx = 0;
+        auto *pIn     = inPtr;
+        auto *pOut    = outPtr;
+        auto *pMatrix = matrixPtr;
 
-        // Loop over the blocks.
-        for (auto const &block : in.GetBlocks())
+        for (size_t i = 0; i < this->m_size; ++i)
         {
-            // Determine shape and type of the element.
-            auto nElmts = block.num_elements;
+            *(pOut) = 0.;
 
-            // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
-            auto numPts       = (TFieldState == FieldState::Coeff)
-                                    ? expPtr->GetNcoeffs()
-                                    : expPtr->GetTotPoints();
+            for (size_t j = 0; j < this->m_size; ++j)
+            {
+                *(pOut) += *(pIn) * *(pMatrix);
+                pIn++;
+                pMatrix++;
+            }
 
-            MatrixKernel<ExecSpace, TData>(nElmts, numPts, this->m_size,
-                                           matrixPtr, inPtr, outPtr);
-
-            // Increment pointer and index for next element type.
-            matrixPtr += numPts * nElmts;
-            inPtr += numPts * nElmts;
-            outPtr += numPts * nElmts;
-            exp_idx += nElmts;
+            pOut++;
+            pIn = inPtr;
         }
     }
 

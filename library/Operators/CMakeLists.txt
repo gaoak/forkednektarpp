@@ -48,18 +48,17 @@ MACRO(ADD_OPERATOR dir)
 
     # These are variales used to determine the operator
     # implementation.
-    UNSET(GENERIC_HEADER)
+    UNSET(COMMON_HEADER)
     UNSET(BASE_HEADER)
     UNSET(BASE)
     UNSET(HAS_KERNELS)
 
-                 
-    # Generic header (*Impl.hpp) that can be used without a specific
+    # Common header (*Impl.hpp) that can be used without a specific
     # implementation. It may have specific implementation kerenels.
     IF(EXISTS "${dir}/${name}Impl.hpp")
          FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                  ${dir}/${name}Impl.hpp)
-         SET(GENERIC_HEADER "#include \"${include_file}\"")
+         SET(COMMON_HEADER "#include \"${include_file}\"")
 
         # Check for implementation specific kernels (Note the "?*" in
         # the glob which skips general kernels). If there are kernels
@@ -99,6 +98,15 @@ MACRO(ADD_OPERATOR dir)
             ENDIF()
         ENDIF()
 
+        # Look for a generic implementation header
+        UNSET(GENERIC_HEADER)
+
+        IF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
+            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}${ExecSpace}Generic.${HEADER_EXT})
+             SET(GENERIC_HEADER "#include \"${include_file}\"")
+        ENDIF()
+
         # Loop through each possible implementation.
         foreach (Impl IN LISTS Implementations)
 
@@ -108,7 +116,7 @@ MACRO(ADD_OPERATOR dir)
             # These combinations do/should not exist.
             IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
                 ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "SumFac") )
+                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
                 continue()
             ENDIF()
 
@@ -139,11 +147,13 @@ MACRO(ADD_OPERATOR dir)
                     ENDIF()
                 endforeach()
 
-                IF(GENERIC_HEADER AND KERNEL_HEADER)
-                    message("Add Op with a generic impl. and kernels: " "${FactoryDeclName}")
+                IF(COMMON_HEADER AND KERNEL_HEADER)
+                    message("Add Op with a common impl. and kernels: " "${FactoryDeclName}")
                 ELSEIF(BASE_HEADER AND SPECIFIC_HEADER AND KERNEL_HEADER)
                     message("Add OP with a base and specific impl. and kernels: " "${FactoryDeclName}")
                     UNSET(KERNEL_HEADER) # The kernel header should be in the specific implementation.
+                ELSEIF(GENERIC_HEADER)
+                    message("Add OP with a generic impl.: " "${FactoryDeclName}")
                 ELSEIF(BASE_HEADER AND SPECIFIC_HEADER)
                     message("Add Op with a base and specific impl.: " "${FactoryDeclName}")
                 ELSEIF(SPECIFIC_HEADER AND KERNEL_HEADER)
@@ -159,14 +169,23 @@ MACRO(ADD_OPERATOR dir)
                 # Add the respective cpp file.
                 SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
 
+            # Found a generic header
+            ELSEIF(GENERIC_HEADER)
+                message("Adding operator with a generic implementation: " "${FactoryDeclName}")
+
+                # Create the cpp file from the implementation file.
+                configure_file(${CONFIG_FILE} ${FactoryDeclName})
+
+                # Add the respective cpp file.
+                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
+
             # Found a base header so there must be a specific
             # implementation which was not found above so skip.
             ELSEIF(BASE_HEADER)
 
-            # No headers so totally generic but those with kernels
+            # No headers so totally common but those with kernels
             # would be declared above.
-            ELSEIF(GENERIC_HEADER)
-
+            ELSEIF(COMMON_HEADER)
                 # If there are kernels the declaration would be above.
                 IF(NOT HAS_KERNELS)
                     message("Add Op using kernel: " "${FactoryDeclName}")

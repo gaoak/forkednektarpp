@@ -44,6 +44,7 @@
 // used in the header files.
 
 @KERNEL_HEADER@
+@COMMON_HEADER@
 @GENERIC_HEADER@
 @SPECIFIC_HEADER@
 
