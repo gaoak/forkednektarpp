@@ -152,12 +152,7 @@ public:
                 // Apply the operator to unit vector and store in the
                 // action field.
                 op->apply(unit_vec, action);
-
-                if constexpr (std::is_same<ExecSpace,
-                                           NektarSpaces::Serial>::value)
-                {
-                    m_robBCOp->apply(unit_vec, action);
-                }
+                m_robBCOp->apply(unit_vec, action);
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.

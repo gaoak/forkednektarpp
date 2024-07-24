@@ -68,12 +68,8 @@ public:
                          : m_assmbMap->GetNumGlobalBndCoeffs();
         m_nDir     = m_assmbMap->GetNumGlobalDirBndCoeffs();
 
-        // Memory allocation for global space pointer
         m_global = MemoryRegion<TData>::template create<MemSpace>(
             "AssmbScatr global", m_nGlobal);
-
-        m_vExchange = MemoryRegion<TData>::template create<MemSpace>(
-            "AssmbScatr global", 4);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -99,7 +95,6 @@ protected:
     GlobalSysSolnType m_solnType;
 
     MemoryRegion<TData> m_global;
-    MemoryRegion<TData> m_vExchange;
 
     size_t m_nLocal;
     size_t m_nGlobal;

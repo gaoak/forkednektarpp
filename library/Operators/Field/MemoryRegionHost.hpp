@@ -100,6 +100,8 @@ public:
         m_name       = rhs.m_name;
 
         rhs.m_host       = nullptr;
+        rhs.m_size       = 0;
+        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid = false;
         rhs.m_initialize = true;
         rhs.m_name       = "";
@@ -151,6 +153,8 @@ public:
         }
 
         m_host       = nullptr;
+        m_size       = 0;
+        m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         m_host_valid = false;
         m_initialize = true;
         m_name       = "";
@@ -178,6 +182,8 @@ public:
         m_name       = rhs.m_name;
 
         rhs.m_host       = nullptr;
+        rhs.m_size       = 0;
+        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid = false;
         rhs.m_initialize = true;
         rhs.m_name       = "";

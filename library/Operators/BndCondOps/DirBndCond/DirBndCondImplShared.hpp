@@ -34,8 +34,8 @@
 
 #pragma once
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondCUDASumFacKernels.cuh"
-#include "Operators/BndCondOps/DirBndCond/DirBndCondKokkosStdMatKernels.hpp"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondCUDAKernels.cuh"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondKokkosKernels.hpp"
 #include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 
 #include "Operators/Common/OperatorHelper.hpp"
@@ -50,12 +50,11 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+template <
+    typename ExecSpace, typename Implementation, typename TData,
+    typename = typename std::enable_if<
+        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
 class OperatorDirBndCondImpl : public OperatorDirBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

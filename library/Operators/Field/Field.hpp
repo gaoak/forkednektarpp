@@ -426,34 +426,6 @@ public:
     }
 
     /**
-     * @brief Copy the data to a MemoryRegion
-     *
-     * @return MemoryRegion
-     */
-    template <typename TDataOut = TData>
-    MemoryRegion<TDataOut> toMemoryRegion(size_t size = 0)
-    {
-        if (size == 0)
-        {
-            for (auto const &block : this->GetBlocks())
-            {
-                size += block.block_size;
-            }
-        }
-
-        MemoryRegion<TDataOut> region;
-        region =
-            MemoryRegion<TDataOut>::template create<NektarSpaces::HostSpace>(
-                size);
-
-        // Copy the data from the input field
-        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(
-            region.template GetPtr<NektarSpaces::HostSpace, WriteOnly>());
-
-        return region;
-    }
-
-    /**
      * @brief Copy the data to a Nektar::Array
      *
      * @return Array<Nektar::OneD, TDataOut>

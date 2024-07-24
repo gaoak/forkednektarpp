@@ -39,67 +39,8 @@
 namespace Nektar::Operators
 {
 
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-std::string g_OpExecSpace = "AVX";
-#elif defined(NEKTAR_ENABLE_CUDA)
-std::string g_OpExecSpace = "CUDA";
-#elif defined(NEKTAR_ENABLE_HIP)
-std::string g_OpExecSpace = "Hip";
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-std::string g_OpExecSpace = "Kokkos";
-#else
-std::string g_OpExecSpace = "Serial";
-#endif
-
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-std::string g_OpImpl = "SumFac";
-#else
-std::string g_OpImpl      = "StdMat";
-#endif
-
-std::string operatorExecSpace =
-    LibUtilities::SessionReader::RegisterCmdLineArgument(
-        "opExecSpace", "",
-        "Operator default ExecSpace - "
-        "Serial "
-#if !defined(NEKTAR_ENABLE_CUDA) && !defined(NEKTAR_ENABLE_HIP) &&             \
-    !defined(NEKTAR_ENABLE_KOKKOS) && !defined(NEKTAR_ENABLE_SIMD_AVX2) &&     \
-    !defined(NEKTAR_ENABLE_SIMD_AVX512)
-        "(default)"
-#endif
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-        ", AVX "
-        "(default)"
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-        ", CUDA "
-        "(default)"
-#endif
-#if defined(NEKTAR_ENABLE_HIP)
-        ", Hip"
-        "(default)"
-#endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        ", Kokkos"
-        "(default)"
-#endif
-    );
-
-std::string operatorImpl = LibUtilities::SessionReader::RegisterCmdLineArgument(
-    "opImpl", "",
-    "Operator default Implementation - "
-    "StdMat "
-#if !defined(NEKTAR_ENABLE_CUDA) && !defined(NEKTAR_ENABLE_HIP) &&             \
-    !defined(NEKTAR_ENABLE_SIMD_AVX2) && !defined(NEKTAR_ENABLE_SIMD_AVX512)
-    "(default)"
-#endif
-    "SumFac "
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_CUDA) ||              \
-    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
-    "(default)"
-#endif
-);
+std::string g_OpExecSpace = "";
+std::string g_OpImpl      = "";
 
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 {

@@ -36,8 +36,8 @@
 
 #include "AssmbScatrImplBase.hpp"
 
-#include "Operators/AssmbScatr/AssmbScatrCUDASumFacKernels.cuh"
-#include "Operators/AssmbScatr/AssmbScatrKokkosStdMatKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
+#include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
 
 #include "Operators/Common/OperatorHelper.hpp"
 
@@ -45,12 +45,11 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+template <
+    typename ExecSpace, typename Implementation, typename TData,
+    typename = typename std::enable_if<
+        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
 class OperatorAssmbScatrImpl
     : public OperatorAssmbScatrImplBase<ExecSpace, Implementation, TData>
 {

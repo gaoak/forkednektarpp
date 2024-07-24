@@ -93,6 +93,7 @@ public:
 
         LoopExecution::SetCmdLineArguments(session);
 
+        // Command-line specified execution space
         if (session->DefinesCmdLineArgument("opExecSpace"))
         {
             std::string cmdValue =
@@ -135,13 +136,15 @@ public:
             }
         }
 
+        // Command-line specified implementation
         if (session->DefinesCmdLineArgument("opImpl"))
         {
             std::string cmdValue =
                 session->GetCmdLineArgument<std::string>("opImpl");
 
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+    defined(NEKTAR_ENABLE_KOKKOS) || defined(NEKTAR_ENABLE_SIMD_AVX2) ||       \
+    defined(NEKTAR_ENABLE_SIMD_AVX512)
             if (cmdValue == "SumFac")
             {
                 g_OpImpl = "SumFac";
@@ -232,6 +235,12 @@ public:
         Nektar::stripString(execStr, "class ");
 #endif
 
+        // Overide with command-line specified execution space, if necessary
+        if (g_OpExecSpace != "")
+        {
+            execStr = g_OpExecSpace;
+        }
+
         // The Implementation name contains the namespace which needs
         // to be removed.
         std::string implStr = Nektar::demangleTypeName(typeid(Implementation));
@@ -242,6 +251,12 @@ public:
         // Check for a class root.
         Nektar::stripString(implStr, "class ");
 #endif
+
+        // Overide with command-line specified implementation, if necessary
+        if (g_OpImpl != "")
+        {
+            implStr = g_OpImpl;
+        }
 
         std::string requestedKey =
             descriptStr + fieldStateStr + execStr + implStr;
@@ -254,7 +269,7 @@ public:
 #if defined(REQUESTED_OPERATOR_ONLY)
         constexpr size_t nOpTests = 1;
 #else
-        constexpr size_t nOpTests = 8;
+        constexpr size_t nOpTests = 3;
 #endif
         for (size_t i = 0; i < nOpTests; ++i)
         {
@@ -266,38 +281,11 @@ public:
                     key = descriptStr + fieldStateStr + execStr + implStr;
                     break;
                 case 1:
-                    // Find the operator with the default ExecSpace and the
-                    // default implementation.
-                    key =
-                        descriptStr + fieldStateStr + g_OpExecSpace + g_OpImpl;
+                    // Find the operator with the "Serial" ExecSpace and the
+                    // same implementation.
+                    // key = descriptStr + fieldStateStr + "Serial" + implStr;
                     break;
                 case 2:
-                    // Find the operator with the default ExecSpace and the
-                    // generic implementation.
-                    key =
-                        descriptStr + fieldStateStr + g_OpExecSpace + "Generic";
-                    break;
-                case 3:
-                    // Find the operator with the same ExecSpace and the default
-                    // implementation.
-                    key = descriptStr + fieldStateStr + execStr + g_OpImpl;
-                    break;
-                case 4:
-                    // Find the operator with the same ExecSpace and the
-                    // generic implementation.
-                    key = descriptStr + fieldStateStr + execStr + "Generic";
-                    break;
-                case 5:
-                    // Find the operator with the "Serial" ExecSpace
-                    // and the generic implementation.
-                    key = descriptStr + fieldStateStr + "Kokkos" + "Generic";
-                    break;
-                case 6:
-                    // Find the operator with the "Serial" ExecSpace
-                    // and the generic implementation.
-                    key = descriptStr + fieldStateStr + "Serial" + "Generic";
-                    break;
-                case 7:
                     // Find the operator with the "Serial" ExecSpace and
                     // the "StdMat" implementation.
                     key = descriptStr + fieldStateStr + "Serial" + "StdMat";

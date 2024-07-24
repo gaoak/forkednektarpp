@@ -134,7 +134,6 @@ public:
 
         rhs.m_device       = nullptr;
         rhs.m_device_valid = false;
-        rhs.m_host_valid   = false;
     }
 
     /**
@@ -249,9 +248,9 @@ public:
      */
     void operator=(MemoryRegionDevice &&rhs)
     {
-        this->m_host_valid = false;
-        m_device           = rhs.m_device;
-        m_device_valid     = rhs.m_device_valid;
+        MemoryRegionHost<TData>::operator=(std::move(rhs));
+        m_device                         = rhs.m_device;
+        m_device_valid                   = rhs.m_device_valid;
 
         rhs.m_device       = nullptr;
         rhs.m_device_valid = false;

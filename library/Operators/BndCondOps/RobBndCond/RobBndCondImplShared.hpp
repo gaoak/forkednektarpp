@@ -36,8 +36,8 @@
 
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 
-#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDASumFacKernels.cuh"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosStdMatKernels.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosKernels.hpp"
 
 #include "Operators/MathKernels/MathKernels.hpp"
 
@@ -52,12 +52,11 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+template <
+    typename ExecSpace, typename Implementation, typename TData,
+    typename = typename std::enable_if<
+        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
 class OperatorRobBndCondImpl : public OperatorRobBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
