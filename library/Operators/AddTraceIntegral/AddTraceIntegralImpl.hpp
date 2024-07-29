@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralImplShared.hpp
+// File: AddTraceIntegralImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,10 +34,12 @@
 
 #pragma once
 
-#include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
-#include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialStdMat.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/OperatorAddTraceIntegral.hpp"
+
+#include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
+#include "Operators/AddTraceIntegral/AddTraceIntegralKernels.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
 
 using namespace Nektar::MultiRegions;
 
@@ -45,11 +47,7 @@ namespace Nektar::Operators::detail
 {
 
 // Standard matrix implementation
-template <
-    typename ExecSpace, typename Implementation, typename TData,
-    typename = typename std::enable_if<
-        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorAddTraceIntegralImpl : public OperatorAddTraceIntegral<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -59,24 +57,92 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorAddTraceIntegral<TData>(std::move(expansionList)),
           m_trace(Field<TData, FieldState::Coeff>::template create<MemSpace>(
-              GetBlockAttributes(FieldState::Coeff, expansionList->GetTrace())))
+              GetBlockAttributes(FieldState::Coeff, expansionList->GetTrace(),
+                                 vec_t::width),
+              1, vec_t::alignment))
     {
+        // Set mapping to skip over padding elements
+        int i, j;
+
+        i = 0, j = 0;
+        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
+        auto blocks =
+            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        for (auto &block : blocks)
+        {
+            auto const ncoeff    = block.num_pts;
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
+            for (unsigned int e = 0; e < nElmts; e++)
+            {
+                for (unsigned int n = 0; n < ncoeff; n++)
+                {
+                    alignmentMap[i++] = j++;
+                }
+            }
+            j += nPadElmts * ncoeff;
+        }
+
+        i = 0, j = 0;
+        Array<OneD, int> alignmentTrace(
+            expansionList->GetTrace()->GetNcoeffs());
+        auto traceBlocks = GetBlockAttributes(
+            FieldState::Coeff, expansionList->GetTrace(), vec_t::width);
+        for (auto &block : traceBlocks)
+        {
+            auto const ncoeff    = block.num_pts;
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
+            for (unsigned int e = 0; e < nElmts; e++)
+            {
+                for (unsigned int n = 0; n < ncoeff; n++)
+                {
+                    alignmentTrace[i++] = j++;
+                }
+            }
+            j += nPadElmts * ncoeff;
+        }
+
         // Get Trace-to-Element Map
         auto locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();
+        auto &TraceCoeffsToElmtMap =
+            locTraceToTraceMap->GetTraceCoeffsToElmtMap()[0];
+        auto &TraceCoeffsToElmtSign =
+            locTraceToTraceMap->GetTraceCoeffsToElmtSign()[0];
+        auto &TraceCoeffsToElmtTrace =
+            locTraceToTraceMap->GetTraceCoeffsToElmtTrace()[0];
+        Array<OneD, int> alignedTraceCoeffsToElmtMap(
+            TraceCoeffsToElmtMap.size());
+        Array<OneD, int> alignedTraceCoeffsToElmtTrace(
+            TraceCoeffsToElmtTrace.size());
 
+        // Compute aligned map to skip over padding elements
+        for (int i = 0; i < TraceCoeffsToElmtMap.size(); i++)
+        {
+            alignedTraceCoeffsToElmtMap[i] =
+                alignmentMap[TraceCoeffsToElmtMap[i]];
+        }
+
+        for (int i = 0; i < TraceCoeffsToElmtTrace.size(); i++)
+        {
+            alignedTraceCoeffsToElmtTrace[i] =
+                alignmentTrace[TraceCoeffsToElmtTrace[i]];
+        }
+
+        // Assign map to memory region
         m_traceCoeffsToElmtMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locTraceToTraceMap->GetTraceCoeffsToElmtMap()[0],
+                alignedTraceCoeffsToElmtMap,
                 EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
         m_traceCoeffsToElmtSign =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locTraceToTraceMap->GetTraceCoeffsToElmtSign()[0],
+                TraceCoeffsToElmtSign,
                 EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
         m_traceCoeffsToElmtTrace =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locTraceToTraceMap->GetTraceCoeffsToElmtTrace()[0],
+                alignedTraceCoeffsToElmtTrace,
                 EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
@@ -110,10 +176,9 @@ public:
         const int *traceCoeffsToElmtTracePtr =
             m_traceCoeffsToElmtTrace.template GetPtr<MemSpace, ReadOnly>();
 
-        AddTraceIntegralKernel<ExecSpace, TData>(
-            m_nFwdBwdCoeffs, 0, traceCoeffsToElmtMapPtr,
-            traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr, tracePtr,
-            outPtr);
+        AddTraceIntegralKernel<ExecSpace>(
+            m_nFwdBwdCoeffs, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+            traceCoeffsToElmtTracePtr, tracePtr, outPtr);
     }
 
     // className - for OperatorFactory
@@ -136,4 +201,5 @@ private:
     MemoryRegion<int> m_traceCoeffsToElmtTrace;
     int m_nFwdBwdCoeffs;
 };
+
 } // namespace Nektar::Operators::detail

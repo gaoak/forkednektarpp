@@ -222,7 +222,7 @@ SET(OPERATORS_HEADERS
     Field/Field.hpp
     Field/MemoryRegionHost.hpp
     Field/MemoryRegionDevice.hpp
-    Common/LoopExecution.hpp
+    LoopExecution/LoopExecution.hpp
     Common/Operator.hpp
     Common/OperatorHelper.hpp
     Common/Spaces.hpp
@@ -231,7 +231,7 @@ SET(OPERATORS_HEADERS
 
 SET(OPERATORS_SOURCES
     Field/Field.cpp
-    Common/LoopExecution.cpp
+    LoopExecution/LoopExecution.cpp
     Common/Operator.cpp
     )
 

@@ -42,9 +42,8 @@
 #include <MultiRegions/ExpList.h>
 #include <Operators/Common/OperatorsDeclspec.hpp>
 
-#include "Operators/Common/LoopExecution.hpp"
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/Field/Field.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 #define FLAG_QP false // to be removed
 

@@ -36,11 +36,11 @@
 
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
-#include "Operators/Common/LoopExecution.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 #include <cmath>
 #include <cstddef>
+#include <numeric>
 #include <type_traits>
 
 namespace Nektar //::Operators

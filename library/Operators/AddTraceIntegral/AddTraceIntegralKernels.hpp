@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondCUDAGeneric.cuh
+// File: AddTraceIntegralKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,4 +34,27 @@
 
 #pragma once
 
-#include "NeuBndCondImplShared.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+AddTraceIntegralKernel(const unsigned int nsize,
+                       const int *traceCoeffsToElmtMapPtr,
+                       const int *traceCoeffsToElmtSignPtr,
+                       const int *traceCoeffsToElmtTracePtr,
+                       const TData *tracePtr, TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+        outPtr[traceCoeffsToElmtMapPtr[i]] +=
+            traceCoeffsToElmtSignPtr[i] *
+            tracePtr[traceCoeffsToElmtTracePtr[i]];
+    });
+}
+
+} // namespace Nektar::Operators::detail

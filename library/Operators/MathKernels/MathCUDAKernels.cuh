@@ -36,21 +36,10 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Common/Spaces.hpp"
-
-#include <cooperative_groups.h>
-#include <cuda/std/limits>
-#include <float.h>
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar //::Operators
 {
-
-static unsigned int cudaBlockSize  = 256u;
-static unsigned int cudaGridSize   = 1024u;
-static unsigned int cudaBufferSize = 0u;
-static void *cudaBuffer            = nullptr;
-
-namespace cg = cooperative_groups;
 
 __device__ __forceinline__ float atomicMax(float *address, float val)
 {
@@ -238,52 +227,6 @@ __device__ inline double2 operator+(const double2 &a, const double &b)
     return make_double2(a.x + b, a.y + b);
 }
 
-template <typename Functor>
-__global__ void parallel_for(const unsigned int begin, const unsigned int end,
-                             const Functor functor)
-{
-    unsigned int i = begin + blockDim.x * blockIdx.x + threadIdx.x;
-
-    while (i < end)
-    {
-        functor(i);
-        i += blockDim.x * gridDim.x;
-    }
-}
-
-template <typename TData, typename Functor>
-__global__ void reduceSumKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
-{
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
-    TData v    = 0;
-
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
-    {
-        functor(tid, v);
-    }
-
-    warp.sync();
-    v += warp.shfl_down(v, 16); // |
-    v += warp.shfl_down(v, 8);  // | warp level
-    v += warp.shfl_down(v, 4);  // | reduce here
-    v += warp.shfl_down(v, 2);  // |
-    v += warp.shfl_down(v, 1);  // |
-
-    // use atomicAdd to sum over warps
-    if (warp.thread_rank() == 0)
-    {
-        atomicAdd(&buffer[block.group_index().x], v);
-    }
-}
-
 template <typename TData>
 __global__ void negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
@@ -415,47 +358,6 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
     }
 }
 
-template <typename TData, typename Functor>
-__global__ void reduceMaxKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
-{
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData min = ::cuda::std::numeric_limits<TData>::min();
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
-    TData v    = min;
-
-    if (block.thread_rank() == 0)
-    {
-        buffer[block.group_index().x] = min;
-    }
-
-    block.sync();
-
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
-    {
-        functor(tid, v);
-    }
-
-    warp.sync();
-    v = max(v, warp.shfl_down(v, 16)); // |
-    v = max(v, warp.shfl_down(v, 8));  // | warp level
-    v = max(v, warp.shfl_down(v, 4));  // | reduce here
-    v = max(v, warp.shfl_down(v, 2));  // |
-    v = max(v, warp.shfl_down(v, 1));  // |
-
-    if (warp.thread_rank() == 0)
-    {
-        atomicMax(&buffer[block.group_index().x], v);
-    }
-}
-
 template <typename TData, bool vl = true>
 __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
                                 TData *out)
@@ -525,47 +427,6 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
     if (warp.thread_rank() == 0)
     {
         atomicMax(&out[block.group_index().x], v);
-    }
-}
-
-template <typename TData, typename Functor>
-__global__ void reduceMinKernel(const unsigned int begin,
-                                const unsigned int end, TData *buffer,
-                                const Functor functor)
-{
-    // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
-    // parallel with CUDA: a practical guide. Cambridge University Press."
-
-    constexpr TData max = ::cuda::std::numeric_limits<TData>::max();
-
-    auto grid  = cg::this_grid();
-    auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
-    TData v    = max;
-
-    if (block.thread_rank() == 0)
-    {
-        buffer[block.group_index().x] = max;
-    }
-
-    block.sync();
-
-    for (unsigned int tid = begin + grid.thread_rank(); tid < end;
-         tid += grid.size())
-    {
-        functor(tid, v);
-    }
-
-    warp.sync();
-    v = min(v, warp.shfl_down(v, 16)); // |
-    v = min(v, warp.shfl_down(v, 8));  // | warp level
-    v = min(v, warp.shfl_down(v, 4));  // | reduce here
-    v = min(v, warp.shfl_down(v, 2));  // |
-    v = min(v, warp.shfl_down(v, 1));  // |
-
-    if (warp.thread_rank() == 0)
-    {
-        atomicMin(&buffer[block.group_index().x], v);
     }
 }
 
@@ -994,61 +855,6 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
 }
 
 // Launchers for the kernels
-
-template <typename ExecSpace, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    parallel_for(const unsigned int begin, const unsigned int end,
-                 const Functor &functor)
-{
-    parallel_for<<<cudaGridSize, cudaBlockSize>>>(begin, end, functor);
-}
-
-template <typename ExecSpace, typename Reduction, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    parallel_reduce(const unsigned int begin, const unsigned int end,
-                    const Functor &functor, typename Reduction::value_type *out)
-{
-    using TData = typename Reduction::value_type;
-    if (cudaBuffer == nullptr)
-    {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
-        cudaMalloc(&cudaBuffer, cudaBufferSize);
-    }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
-
-    if constexpr (std::is_same_v<Reduction, NektarSpaces::ReduceSum<TData>>)
-    {
-        reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
-        reduceSumKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
-    }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMax<TData>>)
-    {
-        reduceMaxKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
-        reduceMaxKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
-    }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMin<TData>>)
-    {
-        reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
-        reduceMinKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
-    }
-}
 
 template <typename ExecSpace, typename TData>
 inline

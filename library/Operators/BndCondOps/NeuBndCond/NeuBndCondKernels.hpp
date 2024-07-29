@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: RobBndCondCUDAGeneric.cuh
+// File: NeuBndCondKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,4 +34,37 @@
 
 #pragma once
 
-#include "RobBndCondImplShared.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
+using namespace Nektar;
+
+namespace Nektar::Operators::detail
+{
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
+                 TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
+        outPtr[mapPtr[i]] += inPtr[i];
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
+        outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
+    });
+}
+
+} // namespace Nektar::Operators::detail

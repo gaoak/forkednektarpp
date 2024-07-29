@@ -39,8 +39,6 @@
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
 
-#include "Operators/Common/OperatorHelper.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -90,36 +88,30 @@ public:
 
         if (this->m_solnType == eIterativeFull)
         {
-            // Initialise index
-            size_t exp_idx = 0;
-            size_t offset  = 0;
+            size_t offset = 0;
 
             for (auto const &block : in.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
-
-                auto const expPtr = this->m_expansionList->GetExp(exp_idx);
-                auto nCoeff       = expPtr->GetNcoeffs();
+                auto ncoeff = block.num_pts;
 
                 if (m_signChange)
                 {
                     const TData *signPtr =
                         m_sign.template GetPtr<MemSpace, ReadOnly>();
 
-                    AssembleKernel<ExecSpace, TData>(nCoeff * nElmts, offset,
+                    AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, offset,
                                                      assmbPtr, signPtr, inPtr,
                                                      outPtr);
                 }
                 else
                 {
-                    AssembleKernel<ExecSpace, TData>(nCoeff * nElmts, offset,
+                    AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, offset,
                                                      assmbPtr, inPtr, outPtr);
                 }
 
-                // Increment pointer and index for next element type.
-                offset += nCoeff * nElmts;
-                exp_idx += nElmts;
+                offset += block.block_size;
             }
         }
     }
@@ -136,17 +128,13 @@ public:
 
         if (this->m_solnType == eIterativeFull)
         {
-            // Initialise index
-            size_t exp_idx = 0;
-            size_t offset  = 0;
+            size_t offset = 0;
 
             for (auto const &block : out.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
-
-                auto const expPtr = this->m_expansionList->GetExp(exp_idx);
-                auto ncoeff       = expPtr->GetNcoeffs();
+                auto ncoeff = block.num_pts;
 
                 if (m_signChange)
                 {
@@ -163,9 +151,7 @@ public:
                         ncoeff * nElmts, offset, assmbPtr, inPtr, outPtr);
                 }
 
-                // Increment pointer and index for next element type.
-                offset += ncoeff * nElmts;
-                exp_idx += nElmts;
+                offset += block.block_size;
             }
         }
     }
