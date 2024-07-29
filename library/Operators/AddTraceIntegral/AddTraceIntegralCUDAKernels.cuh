@@ -43,7 +43,7 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 __global__ void AddTraceIntegralKernel(
-    const unsigned int nsize, const unsigned int offset,
+    const unsigned int nsize,
     const int *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const int *__restrict__ traceCoeffsToElmtTracePtr,
@@ -54,10 +54,9 @@ __global__ void AddTraceIntegralKernel(
 
     while (i < nsize)
     {
-        unsigned int index = offset + i;
-        atomicAdd(outPtr + traceCoeffsToElmtMapPtr[index],
-                  traceCoeffsToElmtSignPtr[index] *
-                      tracePtr[traceCoeffsToElmtTracePtr[index]]);
+        atomicAdd(outPtr + traceCoeffsToElmtMapPtr[i],
+                  traceCoeffsToElmtSignPtr[i] *
+                      tracePtr[traceCoeffsToElmtTracePtr[i]]);
         i += stride;
     }
 }
@@ -67,7 +66,7 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    AddTraceIntegralKernel(const unsigned int nsize, const unsigned int offset,
+    AddTraceIntegralKernel(const unsigned int nsize,
                            const int *traceCoeffsToElmtMapPtr,
                            const int *traceCoeffsToElmtSignPtr,
                            const int *traceCoeffsToElmtTracePtr,
@@ -77,7 +76,7 @@ inline
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AddTraceIntegralKernel<TData><<<gridSize, blockSize>>>(
-        nsize, offset, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
+        nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
         traceCoeffsToElmtTracePtr, tracePtr, outPtr);
 }
 

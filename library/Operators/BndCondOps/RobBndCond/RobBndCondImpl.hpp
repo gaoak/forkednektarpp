@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: RobBndCondImplShared.hpp
+// File: RobBndCondImpl.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,12 +37,10 @@
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosKernels.hpp"
 
-#include "Operators/MathKernels/MathKernels.hpp"
-
 #include <LocalRegions/MatrixKey.h>
-#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
 
 using namespace Nektar;
@@ -52,11 +50,7 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <
-    typename ExecSpace, typename Implementation, typename TData,
-    typename = typename std::enable_if<
-        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorRobBndCondImpl : public OperatorRobBndCond<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -66,6 +60,27 @@ public:
         : OperatorRobBndCond<TData>(expansionList)
     {
         auto robinBCInfo = this->m_expansionList->GetRobinBCInfo();
+
+        // Set mapping to skip over padding elements
+        int i = 0, j = 0;
+
+        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
+        auto blocks =
+            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        for (auto &block : blocks)
+        {
+            auto const ncoeff    = block.num_pts;
+            auto const nElmts    = block.num_elements;
+            auto const nPadElmts = block.num_padding_elements;
+            for (unsigned int e = 0; e < nElmts; e++)
+            {
+                for (unsigned int n = 0; n < ncoeff; n++)
+                {
+                    alignmentMap[i++] = j++;
+                }
+            }
+            j += nPadElmts * ncoeff;
+        }
 
         if (expansionList->GetExp(0)->GetShapeDimension() == 1)
         {
@@ -102,7 +117,9 @@ public:
                         auto vertid     = rBC->m_robinID;
                         mat[i]          = primCoeffs[0];
                         map[i]          = expPtr->GetVertexMap(vertid);
-                        offset[i] = this->m_expansionList->GetCoeff_Offset(n);
+                        offset[i] =
+                            alignmentMap[this->m_expansionList->GetCoeff_Offset(
+                                n)];
                         i++;
                     }
                 }
@@ -136,7 +153,7 @@ public:
                     auto edgeid  = rBC->m_robinID;
                     auto edgeExp = expPtr->GetTraceExp(edgeid);
                     auto ncoeff  = edgeExp->GetNcoeffs();
-                    m_nshared    = std::max(m_nshared, (size_t)ncoeff);
+                    m_nmaxcoeff  = std::max(m_nmaxcoeff, (size_t)ncoeff);
                     matSize += ncoeff * ncoeff;
                     mapSize += ncoeff;
                     m_nBndEdge++;
@@ -190,7 +207,9 @@ public:
 
                         // Update offset array
                         nEdgeCoeff[i] = ncoeff;
-                        offset[i] = this->m_expansionList->GetCoeff_Offset(n);
+                        offset[i] =
+                            alignmentMap[this->m_expansionList->GetCoeff_Offset(
+                                n)];
                         if (i < m_nBndEdge - 1)
                         {
                             matOffset[i + 1] = matOffset[i] + ncoeff * ncoeff;
@@ -264,14 +283,31 @@ public:
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
         if (dimension == 1)
         {
-            RobBndCond1DKernel<ExecSpace>(m_nBndEdge, offsetPtr, matPtr, mapPtr,
-                                          inPtr, outPtr, negflag);
+            if (negflag)
+            {
+                RobBndCond1DKernel<ExecSpace, true>(
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
+            }
+            else
+            {
+                RobBndCond1DKernel<ExecSpace, false>(
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
+            }
         }
         else if (dimension == 2)
         {
-            RobBndCond2DKernel<ExecSpace>(
-                m_nshared, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr, negflag);
+            if (negflag)
+            {
+                RobBndCond2DKernel<ExecSpace, true>(
+                    m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
+            }
+            else
+            {
+                RobBndCond2DKernel<ExecSpace, false>(
+                    m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
+            }
         }
     }
 
@@ -295,8 +331,8 @@ protected:
     MemoryRegion<unsigned int> m_offset;
     MemoryRegion<unsigned int> m_matOffset;
     MemoryRegion<unsigned int> m_mapOffset;
-    size_t m_nshared  = 0;
-    size_t m_nBndEdge = 0;
+    size_t m_nmaxcoeff = 0;
+    size_t m_nBndEdge  = 0;
 };
 
 } // namespace Nektar::Operators::detail

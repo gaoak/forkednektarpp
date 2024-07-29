@@ -41,7 +41,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool negflag>
+template <bool negflag, typename TData>
 __global__ void RobBndCond1DKernel(const unsigned int nsize,
                                    const unsigned int *__restrict__ offsetPtr,
                                    const TData *__restrict__ matPtr,
@@ -71,7 +71,7 @@ __global__ void RobBndCond1DKernel(const unsigned int nsize,
     }
 }
 
-template <typename TData, bool negflag>
+template <bool negflag, typename TData>
 __global__ void RobBndCond2DKernel(
     const unsigned int nsize, const unsigned int *__restrict__ ncoeffPtr,
     const unsigned int *__restrict__ offsetPtr,
@@ -127,58 +127,40 @@ __global__ void RobBndCond2DKernel(
     }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool negflag, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                        const TData *matPtr, const unsigned int *mapPtr,
-                       const TData *incoeffPtr, TData *coeffPtr, bool negflag)
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = 32u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    if (negflag)
-    {
-        RobBndCond1DKernel<TData, true><<<gridSize, blockSize>>>(
-            nsize, offsetPtr, matPtr, mapPtr, incoeffPtr, coeffPtr);
-    }
-    else
-    {
-        RobBndCond1DKernel<TData, false><<<gridSize, blockSize>>>(
-            nsize, offsetPtr, matPtr, mapPtr, incoeffPtr, coeffPtr);
-    }
+    RobBndCond1DKernel<negflag><<<gridSize, blockSize>>>(
+        nsize, offsetPtr, matPtr, mapPtr, incoeffPtr, coeffPtr);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool negflag, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    RobBndCond2DKernel(const unsigned int nshared, const unsigned int nsize,
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                        const unsigned int *ncoeffPtr,
                        const unsigned int *offsetPtr,
                        const unsigned int *matOffsetPtr,
                        const unsigned int *mapOffsetPtr, const TData *matPtr,
                        const unsigned int *mapPtr, const int *signPtr,
-                       const TData *incoeffPtr, TData *coeffPtr, bool negflag)
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = 32u;
     const unsigned int gridSize  = nsize;
 
-    if (negflag)
-    {
-        RobBndCond2DKernel<TData, true>
-            <<<gridSize, blockSize, sizeof(TData) * nshared>>>(
-                nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
-                mapPtr, signPtr, incoeffPtr, coeffPtr);
-    }
-    else
-    {
-        RobBndCond2DKernel<TData, false>
-            <<<gridSize, blockSize, sizeof(TData) * nshared>>>(
-                nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
-                mapPtr, signPtr, incoeffPtr, coeffPtr);
-    }
+    RobBndCond2DKernel<negflag>
+        <<<gridSize, blockSize, sizeof(TData) * nmaxcoeff>>>(
+            nsize, ncoeffPtr, offsetPtr, matOffsetPtr, mapOffsetPtr, matPtr,
+            mapPtr, signPtr, incoeffPtr, coeffPtr);
 }
 
 } // namespace Nektar::Operators::detail

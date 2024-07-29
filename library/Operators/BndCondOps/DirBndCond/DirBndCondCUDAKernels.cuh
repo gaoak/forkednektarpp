@@ -36,62 +36,38 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include <SpatialDomains/Conditions.h>
-
 #include "Operators/Common/Spaces.hpp"
-
-using namespace Nektar;
-using namespace Nektar::SpatialDomains;
 
 namespace Nektar::Operators::detail
 {
 
 template <typename TData>
-__global__ void DirBndCondKernel(
-    const unsigned int nsize, const int *__restrict__ offsetPtr,
-    const BoundaryConditionType *__restrict__ bctypePtr,
-    const int *__restrict__ ncoeffPtr, const int *__restrict__ mapPtr,
-    const TData *__restrict__ inPtr, TData *__restrict__ outPtr)
+__global__ void DirBndCondKernel(const unsigned int nsize,
+                                 const int *__restrict__ mapPtr,
+                                 const TData *__restrict__ inPtr,
+                                 TData *__restrict__ outPtr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
-        if (bctypePtr[i] == eDirichlet)
-        {
-            unsigned int offset = offsetPtr[i];
-            unsigned int ncoeff = ncoeffPtr[i];
-            for (unsigned int j = 0; j < ncoeff; j++)
-            {
-                outPtr[mapPtr[offset + j]] = inPtr[offset + j];
-            }
-        }
+        outPtr[mapPtr[i]] = inPtr[i];
         i += blockDim.x * gridDim.x;
     }
 }
 
 template <typename TData>
-__global__ void DirBndCondKernel(
-    const unsigned int nsize, const int *__restrict__ offsetPtr,
-    const BoundaryConditionType *__restrict__ bctypePtr,
-    const int *__restrict__ ncoeffPtr, const TData *__restrict__ signPtr,
-    const int *__restrict__ mapPtr, const TData *__restrict__ inPtr,
-    TData *__restrict__ outPtr)
+__global__ void DirBndCondKernel(const unsigned int nsize,
+                                 const TData *__restrict__ signPtr,
+                                 const int *__restrict__ mapPtr,
+                                 const TData *__restrict__ inPtr,
+                                 TData *__restrict__ outPtr)
 {
     unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (i < nsize)
     {
-        if (bctypePtr[i] == eDirichlet)
-        {
-            unsigned int offset = offsetPtr[i];
-            unsigned int ncoeff = ncoeffPtr[i];
-            for (unsigned int j = 0; j < ncoeff; j++)
-            {
-                outPtr[mapPtr[offset + j]] =
-                    signPtr[offset + j] * inPtr[offset + j];
-            }
-        }
+        outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
         i += blockDim.x * gridDim.x;
     }
 }
@@ -117,32 +93,28 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DirBndCondKernel(const unsigned int nsize, const int *offsetPtr,
-                     const BoundaryConditionType *bctypePtr,
-                     const int *ncoeffPtr, const int *mapPtr,
+    DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                      const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    DirBndCondKernel<TData><<<gridSize, blockSize>>>(
-        nsize, offsetPtr, bctypePtr, ncoeffPtr, mapPtr, inPtr, outPtr);
+    DirBndCondKernel<TData>
+        <<<gridSize, blockSize>>>(nsize, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    DirBndCondKernel(const unsigned int nsize, const int *offsetPtr,
-                     const BoundaryConditionType *bctypePtr,
-                     const int *ncoeffPtr, const TData *signPtr,
+    DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                      const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    DirBndCondKernel<TData><<<gridSize, blockSize>>>(
-        nsize, offsetPtr, bctypePtr, ncoeffPtr, signPtr, mapPtr, inPtr, outPtr);
+    DirBndCondKernel<TData>
+        <<<gridSize, blockSize>>>(nsize, signPtr, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>

@@ -38,10 +38,7 @@
 
 #include "Operators/Common/Spaces.hpp"
 
-#include <SpatialDomains/Conditions.h>
-
 using namespace Nektar;
-using namespace Nektar::SpatialDomains;
 
 namespace Nektar::Operators::detail
 {
@@ -49,44 +46,23 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
-                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
+                 TData *outPtr)
 {
     Kokkos::parallel_for(
-        bndExpSize, KOKKOS_LAMBDA(const unsigned int i) {
-            if (bctypePtr[i] == eNeumann || bctypePtr[i] == eRobin)
-            {
-                unsigned int offset = offsetPtr[i];
-                unsigned int ncoeff = ncoeffPtr[i];
-                for (unsigned int j = 0; j < ncoeff; j++)
-                {
-                    outPtr[mapPtr[offset + j]] += inPtr[offset + j];
-                }
-            }
-        });
+        bndExpSize,
+        KOKKOS_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] += inPtr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *offsetPtr,
-                 const BoundaryConditionType *bctypePtr, const int *ncoeffPtr,
-                 const TData *signPtr, const int *mapPtr, const TData *inPtr,
-                 TData *outPtr)
+NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
     Kokkos::parallel_for(
         bndExpSize, KOKKOS_LAMBDA(const unsigned int i) {
-            if (bctypePtr[i] == eNeumann || bctypePtr[i] == eRobin)
-            {
-                unsigned int offset = offsetPtr[i];
-                unsigned int ncoeff = ncoeffPtr[i];
-                for (unsigned int j = 0; j < ncoeff; j++)
-                {
-                    outPtr[mapPtr[offset + j]] +=
-                        signPtr[offset + j] * inPtr[offset + j];
-                }
-            }
+            outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
         });
 }
 

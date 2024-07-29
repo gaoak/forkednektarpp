@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MatrixKernels.hpp
+// File: DirBndCondKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -39,30 +39,42 @@
 namespace Nektar::Operators::detail
 {
 
-// Generic kernel launchers except for CUDA.
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-MatrixKernel(const size_t nElmts, const size_t numPts, const size_t size,
-             const TData *mat, const TData *in, TData *out)
+DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
+                 const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0, nElmts, NEKTAR_LAMBDA(int e) {
-            const TData *matrix = mat + e * numPts;
-            const TData *inPtr  = in + e * numPts;
-            TData *outPtr       = out + e * numPts;
+        0u, nsize, [&](const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
+}
 
-            for (size_t j = 0; j < size * size; j += size)
-            {
-                for (size_t i = 0; i < numPts; ++i)
-                {
-                    outPtr[i] += inPtr[i] * matrix[j + i];
-                }
-            }
-        });
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+        outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
+    });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
+                      const int *id1Ptr, const TData *signPtr, TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+        outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
+    });
 }
 
 } // namespace Nektar::Operators::detail

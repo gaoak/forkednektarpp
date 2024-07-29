@@ -40,17 +40,18 @@
 
 namespace Nektar::Operators::detail
 {
-template <typename ExecSpace, typename TData>
+
+template <typename ExecSpace, bool negflag, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
 RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                    const TData *matPtr, const unsigned int *mapPtr,
-                   const TData *incoeffPtr, TData *coeffPtr, bool negflag)
+                   const TData *incoeffPtr, TData *coeffPtr)
 {
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(unsigned int i) {
-            unsigned int offset = offsetPtr[i];
-            unsigned int map    = mapPtr[i];
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+            const unsigned int offset = offsetPtr[i];
+            const unsigned int map    = mapPtr[i];
             if (negflag)
             {
                 Kokkos::atomic_sub(coeffPtr + offset + map,
@@ -64,20 +65,20 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
         });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, bool negflag, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-RobBndCond2DKernel(const unsigned int nshared, const unsigned int nsize,
+RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
                    const unsigned int *matOffsetPtr,
                    const unsigned int *mapOffsetPtr, const TData *matPtr,
                    const unsigned int *mapPtr, const int *signPtr,
-                   const TData *incoeffPtr, TData *coeffPtr, bool negflag)
+                   const TData *incoeffPtr, TData *coeffPtr)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nshared);
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nmaxcoeff);
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(nsize, Kokkos::AUTO)
             .set_scratch_size(0, Kokkos::PerTeam(shmem_size)),
@@ -85,7 +86,7 @@ RobBndCond2DKernel(const unsigned int nshared, const unsigned int nsize,
             Kokkos::View<TData *,
                          Kokkos::DefaultExecutionSpace::scratch_memory_space,
                          Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                vEdgeCoeffs(team.team_scratch(0), nshared);
+                vEdgeCoeffs(team.team_scratch(0), nmaxcoeff);
             const unsigned int j         = team.league_rank();
             const unsigned int ncoeff    = ncoeffPtr[j];
             const unsigned int offset    = offsetPtr[j];

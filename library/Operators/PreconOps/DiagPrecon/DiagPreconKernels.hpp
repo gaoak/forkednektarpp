@@ -34,9 +34,8 @@
 
 #pragma once
 
-#include "Operators/Common/LoopExecution.hpp"
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/Field/Field.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 #include <cstddef>
 #include <type_traits>

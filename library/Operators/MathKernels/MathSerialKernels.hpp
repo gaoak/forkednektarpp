@@ -34,11 +34,12 @@
 
 #pragma once
 
-#include "Operators/Common/LoopExecution.hpp"
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <numeric>
 #include <type_traits>
 
 namespace Nektar //::Operators

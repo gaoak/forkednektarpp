@@ -44,18 +44,17 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
-AddTraceIntegralKernel(const unsigned int nsize, const unsigned int offset,
+AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
                        const int *traceCoeffsToElmtSignPtr,
                        const int *traceCoeffsToElmtTracePtr,
                        const TData *tracePtr, TData *outPtr)
 {
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(unsigned int i) {
-            unsigned int index = offset + i;
-            Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[index],
-                               traceCoeffsToElmtSignPtr[index] *
-                                   tracePtr[traceCoeffsToElmtTracePtr[index]]);
+        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+            Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[i],
+                               traceCoeffsToElmtSignPtr[i] *
+                                   tracePtr[traceCoeffsToElmtTracePtr[i]]);
         });
 }
 
