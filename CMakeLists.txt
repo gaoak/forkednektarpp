@@ -280,6 +280,13 @@ IF (NEKTAR_BUILD_REDESIGN)
         ENDIF()
     ENDIF ()
 
+    IF (NEKTAR_ENABLE_SYCL)
+        # Temporary config
+        # Still requires -DCMAKE_CXX_FLAGS="-fsycl" for IntelSYCL
+        OPTION(NEKTAR_ENABLE_SYCL "Enable SYCL execution" OFF)
+        ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
+    ENDIF()
+
     IF (NEKTAR_ENABLE_KOKKOS)
       # For now do not require a min version and see what happens. The
       # incompatibile Boost versions will be caught

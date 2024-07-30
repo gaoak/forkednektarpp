@@ -132,6 +132,13 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_cuda_sumfac.cpp)
 ENDIF()
 
+# SYCL
+IF(NEKTAR_ENABLE_SYCL)
+    # SYCL SumFac
+    ADD_NEKTAR_EXECUTABLE(test_bwdtrans_sycl_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac.cpp)
+ENDIF()
+
 # Kokkos
 IF(NEKTAR_ENABLE_KOKKOS)
     ADD_NEKTAR_EXECUTABLE(test_math_kokkos
@@ -239,6 +246,11 @@ IF(NEKTAR_ENABLE_CUDA)
     SET_UNIT_TEST(Neumann_cuda_sumfac test_neumann_cuda_sumfac FALSE)
     SET_UNIT_TEST(NullPrecon_cuda_sumfac test_nullprecon_cuda_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_cuda_sumfac test_physderiv_cuda_sumfac FALSE)
+ENDIF()
+
+# SYCL SumFac
+IF(NEKTAR_ENABLE_SYCL)
+    SET_UNIT_TEST(BwdTrans_sycl_sumfac test_bwdtrans_sycl_sumfac FALSE)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial

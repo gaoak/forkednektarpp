@@ -10,6 +10,13 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(ExecSpaces ${ExecSpaces} CUDA)
 ENDIF()
 
+# Optional SYCL execution space.
+# Disbled because ADD_OPERATOR creates source files for SYCL implementations
+# which don't exist. This is causing compilation errors.
+# IF(NEKTAR_ENABLE_SYCL)
+    # SET(ExecSpaces ${ExecSpaces} SYCL)
+# ENDIF()
+
 # Kokkos execution space
 IF(NEKTAR_ENABLE_KOKKOS)
     SET(ExecSpaces ${ExecSpaces} Kokkos)
@@ -92,6 +99,8 @@ MACRO(ADD_OPERATOR dir)
                 SET(EXEC_MEM_SPACE_TAG KOKKOS_DEFAULT_DEVICE_TAG)
             ELSEIF("${ExecSpace}" STREQUAL "AVX")
                 SET(EXEC_MEM_SPACE_TAG "NektarSpaces::AVX" )
+            ELSEIF("${ExecSpace}" STREQUAL "SYCL")
+                SET(EXEC_MEM_SPACE_TAG "NektarSpaces::SYCL" )
             ELSE()
                 # This tag is generic - see Spaces.hpp
                 SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
@@ -116,6 +125,7 @@ MACRO(ADD_OPERATOR dir)
             # These combinations do/should not exist.
             IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
                 ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
+                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
                 ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
                 continue()
             ENDIF()
@@ -260,6 +270,23 @@ if(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKLIB_CUDA_LIBRARIES})
+endif()
+
+# Manually adding SYCL implementations here to avoid generation
+# of source files which should not exist
+if(NEKTAR_ENABLE_SYCL)
+    SET(OPERATORS_HEADERS
+      ${OPERATORS_HEADERS}
+      SYCLQueue.hpp
+      ElmtOps/BwdTrans/BwdTransSYCLSumFac.hpp
+      ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp
+    )
+
+    SET(OPERATORS_SOURCES
+      ${OPERATORS_SOURCES}
+      SYCLQueue.cpp
+      ElmtOps/BwdTrans/BwdTransSYCLSumFac.cpp
+    )
 endif()
 
 # Kokkos - if no Kokkos loops are serial
