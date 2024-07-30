@@ -46,6 +46,8 @@
 #include <thrust/fill.h>
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
+#elif defined(NEKTAR_ENABLE_SYCL)
+#include "Operators/SYCLQueue.hpp"
 #elif defined(NEKTAR_ENABLE_KOKKOS)
 #endif
 
@@ -173,6 +175,10 @@ public:
 #elif defined(NEKTAR_ENABLE_HIP)
             hipMemcpy(m_device, src, this->m_size * sizeof(TData),
                       hipMemcpyHostToDevice);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            SYCLQueue::GetInstance()
+                .memcpy(m_device, src, this->m_size * sizeof(TData))
+                .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
@@ -201,6 +207,14 @@ public:
 
             hipMemcpy(m_device, tmp.data(), this->m_size * sizeof(TData),
                       hipMemcpyHostToDevice);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            std::vector<TData> tmp(this->m_size);
+
+            std::copy(src, src + size, tmp.begin());
+
+            SYCLQueue::GetInstance()
+                .memcpy(m_device, tmp.data(), this->m_size * sizeof(TData))
+                .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
@@ -231,6 +245,8 @@ public:
             cudaFree(m_device);
 #elif defined(NEKTAR_ENABLE_HIP)
             hipFree(m_device);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            sycl::free(m_device, SYCLQueue::GetInstance());
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             Kokkos::kokkos_free(m_device);
 #endif
@@ -295,6 +311,9 @@ protected:
         cudaMalloc((void **)&m_device, this->m_size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMalloc((void **)&m_device, this->m_size * sizeof(TData));
+#elif defined(NEKTAR_ENABLE_SYCL)
+        m_device =
+            sycl::malloc_device<TData>(this->m_size, SYCLQueue::GetInstance());
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         m_device = (TData *)
             Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -434,6 +453,10 @@ protected:
                 cudaMemset(dst, 0, count * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
                 hipMemset(dst, 0, count * sizeof(TData));
+#elif defined(NEKTAR_ENABLE_SYCL)
+                SYCLQueue::GetInstance()
+                    .memset(dst, 0, count * sizeof(TData))
+                    .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
                 // Create an unmanage Kokkos view from the raw pointer.
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
@@ -451,6 +474,8 @@ protected:
 #elif defined(NEKTAR_ENABLE_HIP)
                 hipLaunchKernelGGL(fill_, blocks, threads, 0, 0, count, dst,
                                    val); // TODO: implement fill_ kernel
+#elif defined(NEKTAR_ENABLE_SYCL)
+                SYCLQueue::GetInstance().fill(dst, val, count).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
                 // Create an unmanage Kokkos view from the raw pointer.
                 Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
@@ -494,6 +519,10 @@ protected:
             cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost);
 #elif defined(NEKTAR_ENABLE_HIP)
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            SYCLQueue::GetInstance()
+                .memcpy(dst, src, size * sizeof(TData))
+                .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
@@ -517,6 +546,10 @@ protected:
             cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_HIP)
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            SYCLQueue::GetInstance()
+                .memcpy(dst, src, size * sizeof(TData))
+                .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
@@ -542,6 +575,10 @@ protected:
                        cudaMemcpyDeviceToDevice);
 #elif defined(NEKTAR_ENABLE_HIP)
             hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice);
+#elif defined(NEKTAR_ENABLE_SYCL)
+            SYCLQueue::GetInstance()
+                .memcpy(dst, src, size * sizeof(TData))
+                .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
             // Create unmanage Kokkos views from the raw pointers.
             TData *v_src = const_cast<TData *>(src);
@@ -592,6 +629,11 @@ protected:
 #elif defined(NEKTAR_ENABLE_HIP)
                 hipMemcpy(m_device, this->m_host, this->m_size * sizeof(TData),
                           hipMemcpyHostToDevice);
+#elif defined(NEKTAR_ENABLE_SYCL)
+                SYCLQueue::GetInstance()
+                    .memcpy(m_device, this->m_host,
+                            this->m_size * sizeof(TData))
+                    .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
                 // Create unmanage Kokkos views from the raw pointers.
                 Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,
@@ -652,6 +694,11 @@ protected:
 #elif defined(NEKTAR_ENABLE_HIP)
                 hipMemcpy(this->m_host, m_device, this->m_size * sizeof(TData),
                           hipMemcpyDeviceToHost);
+#elif defined(NEKTAR_ENABLE_SYCL)
+                SYCLQueue::GetInstance()
+                    .memcpy(this->m_host, m_device,
+                            this->m_size * sizeof(TData))
+                    .wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
                 // Create unmanage Kokkos views from the raw pointers.
                 Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,

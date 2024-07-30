@@ -197,6 +197,16 @@ public:
             delete fixt_cuda_out;
         }
 #endif
+#if defined(NEKTAR_ENABLE_SYCL)
+        if (fixt_sycl_in)
+        {
+            delete fixt_sycl_in;
+        }
+        if (fixt_sycl_out)
+        {
+            delete fixt_sycl_out;
+        }
+#endif
 
         if (session)
         {
@@ -290,6 +300,18 @@ public:
             fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
         }
 #endif
+#if defined(NEKTAR_ENABLE_SYCL)
+        if (testModule.find("Sycl") != std::string::npos ||
+            testModule.find("SYCL") != std::string::npos)
+        {
+            auto fsycl_in = Field<TData, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin);
+            auto fsycl_out = Field<TData, stateOut>::template create<
+                NektarSpaces::DeviceSpace>("fsycl_out", blocks_out, nout);
+            fixt_sycl_in  = new Field<TData, stateIn>(std::move(fsycl_in));
+            fixt_sycl_out = new Field<TData, stateOut>(std::move(fsycl_out));
+        }
+#endif
     }
 
     void OutputIfNotMatch(const double *outptr, const double *expptr,
@@ -335,6 +357,10 @@ protected:
 #if defined(NEKTAR_ENABLE_CUDA)
     Field<TData, stateIn> *fixt_cuda_in   = nullptr;
     Field<TData, stateOut> *fixt_cuda_out = nullptr;
+#endif
+#if defined(NEKTAR_ENABLE_SYCL)
+    Field<TData, stateIn> *fixt_sycl_in   = nullptr;
+    Field<TData, stateOut> *fixt_sycl_out = nullptr;
 #endif
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 

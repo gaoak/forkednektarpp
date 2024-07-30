@@ -171,10 +171,11 @@ public:
 #endif // !defined(NEKTAR_ENABLE_KOKKOS)
 
 // These are used for LoopExecution.hpp
-#if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||              \
-     defined(NEKTAR_ENABLE_SYCL)) &&                                           \
+#if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
+#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=]
 #elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA KOKKOS_LAMBDA
 #else

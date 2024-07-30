@@ -38,6 +38,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
 #include "Operators/Field/MemoryRegion.hpp"
 
 namespace Nektar::Operators::detail
@@ -47,6 +48,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
                std::is_same<Implementation, Operators::StdMat>::value)>::type>
