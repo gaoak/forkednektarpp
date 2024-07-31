@@ -44,7 +44,7 @@
 #define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
+        using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure(dim, 1);                                                     \
         SetTestCase(                                                           \

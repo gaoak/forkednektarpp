@@ -50,7 +50,7 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
                std::is_same<Implementation, Operators::StdMat>::value)>::type>
 class OperatorIProductWRTDerivBaseImpl
     : public OperatorIProductWRTDerivBase<TData>

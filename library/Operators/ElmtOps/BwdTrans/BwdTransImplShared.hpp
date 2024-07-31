@@ -51,8 +51,8 @@ template <typename ExecSpace, typename Implementation, typename TData,
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

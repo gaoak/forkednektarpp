@@ -110,7 +110,7 @@ void ProfilerReduction(const unsigned int size)
 #if defined(NEKTAR_ENABLE_KOKKOS)
     TData time_kokkos = 0.0;
     {
-        using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+        using MemSpace = NektarSpaces::DeviceSpace;
 
         TData result_kokkos;
         auto x = MemoryRegion<TData>::template create<MemSpace>(
@@ -121,14 +121,13 @@ void ProfilerReduction(const unsigned int size)
         auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
         {
-            Nektar::parallel_for<Kokkos::DefaultExecutionSpace>(
+            Nektar::parallel_for<NektarSpaces::KOKKOS>(
                 0, size, KOKKOS_LAMBDA(unsigned int i) {
                     xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
                     yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
                 });
             timer.Start();
-            ddotKernel<Kokkos::DefaultExecutionSpace>(size, xptr, yptr,
-                                                      &result_kokkos);
+            ddotKernel<NektarSpaces::KOKKOS>(size, xptr, yptr, &result_kokkos);
             ASSERTL0(result_kokkos > 0.0, "Error!");
             timer.Stop();
             time_kokkos += timer.Elapsed().count();
@@ -223,7 +222,7 @@ void ProfilerDaxpy(const unsigned int size)
 #if defined(NEKTAR_ENABLE_KOKKOS)
     TData time_kokkos = 0.0;
     {
-        using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+        using MemSpace = NektarSpaces::DeviceSpace;
 
         auto x = MemoryRegion<TData>::template create<MemSpace>(
             "x", size, vec_t::alignment);
@@ -236,14 +235,13 @@ void ProfilerDaxpy(const unsigned int size)
         auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
         for (unsigned int t = 0; t < ntests; ++t)
         {
-            Nektar::parallel_for<Kokkos::DefaultExecutionSpace>(
+            Nektar::parallel_for<NektarSpaces::KOKKOS>(
                 0, size, KOKKOS_LAMBDA(unsigned int i) {
                     xptr[i] = i % 13 + (0.2 + 0.00001 * (i % (100191 + t)));
                     yptr[i] = i % 42 + (0.1 + 0.00008 * (i % (280516 + t)));
                 });
             timer.Start();
-            daxpyKernel<Kokkos::DefaultExecutionSpace>(size, 3.2, xptr, yptr,
-                                                       zptr);
+            daxpyKernel<NektarSpaces::KOKKOS>(size, 3.2, xptr, yptr, zptr);
             Kokkos::fence();
             ASSERTL0(
                 (z.template GetPtr<NektarSpaces::HostSpace, ReadOnly>()[0] >

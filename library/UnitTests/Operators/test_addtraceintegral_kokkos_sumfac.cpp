@@ -44,7 +44,7 @@
 #define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = Kokkos::DefaultExecutionSpace;                       \
+        using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
         ReConfigure();                                                         \

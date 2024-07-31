@@ -42,12 +42,11 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <
-    typename ExecSpace, typename Implementation, FieldState TFieldState,
-    typename TData,
-    typename = typename std::enable_if<
-        std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value>::type>
+template <typename ExecSpace, typename Implementation, FieldState TFieldState,
+          typename TData,
+          typename = typename std::enable_if<
+              std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+              std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value>::type>
 class OperatorMatrixImpl
     : public OperatorMatrixImplBase<ExecSpace, Implementation, TFieldState,
                                     TData>

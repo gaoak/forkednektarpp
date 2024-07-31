@@ -39,9 +39,21 @@
 #include <float.h>
 #include <limits.h>
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
+#include <Kokkos_Core.hpp>
+#include <Kokkos_Macros.hpp>
+#include <Kokkos_Random.hpp>
+#endif // defined(NEKTAR_ENABLE_KOKKOS)
+
 #if defined(__CUDACC__) || defined(__HIP_DEVICE_COMPILE__) ||                  \
     defined(__SYCL_DEVICE_ONLY__)
 #define DEVICE_COMPILE_ONLY
+#endif
+
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) ||               \
+    defined(KOKKOS_ENABLE_SYCL) || defined(KOKKOS_ENABLE_OPENMPTARGET) ||      \
+    defined(KOKKOS_ENABLE_OPENACC)
+#define KOKKOS_USING_GPU
 #endif
 
 // Helps turn defines into usable strings (even if it has a comma in it)
@@ -76,7 +88,7 @@ using DefaultHostExecutionSpace = Serial; // Default Host implementation.
 
 // Native pure GPU execution
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL)
+    defined(NEKTAR_ENABLE_SYCL) || defined(KOKKOS_USING_GPU)
 
 class DeviceSpace
 {
@@ -110,6 +122,13 @@ public:
     using memory_space = NektarSpaces::DeviceSpace;
 };
 
+// Native pure Kokkos execution
+class KOKKOS
+{
+public:
+    using memory_space = NektarSpaces::DeviceSpace;
+};
+
 // Specific pure GPU execution
 #if defined(NEKTAR_ENABLE_CUDA)
 using DefaultExecutionSpace = CUDA;
@@ -126,64 +145,15 @@ using DefaultExecutionSpace = SYCL;
 
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
 
+#elif defined(NEKTAR_ENABLE_KOKKOS)
+using DefaultExecutionSpace = KOKKOS;
+
+#define KOKKOS_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
+
 #else
 using DefaultExecutionSpace = DefaultHostExecutionSpace;
 
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::DefaultHostExecutionSpace
-
 #endif // GPU specific
-
-} // namespace NektarSpaces
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include <Kokkos_Core.hpp>
-#include <Kokkos_Macros.hpp>
-#include <Kokkos_Random.hpp>
-
-// GPUs
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP) ||               \
-    defined(KOKKOS_ENABLE_SYCL) || defined(KOKKOS_ENABLE_OPENMPTARGET) ||      \
-    defined(KOKKOS_ENABLE_OPENACC)
-#define KOKKOS_USING_GPU
-#endif
-
-#define KOKKOS_DEFAULT_HOST_TAG Kokkos::DefaultHostExecutionSpace
-#define KOKKOS_DEFAULT_DEVICE_TAG Kokkos::DefaultExecutionSpace
-
-#else // !defined(NEKTAR_ENABLE_KOKKOS)
-
-namespace Kokkos
-{
-
-class HostSpace
-{
-};
-
-class DefaultExecutionSpace
-{
-public:
-    using memory_space = NektarSpaces::HostSpace;
-};
-
-} // namespace Kokkos
-
-#endif // !defined(NEKTAR_ENABLE_KOKKOS)
-
-// These are used for LoopExecution.hpp
-#if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
-    defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=] __device__
-#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=]
-#elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA KOKKOS_LAMBDA
-#else
-#define NEKTAR_LAMBDA [&]
-#endif
-
-namespace NektarSpaces
-{
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 template <typename TData> using ReduceSum = Kokkos::Sum<TData>;
@@ -206,5 +176,17 @@ public:
     typedef typename std::remove_cv<TData>::type value_type;
 };
 #endif // !defined(NEKTAR_ENABLE_KOKKOS)
+
+// These are used for LoopExecution.hpp
+#if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
+    defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=] __device__
+#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=]
+#elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA KOKKOS_LAMBDA
+#else
+#define NEKTAR_LAMBDA [&]
+#endif
 
 } // namespace NektarSpaces

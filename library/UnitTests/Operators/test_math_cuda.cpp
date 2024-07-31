@@ -64,7 +64,7 @@ BOOST_FIXTURE_TEST_CASE(cuda_negkernel, MathKernels)
     y = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, [](const double &xi) { return -xi; });
 
-    // Serial results
+    // CUDA results
     x = fixt_cuda_in->template GetPtr<MemSpace, ReadOnly>();
     y = fixt_cuda_out->template GetPtr<MemSpace, WriteOnly>();
     negKernelLauncher(n, x, y);

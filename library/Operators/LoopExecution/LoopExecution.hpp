@@ -34,86 +34,13 @@
 
 #pragma once
 
+#include <cstddef>
 #include <limits>
 
 #include "Operators/Common/Spaces.hpp"
 
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
-#include <LibUtilities/BasicUtils/SessionReader.h>
-
 namespace Nektar
 {
-
-// Kokkos execution policy and user settable parameters. All of the
-// parameters are static (global).
-class LoopExecution
-{
-
-public:
-    static void SetCmdLineArguments(
-        std::shared_ptr<LibUtilities::SessionReader> session);
-
-    static bool s_using_device;
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-    enum Kokkos_Policy
-    {
-        Kokkos_Team_Policy,
-        Kokkos_Range_Policy,
-        Kokkos_MDRange_Policy
-    };
-
-    //////////
-    // Sets/Returns whether or not to use available accelerators or
-    // co-processors (e.g. GPU, MIC, etc)
-    static void setUsingDevice(bool state);
-    static bool usingDevice();
-
-    //////////
-    // Sets/Gets the number of Kokkos instances per task
-    static void setKokkosInstancesPerTask(unsigned int num);
-    static unsigned int getKokkosInstancesPerTask();
-
-    //////////
-    // Sets/Gets the number of Kokkos leagues that should be used
-    // for each loop
-    static void setKokkosLeaguesPerLoop(unsigned int num);
-    static unsigned int getKokkosLeaguesPerLoop();
-
-    //////////
-    // Sets/Gets the number of Kokkos teams to use within an SM for a loop
-    static void setKokkosTeamsPerLeague(unsigned int num);
-    static unsigned int getKokkosTeamsPerLeague();
-
-    //////////
-    // Sets/Gets the Kokkos execution policy
-    static void setKokkosPolicy(Kokkos_Policy policy);
-    static Kokkos_Policy getKokkosPolicy();
-
-    //////////
-    // Sets/Gets the Kokkos chuck size for Kokkos::RangePolicy &
-    // Kokkos::TeamPolicy
-    static void setKokkosChunkSize(int size);
-    static int getKokkosChunkSize();
-
-    //////////
-    // Sets/Gets the Kokkos chuck size for Kokkos::MDRangePolicy
-    static void setKokkosTileSize(int isize, int jsize, int ksize);
-    static void getKokkosTileSize(int &isize, int &jsize, int &ksize);
-
-    static int s_kokkos_instances_per_task;
-    static int s_kokkos_leagues_per_loop;
-    static int s_kokkos_teams_per_league;
-
-    static Kokkos_Policy s_kokkos_policy;
-    static int s_kokkos_chunk_size;
-    static int s_kokkos_tile_i_size;
-    static int s_kokkos_tile_j_size;
-    static int s_kokkos_tile_k_size;
-
-#endif // #if defined(NEKTAR_ENABLE_KOKKOS)
-};
 
 // If a functor can take three indices (i,j,k) then this class can be
 // used to schlep the range for each. Currently, the funtors use a

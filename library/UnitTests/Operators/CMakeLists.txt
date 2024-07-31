@@ -36,7 +36,6 @@ ENDIF()
 
 ADD_NEKTAR_EXECUTABLE(test_math_serial
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_serial.cpp MathSerialKernelsLauncher.cpp)
-# Serial StdMat
 ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_assmbscatr_serial_stdmat
@@ -95,7 +94,6 @@ ENDIF()
 IF(NEKTAR_ENABLE_CUDA)
     ADD_NEKTAR_EXECUTABLE(test_math_cuda
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_cuda.cpp MathCUDAKernelsLauncher.cu)
-# CUDA SumFac
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_cuda_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_cuda_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_assmbscatr_cuda_sumfac

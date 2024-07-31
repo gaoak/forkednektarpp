@@ -37,7 +37,7 @@
 #include "MathKernelsLauncher.hpp"
 
 using namespace Nektar;
-using ExecSpace = Kokkos::DefaultExecutionSpace;
+using ExecSpace = NektarSpaces::KOKKOS;
 
 void negKernelLauncher(const size_t n, const double *x, double *y)
 {

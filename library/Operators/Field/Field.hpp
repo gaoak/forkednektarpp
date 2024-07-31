@@ -185,16 +185,13 @@ public:
 
         // Create new a MemoryRegion and polymorphically store as a
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
                 name, size, alignment);
         }
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, size, alignment);
@@ -267,16 +264,13 @@ public:
 
         // Create new a MemoryRegion and polymorphically store as a
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
                 name, size, alignment);
         }
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, size, alignment);

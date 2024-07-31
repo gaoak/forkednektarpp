@@ -43,7 +43,7 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                  const TData *inPtr, TData *outPtr)
 {
@@ -54,7 +54,7 @@ DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                  const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
@@ -66,7 +66,7 @@ DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                       const int *id1Ptr, const TData *signPtr, TData *outPtr)
 {

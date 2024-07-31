@@ -70,24 +70,32 @@ public:
                 "f_in", blocks_in, nin, vec_t::alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
 
-        if (fixt_kokkos_in)
+#if defined(NEKTAR_ENABLE_KOKKOS)
+        if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
         {
-            delete fixt_kokkos_in;
+            if (fixt_kokkos_in)
+            {
+                delete fixt_kokkos_in;
+            }
+            auto fkokkos_in = Field<double, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin);
+            fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
         }
-        auto fkokkos_in =
-            Field<double, stateIn>::template create<NektarSpaces::DeviceSpace>(
-                "fkokkos_in", blocks_in, nin);
-        fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
+#endif
 
-#ifdef NEKTAR_ENABLE_CUDA
-        if (fixt_cuda_in)
+#if defined(NEKTAR_ENABLE_CUDA)
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
         {
-            delete fixt_cuda_in;
+            if (fixt_cuda_in)
+            {
+                delete fixt_cuda_in;
+            }
+            auto fcuda_in = Field<double, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin);
+            fixt_cuda_in = new Field<double, stateIn>(std::move(fcuda_in));
         }
-        auto fcuda_in =
-            Field<double, stateIn>::template create<NektarSpaces::DeviceSpace>(
-                "fcuda_in", blocks_in, nin);
-        fixt_cuda_in = new Field<double, stateIn>(std::move(fcuda_in));
 #endif
     }
 
