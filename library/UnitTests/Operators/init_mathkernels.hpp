@@ -59,6 +59,7 @@ public:
         func1->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+#if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
@@ -66,6 +67,7 @@ public:
                 fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                 fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
         }
+#endif
 #if defined(NEKTAR_ENABLE_CUDA)
         if (testModule.find("Cuda") != std::string::npos ||
             testModule.find("CUDA") != std::string::npos)
@@ -80,6 +82,7 @@ public:
         func2->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+#if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
@@ -87,6 +90,7 @@ public:
                 fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                 fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
         }
+#endif
 #if defined(NEKTAR_ENABLE_CUDA)
         if (testModule.find("Cuda") != std::string::npos ||
             testModule.find("CUDA") != std::string::npos)

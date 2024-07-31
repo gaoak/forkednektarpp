@@ -121,8 +121,7 @@ public:
         {
             m_vExchange = MemoryRegion<TData>::template create<MemSpace>(4);
         }
-        else if constexpr (std::is_same<ExecSpace,
-                                        Kokkos::DefaultExecutionSpace>::value)
+        else if constexpr (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value)
         {
             // For Kokkos, all reduction values are on the host side.
             m_vExchange =
@@ -156,7 +155,7 @@ public:
         }
         // For Kokkos, all reduction values are on the host side.
         else if constexpr (std::is_same<ExecSpace,
-                                        Kokkos::DefaultExecutionSpace>::value &&
+                                        NektarSpaces::KOKKOS>::value &&
                            std::is_same<Implementation,
                                         Operators::StdMat>::value)
         {

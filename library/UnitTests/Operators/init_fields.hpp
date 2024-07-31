@@ -178,6 +178,7 @@ public:
             delete fixt_expected;
         }
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
         if (fixt_kokkos_in)
         {
             delete fixt_kokkos_in;
@@ -186,6 +187,7 @@ public:
         {
             delete fixt_kokkos_out;
         }
+#endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
         if (fixt_cuda_in)
@@ -244,8 +246,7 @@ public:
                     session, graph, "u", true, true,
                     Collections::eNoCollection);
         }
-
-        if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
+        else if constexpr (std::is_same_v<TExpList, MultiRegions::ExpList>)
         {
             fixt_explist =
                 MemoryManager<MultiRegions::ExpList>::AllocateSharedPtr(
@@ -274,19 +275,19 @@ public:
         fixt_out      = new Field<TData, stateOut>(std::move(f_out));
         fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
             auto fkokkos_in = Field<TData, stateIn>::template create<
-                Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_in",
-                                                             blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin);
             auto fkokkos_out = Field<TData, stateOut>::template create<
-                Kokkos::DefaultExecutionSpace::memory_space>("fkokkos_out",
-                                                             blocks_out, nout);
+                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout);
             fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
             fixt_kokkos_out =
                 new Field<TData, stateOut>(std::move(fkokkos_out));
         }
+#endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
         if (testModule.find("Cuda") != std::string::npos ||
@@ -351,8 +352,10 @@ protected:
     Field<TData, stateOut> *fixt_out      = nullptr;
     Field<TData, stateOut> *fixt_expected = nullptr;
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
     Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
     Field<TData, stateOut> *fixt_kokkos_out = nullptr;
+#endif
 
 #if defined(NEKTAR_ENABLE_CUDA)
     Field<TData, stateIn> *fixt_cuda_in   = nullptr;

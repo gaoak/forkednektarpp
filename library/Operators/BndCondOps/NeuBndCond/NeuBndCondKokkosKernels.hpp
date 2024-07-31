@@ -45,7 +45,7 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
                  TData *outPtr)
 {
@@ -56,7 +56,7 @@ NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
                  const int *mapPtr, const TData *inPtr, TData *outPtr)
 {

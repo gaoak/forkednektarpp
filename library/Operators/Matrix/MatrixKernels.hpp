@@ -44,7 +44,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 MatrixKernel(const size_t nElmts, const size_t numPts, const size_t size,
              const TData *mat, const TData *in, TData *out)

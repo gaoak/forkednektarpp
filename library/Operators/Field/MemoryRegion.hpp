@@ -83,14 +83,11 @@ template <class T> struct const_if<true, T>
  */
 template <typename MemSpace> inline size_t EXECSPACE_MEMORY_REGION_ONLY()
 {
-    if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                  std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+    if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
     {
         return __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     }
-    else if constexpr (std::is_same<MemSpace, Kokkos::DefaultExecutionSpace::
-                                                  memory_space>::value ||
-                       std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+    else if constexpr (std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
     {
         return __EXECSPACE_MEMORY_REGION_ONLY__;
     }
@@ -196,8 +193,7 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
         }
 
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             if constexpr (std::is_same<MemQualifier, ReadOnly>::value)
             {
@@ -212,12 +208,8 @@ public:
                 return m_storage->GetHostPtr();
             }
         }
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             try
             {
@@ -285,18 +277,13 @@ public:
 
         // Create a new MemoryRegion and polymorphically store as
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(name, size,
                                                                      alignment);
         }
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, size, alignment);
@@ -349,18 +336,13 @@ public:
 
         // Create a new MemoryRegion and polymorphically store as
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
                 name, src, size, alignment);
         }
-        else if constexpr (
-#if defined(NEKTAR_ENABLE_KOKKOS)
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-#endif
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, src, size, alignment);
@@ -559,17 +541,14 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
         }
 
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             // MemCopy is ignored for host-only memory region.
             m_storage->copyFrom(src, size, offset);
         }
 
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             try
             {
@@ -786,15 +765,12 @@ public:
 
         // Check the memory space type so to not do any more checks as
         // necessary.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             m_storage->HostToDeviceCopy(force);
         }
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             try
             {
@@ -827,15 +803,12 @@ public:
 
         // Check the memory space type so to not do any more checks as
         // necessary.
-        if constexpr (std::is_same<MemSpace, Kokkos::HostSpace>::value ||
-                      std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             m_storage->DeviceToHostCopy(force);
         }
-        else if constexpr (
-            std::is_same<MemSpace,
-                         Kokkos::DefaultExecutionSpace::memory_space>::value ||
-            std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same<MemSpace,
+                                        NektarSpaces::DeviceSpace>::value)
         {
             try
             {

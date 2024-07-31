@@ -47,7 +47,7 @@
 #undef min
 #endif
 
-using MemSpace = Kokkos::DefaultExecutionSpace::memory_space;
+using MemSpace = NektarSpaces::DeviceSpace;
 
 BOOST_AUTO_TEST_SUITE(TestMathKokkos)
 

@@ -43,7 +43,7 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
                        const int *traceCoeffsToElmtSignPtr,

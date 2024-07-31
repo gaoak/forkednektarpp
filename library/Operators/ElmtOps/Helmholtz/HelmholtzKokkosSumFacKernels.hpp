@@ -44,7 +44,7 @@ namespace Nektar::Operators::detail
 // Generic kernel launchers except for CUDA.
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0)
 {
@@ -55,7 +55,7 @@ DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1)
 {
@@ -70,7 +70,7 @@ DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1, TData *deriv2)
 {

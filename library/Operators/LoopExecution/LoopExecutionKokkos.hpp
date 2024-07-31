@@ -36,20 +36,89 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
+#include <LibUtilities/BasicUtils/SessionReader.h>
+
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 
 namespace Nektar
 {
 
+// Kokkos execution policy and user settable parameters. All of the
+// parameters are static (global).
+class LoopExecution
+{
+
+public:
+    static void SetCmdLineArguments(
+        std::shared_ptr<LibUtilities::SessionReader> session);
+
+    static bool s_using_device;
+
+    enum Kokkos_Policy
+    {
+        Kokkos_Team_Policy,
+        Kokkos_Range_Policy,
+        Kokkos_MDRange_Policy
+    };
+
+    //////////
+    // Sets/Returns whether or not to use available accelerators or
+    // co-processors (e.g. GPU, MIC, etc)
+    static void setUsingDevice(bool state);
+    static bool usingDevice();
+
+    //////////
+    // Sets/Gets the number of Kokkos instances per task
+    static void setKokkosInstancesPerTask(unsigned int num);
+    static unsigned int getKokkosInstancesPerTask();
+
+    //////////
+    // Sets/Gets the number of Kokkos leagues that should be used
+    // for each loop
+    static void setKokkosLeaguesPerLoop(unsigned int num);
+    static unsigned int getKokkosLeaguesPerLoop();
+
+    //////////
+    // Sets/Gets the number of Kokkos teams to use within an SM for a loop
+    static void setKokkosTeamsPerLeague(unsigned int num);
+    static unsigned int getKokkosTeamsPerLeague();
+
+    //////////
+    // Sets/Gets the Kokkos execution policy
+    static void setKokkosPolicy(Kokkos_Policy policy);
+    static Kokkos_Policy getKokkosPolicy();
+
+    //////////
+    // Sets/Gets the Kokkos chuck size for Kokkos::RangePolicy &
+    // Kokkos::TeamPolicy
+    static void setKokkosChunkSize(int size);
+    static int getKokkosChunkSize();
+
+    //////////
+    // Sets/Gets the Kokkos chuck size for Kokkos::MDRangePolicy
+    static void setKokkosTileSize(int isize, int jsize, int ksize);
+    static void getKokkosTileSize(int &isize, int &jsize, int &ksize);
+
+    static int s_kokkos_instances_per_task;
+    static int s_kokkos_leagues_per_loop;
+    static int s_kokkos_teams_per_league;
+
+    static Kokkos_Policy s_kokkos_policy;
+    static int s_kokkos_chunk_size;
+    static int s_kokkos_tile_i_size;
+    static int s_kokkos_tile_j_size;
+    static int s_kokkos_tile_k_size;
+};
+
 // Simple 1D Range parallel_for
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 parallel_for(const int begin, const int end, const Functor &functor)
 {
     std::string name = Nektar::demangleTypeName(typeid(Functor));
 
-    Kokkos::RangePolicy<ExecSpace> rangePolicy(begin, end);
+    Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(begin, end);
 
     Kokkos::parallel_for(name, rangePolicy, functor);
 }
@@ -57,13 +126,13 @@ parallel_for(const int begin, const int end, const Functor &functor)
 // Simple 1D Range parallel_reduce
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
     std::string name = Nektar::demangleTypeName(typeid(Functor));
 
-    Kokkos::RangePolicy<ExecSpace> rangePolicy(begin, end);
+    Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(begin, end);
 
     Kokkos::parallel_reduce(name, rangePolicy, functor, Reduction(red));
 }
@@ -71,7 +140,7 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
 // Block range parallel_for
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 parallel_for(BlockRange const &r, const Functor &functor)
 {
     std::string name = Nektar::demangleTypeName(typeid(Functor));
@@ -99,7 +168,8 @@ parallel_for(BlockRange const &r, const Functor &functor)
     // Range Policy
     if (kokkos_policy == LoopExecution::Kokkos_Range_Policy)
     {
-        Kokkos::RangePolicy<ExecSpace> rangePolicy(0, numItems);
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(
+            0, numItems);
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();
@@ -124,7 +194,8 @@ parallel_for(BlockRange const &r, const Functor &functor)
 
         if (i_tile > 0 || j_tile > 0 || k_tile > 0)
         {
-            Kokkos::MDRangePolicy<ExecSpace, Kokkos::Rank<3>, int>
+            Kokkos::MDRangePolicy<Kokkos::DefaultExecutionSpace,
+                                  Kokkos::Rank<3>, int>
                 mdRangePolicy({rbegin0, rbegin1, rbegin2},
                               {rend0, rend1, rend2}, {i_tile, j_tile, k_tile});
 
@@ -155,8 +226,9 @@ parallel_for(BlockRange const &r, const Functor &functor)
                                     : team_range_size;
 
         // Assumption - there is only one league
-        Kokkos::TeamPolicy<ExecSpace> teamPolicy(1, actualTeams);
-        typedef Kokkos::TeamPolicy<ExecSpace> policy_type;
+        Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> teamPolicy(
+            1, actualTeams);
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy_type;
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();
@@ -213,9 +285,9 @@ parallel_for(BlockRange const &r, const Functor &functor)
 
         // Use a Team Policy, this allows us to control how many threads
         // per league and how many leagues are used.
-        Kokkos::TeamPolicy<ExecSpace> teamPolicy(actual_leagues_per_loop,
-                                                 actual_teams_per_league);
-        typedef Kokkos::TeamPolicy<ExecSpace> policy_type;
+        Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> teamPolicy(
+            actual_leagues_per_loop, actual_teams_per_league);
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy_type;
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();
@@ -288,7 +360,7 @@ parallel_for(BlockRange const &r, const Functor &functor)
 // Block range parallel_reduce
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 parallel_reduce(BlockRange const &r, const Functor &functor,
                 typename Reduction::value_type &red)
 {
@@ -317,7 +389,8 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
     // Range Policy
     if (kokkos_policy == LoopExecution::Kokkos_Range_Policy)
     {
-        Kokkos::RangePolicy<ExecSpace> rangePolicy(0, numItems);
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(
+            0, numItems);
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();
@@ -344,7 +417,8 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
 
         if (i_tile > 0 || j_tile > 0 || k_tile > 0)
         {
-            Kokkos::MDRangePolicy<ExecSpace, Kokkos::Rank<3>, int>
+            Kokkos::MDRangePolicy<Kokkos::DefaultExecutionSpace,
+                                  Kokkos::Rank<3>, int>
                 mdRangePolicy({rbegin0, rbegin1, rbegin2},
                               {rend0, rend1, rend2}, {i_tile, j_tile, k_tile});
 
@@ -353,7 +427,8 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
         }
         else
         {
-            Kokkos::MDRangePolicy<ExecSpace, Kokkos::Rank<3>, int>
+            Kokkos::MDRangePolicy<Kokkos::DefaultExecutionSpace,
+                                  Kokkos::Rank<3>, int>
                 mdRangePolicy({rbegin0, rbegin1, rbegin2},
                               {rend0, rend1, rend2}, {i_size, j_size, k_size});
 
@@ -377,8 +452,9 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
                                     : team_range_size;
 
         // Assumption - there is only one league
-        Kokkos::TeamPolicy<ExecSpace> teamPolicy(1, actualTeams);
-        typedef Kokkos::TeamPolicy<ExecSpace> policy_type;
+        Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> teamPolicy(
+            1, actualTeams);
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy_type;
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();
@@ -443,10 +519,10 @@ parallel_reduce(BlockRange const &r, const Functor &functor,
 
         // Use a Team Policy, this allows us to control how many threads
         // per league and how many leagues are used.
-        Kokkos::TeamPolicy<ExecSpace> teamPolicy(actual_leagues_per_loop,
-                                                 actual_teams_per_league);
+        Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> teamPolicy(
+            actual_leagues_per_loop, actual_teams_per_league);
 
-        typedef Kokkos::TeamPolicy<ExecSpace> policy_type;
+        typedef Kokkos::TeamPolicy<Kokkos::DefaultExecutionSpace> policy_type;
 
         // Get from the session. Set up in LoopExecution.cpp
         int size = LoopExecution::getKokkosChunkSize();

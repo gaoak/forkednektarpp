@@ -34,6 +34,8 @@
 
 #include "LoopExecution.hpp"
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
+
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 namespace Nektar
@@ -42,7 +44,6 @@ namespace Nektar
 bool LoopExecution::s_using_device = false;
 
 // Kokkos command line arguments.
-#if defined(NEKTAR_ENABLE_KOKKOS)
 std::string kokkosCmdPolicy =
     LibUtilities::SessionReader::RegisterCmdLineArgument(
         "kokkos_policy", "",
@@ -79,8 +80,6 @@ int LoopExecution::s_kokkos_tile_k_size      = -1;
 int LoopExecution::s_kokkos_teams_per_league = -1;
 int LoopExecution::s_kokkos_leagues_per_loop = -1;
 
-#endif // #if !defined(NEKTAR_ENABLE_KOKKOS)
-
 // Set/Get Kokkos command line functions.
 
 // This function is called when an operator is created. The call is
@@ -88,7 +87,6 @@ int LoopExecution::s_kokkos_leagues_per_loop = -1;
 void LoopExecution::SetCmdLineArguments(
     [[maybe_unused]] std::shared_ptr<LibUtilities::SessionReader> session)
 {
-#if defined(NEKTAR_ENABLE_KOKKOS)
     // Kokkos specific defaults.
 
     // Set GPU parameters (NOTE: This could be autotuned if knowledge of
@@ -240,11 +238,8 @@ void LoopExecution::SetCmdLineArguments(
                      "set but not using the Kokkos MDRange Policy");
         }
     }
-
-#endif // Kokkos specific defaults.
 }
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
 //_____________________________________________________________________________
 //
 void LoopExecution::setKokkosLeaguesPerLoop(unsigned int num)
@@ -382,6 +377,6 @@ void LoopExecution::getKokkosTileSize(int &isize, int &jsize, int &ksize)
     ksize = s_kokkos_tile_k_size;
 }
 
-#endif // Kokkos specific defaults.
-
 } // namespace Nektar
+
+#endif // Kokkos specific defaults.

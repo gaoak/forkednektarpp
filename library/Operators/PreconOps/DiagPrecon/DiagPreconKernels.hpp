@@ -48,7 +48,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 SetDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
                   const size_t offset, const TData val,
@@ -66,7 +66,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 CopyDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
                    const size_t inoffset, const size_t outoffset,

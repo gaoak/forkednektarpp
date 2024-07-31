@@ -90,7 +90,9 @@ public:
         std::shared_ptr<LibUtilities::SessionReader> session =
             m_expansionList->GetSession();
 
+#if defined(NEKTAR_ENABLE_KOKKOS)
         LoopExecution::SetCmdLineArguments(session);
+#endif
 
         // Command-line specified execution space
         if (session->DefinesCmdLineArgument("opExecSpace"))
@@ -219,14 +221,11 @@ public:
         // removed.
         std::string execStr = Nektar::demangleTypeName(typeid(ExecSpace));
 
-        if (!Nektar::stripString(execStr, "NektarSpaces::"))
+        Nektar::stripString(execStr, "NektarSpaces::");
+
+        if (execStr == "KOKKOS")
         {
-            // Check for a Kokkos:: root.
-            size_t found = execStr.find("Kokkos::");
-            if (found != std::string::npos)
-            {
-                execStr = "Kokkos";
-            }
+            execStr = "Kokkos";
         }
 
 #if defined(_MSC_VER)

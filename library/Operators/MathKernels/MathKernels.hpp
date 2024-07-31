@@ -47,7 +47,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 {
@@ -99,7 +99,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -155,7 +155,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -211,7 +211,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 daxpy(const TData alpha, Field<TData, TFieldState> &x,
       Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
@@ -268,7 +268,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -324,7 +324,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
@@ -361,7 +361,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 reduceMax(Field<TData, TFieldState> &x, TData *out)
 {
@@ -398,7 +398,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
@@ -435,7 +435,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
 {
@@ -491,7 +491,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 l1norm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -528,7 +528,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 l2norm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -565,7 +565,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
@@ -602,7 +602,7 @@ template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, Kokkos::DefaultExecutionSpace>::value,
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
     void>::type
 linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
