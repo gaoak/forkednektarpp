@@ -39,6 +39,7 @@
 #include "Operators/BndCondOps/DirBndCond/DirBndCondCUDAKernels.cuh"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondKokkosKernels.hpp"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondSYCLKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -171,6 +172,12 @@ public:
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
+        // Return if no Dirichlet boundary condition.
+        if (m_nbndcoeff == 0)
+        {
+            return;
+        }
+
         auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto *bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
         auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
@@ -231,8 +238,11 @@ public:
             auto *locid1Ptr  = m_locid1.template GetPtr<MemSpace, ReadOnly>();
             auto *locsignPtr = m_locsign.template GetPtr<MemSpace, ReadOnly>();
 
-            LocalDirBndCondKernel<ExecSpace>(m_localDirSize, locid0Ptr,
-                                             locid1Ptr, locsignPtr, inoutPtr);
+            if (m_localDirSize > 0)
+            {
+                LocalDirBndCondKernel<ExecSpace>(
+                    m_localDirSize, locid0Ptr, locid1Ptr, locsignPtr, inoutPtr);
+            }
         }
     }
 

@@ -39,6 +39,7 @@
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondCUDAKernels.cuh"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKokkosKernels.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondSYCLKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -152,6 +153,12 @@ public:
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
+        // Return if no Neumann boundary condition.
+        if (m_nbndcoeff == 0)
+        {
+            return;
+        }
+
         auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto *bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
         auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();

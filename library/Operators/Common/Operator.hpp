@@ -90,10 +90,6 @@ public:
         std::shared_ptr<LibUtilities::SessionReader> session =
             m_expansionList->GetSession();
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        LoopExecution::SetCmdLineArguments(session);
-#endif
-
         // Command-line specified execution space
         if (session->DefinesCmdLineArgument("opExecSpace"))
         {

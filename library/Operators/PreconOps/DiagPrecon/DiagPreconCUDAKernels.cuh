@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiagPreconKernels.cuh
+// File: DiagPreconCUDAKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -92,6 +92,7 @@ inline
     unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
 
     TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
+
     SetDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, offset, val,
                                                outptr);
 }
@@ -112,6 +113,7 @@ inline
 
     const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
     TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();
+
     CopyDiagonalKernel<<<gridSize, blockSize>>>(nmTot, nElmts, mode, inoffset,
                                                 outoffset, inptr, outptr);
 }

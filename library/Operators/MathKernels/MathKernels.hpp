@@ -38,6 +38,7 @@
 #include "Operators/MathKernels/MathAVXKernels.hpp"
 #include "Operators/MathKernels/MathCUDAKernels.cuh"
 #include "Operators/MathKernels/MathKokkosKernels.hpp"
+#include "Operators/MathKernels/MathSYCLKernels.hpp"
 #include "Operators/MathKernels/MathSerialKernels.hpp"
 
 namespace Nektar //::Operators
@@ -46,8 +47,7 @@ namespace Nektar //::Operators
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 {
@@ -74,10 +74,12 @@ neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -98,8 +100,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -129,10 +130,12 @@ add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -154,8 +157,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -185,10 +187,12 @@ sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -210,8 +214,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 daxpy(const TData alpha, Field<TData, TFieldState> &x,
       Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
@@ -241,11 +244,13 @@ daxpy(const TData alpha, Field<TData, TFieldState> &x,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-          MemoryRegion<TData> &z)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
+      MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -267,8 +272,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     Field<TData, TFieldState> &z)
@@ -298,10 +302,12 @@ div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -323,8 +329,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
@@ -345,10 +350,12 @@ reduceSum(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceSum(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+reduceSum(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -360,8 +367,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 reduceMax(Field<TData, TFieldState> &x, TData *out)
 {
@@ -382,10 +388,12 @@ reduceMax(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceMax(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+reduceMax(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -397,8 +405,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
@@ -419,10 +426,12 @@ reduceMin(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceMin(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+reduceMin(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -434,8 +443,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
 {
@@ -466,10 +474,12 @@ ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -490,8 +500,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 l1norm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -512,10 +521,12 @@ l1norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    l1norm(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+l1norm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -527,8 +538,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 l2norm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -549,10 +559,12 @@ l2norm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    l2norm(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+l2norm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -564,8 +576,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
@@ -586,10 +597,12 @@ lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -601,8 +614,7 @@ inline
 template <typename ExecSpace, typename TData, FieldState TFieldState>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
 linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
@@ -623,10 +635,12 @@ linfnorm(Field<TData, TFieldState> &x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    linfnorm(MemoryRegion<TData> &x, TData *out)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
+        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+    void>::type
+linfnorm(MemoryRegion<TData> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 

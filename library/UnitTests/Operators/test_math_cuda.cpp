@@ -226,7 +226,7 @@ BOOST_FIXTURE_TEST_CASE(cuda_sum, MathKernels)
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "CUDA = " << h_out << " Max = " << out << std::endl;
+        std::cout << "CUDA = " << h_out << " Sum = " << out << std::endl;
     }
 }
 
@@ -299,7 +299,7 @@ BOOST_FIXTURE_TEST_CASE(cuda_innerproduct, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         std::cout << "CUDA = " << std::sqrt(h_out)
-                  << " L2norm = " << std::sqrt(out) << std::endl;
+                  << " ddot = " << std::sqrt(out) << std::endl;
     }
 }
 
@@ -412,7 +412,7 @@ BOOST_FIXTURE_TEST_CASE(cuda_linfnorm, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         std::cout << "CUDA = " << std::sqrt(h_out)
-                  << " L2norm = " << std::sqrt(out) << std::endl;
+                  << " Linfnorm = " << std::sqrt(out) << std::endl;
     }
 }
 

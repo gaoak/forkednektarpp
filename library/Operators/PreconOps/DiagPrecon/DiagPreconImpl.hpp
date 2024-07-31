@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.cuh"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconCUDAKernels.cuh"
 #include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconSYCLKernels.hpp"
 #include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"

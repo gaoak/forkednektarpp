@@ -70,6 +70,20 @@ public:
                 "f_in", blocks_in, nin, vec_t::alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
 
+#if defined(NEKTAR_ENABLE_SYCL)
+        if (testModule.find("sycl") != std::string::npos ||
+            testModule.find("SYCL") != std::string::npos)
+        {
+            if (fixt_sycl_in)
+            {
+                delete fixt_sycl_in;
+            }
+            auto fsycl_in = Field<double, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin);
+            fixt_sycl_in = new Field<double, stateIn>(std::move(fsycl_in));
+        }
+#endif
+
 #if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)

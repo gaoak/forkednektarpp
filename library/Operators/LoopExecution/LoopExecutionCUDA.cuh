@@ -50,6 +50,56 @@ static void *cudaBuffer            = nullptr;
 
 namespace cg = cooperative_groups;
 
+__device__ __forceinline__ float atomicMax(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val > __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+__device__ __forceinline__ double atomicMax(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val > __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+__device__ __forceinline__ float atomicMin(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val < __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
+__device__ __forceinline__ double atomicMin(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val < __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
 template <typename Functor>
 __global__ void parallel_for(const unsigned int begin, const unsigned int end,
                              const Functor functor)
@@ -75,6 +125,13 @@ __global__ void reduceSumKernel(const unsigned int begin,
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
+
+    if (block.thread_rank() == 0)
+    {
+        buffer[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
 
     for (unsigned int tid = begin + grid.thread_rank(); tid < end;
          tid += grid.size())
@@ -197,40 +254,43 @@ inline
                     const Functor &functor, typename Reduction::value_type *out)
 {
     using TData = typename Reduction::value_type;
+
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
+
+    TData *buffer = (TData *)cudaBuffer;
 
     if constexpr (std::is_same_v<Reduction, NektarSpaces::ReduceSum<TData>>)
     {
-        reduceSumKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
         reduceSumKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
+        reduceSumKernel<TData><<<1, cudaGridSize>>>(
+            0, cudaGridSize, out,
+            [=] __device__(const unsigned int i, TData &ans)
+            { ans += buffer[i]; });
     }
     else if constexpr (std::is_same_v<Reduction,
                                       NektarSpaces::ReduceMax<TData>>)
     {
-        reduceMaxKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
         reduceMaxKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
+        reduceMaxKernel<TData><<<1, cudaGridSize>>>(
+            0, cudaGridSize, out,
+            [=] __device__(const unsigned int i, TData &ans)
+            { ans = max(ans, buffer[i]); });
     }
     else if constexpr (std::is_same_v<Reduction,
                                       NektarSpaces::ReduceMin<TData>>)
     {
-        reduceMinKernel<TData><<<cudaGridSize, cudaBlockSize>>>(
-            begin, end, (TData *)cudaBuffer, functor);
         reduceMinKernel<TData>
-            <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, out);
+            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
+        reduceMinKernel<TData><<<1, cudaGridSize>>>(
+            0, cudaGridSize, out,
+            [=] __device__(const unsigned int i, TData &ans)
+            { ans = min(ans, buffer[i]); });
     }
 }
 

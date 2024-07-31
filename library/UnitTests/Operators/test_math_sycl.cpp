@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_math_avx.cpp
+// File: test_math_sycl.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,10 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMathAVX
+#define BOOST_TEST_MODULE TestMathSYCL
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include "MathKernelsLauncher.hpp"
+#include "Operators/Field/MemoryRegionDevice.hpp"
 #include "init_mathkernels.hpp"
 
 #include <iostream>
@@ -46,11 +47,11 @@
 #undef min
 #endif
 
-using MemSpace = NektarSpaces::HostSpace;
+using MemSpace = NektarSpaces::DeviceSpace;
 
-BOOST_AUTO_TEST_SUITE(TestMathAVX)
+BOOST_AUTO_TEST_SUITE(TestMathSYCL)
 
-BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_negkernel, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -63,22 +64,23 @@ BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
     y = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, [](const double &xi) { return -xi; });
 
-    // Serial results
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_sycl_out->template GetPtr<MemSpace, WriteOnly>();
     negKernelLauncher(n, x, y);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
+    BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             1.0E-15);
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_addkernel, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -93,22 +95,23 @@ BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi + yi; });
 
-    // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
     addKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
+    BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             1.0E-15);
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_subkernel, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -123,22 +126,23 @@ BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi - yi; });
 
-    // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
     subKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
+    BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             1.0E-15);
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_daxpykernel, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -155,22 +159,23 @@ BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
         return alpha * xi + yi;
     });
 
-    // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
     daxpyKernelLauncher(n, alpha, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-14));
+    BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, 1.0E-14));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             1.0E-14);
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_divkernel, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -185,22 +190,23 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi / yi; });
 
-    // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
     divKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
+    BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
         OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
+            fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
             1.0E-15);
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_sum, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -212,18 +218,19 @@ BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
     x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = std::accumulate(x, x + n, 0.0);
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     sumKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << h_out << " Sum = " << out << std::endl;
+        std::cout << "SYCL = " << h_out << " Sum = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_max, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_max, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -235,18 +242,19 @@ BOOST_FIXTURE_TEST_CASE(avx_max, MathKernels)
     x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = *(std::max_element(x, x + n));
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     maxKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << h_out << " Max = " << out << std::endl;
+        std::cout << "SYCL = " << h_out << " Max = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_min, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_min, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -258,18 +266,19 @@ BOOST_FIXTURE_TEST_CASE(avx_min, MathKernels)
     x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = *(std::min_element(x, x + n));
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     minKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << h_out << " Min = " << out << std::endl;
+        std::cout << "SYCL = " << h_out << " Min = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_innerproduct, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_innerproduct, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -281,19 +290,20 @@ BOOST_FIXTURE_TEST_CASE(avx_innerproduct, MathKernels)
     x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     out = std::inner_product(x, x + n, x, 0.0);
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     innerproductKernelLauncher(n, x, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << std::sqrt(h_out)
+        std::cout << "SYCL = " << std::sqrt(h_out)
                   << " ddot = " << std::sqrt(out) << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_l1norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_l1norm, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -308,18 +318,19 @@ BOOST_FIXTURE_TEST_CASE(avx_l1norm, MathKernels)
                               return acc + std::abs(val);
                           });
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     l1normKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-11);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << h_out << " L1norm = " << out << std::endl;
+        std::cout << "SYCL = " << h_out << " L1norm = " << out << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_l2norm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_l2norm, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -333,19 +344,20 @@ BOOST_FIXTURE_TEST_CASE(avx_l2norm, MathKernels)
         x, x + n, 0.0,
         [](const double &acc, const double &val) { return acc + val * val; });
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     l2normKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << std::sqrt(h_out)
+        std::cout << "SYCL = " << std::sqrt(h_out)
                   << " L2norm = " << std::sqrt(out) << std::endl;
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_lpnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_lpnorm, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -362,20 +374,21 @@ BOOST_FIXTURE_TEST_CASE(avx_lpnorm, MathKernels)
                                   return acc + std::pow(std::abs(val), p);
                               });
 
-        // AVX results
+        // SYCL results
+        x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
         lpnormKernelLauncher(n, p, x, &h_out);
 
         // Check results
         BOOST_TEST(fabs(h_out - out) < 5.0E-10);
         boost::test_tools::output_test_stream output;
         {
-            std::cout << "AVX = " << std::sqrt(h_out) << " L" << p
+            std::cout << "SYCL = " << std::sqrt(h_out) << " L" << p
                       << "norm = " << std::sqrt(out) << std::endl;
         }
     }
 }
 
-BOOST_FIXTURE_TEST_CASE(avx_linfnorm, MathKernels)
+BOOST_FIXTURE_TEST_CASE(sycl_linfnorm, MathKernels)
 {
     Configure();
     SetTestCase();
@@ -390,14 +403,15 @@ BOOST_FIXTURE_TEST_CASE(avx_linfnorm, MathKernels)
                               return std::max(std::abs(acc), std::abs(val));
                           });
 
-    // AVX results
+    // SYCL results
+    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
     linfnormKernelLauncher(n, x, &h_out);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "AVX = " << std::sqrt(h_out)
+        std::cout << "SYCL = " << std::sqrt(h_out)
                   << " Linfnorm = " << std::sqrt(out) << std::endl;
     }
 }
