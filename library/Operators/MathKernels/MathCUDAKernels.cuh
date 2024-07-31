@@ -41,56 +41,6 @@
 namespace Nektar //::Operators
 {
 
-__device__ __forceinline__ float atomicMax(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val > __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-__device__ __forceinline__ double atomicMax(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val > __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
-__device__ __forceinline__ float atomicMin(float *address, float val)
-{
-    int ret = __float_as_int(*address);
-    while (val < __int_as_float(ret))
-    {
-        int old = ret;
-        if ((ret = atomicCAS((int *)address, old, __float_as_int(val))) == old)
-            break;
-    }
-    return __int_as_float(ret);
-}
-
-__device__ __forceinline__ double atomicMin(double *address, double val)
-{
-    unsigned long long ret = __double_as_longlong(*address);
-    while (val < __longlong_as_double(ret))
-    {
-        unsigned long long old = ret;
-        if ((ret = atomicCAS((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
-            break;
-    }
-    return __longlong_as_double(ret);
-}
-
 __device__ inline float4 &operator+=(float4 &a, const float4 b)
 {
     a.x += b.x;
@@ -292,7 +242,7 @@ __global__ void vdivKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
+__global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
                                 TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -305,13 +255,20 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
 
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
+
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            v4 += reinterpret_cast<const float4 *>(data)[tid];
+            v4 += reinterpret_cast<const float4 *>(x)[tid];
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
     }
@@ -321,7 +278,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            v2 += reinterpret_cast<const double2 *>(data)[tid];
+            v2 += reinterpret_cast<const double2 *>(x)[tid];
         }
         v = v2.x + v2.y; // accumulate thread sums in v
     }
@@ -330,7 +287,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v += data[tid];
+            v += x[tid];
         }
     }
 
@@ -340,7 +297,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v += data[tid];
+            v += x[tid];
         }
     }
 
@@ -359,7 +316,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *data,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
+__global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
                                 TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -385,7 +342,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
             v               = max(v, max(max(v4.x, v4.y), max(v4.z, v4.w)));
         }
     }
@@ -394,7 +351,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
             v                = max(v, max(v2.x, v2.y));
         }
     }
@@ -403,7 +360,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v = max(v, data[tid]);
+            v = max(v, x[tid]);
         }
     }
 
@@ -413,7 +370,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = max(v, data[tid]);
+            v                = max(v, x[tid]);
         }
     }
 
@@ -431,7 +388,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *data,
 }
 
 template <typename TData, bool vl = true>
-__global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
+__global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
                                 TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -457,7 +414,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
             v               = min(v, min(min(v4.x, v4.y), min(v4.z, v4.w)));
         }
     }
@@ -466,7 +423,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
             v                = min(v, min(v2.x, v2.y));
         }
     }
@@ -475,7 +432,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v = min(v, data[tid]);
+            v = min(v, x[tid]);
         }
     }
 
@@ -485,7 +442,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = min(v, data[tid]);
+            v                = min(v, x[tid]);
         }
     }
 
@@ -515,6 +472,13 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     auto block = cg::this_thread_block();
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
+
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
 
     if constexpr (vl && std::is_same_v<TData, float>)
     {
@@ -574,7 +538,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
 }
 
 template <typename TData, bool vl = true>
-__global__ void l1normKernel(const unsigned int nsize, const TData *data,
+__global__ void l1normKernel(const unsigned int nsize, const TData *x,
                              TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -587,13 +551,20 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
 
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
+
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 tmp = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
             v4 += make_float4(abs(tmp.x), abs(tmp.y), abs(tmp.z), abs(tmp.w));
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
@@ -604,7 +575,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 tmp = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
             v2 += make_double2(abs(tmp.x), abs(tmp.y));
         }
         v = v2.x + v2.y; // accumulate thread sums in v
@@ -614,7 +585,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v += abs(data[tid]);
+            v += abs(x[tid]);
         }
     }
 
@@ -624,7 +595,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v += abs(data[tid]);
+            v += abs(x[tid]);
         }
     }
 
@@ -643,7 +614,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *data,
 }
 
 template <typename TData, bool vl = true>
-__global__ void l2normKernel(const unsigned int nsize, const TData *data,
+__global__ void l2normKernel(const unsigned int nsize, const TData *x,
                              TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -656,13 +627,20 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
 
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
+
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 tmp = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
             v4 += tmp * tmp;
         }
         v = v4.x + v4.y + v4.z + v4.w; // accumulate thread sums in v
@@ -673,7 +651,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 tmp = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
             v2 += tmp * tmp;
         }
         v = v2.x + v2.y; // accumulate thread sums in v
@@ -683,7 +661,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v += data[tid] * data[tid];
+            v += x[tid] * x[tid];
         }
     }
 
@@ -693,7 +671,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v += data[tid] * data[tid];
+            v += x[tid] * x[tid];
         }
     }
 
@@ -713,7 +691,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *data,
 
 template <typename TData, bool vl = true>
 __global__ void lpnormKernel(const unsigned int nsize, const int p,
-                             const TData *data, TData *out)
+                             const TData *x, TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
@@ -725,13 +703,20 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     auto warp  = cg::tiled_partition<32>(block);
     TData v    = 0;
 
+    if (block.thread_rank() == 0)
+    {
+        out[block.group_index().x] = 0.0;
+    }
+
+    block.sync();
+
     if constexpr (vl && std::is_same_v<TData, float>)
     {
         float4 v4 = {0.0f, 0.0f, 0.0f, 0.0f}; // use v4 to read global memory
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 tmp = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 tmp = reinterpret_cast<const float4 *>(x)[tid];
             v4 += make_float4(pow(abs(tmp.x), p), pow(abs(tmp.y), p),
                               pow(abs(tmp.z), p), pow(abs(tmp.w), p));
         }
@@ -743,7 +728,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 tmp = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 tmp = reinterpret_cast<const double2 *>(x)[tid];
             v2 += make_double2(pow(abs(tmp.x), p), pow(abs(tmp.y), p));
         }
         v = v2.x + v2.y; // accumulate thread sums in v
@@ -753,7 +738,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v += pow(abs(data[tid]), p);
+            v += pow(abs(x[tid]), p);
         }
     }
 
@@ -763,7 +748,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v += pow(abs(data[tid]), p);
+            v += pow(abs(x[tid]), p);
         }
     }
 
@@ -782,7 +767,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
 }
 
 template <typename TData, bool vl = true>
-__global__ void linfnormKernel(const unsigned int nsize, const TData *data,
+__global__ void linfnormKernel(const unsigned int nsize, const TData *x,
                                TData *out)
 {
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
@@ -808,7 +793,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const float4 v4 = reinterpret_cast<const float4 *>(data)[tid];
+            const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
             v               = max(v,
                     max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
         }
@@ -818,7 +803,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize / vecsize;
              tid += grid.size())
         {
-            const double2 v2 = reinterpret_cast<const double2 *>(data)[tid];
+            const double2 v2 = reinterpret_cast<const double2 *>(x)[tid];
             v                = max(v, max(abs(v2.x), abs(v2.y)));
         }
     }
@@ -827,7 +812,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
         for (unsigned int tid = grid.thread_rank(); tid < nsize;
              tid += grid.size())
         {
-            v = max(v, abs(data[tid]));
+            v = max(v, abs(x[tid]));
         }
     }
 
@@ -837,7 +822,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *data,
         if (grid.thread_rank() < nsize % vecsize)
         {
             unsigned int tid = nsize - 1u - grid.thread_rank();
-            v                = max(v, abs(data[tid]));
+            v                = max(v, abs(x[tid]));
         }
     }
 
@@ -913,10 +898,6 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
@@ -936,10 +917,6 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
@@ -957,10 +934,6 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
@@ -979,15 +952,9 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
     ddotKernel<TData>
         <<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, (TData *)cudaBuffer);
     reduceSumKernel<TData>
@@ -1002,15 +969,9 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
     l1normKernel<TData>
         <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
@@ -1025,15 +986,9 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
     l2normKernel<TData>
         <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
@@ -1049,15 +1004,9 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
-    cudaMemset(out, 0, sizeof(TData));
     lpnormKernel<TData>
         <<<cudaGridSize, cudaBlockSize>>>(nsize, p, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
@@ -1072,10 +1021,6 @@ inline
 {
     if (cudaBuffer == nullptr)
     {
-        if (cudaBufferSize < sizeof(TData) * cudaGridSize)
-        {
-            cudaFree(cudaBuffer);
-        }
         cudaBufferSize = sizeof(TData) * cudaGridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }

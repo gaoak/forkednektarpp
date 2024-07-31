@@ -110,6 +110,8 @@ private:
 
 #include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
 
+#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
+
 #include "Operators/LoopExecution/LoopExecutionKokkos.hpp"
 
 #include "Operators/LoopExecution/LoopExecutionCUDA.cuh"

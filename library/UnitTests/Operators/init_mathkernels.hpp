@@ -59,6 +59,15 @@ public:
         func1->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+#if defined(NEKTAR_ENABLE_SYCL)
+        if (testModule.find("sycl") != std::string::npos ||
+            testModule.find("SYCL") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#endif
 #if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
@@ -82,6 +91,15 @@ public:
         func2->Evaluate(x, y, z, fce);
         std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
                   fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+#if defined(NEKTAR_ENABLE_SYCL)
+        if (testModule.find("sycl") != std::string::npos ||
+            testModule.find("SYCL") != std::string::npos)
+        {
+            std::copy(
+                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
+                fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+        }
+#endif
 #if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)

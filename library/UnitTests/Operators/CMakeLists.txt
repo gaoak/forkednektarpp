@@ -132,9 +132,18 @@ ENDIF()
 
 # SYCL
 IF(NEKTAR_ENABLE_SYCL)
-    # SYCL SumFac
+    ADD_NEKTAR_EXECUTABLE(test_math_sycl
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_sycl.cpp MathSYCLKernelsLauncher.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_sycl_sumfac
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac.cpp)
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_diagprecon_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_dirichlet_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_neumann_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_sycl_sumfac.cpp)
 ENDIF()
 
 # Kokkos
@@ -248,7 +257,12 @@ ENDIF()
 
 # SYCL SumFac
 IF(NEKTAR_ENABLE_SYCL)
+    SET_UNIT_TEST(Math_sycl test_math_sycl FALSE)
+    SET_UNIT_TEST(AddTraceIntegral_sycl_sumfac test_addtraceintegral_sycl_sumfac FALSE)
     SET_UNIT_TEST(BwdTrans_sycl_sumfac test_bwdtrans_sycl_sumfac FALSE)
+    SET_UNIT_TEST(DiagPrecon_sycl_sumfac test_diagprecon_sycl_sumfac FALSE)
+    SET_UNIT_TEST(Dirichlet_sycl_sumfac test_dirichlet_sycl_sumfac FALSE)
+    SET_UNIT_TEST(Neumann_sycl_sumfac test_neumann_sycl_sumfac FALSE)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial

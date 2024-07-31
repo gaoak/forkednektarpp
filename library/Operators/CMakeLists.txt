@@ -11,11 +11,9 @@ IF(NEKTAR_ENABLE_CUDA)
 ENDIF()
 
 # Optional SYCL execution space.
-# Disbled because ADD_OPERATOR creates source files for SYCL implementations
-# which don't exist. This is causing compilation errors.
-# IF(NEKTAR_ENABLE_SYCL)
-    # SET(ExecSpaces ${ExecSpaces} SYCL)
-# ENDIF()
+IF(NEKTAR_ENABLE_SYCL)
+    SET(ExecSpaces ${ExecSpaces} SYCL)
+ENDIF()
 
 # Kokkos execution space
 IF(NEKTAR_ENABLE_KOKKOS)
@@ -241,7 +239,6 @@ SET(OPERATORS_HEADERS
 
 SET(OPERATORS_SOURCES
     Field/Field.cpp
-    LoopExecution/LoopExecution.cpp
     Common/Operator.cpp
     )
 
@@ -278,14 +275,11 @@ if(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       SYCLQueue.hpp
-      ElmtOps/BwdTrans/BwdTransSYCLSumFac.hpp
-      ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       SYCLQueue.cpp
-      ElmtOps/BwdTrans/BwdTransSYCLSumFac.cpp
     )
 endif()
 

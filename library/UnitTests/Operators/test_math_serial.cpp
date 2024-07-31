@@ -219,7 +219,7 @@ BOOST_FIXTURE_TEST_CASE(serial_sum, MathKernels)
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "Serial = " << h_out << " Max = " << out << std::endl;
+        std::cout << "Serial = " << h_out << " Sum = " << out << std::endl;
     }
 }
 
@@ -289,7 +289,7 @@ BOOST_FIXTURE_TEST_CASE(serial_innerproduct, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         std::cout << "Serial = " << std::sqrt(h_out)
-                  << " L2norm = " << std::sqrt(out) << std::endl;
+                  << " ddot = " << std::sqrt(out) << std::endl;
     }
 }
 
@@ -398,7 +398,7 @@ BOOST_FIXTURE_TEST_CASE(serial_linfnorm, MathKernels)
     boost::test_tools::output_test_stream output;
     {
         std::cout << "Serial = " << std::sqrt(h_out)
-                  << " L2norm = " << std::sqrt(out) << std::endl;
+                  << " Linfnorm = " << std::sqrt(out) << std::endl;
     }
 }
 

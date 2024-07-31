@@ -40,6 +40,7 @@
 #include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernels.hpp"
 
 using namespace Nektar::MultiRegions;
 
@@ -166,6 +167,12 @@ public:
 
     void AddTraceIntegral(Field<TData, FieldState::Coeff> &out)
     {
+        // Return if no trace coefficient.
+        if (m_nFwdBwdCoeffs == 0)
+        {
+            return;
+        }
+
         // Copy memory to the device, if necessary and get raw pointers.
         TData *outPtr         = out.template GetPtr<MemSpace, ReadWrite>();
         const TData *tracePtr = m_trace.template GetPtr<MemSpace, ReadOnly>();
