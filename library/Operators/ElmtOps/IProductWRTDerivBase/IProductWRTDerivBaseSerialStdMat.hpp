@@ -71,7 +71,7 @@ public:
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr = this->m_expansionList->GetExp(e);
+            const auto expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
             for (size_t d = 0; d < dimension; d++)
@@ -132,18 +132,18 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = outblock.num_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = outblock.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            auto const nCoord = expPtr->GetCoordim();
-            auto const nqTot  = expPtr->GetTotPoints();
-            auto const nmTot  = expPtr->GetNcoeffs();
+            const auto nCoord = expPtr->GetCoordim();
+            const auto nqTot  = expPtr->GetTotPoints();
+            const auto nmTot  = expPtr->GetNcoeffs();
 
             // calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2]
             if (deformed)
@@ -214,7 +214,7 @@ public:
             }
 
             // Fetch matrix.
-            auto const &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_matPtr[basisKeys];
 
             // Perform matrix-matrix multiply.
             for (size_t d = 0; d < dimension; d++)

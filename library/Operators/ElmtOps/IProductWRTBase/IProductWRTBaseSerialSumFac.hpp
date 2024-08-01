@@ -76,13 +76,13 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const shapeType = expPtr->DetShapeType();
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto shapeType = expPtr->DetShapeType();
 
             switch (shapeType)
             {

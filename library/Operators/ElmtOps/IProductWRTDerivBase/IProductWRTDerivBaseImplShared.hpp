@@ -35,12 +35,11 @@
 #pragma once
 
 #include "Operators/Common/OperatorHelper.hpp"
-#include "Operators/Field/MemoryRegion.hpp"
-
-#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
-
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+
+#define FLAG_QP false // TODO: to be removed
 
 namespace Nektar::Operators::detail
 {
@@ -120,55 +119,100 @@ public:
         }
 
         TData *tmpPtr = m_tmp.template GetPtr<MemSpace, WriteOnly>();
-        TData *wspPtr = nullptr;
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
 
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (auto const &block : in.GetBlocks())
+        for (const auto &block : in.GetBlocks())
         {
             // Block dependent
-            auto const nElmts    = block.num_elements;
-            auto const nPadElmts = block.num_padding_elements;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const shapeType = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto shapeType = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            auto const nqTot  = expPtr->GetTotPoints();
-            auto const nmTot  = expPtr->GetNcoeffs();
-            auto const nCoord = expPtr->GetCoordim();
+            const auto nqTot  = expPtr->GetTotPoints();
+            const auto nmTot  = expPtr->GetNcoeffs();
+            const auto nCoord = expPtr->GetCoordim();
+            const auto nm0    = expPtr->GetBasisNumModes(0);
+            const auto nq0    = expPtr->GetNumPoints(0);
+            const auto nm1 = (dimension > 1) ? expPtr->GetBasisNumModes(1) : 0;
+            const auto nq1 = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
+            const auto nm2 = (dimension > 2) ? expPtr->GetBasisNumModes(2) : 0;
+            const auto nq2 = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
+            const auto basis0 = m_basisMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                    .template GetPtr<MemSpace, ReadOnly>();
+            const auto basis1 =
+                (dimension > 1) ? m_basisMap[expPtr->GetBasis(1)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
+            const auto basis2 =
+                (dimension > 2) ? m_basisMap[expPtr->GetBasis(2)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
+            const auto dbasis0 = m_dbasisMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                     .template GetPtr<MemSpace, ReadOnly>();
+            const auto dbasis1 =
+                (dimension > 1)
+                    ? m_dbasisMap[expPtr->GetBasis(1)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto dbasis2 =
+                (dimension > 2)
+                    ? m_dbasisMap[expPtr->GetBasis(2)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto w0 = m_weightMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                .template GetPtr<MemSpace, ReadOnly>();
+            const auto w1 =
+                (dimension > 1)
+                    ? m_weightMap[expPtr->GetBasis(1)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto w2 =
+                (dimension > 2)
+                    ? m_weightMap[expPtr->GetBasis(2)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                .template GetPtr<MemSpace, ReadOnly>();
+            const auto D1 =
+                (dimension > 1)
+                    ? m_derivativeMap[expPtr->GetBasis(1)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto D2 =
+                (dimension > 2)
+                    ? m_derivativeMap[expPtr->GetBasis(2)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto Z0 = m_pointMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                .template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 = (dimension > 1)
+                                ? m_pointMap[expPtr->GetBasis(1)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
+            const auto Z2 = (dimension > 2)
+                                ? m_pointMap[expPtr->GetBasis(2)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
 
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
                            LibUtilities::eModified_A;
 
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
+            // Set workspace.
+            TData *wspPtr = SetWorkspace(shapeType, nElmts + nPadElmts, nq0,
+                                         nq1, nq2, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                auto dbasis0 = m_dbasisMap[basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto w0 = m_weightMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nq0 = expPtr->GetNumPoints(0);
-
                 if (deformed)
                 {
                     IProductWRTDerivBase1DKernel<ExecSpace, TData, true>(
@@ -192,54 +236,7 @@ public:
             }
             else if (dimension == 2)
             {
-                auto basis0 = m_basisMap[basisKeys[0]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis1 = m_basisMap[basisKeys[1]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto dbasis0 = m_dbasisMap[basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto dbasis1 = m_dbasisMap[basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto w0 = m_weightMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto w1 = m_weightMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z0 = m_pointMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z1 = m_pointMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
 
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nm1 = expPtr->GetBasisNumModes(1);
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-
-                if constexpr (!FLAG_QP)
-                {
-                    size_t wspsize = 0;
-                    if (shapeType == LibUtilities::Quad)
-                    {
-                        wspsize = nq1 * (nElmts + nPadElmts);
-                    }
-                    else if (shapeType == LibUtilities::Tri)
-                    {
-                        wspsize = nq0 * (nElmts + nPadElmts);
-                    }
-
-                    if (m_wspsize < wspsize)
-                    {
-                        m_wspsize = wspsize;
-                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                            m_wspsize,
-                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                    }
-
-                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-                }
                 if (deformed)
                 {
                     IProductWRTDerivBase2DKernel<ExecSpace, TData, true>(
@@ -275,77 +272,6 @@ public:
             }
             else if (dimension == 3)
             {
-                auto basis0 = m_basisMap[basisKeys[0]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis1 = m_basisMap[basisKeys[1]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis2 = m_basisMap[basisKeys[2]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto dbasis0 = m_dbasisMap[basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto dbasis1 = m_dbasisMap[basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto dbasis2 = m_dbasisMap[basisKeys[2]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-                auto w0 = m_weightMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto w1 = m_weightMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto w2 = m_weightMap[basisKeys[2]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D2 = m_derivativeMap[basisKeys[2]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z0 = m_pointMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z1 = m_pointMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z2 = m_pointMap[basisKeys[2]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nm1 = expPtr->GetBasisNumModes(1);
-                auto nm2 = expPtr->GetBasisNumModes(2);
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-                auto nq2 = expPtr->GetNumPoints(2);
-
-                if constexpr (!FLAG_QP)
-                {
-                    size_t wspsize = 0;
-                    if (shapeType == LibUtilities::Hex)
-                    {
-                        wspsize = (nq2 * nq1 + nq2) * (nElmts + nPadElmts);
-                    }
-                    else if (shapeType == LibUtilities::Tet)
-                    {
-                        wspsize =
-                            (nq2 * nq1 + nq2 + nm2) * (nElmts + nPadElmts);
-                    }
-                    else if (shapeType == LibUtilities::Prism)
-                    {
-                        wspsize =
-                            (nq2 * nq1 + nq2 + nm1) * (nElmts + nPadElmts);
-                    }
-                    else if (shapeType == LibUtilities::Pyr)
-                    {
-                        wspsize = (nq2 * nq1 + nq2) * (nElmts + nPadElmts);
-                    }
-
-                    if (m_wspsize < wspsize)
-                    {
-                        m_wspsize = wspsize;
-                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                            m_wspsize,
-                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                    }
-
-                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-                }
-
                 if (deformed)
                 {
                     IProductWRTDerivBase3DKernel<ExecSpace, TData, true>(
@@ -399,6 +325,65 @@ public:
             outPtr += nmTot * (nElmts + nPadElmts);
             exp_idx += nElmts;
         }
+    }
+
+    size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                  size_t nElmts, size_t nq0, size_t nq1,
+                                  size_t nq2, size_t nm1, size_t nm2)
+    {
+        size_t wspsize = 0;
+
+        if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = nq1 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = nq0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (nq2 * nq1 + nq2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = (nq2 * nq1 + nq2 + nm2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (nq2 * nq1 + nq2 + nm1) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (nq2 * nq1 + nq2) * nElmts;
+        }
+
+        return wspsize;
+    }
+
+    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
+                        size_t nq0, size_t nq1, size_t nq2, size_t nm1,
+                        size_t nm2)
+    {
+        TData *wspptr = nullptr;
+
+        if constexpr (!FLAG_QP)
+        {
+            size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
+                                                    nq2, nm1, nm2);
+
+            if (m_wspsize < wspsize)
+            {
+                m_wspsize = wspsize;
+
+                m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                    m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            }
+
+            wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+        }
+
+        return wspptr;
     }
 
     // className - for OperatorFactory

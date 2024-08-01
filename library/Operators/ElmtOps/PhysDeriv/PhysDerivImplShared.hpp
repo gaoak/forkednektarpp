@@ -38,6 +38,8 @@
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
 
+#define FLAG_QP false // TODO: to be removed
+
 namespace Nektar::Operators::detail
 {
 
@@ -83,7 +85,6 @@ public:
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
-
         const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
 
         size_t nSize = out.GetFieldSize();
@@ -91,39 +92,49 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
-
-        for (auto const &block : in.GetBlocks())
+        for (const auto &block : in.GetBlocks())
         {
             // Block dependent
-            auto const nElmts    = block.num_elements;
-            auto const nPadElmts = block.num_padding_elements;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const shape     = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto shape     = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            auto const nqTot  = expPtr->GetTotPoints();
-            auto const nCoord = expPtr->GetCoordim();
-
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
+            const auto nqTot  = expPtr->GetTotPoints();
+            const auto nCoord = expPtr->GetCoordim();
+            const auto nq0    = expPtr->GetNumPoints(0);
+            const auto nq1    = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
+            const auto nq2    = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
+            const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                .template GetPtr<MemSpace, ReadOnly>();
+            const auto D1 =
+                (dimension > 1)
+                    ? m_derivativeMap[expPtr->GetBasis(1)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto D2 =
+                (dimension > 2)
+                    ? m_derivativeMap[expPtr->GetBasis(2)->GetBasisKey()]
+                          .template GetPtr<MemSpace, ReadOnly>()
+                    : nullptr;
+            const auto Z0 = m_pointMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                .template GetPtr<MemSpace, ReadOnly>();
+            const auto Z1 = (dimension > 1)
+                                ? m_pointMap[expPtr->GetBasis(1)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
+            const auto Z2 = (dimension > 2)
+                                ? m_pointMap[expPtr->GetBasis(2)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
 
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nq0 = expPtr->GetNumPoints(0);
-
                 if (deformed)
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, true>(
@@ -139,18 +150,6 @@ public:
             }
             else if (dimension == 2)
             {
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z0 = m_pointMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z1 = m_pointMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-
                 if (deformed)
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, true>(
@@ -166,23 +165,6 @@ public:
             }
             else if (dimension == 3)
             {
-                auto D0 = m_derivativeMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D1 = m_derivativeMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto D2 = m_derivativeMap[basisKeys[2]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z0 = m_pointMap[basisKeys[0]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z1 = m_pointMap[basisKeys[1]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-                auto Z2 = m_pointMap[basisKeys[2]]
-                              .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-                auto nq2 = expPtr->GetNumPoints(2);
-
                 if (deformed)
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, true>(

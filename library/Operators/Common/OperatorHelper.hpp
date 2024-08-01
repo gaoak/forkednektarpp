@@ -148,7 +148,7 @@ BasisDataMap<TDataOut> GetBasisData(
 
     for (size_t i = 0; i < expansionList->GetNumElmts(); ++i)
     {
-        auto const expPtr = expansionList->GetExp(i);
+        const auto expPtr = expansionList->GetExp(i);
 
         // Fetch basiskeys of the current element.
         for (size_t d = 0; d < nDim; d++)

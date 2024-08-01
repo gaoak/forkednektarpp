@@ -347,7 +347,7 @@ public:
                 this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
                 component * scalar_field_size;
 
-            for (auto const &block : block_attributes)
+            for (const auto &block : block_attributes)
             {
                 const size_t numMetaBlocks =
                     (block.num_elements + block.num_padding_elements) /
@@ -382,7 +382,7 @@ public:
     void copyTo(TDataOut *dst)
     {
         auto *src = this->template GetPtr<MemSpace, ReadOnly>();
-        for (auto const &block : this->GetBlocks())
+        for (const auto &block : this->GetBlocks())
         {
             auto nSize  = block.block_size;
             auto nElmts = block.num_elements;
@@ -405,7 +405,7 @@ public:
     {
         if (size == 0)
         {
-            for (auto const &block : this->GetBlocks())
+            for (const auto &block : this->GetBlocks())
             {
                 size += block.block_size;
             }
@@ -429,7 +429,7 @@ public:
     {
         if (size == 0)
         {
-            for (auto const &block : this->GetBlocks())
+            for (const auto &block : this->GetBlocks())
             {
                 size += block.block_size;
             }
@@ -453,7 +453,7 @@ public:
     void copyFrom(const TDataIn *src)
     {
         size_t offset = 0;
-        for (auto const &block : this->GetBlocks())
+        for (const auto &block : this->GetBlocks())
         {
             auto nSize  = block.block_size;
             auto nElmts = block.num_elements;
@@ -720,7 +720,7 @@ public:
                  "rhs_component is out of range!");
         ASSERTL0(component < GetNumComponents(), "component is out of range!");
 
-        auto const &rhs_blocks = rhs.GetBlocks();
+        const auto &rhs_blocks = rhs.GetBlocks();
         ASSERTL0(rhs_blocks.size() == block_attributes.size(),
                  "Number of blocks are not the same!");
         ASSERTL0(rhs.m_curVecWidth == m_curVecWidth,
@@ -735,7 +735,7 @@ public:
             this->template GetPtr<NektarSpaces::HostSpace, WriteOnly>() +
             component * scalar_field_size;
 
-        for (auto const &block : block_attributes)
+        for (const auto &block : block_attributes)
         {
             for (size_t pt = 0; pt < block.block_size; ++pt)
             {
@@ -815,7 +815,7 @@ private:
                 this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
                 component * scalar_field_size;
 
-            for (auto const &block : block_attributes)
+            for (const auto &block : block_attributes)
             {
                 const size_t numMetaBlocks =
                     (block.num_elements + block.num_padding_elements) /

@@ -69,7 +69,7 @@ public:
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr = this->m_expansionList->GetExp(e);
+            const auto expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
             for (size_t d = 0; d < dimension; d++)
@@ -118,15 +118,15 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             auto dimension    = expPtr->GetShapeDimension();
-            auto const nqTot  = expPtr->GetTotPoints();
-            auto const nmTot  = expPtr->GetNcoeffs();
+            const auto nqTot  = expPtr->GetTotPoints();
+            const auto nmTot  = expPtr->GetNcoeffs();
 
             // Multiply by jacobian.
             Array<OneD, TData> wsp(nqTot * nElmts, 0.0);
@@ -159,7 +159,7 @@ public:
             }
 
             // Fetch matrix.
-            auto const &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_matPtr[basisKeys];
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),

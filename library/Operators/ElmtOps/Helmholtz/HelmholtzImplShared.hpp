@@ -111,12 +111,12 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
-        for (auto const &block : deriv.GetBlocks())
+        for (const auto &block : deriv.GetBlocks())
         {
             // Determine shape and type of the element.
             auto nElmts = block.num_elements;
 
-            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
 

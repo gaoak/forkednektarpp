@@ -137,12 +137,12 @@ public:
         size_t offset2 = 0;
         size_t exp_idx = 0;
 
-        for (auto const &block : unit_vec.GetBlocks())
+        for (const auto &block : unit_vec.GetBlocks())
         {
             // Block dependent
-            auto const nElmts    = block.num_elements;
-            auto const nPadElmts = block.num_padding_elements;
-            auto const nmTot     = block.num_pts;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
+            const auto nmTot     = block.num_pts;
 
             for (size_t i = 0; i < nmTot; ++i)
             {

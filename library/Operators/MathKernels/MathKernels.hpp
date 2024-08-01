@@ -63,7 +63,7 @@ neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, WriteOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -118,7 +118,7 @@ add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
     auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -175,7 +175,7 @@ sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
     auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -232,7 +232,7 @@ daxpy(const TData alpha, Field<TData, TFieldState> &x,
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
     auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -290,7 +290,7 @@ div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
     auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -339,7 +339,7 @@ reduceSum(Field<TData, TFieldState> &x, TData *out)
     *out = 0.0;
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -377,7 +377,7 @@ reduceMax(Field<TData, TFieldState> &x, TData *out)
     *out = std::numeric_limits<TData>::min();
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -415,7 +415,7 @@ reduceMin(Field<TData, TFieldState> &x, TData *out)
     *out = std::numeric_limits<TData>::max();
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -462,7 +462,7 @@ ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
     auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -510,7 +510,7 @@ l1norm(Field<TData, TFieldState> &x, TData *out)
     *out = 0.0;
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -548,7 +548,7 @@ l2norm(Field<TData, TFieldState> &x, TData *out)
     *out = 0.0;
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -586,7 +586,7 @@ lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     *out = 0.0;
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
@@ -624,7 +624,7 @@ linfnorm(Field<TData, TFieldState> &x, TData *out)
     *out = std::numeric_limits<TData>::min();
 
     auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (auto const &block : x.GetBlocks())
+    for (const auto &block : x.GetBlocks())
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;

@@ -45,8 +45,6 @@
 #include "Operators/Field/Field.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-#define FLAG_QP false // to be removed
-
 namespace Nektar::Operators
 {
 
@@ -332,7 +330,7 @@ protected:
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             // Determine shape and type of the element
-            auto const expPtr = this->m_expansionList->GetExp(e);
+            const auto expPtr = this->m_expansionList->GetExp(e);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
@@ -444,7 +442,7 @@ protected:
                 (blocks[blk].num_elements + blocks[blk].num_padding_elements) /
                 vec_t::width;
 
-            auto const expPtr = this->m_expansionList->GetExp(exp_id);
+            const auto expPtr = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)

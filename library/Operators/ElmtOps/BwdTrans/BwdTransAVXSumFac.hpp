@@ -93,15 +93,15 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
-            auto const nPadElmts = inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nPadElmts = inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            auto const shapeType = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
+            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
+            const auto shapeType = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
 
             m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
 
@@ -151,7 +151,7 @@ private:
         constexpr auto nmTot = nm0;
         // constexpr auto nqBlocks = nqTot * vec_t::width;
         // constexpr auto nmBlocks = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmtGroup;
+        // const auto nElmtGroup = this->m_nElmtGroup;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
@@ -185,16 +185,16 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator1D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nm0 = expPtr->GetBasisNumModes(0);
-        auto const nq0 = expPtr->GetNumPoints(0);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nq0 = expPtr->GetNumPoints(0);
 
-        auto const nqTot = nq0;
-        auto const nmTot = nm0;
-        // auto const nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
+        const auto nqTot = nq0;
+        const auto nmTot = nm0;
+        // const auto nqBlocks = nqTot * vec_t::width;
+        // const auto nmBlocks = nmTot * vec_t::width;
+        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
@@ -229,14 +229,14 @@ private:
               int nq1>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1;
-        auto const nmTot =
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
         // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks     = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
+        // const auto nmBlocks     = nmTot * vec_t::width;
+        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -279,20 +279,20 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nm0 = expPtr->GetBasisNumModes(0);
-        auto const nm1 = expPtr->GetBasisNumModes(1);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
 
-        auto const nqTot = nq0 * nq1;
-        auto const nmTot =
+        const auto nqTot = nq0 * nq1;
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        // auto const nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
+        // const auto nqBlocks = nqTot * vec_t::width;
+        // const auto nmBlocks = nmTot * vec_t::width;
+        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -336,14 +336,14 @@ private:
               int nq0, int nq1, int nq2>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         constexpr auto nqTot = nq0 * nq1 * nq2;
-        auto const nmTot =
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks     = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
+        // const auto nmBlocks     = nmTot * vec_t::width;
+        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -390,22 +390,22 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nm0 = expPtr->GetBasisNumModes(0);
-        auto const nm1 = expPtr->GetBasisNumModes(1);
-        auto const nm2 = expPtr->GetBasisNumModes(2);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
+        const auto nm2 = expPtr->GetBasisNumModes(2);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
-        auto const nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq2 = expPtr->GetNumPoints(2);
 
-        auto const nqTot = nq0 * nq1 * nq2;
-        auto const nmTot =
+        const auto nqTot = nq0 * nq1 * nq2;
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        // auto const nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks = nmTot * vec_t::width;
-        // auto const nElmtGroup = this->m_nElmt / vec_t::width;
+        // const auto nqBlocks = nqTot * vec_t::width;
+        // const auto nmBlocks = nmTot * vec_t::width;
+        // const auto nElmtGroup = this->m_nElmt / vec_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 

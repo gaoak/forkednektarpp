@@ -109,7 +109,7 @@ public:
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outOrig     = out.template GetPtr<MemSpace, ReadWrite>();
 
-        auto const Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
+        const auto Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
         ASSERTL0(Coordim <= out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
         // WARNINGL0(Coordim == out.GetNumComponents(),
@@ -132,16 +132,16 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
-            auto const nPadElmts = inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nPadElmts = inblock.num_padding_elements;
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            auto const nqTot     = expPtr->GetTotPoints();
-            auto const shapeType = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
+            const auto nqTot     = expPtr->GetTotPoints();
+            const auto shapeType = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
             m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
@@ -201,14 +201,14 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator1D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nq0     = expPtr->GetNumPoints(0);
-        auto const nqTot   = nq0;
-        auto const nqBlock = nqTot * vec_t::width;
+        const auto nq0     = expPtr->GetNumPoints(0);
+        const auto nqTot   = nq0;
+        const auto nqBlock = nqTot * vec_t::width;
 
-        auto const nCoord = output.size();
-        auto const ndf    = nCoord;
+        const auto nCoord = output.size();
+        const auto ndf    = nCoord;
         int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
@@ -308,16 +308,16 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator2D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
 
-        auto const nqTot   = nq0 * nq1;
-        auto const nqBlock = nqTot * vec_t::width;
+        const auto nqTot   = nq0 * nq1;
+        const auto nqBlock = nqTot * vec_t::width;
 
-        auto const nCoord = output.size();
-        auto const ndf    = 2 * nCoord;
+        const auto nCoord = output.size();
+        const auto ndf    = 2 * nCoord;
         int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
@@ -423,14 +423,14 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator3D(const NekDouble *input, std::vector<NekDouble *> output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
-        auto const nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq2 = expPtr->GetNumPoints(2);
 
-        auto const nqTot    = nq0 * nq1 * nq2;
-        auto const nqBlocks = nqTot * vec_t::width;
+        const auto nqTot    = nq0 * nq1 * nq2;
+        const auto nqBlocks = nqTot * vec_t::width;
 
         constexpr auto ndf = 9;
         int dfsize         = ndf;

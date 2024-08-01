@@ -89,7 +89,7 @@ public:
         {
             size_t offset = 0;
 
-            for (auto const &block : in.GetBlocks())
+            for (const auto &block : in.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
@@ -129,7 +129,7 @@ public:
         {
             size_t offset = 0;
 
-            for (auto const &block : out.GetBlocks())
+            for (const auto &block : out.GetBlocks())
             {
                 // Determine shape and type of the element.
                 auto nElmts = block.num_elements;
