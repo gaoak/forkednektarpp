@@ -112,9 +112,9 @@ public:
             GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
         for (auto &block : blocks)
         {
-            auto const ncoeff    = block.num_pts;
-            auto const nElmts    = block.num_elements;
-            auto const nPadElmts = block.num_padding_elements;
+            const auto ncoeff    = block.num_pts;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
             for (unsigned int e = 0; e < nElmts; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)

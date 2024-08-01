@@ -143,17 +143,17 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
-            auto const nPadElmts = inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nPadElmts = inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            auto const nqTot     = expPtr->GetTotPoints();
-            auto const shapeType = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
+            const auto nqTot     = expPtr->GetTotPoints();
+            const auto shapeType = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
             m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
@@ -237,18 +237,18 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator2D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nm0 = expPtr->GetBasisNumModes(0);
-        auto const nm1 = expPtr->GetBasisNumModes(1);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
 
         constexpr auto ndf = 4;
 
-        auto const nqTot = nq0 * nq1;
-        auto const nmTot =
+        const auto nqTot = nq0 * nq1;
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
         const bool correct =
@@ -370,12 +370,12 @@ private:
     {
         constexpr auto nqTot = nq0 * nq1;
         constexpr auto ndf   = 4;
-        auto const nmTot =
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        // auto const nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks = m_nmTot * vec_t::width;
+        // const auto nqBlocks = nqTot * vec_t::width;
+        // const auto nmBlocks = m_nmTot * vec_t::width;
 
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
@@ -483,22 +483,22 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void operator3D(const NekDouble *input, NekDouble *output)
     {
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const nm0 = expPtr->GetBasisNumModes(0);
-        auto const nm1 = expPtr->GetBasisNumModes(1);
-        auto const nm2 = expPtr->GetBasisNumModes(2);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
+        const auto nm2 = expPtr->GetBasisNumModes(2);
 
-        auto const nq0 = expPtr->GetNumPoints(0);
-        auto const nq1 = expPtr->GetNumPoints(1);
-        auto const nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq2 = expPtr->GetNumPoints(2);
 
         constexpr auto ndf = 9;
-        auto const nqTot   = nq0 * nq1 * nq2;
-        auto const nmTot =
+        const auto nqTot   = nq0 * nq1 * nq2;
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        // auto const nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks = m_nmTot * vec_t::width;
+        // const auto nqBlocks = nqTot * vec_t::width;
+        // const auto nmBlocks = m_nmTot * vec_t::width;
 
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
@@ -649,12 +649,12 @@ private:
     {
         constexpr auto ndf   = 9;
         constexpr auto nqTot = nq0 * nq1 * nq2;
-        auto const nmTot =
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
         // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // auto const nmBlocks     = m_nmTot * vec_t::width;
+        // const auto nmBlocks     = m_nmTot * vec_t::width;
 
-        auto const expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);

@@ -44,15 +44,15 @@ void IProductWRTBaseSumFacSegKernel(
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
 
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
-    auto const nquad0     = expPtr->GetNumPoints(0);
-    auto const nmodes0    = expPtr->GetBasisNumModes(0);
-    auto const weights    = expPtr->GetBasis(0)->GetW();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto nquad0     = expPtr->GetNumPoints(0);
+    const auto nmodes0    = expPtr->GetBasisNumModes(0);
+    const auto weights    = expPtr->GetBasis(0)->GetW();
     bool const colldir0   = expPtr->GetBasis(0)->Collocation();
-    auto const base0      = expPtr->GetBasis(0)->GetBdata();
+    const auto base0      = expPtr->GetBasis(0)->GetBdata();
 
     // Allocation workspace to store W*f to the heap
-    auto const wspSize = numElmts * nquad0;
+    const auto wspSize = numElmts * nquad0;
     double *wsp;
     wsp = new double[wspSize];
 
@@ -110,31 +110,31 @@ void IProductWRTBaseSumFacTriKernel(
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0    = expPtr->GetNumPoints(0);
-    auto const nquad1    = expPtr->GetNumPoints(1);
-    auto const totPoints = nquad0 * nquad1;
+    const auto nquad0    = expPtr->GetNumPoints(0);
+    const auto nquad1    = expPtr->GetNumPoints(1);
+    const auto totPoints = nquad0 * nquad1;
 
-    auto const nmodes0 = expPtr->GetBasisNumModes(0);
-    auto const nmodes1 = expPtr->GetBasisNumModes(1);
+    const auto nmodes0 = expPtr->GetBasisNumModes(0);
+    const auto nmodes1 = expPtr->GetBasisNumModes(1);
 
-    auto const totModes = expPtr->GetBasis(1)->GetTotNumModes();
+    const auto totModes = expPtr->GetBasis(1)->GetTotNumModes();
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
 
-    auto const zeros1 = expPtr->GetBasis(1)->GetZ();
+    const auto zeros1 = expPtr->GetBasis(1)->GetZ();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
 
-    auto const wspSize = nquad0 * nquad1 * numElmts;
+    const auto wspSize = nquad0 * nquad1 * numElmts;
     double *wsp;
     wsp = new double[wspSize];
 
-    auto const tmpSize   = nmodes0 * nquad1 * numElmts;
-    auto const tmpStride = nmodes0 * nquad1;
+    const auto tmpSize   = nmodes0 * nquad1 * numElmts;
+    const auto tmpStride = nmodes0 * nquad1;
     double *tmp;
     tmp = new double[tmpSize];
 
@@ -226,26 +226,26 @@ void IProductWRTBaseSumFacQuadKernel(
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0 = expPtr->GetNumPoints(0);
-    auto const nquad1 = expPtr->GetNumPoints(1);
+    const auto nquad0 = expPtr->GetNumPoints(0);
+    const auto nquad1 = expPtr->GetNumPoints(1);
 
-    auto const nmodes0 = expPtr->GetBasisNumModes(0);
-    auto const nmodes1 = expPtr->GetBasisNumModes(1);
+    const auto nmodes0 = expPtr->GetBasisNumModes(0);
+    const auto nmodes1 = expPtr->GetBasisNumModes(1);
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
 
     bool const colldir0 = expPtr->GetBasis(0)->Collocation();
     bool const colldir1 = expPtr->GetBasis(1)->Collocation();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
 
     // Allocation workspace to store W*f to the heap
-    auto const wspSize = numElmts * nquad0 * nquad1;
-    auto const tmpSize = numElmts * nmodes0 * nquad1;
+    const auto wspSize = numElmts * nquad0 * nquad1;
+    const auto tmpSize = numElmts * nmodes0 * nquad1;
     double *wsp;
     double *tmp;
     wsp = new double[wspSize];
@@ -341,44 +341,44 @@ void IProductWRTBaseSumFacTetKernel(
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0    = expPtr->GetNumPoints(0);
-    auto const nquad1    = expPtr->GetNumPoints(1);
-    auto const nquad2    = expPtr->GetNumPoints(2);
-    auto const totPoints = nquad0 * nquad1 * nquad2;
+    const auto nquad0    = expPtr->GetNumPoints(0);
+    const auto nquad1    = expPtr->GetNumPoints(1);
+    const auto nquad2    = expPtr->GetNumPoints(2);
+    const auto totPoints = nquad0 * nquad1 * nquad2;
 
-    auto const nmodes0 = expPtr->GetBasisNumModes(0);
-    auto const nmodes1 = expPtr->GetBasisNumModes(1);
-    auto const nmodes2 = expPtr->GetBasisNumModes(2);
+    const auto nmodes0 = expPtr->GetBasisNumModes(0);
+    const auto nmodes1 = expPtr->GetBasisNumModes(1);
+    const auto nmodes2 = expPtr->GetBasisNumModes(2);
 
-    auto const totModes = expPtr->GetBasis(2)->GetTotNumModes();
+    const auto totModes = expPtr->GetBasis(2)->GetTotNumModes();
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
-    auto const weights2 = expPtr->GetBasis(2)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights2 = expPtr->GetBasis(2)->GetW();
 
-    auto const zeros1 = expPtr->GetBasis(1)->GetZ();
-    auto const zeros2 = expPtr->GetBasis(2)->GetZ();
+    const auto zeros1 = expPtr->GetBasis(1)->GetZ();
+    const auto zeros2 = expPtr->GetBasis(2)->GetZ();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
-    auto const base2 = expPtr->GetBasis(2)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base2 = expPtr->GetBasis(2)->GetBdata();
 
     // wsp for totPoints
-    auto const wspSize = totPoints * numElmts;
+    const auto wspSize = totPoints * numElmts;
     double *wsp;
     wsp = new double[wspSize];
 
     // tmp after first sumfac
-    auto const tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
-    auto const tmpStride1 = nmodes0 * nquad1 * nquad2;
+    const auto tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
+    const auto tmpStride1 = nmodes0 * nquad1 * nquad2;
     double *tmp1;
     tmp1 = new double[tmpSize1];
 
     // tmp after second sumfac
-    auto const tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
-    auto const tmpStride2 = nmodes0 * nmodes1 * nquad2;
+    const auto tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
+    const auto tmpStride2 = nmodes0 * nmodes1 * nquad2;
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
@@ -547,43 +547,43 @@ void IProductWRTBaseSumFacPyrKernel(
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0    = expPtr->GetNumPoints(0);
-    auto const nquad1    = expPtr->GetNumPoints(1);
-    auto const nquad2    = expPtr->GetNumPoints(2);
-    auto const totPoints = nquad0 * nquad1 * nquad2;
+    const auto nquad0    = expPtr->GetNumPoints(0);
+    const auto nquad1    = expPtr->GetNumPoints(1);
+    const auto nquad2    = expPtr->GetNumPoints(2);
+    const auto totPoints = nquad0 * nquad1 * nquad2;
 
-    auto const nmodes0 = expPtr->GetBasisNumModes(0);
-    auto const nmodes1 = expPtr->GetBasisNumModes(1);
-    auto const nmodes2 = expPtr->GetBasisNumModes(2);
+    const auto nmodes0 = expPtr->GetBasisNumModes(0);
+    const auto nmodes1 = expPtr->GetBasisNumModes(1);
+    const auto nmodes2 = expPtr->GetBasisNumModes(2);
 
-    auto const totModes = expPtr->GetBasis(2)->GetTotNumModes();
+    const auto totModes = expPtr->GetBasis(2)->GetTotNumModes();
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
-    auto const weights2 = expPtr->GetBasis(2)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights2 = expPtr->GetBasis(2)->GetW();
 
-    auto const zeros2 = expPtr->GetBasis(2)->GetZ();
+    const auto zeros2 = expPtr->GetBasis(2)->GetZ();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
-    auto const base2 = expPtr->GetBasis(2)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base2 = expPtr->GetBasis(2)->GetBdata();
 
     // wsp for totPoints
-    auto const wspSize = totPoints * numElmts;
+    const auto wspSize = totPoints * numElmts;
     double *wsp;
     wsp = new double[wspSize];
 
     // tmp after first sumfac
-    auto const tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
-    auto const tmpStride1 = nmodes0 * nquad1 * nquad2;
+    const auto tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
+    const auto tmpStride1 = nmodes0 * nquad1 * nquad2;
     double *tmp1;
     tmp1 = new double[tmpSize1];
 
     // tmp after second sumfac
-    auto const tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
-    auto const tmpStride2 = nmodes0 * nmodes1 * nquad2;
+    const auto tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
+    const auto tmpStride2 = nmodes0 * nmodes1 * nquad2;
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
@@ -724,44 +724,44 @@ void IProductWRTBaseSumFacPrismKernel(
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
 
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0    = expPtr->GetNumPoints(0);
-    auto const nquad1    = expPtr->GetNumPoints(1);
-    auto const nquad2    = expPtr->GetNumPoints(2);
-    auto const totPoints = nquad0 * nquad1 * nquad2;
+    const auto nquad0    = expPtr->GetNumPoints(0);
+    const auto nquad1    = expPtr->GetNumPoints(1);
+    const auto nquad2    = expPtr->GetNumPoints(2);
+    const auto totPoints = nquad0 * nquad1 * nquad2;
 
-    auto const nmodes0 = expPtr->GetBasisNumModes(0);
-    auto const nmodes1 = expPtr->GetBasisNumModes(1);
-    auto const nmodes2 = expPtr->GetBasisNumModes(2);
+    const auto nmodes0 = expPtr->GetBasisNumModes(0);
+    const auto nmodes1 = expPtr->GetBasisNumModes(1);
+    const auto nmodes2 = expPtr->GetBasisNumModes(2);
 
-    auto const totModes2 = expPtr->GetBasis(2)->GetTotNumModes();
-    auto const totModes  = totModes2 * nmodes1;
+    const auto totModes2 = expPtr->GetBasis(2)->GetTotNumModes();
+    const auto totModes  = totModes2 * nmodes1;
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
-    auto const weights2 = expPtr->GetBasis(2)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights2 = expPtr->GetBasis(2)->GetW();
 
-    auto const zeros2 = expPtr->GetBasis(2)->GetZ();
+    const auto zeros2 = expPtr->GetBasis(2)->GetZ();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
-    auto const base2 = expPtr->GetBasis(2)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base2 = expPtr->GetBasis(2)->GetBdata();
 
     // wsp for totPoints
-    auto const wspSize = totPoints * numElmts;
+    const auto wspSize = totPoints * numElmts;
     double *wsp;
     wsp = new double[wspSize];
 
     // tmp after first sumfac
-    auto const tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
-    auto const tmpStride1 = nmodes0 * nquad1 * nquad2;
+    const auto tmpSize1   = nmodes0 * nquad1 * nquad2 * numElmts;
+    const auto tmpStride1 = nmodes0 * nquad1 * nquad2;
     double *tmp1;
     tmp1 = new double[tmpSize1];
 
     // tmp after second sumfac
-    auto const tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
-    auto const tmpStride2 = nmodes0 * nmodes1 * nquad2;
+    const auto tmpSize2   = nmodes0 * nmodes1 * nquad2 * numElmts;
+    const auto tmpStride2 = nmodes0 * nmodes1 * nquad2;
     double *tmp2;
     tmp2 = new double[tmpSize2];
 
@@ -855,8 +855,8 @@ void IProductWRTBaseSumFacPrismKernel(
 
         // Fix top singular vertices; performs phi_{0,q,1} +=
         // phi_1(xi_1)*phi_q(xi_2)*phi_{01}*phi_r(xi_2).
-        auto const Q = expPtr->GetBasis(0)->GetNumModes() - 1;
-        auto const R = expPtr->GetBasis(1)->GetNumModes() - 1;
+        const auto Q = expPtr->GetBasis(0)->GetNumModes() - 1;
+        const auto R = expPtr->GetBasis(1)->GetNumModes() - 1;
         int p        = 0;
         int r        = 1;
         if (expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A)
@@ -880,38 +880,38 @@ void IProductWRTBaseSumFacHexKernel(
     std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
     Array<OneD, TData> m_jac, int const numElmts, size_t &jac_idx)
 {
-    auto const isDeformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto isDeformed = expPtr->GetMetricInfo()->GetGtype();
 
-    auto const nquad0 = expPtr->GetNumPoints(0);
-    auto const nquad1 = expPtr->GetNumPoints(1);
-    auto const nquad2 = expPtr->GetNumPoints(2);
+    const auto nquad0 = expPtr->GetNumPoints(0);
+    const auto nquad1 = expPtr->GetNumPoints(1);
+    const auto nquad2 = expPtr->GetNumPoints(2);
 
-    auto const nmodes0  = expPtr->GetBasisNumModes(0);
-    auto const nmodes1  = expPtr->GetBasisNumModes(1);
-    auto const nmodes2  = expPtr->GetBasisNumModes(2);
-    auto const totModes = nmodes0 * nmodes1 * nmodes2;
+    const auto nmodes0  = expPtr->GetBasisNumModes(0);
+    const auto nmodes1  = expPtr->GetBasisNumModes(1);
+    const auto nmodes2  = expPtr->GetBasisNumModes(2);
+    const auto totModes = nmodes0 * nmodes1 * nmodes2;
 
-    auto const weights0 = expPtr->GetBasis(0)->GetW();
-    auto const weights1 = expPtr->GetBasis(1)->GetW();
-    auto const weights2 = expPtr->GetBasis(2)->GetW();
+    const auto weights0 = expPtr->GetBasis(0)->GetW();
+    const auto weights1 = expPtr->GetBasis(1)->GetW();
+    const auto weights2 = expPtr->GetBasis(2)->GetW();
 
     bool const colldir0 = expPtr->GetBasis(0)->Collocation();
     bool const colldir1 = expPtr->GetBasis(1)->Collocation();
     bool const colldir2 = expPtr->GetBasis(2)->Collocation();
 
-    auto const base0 = expPtr->GetBasis(0)->GetBdata();
-    auto const base1 = expPtr->GetBasis(1)->GetBdata();
-    auto const base2 = expPtr->GetBasis(2)->GetBdata();
+    const auto base0 = expPtr->GetBasis(0)->GetBdata();
+    const auto base1 = expPtr->GetBasis(1)->GetBdata();
+    const auto base2 = expPtr->GetBasis(2)->GetBdata();
 
     // Allocation workspace to store W*f to the heap
-    auto const totPoints = nquad0 * nquad1 * nquad2;
-    auto const wspSize   = numElmts * totPoints;
+    const auto totPoints = nquad0 * nquad1 * nquad2;
+    const auto wspSize   = numElmts * totPoints;
 
-    auto const totPoints1 = nquad1 * nquad2 * nmodes0;
-    auto const wspSize1   = numElmts * totPoints1;
+    const auto totPoints1 = nquad1 * nquad2 * nmodes0;
+    const auto wspSize1   = numElmts * totPoints1;
 
-    auto const totPoints2 = nquad2 * nmodes0 * nmodes1;
-    auto const wspSize2   = numElmts * totPoints2;
+    const auto totPoints2 = nquad2 * nmodes0 * nmodes1;
+    const auto wspSize2   = numElmts * totPoints2;
 
     double *wsp;
     double *wsp1;

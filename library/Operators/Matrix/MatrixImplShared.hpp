@@ -72,13 +72,13 @@ public:
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (auto const &block : in.GetBlocks())
+        for (const auto &block : in.GetBlocks())
         {
             // Determine shape and type of the element.
             auto nElmts = block.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr = this->m_expansionList->GetExp(exp_idx);
+            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             auto numPts       = (TFieldState == FieldState::Coeff)
                                     ? expPtr->GetNcoeffs()
                                     : expPtr->GetTotPoints();

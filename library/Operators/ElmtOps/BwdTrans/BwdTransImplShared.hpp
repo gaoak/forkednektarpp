@@ -34,12 +34,13 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
-
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Field/MemoryRegion.hpp"
+
+#define FLAG_QP false // TODO: to be removed
 
 namespace Nektar::Operators::detail
 {
@@ -73,12 +74,6 @@ public:
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
-        TData *wspPtr = nullptr;
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
-
         // Initialize index.
         size_t exp_idx = 0;
 
@@ -87,130 +82,56 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts =
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts =
                 inblock.num_elements + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const shapeType = expPtr->DetShapeType();
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const nmTot     = expPtr->GetNcoeffs();
-            auto const nqTot     = expPtr->GetTotPoints();
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto shapeType = expPtr->DetShapeType();
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto nmTot     = expPtr->GetNcoeffs();
+            const auto nqTot     = expPtr->GetTotPoints();
+            const auto nm0       = expPtr->GetBasisNumModes(0);
+            const auto nq0       = expPtr->GetNumPoints(0);
+            const auto nm1 = (dimension > 1) ? expPtr->GetBasisNumModes(1) : 0;
+            const auto nq1 = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
+            const auto nm2 = (dimension > 2) ? expPtr->GetBasisNumModes(2) : 0;
+            const auto nq2 = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
+            const auto basis0 = m_basisMap[expPtr->GetBasis(0)->GetBasisKey()]
+                                    .template GetPtr<MemSpace, ReadOnly>();
+            const auto basis1 =
+                (dimension > 1) ? m_basisMap[expPtr->GetBasis(1)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
+            const auto basis2 =
+                (dimension > 2) ? m_basisMap[expPtr->GetBasis(2)->GetBasisKey()]
+                                      .template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
 
             // Flag for collapsed coordinate correction.
             bool correct = expPtr->GetBasis(0)->GetBasisType() ==
                            LibUtilities::eModified_A;
 
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
+            // Set workspace.
+            TData *wspPtr = SetWorkspace(shapeType, nElmts, nm0, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                auto basis0 = m_basisMap[basisKeys[0]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nq0 = expPtr->GetNumPoints(0);
-                BwdTrans1DKernel<ExecSpace, TData>(nm0, nq0, nElmts, basis0,
-                                                   inPtr, outPtr);
+                BwdTrans1DKernel<ExecSpace>(nm0, nq0, nElmts, basis0, inPtr,
+                                            outPtr);
             }
             else if (dimension == 2)
             {
-                auto basis0 = m_basisMap[basisKeys[0]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis1 = m_basisMap[basisKeys[1]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nm1 = expPtr->GetBasisNumModes(1);
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-
-                if constexpr (!FLAG_QP)
-                {
-                    size_t wspsize = 0;
-
-                    if (shapeType == LibUtilities::Quad)
-                    {
-                        wspsize = nm1 * nElmts;
-                    }
-                    else if (shapeType == LibUtilities::Tri)
-                    {
-                        wspsize = nm0 * nElmts;
-                    }
-
-                    if (m_wspsize < wspsize)
-                    {
-                        m_wspsize = wspsize;
-                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                            m_wspsize,
-                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                    }
-
-                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-                }
-
-                BwdTrans2DKernel<ExecSpace, TData>(
-                    shapeType, nm0, nm1, nq0, nq1, nElmts, correct, basis0,
-                    basis1, wspPtr, inPtr, outPtr);
+                BwdTrans2DKernel<ExecSpace>(shapeType, nm0, nm1, nq0, nq1,
+                                            nElmts, correct, basis0, basis1,
+                                            wspPtr, inPtr, outPtr);
             }
             else if (dimension == 3)
             {
-                auto basis0 = m_basisMap[basisKeys[0]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis1 = m_basisMap[basisKeys[1]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-                auto basis2 = m_basisMap[basisKeys[2]]
-                                  .template GetPtr<MemSpace, ReadOnly>();
-
-                auto nm0 = expPtr->GetBasisNumModes(0);
-                auto nm1 = expPtr->GetBasisNumModes(1);
-                auto nm2 = expPtr->GetBasisNumModes(2);
-                auto nq0 = expPtr->GetNumPoints(0);
-                auto nq1 = expPtr->GetNumPoints(1);
-                auto nq2 = expPtr->GetNumPoints(2);
-
-                if constexpr (!FLAG_QP)
-                {
-                    size_t wspsize = 0;
-
-                    if (shapeType == LibUtilities::Hex)
-                    {
-                        wspsize = (nm1 * nm2 + nm2) * nElmts;
-                    }
-                    else if (shapeType == LibUtilities::Tet)
-                    {
-                        wspsize =
-                            ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
-                    }
-                    else if (shapeType == LibUtilities::Prism)
-                    {
-                        wspsize = (nm0 * nm1 + nm0) * nElmts;
-                    }
-                    else if (shapeType == LibUtilities::Pyr)
-                    {
-                        wspsize = (nm0 * nm1 + nm0) * nElmts;
-                    }
-
-                    if (m_wspsize < wspsize)
-                    {
-                        m_wspsize = wspsize;
-
-                        m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                            m_wspsize,
-                            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                    }
-
-                    wspPtr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-                }
-
-                BwdTrans3DKernel<ExecSpace, TData>(
+                BwdTrans3DKernel<ExecSpace>(
                     shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmts, correct,
                     basis0, basis1, basis2, wspPtr, inPtr, outPtr);
             }
@@ -220,6 +141,64 @@ public:
             outPtr += outblock.block_size;
             exp_idx += inblock.num_elements;
         }
+    }
+
+    size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                  size_t nElmts, size_t nm0, size_t nm1,
+                                  size_t nm2)
+    {
+        size_t wspsize = 0;
+
+        if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = nm1 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = nm0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (nm1 * nm2 + nm2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
+        }
+
+        return wspsize;
+    }
+
+    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
+                        size_t nm0, size_t nm1, size_t nm2)
+    {
+        TData *wspptr = nullptr;
+
+        if constexpr (!FLAG_QP)
+        {
+            size_t wspsize =
+                GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
+
+            if (m_wspsize < wspsize)
+            {
+                m_wspsize = wspsize;
+
+                m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                    m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            }
+
+            wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+        }
+
+        return wspptr;
     }
 
     // className - for OperatorFactory

@@ -54,8 +54,8 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-        size_t dimension = this->m_expansionList->GetShapeDimension();
+        const auto nTotElmts = this->m_expansionList->GetNumElmts();
+        const auto dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -64,7 +64,7 @@ public:
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr = this->m_expansionList->GetExp(e);
+            const auto expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
             for (size_t d = 0; d < dimension; d++)
@@ -75,8 +75,8 @@ public:
             // Copy data to m_matPtr, if necessary.
             if (m_matPtr.find(basisKeys) == m_matPtr.end())
             {
-                size_t nqTot = expPtr->GetTotPoints();
-                size_t nmTot = expPtr->GetNcoeffs();
+                const auto nqTot = expPtr->GetTotPoints();
+                const auto nmTot = expPtr->GetNcoeffs();
                 Array<OneD, TData> tmp(nmTot), t;
                 // Get BwdTrans matrix.
                 auto &matPtr = m_matPtr[basisKeys];
@@ -85,6 +85,7 @@ public:
                 {
                     Vmath::Zero(nmTot, tmp, 1);
                     tmp[i] = 1.0;
+                    // TODO: Use redesign kernels
                     expPtr->GetStdExp()->BwdTrans(tmp, t = matPtr + i * nqTot);
                 }
             }
@@ -110,15 +111,15 @@ public:
              ++block_idx)
         {
             // Block dependent
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const &outblock = out.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto &outblock = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const nmTot     = expPtr->GetNcoeffs();
-            auto const nqTot     = expPtr->GetTotPoints();
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto nmTot     = expPtr->GetNcoeffs();
+            const auto nqTot     = expPtr->GetTotPoints();
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; d++)
@@ -127,7 +128,7 @@ public:
             }
 
             // Fetch matrix.
-            auto const &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_matPtr[basisKeys];
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),

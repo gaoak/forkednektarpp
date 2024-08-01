@@ -144,7 +144,7 @@ public:
         m_q_A.initialize(0);
 
         TData *vExchangePtr;
-        TData const *vExchangeHostPtr;
+        const TData *vExchangeHostPtr;
 
         // For Serial, all reduction values are on the host side.
         if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||

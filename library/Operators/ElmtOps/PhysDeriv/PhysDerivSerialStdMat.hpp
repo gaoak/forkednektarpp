@@ -68,7 +68,7 @@ public:
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr = this->m_expansionList->GetExp(e);
+            const auto expPtr = this->m_expansionList->GetExp(e);
 
             // Fetch basiskeys of current element.
             for (size_t d = 0; d < dimension; d++)
@@ -91,6 +91,7 @@ public:
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
+                        // TODO: Use redesign kernel
                         expPtr->GetStdExp()->PhysDeriv(
                             d, tmp, t = matPtr[d] + i * nqTot);
                     }
@@ -115,20 +116,20 @@ public:
         std::vector<LibUtilities::BasisKey> basisKeys(
             3, LibUtilities::NullBasisKey);
 
-        for (auto const &block : in.GetBlocks())
+        for (const auto &block : in.GetBlocks())
         {
             // Block dependent
-            auto const nElmts    = block.num_elements;
-            auto const nPadElmts = block.num_padding_elements;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr    = this->m_expansionList->GetExp(exp_idx);
-            auto const dimension = expPtr->GetShapeDimension();
-            auto const deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
+            const auto dimension = expPtr->GetShapeDimension();
+            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            auto const nCoord  = expPtr->GetCoordim();
-            auto const nqTot   = expPtr->GetTotPoints();
-            auto const ptsKeys = expPtr->GetPointsKeys();
+            const auto nCoord  = expPtr->GetCoordim();
+            const auto nqTot   = expPtr->GetTotPoints();
+            const auto ptsKeys = expPtr->GetPointsKeys();
 
             Array<OneD, Array<OneD, TData>> deriv(dimension);
 
@@ -139,7 +140,7 @@ public:
             }
 
             // Get derivative matrix.
-            auto const &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_matPtr[basisKeys];
 
             for (size_t d = 0; d < dimension; ++d)
             {
