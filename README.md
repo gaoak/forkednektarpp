@@ -57,6 +57,92 @@ For more detailed operating-system specific instructions, please see the
 User Guide.
 
 
+Redesign
+-----------
+A minimalist compilation command example is shown below for each available backend:
+
+### Serial
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON 
+
+### AVX2 
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SIMD_AVX2=ON 
+
+### AVX512 
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SIMD_AVX512=ON 
+
+### CUDA
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_CUDA=ON \
+             -DCMAKE_CUDA_FLAGS="--extended-lambda --expt-relaxed-constexpr" \
+             -DCMAKE_CUDA_ARCHITECTURES=86 
+
+Note:
+- For A40, please use `-DCMAKE_CUDA_ARCHITECTURES=86`
+- For A100, please use `-DCMAKE_CUDA_ARCHITECTURES=80` 
+
+### SYCL (CUDA)
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SYCL=ON \
+             -DCMAKE_CXX_COMPILER="/path-to-sycl-llvm/bin/clang-19" \
+             -DCMAKE_CXX_FLAGS="-fsycl -fsycl-targets=nvptx64-nvidia-cuda" 
+
+Note:
+- If desired, one can build the SYCL LLVM locally using
+```
+    module load cuda
+    python3 -m pip install ninja
+    git clone https://github.com/intel/llvm -b sycl
+    python3 llvm/buildbot/configure.py --cuda
+    python3 llvm/buildbot/compile.py  -j32
+```
+- If the SYCL LLVM is build locally, the `bin` and `lib` must be added to the PATHs environment variable
+```
+    PATH="$PATH:/path-to-llvm/build/bin/"
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/path-to-llvm/build/lib/"
+```
+
+### Kokkos (Serial)
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_KOKKOS=ON \
+             -DKokkos_DIR=/path/kokkos-serial-install/lib/cmake/Kokkos/
+
+Note:
+- If desired, one can build Kokkos locally using
+```
+    git clone https://github.com/kokkos/kokkos.git
+    cd kokkos
+    mkdir build && cd build 
+    cmake .. -DCMAKE_CXX_COMPILER=g++ \
+             -DCMAKE_CXX_FLAGS=-fPIC \
+             -DCMAKE_INSTALL_PREFIX=~/path/kokkos-serial-install
+    make install
+```
+
+### Kokkos (CUDA)
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_KOKKOS=ON \
+             -DKokkos_DIR=/path/kokkos-cuda-install/lib/cmake/Kokkos/
+
+Note:
+- If desired, one can build Kokkos locally using
+```
+    git clone https://github.com/kokkos/kokkos.git
+    cd kokkos
+    mkdir build && cd build 
+    cmake .. -DCMAKE_CXX_COMPILER=g++ \
+             -DCMAKE_CXX_FLAGS=-fPIC \
+             -DCMAKE_INSTALL_PREFIX=/path/kokkos-cuda-install \
+             -DKokkos_ARCH_AMPERE86=ON \
+             -DKokkos_ENABLE_CUDA=ON \
+             -DKokkos_ENABLE_CUDA_LAMBDA=ON \
+             -DKokkos_ENABLE_CUDA_CONSTEXPR=ON
+    make install
+```
+- For A40, please use `-DKokkos_ARCH_AMPERE86=ON`
+- For A100, please use `-DKokkos_ARCH_AMPERE80=ON` 
+
 Installation
 ------------
 The default installation location is in a `dist` subdirectory of the `build`
