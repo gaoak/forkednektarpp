@@ -155,28 +155,6 @@ using DefaultExecutionSpace = DefaultHostExecutionSpace;
 
 #endif // GPU specific
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-template <typename TData> using ReduceSum = Kokkos::Sum<TData>;
-template <typename TData> using ReduceMin = Kokkos::Min<TData>;
-template <typename TData> using ReduceMax = Kokkos::Max<TData>;
-#else  // !defined(NEKTAR_ENABLE_KOKKOS)
-template <typename TData> class ReduceSum
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMin
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMax
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-#endif // !defined(NEKTAR_ENABLE_KOKKOS)
-
 // These are used for LoopExecution.hpp
 #if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)

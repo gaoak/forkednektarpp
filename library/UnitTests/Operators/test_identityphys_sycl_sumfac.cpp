@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_multiplybyelmtinvmass_cuda_sumfac.cpp
+// File: test_identityphys_sycl_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,64 +32,60 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMultiplyByElmtInvMassCUDA
-
+#define BOOST_TEST_MODULE TestIdentitySYCL
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
-#include "init_multiplybyelmtinvmassfields.hpp"
+#include "Operators/OperatorIdentity.hpp"
+#include "init_identityphysfields.hpp"
 
-#define TEST_MULTIPLYBYELMTINVMASS(test_name, test, tol)                       \
+#define TEST_IDENTITY(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::CUDA;                                  \
+        using ExecSpace = NektarSpaces::SYCL;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
         SetTestCase(                                                           \
-            fixt_cuda_in->GetBlocks(),                                         \
-            fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
-        MultiplyByElmtInvMass<>::template create<ExecSpace, Impl>(             \
+            fixt_sycl_in->GetBlocks(),                                         \
+            fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
+        Identity<FieldState::Phys>::template create<ExecSpace, Impl>(          \
             fixt_explist)                                                      \
-            ->apply(*fixt_cuda_in, *fixt_cuda_out);                            \
+            ->apply(*fixt_sycl_in, *fixt_sycl_out);                            \
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
+        BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(                                                  \
-                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
+                fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
                 fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
                 tol);                                                          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMassCUDA)
+BOOST_AUTO_TEST_SUITE(TestIdentitySYCL)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_seg, Seg, 1.0E-12)
+TEST_IDENTITY(identity_sycl_seg, Seg, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_quad, Quad, 1.0E-12)
+TEST_IDENTITY(identity_sycl_quad, Quad, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tri, Tri, 1.0E-12)
+TEST_IDENTITY(identity_sycl_tri, Tri, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_square_all_elements,
-                           SquareAllElements, 1.0E-12)
+TEST_IDENTITY(identity_sycl_square_all_elements, SquareAllElements, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex, Hex, 1.0E-12)
+TEST_IDENTITY(identity_sycl_hex, Hex, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_prism, Prism, 1.0E-12)
+TEST_IDENTITY(identity_sycl_prism, Prism, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_pyr, Pyr, 1.0E-12)
+TEST_IDENTITY(identity_sycl_pyr, Pyr, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tet, Tet, 1.0E-12)
+TEST_IDENTITY(identity_sycl_tet, Tet, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_cube_prism_hex,
-                           CubePrismHex, 1.0E-12)
+TEST_IDENTITY(identity_sycl_cube_prism_hex, CubePrismHex, 1.0E-15)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_cube_all_elements,
-                           CubeAllElements, 1.0E-12)
+TEST_IDENTITY(identity_sycl_cube_all_elements, CubeAllElements, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -97,7 +97,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &sum) { sum += x[i]; }, *out);
 }
@@ -107,7 +107,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceMax<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &max) {
             max = std::max(max, x[i]);
@@ -120,7 +120,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceMin<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMin<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &min) {
             min = std::min(min, x[i]);
@@ -133,7 +133,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &sum) { sum += x[i] * y[i]; },
         *out);
@@ -144,7 +144,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &sum) {
             sum += std::abs(x[i]);
@@ -157,7 +157,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &sum) { sum += x[i] * x[i]; },
         *out);
@@ -169,7 +169,7 @@ inline typename std::enable_if<
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceSum<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &sum) {
             sum += std::pow(std::abs(x[i]), p);
@@ -182,7 +182,7 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
-    Nektar::parallel_reduce<ExecSpace, NektarSpaces::ReduceMax<TData>>(
+    Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
         0, nsize,
         KOKKOS_LAMBDA(const unsigned int i, TData &max) {
             max = std::max(max, std::abs(x[i]));

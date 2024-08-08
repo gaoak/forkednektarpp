@@ -318,7 +318,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
      }).wait();
 }
 
-template <typename TData, bool vl = true>
+template <typename TData>
 void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
                 const unsigned int nsize, const TData *x, const TData *y,
                 TData *out)
@@ -421,7 +421,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
      }).wait();
 }
 
-template <typename TData, bool vl = true>
+template <typename TData>
 void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
                   const unsigned int nsize, const TData *x, TData *out)
 {
@@ -524,7 +524,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
      }).wait();
 }
 
-template <typename TData, bool vl = true>
+template <typename TData>
 void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
                     const unsigned int nsize, const TData *x, TData *out)
 {

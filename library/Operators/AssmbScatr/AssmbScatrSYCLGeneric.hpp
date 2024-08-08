@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: LoopExecution.hpp
+// File: AssmbScatrSYCLGeneric.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,36 +34,4 @@
 
 #pragma once
 
-#include <cstddef>
-#include <limits>
-
-#include "Operators/Common/Spaces.hpp"
-
-namespace Nektar
-{
-
-template <typename TData> class ReduceSum
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMin
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-template <typename TData> class ReduceMax
-{
-public:
-    typedef typename std::remove_cv<TData>::type value_type;
-};
-
-} // namespace Nektar
-
-#include "Operators/LoopExecution/LoopExecutionSerialAVX.hpp"
-
-#include "Operators/LoopExecution/LoopExecutionSYCL.hpp"
-
-#include "Operators/LoopExecution/LoopExecutionKokkos.hpp"
-
-#include "Operators/LoopExecution/LoopExecutionCUDA.cuh"
+#include "AssmbScatrImplShared.hpp"

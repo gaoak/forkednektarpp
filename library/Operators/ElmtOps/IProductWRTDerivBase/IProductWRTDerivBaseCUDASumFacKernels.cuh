@@ -427,7 +427,7 @@ __global__ void IProductWRTDerivBase3DKernel(
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
-                                     s_f2[k] * s_f0[j];
+                                     s_f0[j];
                         out[nsize + index] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
                         out[2u * nsize + index] = sum3;
                     }
@@ -485,7 +485,8 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
                 {
                     f3 = 0.5 * (1.0 + Z1[j]);
                 }
-                else if constexpr (SHAPETYPE == LibUtilities::Tet)
+
+                if constexpr (SHAPETYPE == LibUtilities::Tet)
                 {
                     f0 = 2.0 * f2 / (1.0 - Z1[j]);
                 }
@@ -520,7 +521,7 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index] = (sum1 + (sum2 + sum3) * f1) * f2 * f0;
+                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0;
                         out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                         out[2u * nsize + index] = sum3;
                     }
@@ -568,6 +569,7 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
             const unsigned int i = tid % nq0;
             const unsigned int j = (tid / nq0) % nq1;
             const unsigned int k = tid / (nq0 * nq1);
+
             if constexpr (SHAPETYPE == LibUtilities::Tet ||
                           SHAPETYPE == LibUtilities::Prism ||
                           SHAPETYPE == LibUtilities::Pyr)
@@ -580,9 +582,17 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
             {
                 f3 = 0.5 * (1.0 + Z1[j]);
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Tet)
+
+            if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
                 f0 = 2.0 * f2 / (1.0 - Z1[j]);
+            }
+
+            if constexpr (SHAPETYPE == LibUtilities::Tet ||
+                          SHAPETYPE == LibUtilities::Prism ||
+                          SHAPETYPE == LibUtilities::Pyr)
+            {
+                f1 = 0.5 * (1.0 + Z0[i]);
             }
 
             const unsigned int index   = offset + tid;
@@ -597,13 +607,6 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
                 sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
-            {
-                f1 = 0.5 * (1.0 + Z0[i]);
-            }
-
             if constexpr (SHAPETYPE == LibUtilities::Hex)
             {
                 out[index]              = sum1;
@@ -612,7 +615,7 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
             }
             else if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
-                out[index]              = (sum1 + (sum2 + sum3) * f1) * f2 * f0;
+                out[index]              = (sum1 + (sum2 + sum3) * f1) * f0;
                 out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                 out[2u * nsize + index] = sum3;
             }

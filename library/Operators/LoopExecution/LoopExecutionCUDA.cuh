@@ -100,6 +100,42 @@ __device__ __forceinline__ double atomicMin(double *address, double val)
     return __longlong_as_double(ret);
 }
 
+template <typename ExecSpace, typename TData>
+__device__ __forceinline__
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
+{
+    atomicAdd(dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+__device__ __forceinline__
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
+{
+    atomicAdd(dest, -val);
+}
+
+template <typename ExecSpace, typename TData>
+__device__ __forceinline__
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
+{
+    atomicMax(dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+__device__ __forceinline__
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
+{
+    atomicMin(dest, val);
+}
+
 template <typename Functor>
 __global__ void parallel_for(const unsigned int begin, const unsigned int end,
                              const Functor functor)
@@ -263,7 +299,7 @@ inline
 
     TData *buffer = (TData *)cudaBuffer;
 
-    if constexpr (std::is_same_v<Reduction, NektarSpaces::ReduceSum<TData>>)
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
@@ -272,8 +308,7 @@ inline
             [=] __device__(const unsigned int i, TData &ans)
             { ans += buffer[i]; });
     }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMax<TData>>)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel<TData>
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
@@ -282,8 +317,7 @@ inline
             [=] __device__(const unsigned int i, TData &ans)
             { ans = max(ans, buffer[i]); });
     }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMin<TData>>)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         reduceMinKernel<TData>
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);

@@ -188,7 +188,6 @@ public:
             delete fixt_kokkos_out;
         }
 #endif
-
 #if defined(NEKTAR_ENABLE_CUDA)
         if (fixt_cuda_in)
         {
@@ -288,10 +287,8 @@ public:
                 new Field<TData, stateOut>(std::move(fkokkos_out));
         }
 #endif
-
 #if defined(NEKTAR_ENABLE_CUDA)
-        if (testModule.find("Cuda") != std::string::npos ||
-            testModule.find("CUDA") != std::string::npos)
+        if (testModule.find("CUDA") != std::string::npos)
         {
             auto fcuda_in = Field<TData, stateIn>::template create<
                 NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin);
@@ -302,8 +299,7 @@ public:
         }
 #endif
 #if defined(NEKTAR_ENABLE_SYCL)
-        if (testModule.find("Sycl") != std::string::npos ||
-            testModule.find("SYCL") != std::string::npos)
+        if (testModule.find("SYCL") != std::string::npos)
         {
             auto fsycl_in = Field<TData, stateIn>::template create<
                 NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin);
@@ -356,7 +352,6 @@ protected:
     Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
     Field<TData, stateOut> *fixt_kokkos_out = nullptr;
 #endif
-
 #if defined(NEKTAR_ENABLE_CUDA)
     Field<TData, stateIn> *fixt_cuda_in   = nullptr;
     Field<TData, stateOut> *fixt_cuda_out = nullptr;

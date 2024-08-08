@@ -38,6 +38,7 @@
 
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -46,6 +47,7 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+              std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
               std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value>::type>
 class OperatorAssmbScatrImpl
     : public OperatorAssmbScatrImplBase<ExecSpace, Implementation, TData>

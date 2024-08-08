@@ -55,34 +55,30 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     const unsigned int offset = offsetPtr[i];
-                     const unsigned int map    = mapPtr[i];
+                              while (i < nsize)
+                              {
+                                  const unsigned int offset = offsetPtr[i];
+                                  const unsigned int map    = mapPtr[i];
 
-                     auto v = sycl::atomic_ref<
-                         TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(
-                         coeffPtr[offset + map]);
+                                  TData *const ptr = coeffPtr + offset + map;
+                                  const TData val =
+                                      matPtr[i] * incoeffPtr[offset + map];
+                                  if constexpr (negflag)
+                                  {
+                                      Nektar::atomic_sub<ExecSpace>(ptr, val);
+                                  }
+                                  else
+                                  {
+                                      Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  }
 
-                     if constexpr (negflag)
-                     {
-                         v.fetch_add(-matPtr[i] * incoeffPtr[offset + map]);
-                     }
-                     else
-                     {
-                         v.fetch_add(matPtr[i] * incoeffPtr[offset + map]);
-                     }
-
-                     i += indx.get_global_range(0);
-                 }
-             });
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -143,18 +139,15 @@ inline
                          }
 
                          const unsigned int index = mapOffset + i;
-                         auto v                   = sycl::atomic_ref<
-                             TData, sycl::memory_order::relaxed,
-                             sycl::memory_scope::device,
-                             sycl::access::address_space::global_space>(
-                             coeffPtr[offset + mapPtr[index]]);
+                         TData *const ptr = coeffPtr + offset + mapPtr[index];
+                         const TData val  = tmp * signPtr[index];
                          if constexpr (negflag)
                          {
-                             v.fetch_add(-tmp * signPtr[index]);
+                             Nektar::atomic_sub<ExecSpace>(ptr, val);
                          }
                          else
                          {
-                             v.fetch_add(tmp * signPtr[index]);
+                             Nektar::atomic_add<ExecSpace>(ptr, val);
                          }
                      }
 

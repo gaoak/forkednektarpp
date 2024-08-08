@@ -326,7 +326,10 @@ public:
                     m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
             }
 
-            wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+            if (m_wspsize > 0)
+            {
+                wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+            }
         }
 
         return wspptr;
