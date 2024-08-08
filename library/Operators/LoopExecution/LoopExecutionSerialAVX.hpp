@@ -37,6 +37,46 @@
 namespace Nektar
 {
 
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+atomic_add(TData *const dest, const TData val)
+{
+    *dest += val;
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+atomic_sub(TData *const dest, const TData val)
+{
+    *dest -= val;
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+atomic_max(TData *const dest, const TData val)
+{
+    *dest = max(*dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+atomic_min(TData *const dest, const TData val)
+{
+    *dest = min(*dest, val);
+}
+
 // CPU serial 1D range parallel_for
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<
@@ -62,18 +102,15 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
 {
     using TData = typename Reduction::value_type;
 
-    if constexpr (std::is_same<Reduction,
-                               NektarSpaces::ReduceSum<TData>>::value)
+    if constexpr (std::is_same<Reduction, Nektar::ReduceSum<TData>>::value)
     {
         red = 0.0;
     }
-    else if constexpr (std::is_same<Reduction,
-                                    NektarSpaces::ReduceMax<TData>>::value)
+    else if constexpr (std::is_same<Reduction, Nektar::ReduceMax<TData>>::value)
     {
         red = std::numeric_limits<TData>::min();
     }
-    else if constexpr (std::is_same<Reduction,
-                                    NektarSpaces::ReduceMin<TData>>::value)
+    else if constexpr (std::is_same<Reduction, Nektar::ReduceMin<TData>>::value)
     {
         red = std::numeric_limits<TData>::max();
     }
@@ -81,81 +118,6 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
     for (int i = begin; i < end; ++i)
     {
         functor(i, red);
-    }
-}
-
-// CPU serial block range parallel_for
-template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-parallel_for(BlockRange const &r, const Functor &functor)
-{
-    const int rbegin0 = r.begin(0);
-    const int rbegin1 = r.begin(1);
-    const int rbegin2 = r.begin(2);
-
-    const int rend0 = r.end(0);
-    const int rend1 = r.end(1);
-    const int rend2 = r.end(2);
-
-    for (int k = rbegin2; k < rend2; ++k)
-    {
-        for (int j = rbegin1; j < rend1; ++j)
-        {
-            for (int i = rbegin0; i < rend0; ++i)
-            {
-                functor(i, j, k);
-            }
-        }
-    }
-}
-
-// CPU serial block range parallel_reduce
-template <typename ExecSpace, typename Reduction, typename Functor>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-parallel_reduce(BlockRange const &r, const Functor &functor,
-                typename Reduction::value_type &red)
-{
-    using TData = typename Reduction::value_type;
-
-    if constexpr (std::is_same<Reduction,
-                               NektarSpaces::ReduceSum<TData>>::value)
-    {
-        red = 0.0;
-    }
-    else if constexpr (std::is_same<Reduction,
-                                    NektarSpaces::ReduceMax<TData>>::value)
-    {
-        red = std::numeric_limits<TData>::min();
-    }
-    else if constexpr (std::is_same<Reduction,
-                                    NektarSpaces::ReduceMin<TData>>::value)
-    {
-        red = std::numeric_limits<TData>::max();
-    }
-
-    const int rbegin0 = r.begin(0);
-    const int rbegin1 = r.begin(1);
-    const int rbegin2 = r.begin(2);
-
-    const int rend0 = r.end(0);
-    const int rend1 = r.end(1);
-    const int rend2 = r.end(2);
-
-    for (int k = rbegin2; k < rend2; ++k)
-    {
-        for (int j = rbegin1; j < rend1; ++j)
-        {
-            for (int i = rbegin0; i < rend0; ++i)
-            {
-                functor(i, j, k, red);
-            }
-        }
     }
 }
 

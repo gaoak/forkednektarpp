@@ -117,7 +117,8 @@ public:
 
             m_vExchangeArray = Array<OneD, TData>(4, 0.0);
         }
-        else if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+        else if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+                           std::is_same<ExecSpace, NektarSpaces::SYCL>::value)
         {
             m_vExchange = MemoryRegion<TData>::template create<MemSpace>(4);
         }
@@ -154,10 +155,7 @@ public:
             vExchangeHostPtr = m_vExchangeArray.get();
         }
         // For Kokkos, all reduction values are on the host side.
-        else if constexpr (std::is_same<ExecSpace,
-                                        NektarSpaces::KOKKOS>::value &&
-                           std::is_same<Implementation,
-                                        Operators::StdMat>::value)
+        else if constexpr (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value)
         {
             m_vExchange.initialize(0);
 
@@ -327,7 +325,8 @@ protected:
         }
 
         // For CUDA reduction values are on the device side.
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value)
+        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
+                      std::is_same<ExecSpace, NektarSpaces::SYCL>::value)
         {
             m_vExchange.template DeviceToHostCopy<MemSpace>();
         }

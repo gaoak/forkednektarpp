@@ -32,7 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestNeumannKokkos
+#define BOOST_TEST_MODULE TestNeumann
 
 #include "init_neumannfields.hpp"
 

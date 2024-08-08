@@ -136,14 +136,38 @@ IF(NEKTAR_ENABLE_SYCL)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_sycl.cpp MathSYCLKernelsLauncher.cpp)
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_assmbscatr_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_assmbscatr_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_diagprecon_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_diagprecon_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_dirichlet_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_dirichlet_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_fwdtrans_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_fwdtrans_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmholtz_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_helmsolve_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_identityphys_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_multiplybyelmtinvmass_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_multiplybyelmtinvmass_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_neumann_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_neumann_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_nullprecon_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_nullprecon_sycl_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_physderiv_sycl_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_sycl_sumfac.cpp)
 ENDIF()
 
 # Kokkos
@@ -259,10 +283,22 @@ ENDIF()
 IF(NEKTAR_ENABLE_SYCL)
     SET_UNIT_TEST(Math_sycl test_math_sycl FALSE)
     SET_UNIT_TEST(AddTraceIntegral_sycl_sumfac test_addtraceintegral_sycl_sumfac FALSE)
+    SET_UNIT_TEST(AssmbScatr_sycl_sumfac test_assmbscatr_sycl_sumfac FALSE)
     SET_UNIT_TEST(BwdTrans_sycl_sumfac test_bwdtrans_sycl_sumfac FALSE)
     SET_UNIT_TEST(DiagPrecon_sycl_sumfac test_diagprecon_sycl_sumfac FALSE)
     SET_UNIT_TEST(Dirichlet_sycl_sumfac test_dirichlet_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(FwdTrans_sycl_sumfac test_fwdtrans_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(Helmholtz_sycl_sumfac test_helmholtz_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(HelmSolve_sycl_sumfac test_helmsolve_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(IProductWRTBase_sycl_sumfac test_ipwrtbase_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(IProductWRTDerivBase_sycl_sumfac test_ipwrtderivbase_sycl_sumfac FALSE)
+    SET_UNIT_TEST(IdentityCoeff_sycl_sumfac test_identitycoeff_sycl_sumfac FALSE)
+    SET_UNIT_TEST(IdentityPhys_sycl_sumfac test_identityphys_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(Mass_sycl_sumfac test_mass_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(MultiplyByElmtInvMass_sycl_sumfac test_multiplybyelmtinvmass_sycl_sumfac FALSE)
     SET_UNIT_TEST(Neumann_sycl_sumfac test_neumann_sycl_sumfac FALSE)
+    SET_UNIT_TEST(NullPrecon_sycl_sumfac test_nullprecon_sycl_sumfac FALSE)
+    #SET_UNIT_TEST(PhysDeriv_sycl_sumfac test_physderiv_sycl_sumfac FALSE)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial

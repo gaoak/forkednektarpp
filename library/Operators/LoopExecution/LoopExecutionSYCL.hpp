@@ -46,12 +46,60 @@ static unsigned int syclGridSize   = 1024u;
 static unsigned int syclBufferSize = 0u;
 static void *syclBuffer            = nullptr;
 
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
+{
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                     sycl::memory_scope::device,
+                     sycl::access::address_space::global_space>(*dest)
+        .fetch_add(val);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
+{
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                     sycl::memory_scope::device,
+                     sycl::access::address_space::global_space>(*dest)
+        .fetch_sub(val);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
+{
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                     sycl::memory_scope::device,
+                     sycl::access::address_space::global_space>(*dest)
+        .fetch_max(val);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
+{
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
+                     sycl::memory_scope::device,
+                     sycl::access::address_space::global_space>(*dest)
+        .fetch_min(val);
+}
+
 // Simple 1D Range parallel_for
 template <typename ExecSpace, typename Functor>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    parallel_for(const int begin, const int end, const Functor functor)
+    parallel_for(const int begin, const int end, const Functor &functor)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -73,7 +121,7 @@ inline
 template <typename TData, typename Functor>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor functor)
+                     TData *buffer, const Functor &functor)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -125,7 +173,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 template <typename TData, typename Functor>
 void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor functor)
+                     TData *buffer, const Functor &functor)
 {
     constexpr TData min = std::numeric_limits<TData>::min();
 
@@ -180,7 +228,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 template <typename TData, typename Functor>
 void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const unsigned int begin, const unsigned int end,
-                     TData *buffer, const Functor functor)
+                     TData *buffer, const Functor &functor)
 {
     constexpr TData max = std::numeric_limits<TData>::max();
 
@@ -249,7 +297,7 @@ inline
 
     TData *buffer = (TData *)syclBuffer;
 
-    if constexpr (std::is_same_v<Reduction, NektarSpaces::ReduceSum<TData>>)
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
                                functor);
@@ -257,8 +305,7 @@ inline
             1, syclGridSize, 0, syclGridSize, out,
             [=](const unsigned int i, TData &ans) { ans += buffer[i]; });
     }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMax<TData>>)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
                                functor);
@@ -267,8 +314,7 @@ inline
                                    ans = sycl::max(ans, buffer[i]);
                                });
     }
-    else if constexpr (std::is_same_v<Reduction,
-                                      NektarSpaces::ReduceMin<TData>>)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         reduceMinKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
                                functor);

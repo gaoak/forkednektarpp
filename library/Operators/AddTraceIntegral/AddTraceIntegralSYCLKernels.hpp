@@ -57,23 +57,21 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(gridSize * blockSize, blockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     auto v = sycl::atomic_ref<
-                         TData, sycl::memory_order::relaxed,
-                         sycl::memory_scope::device,
-                         sycl::access::address_space::global_space>(
-                         outPtr[traceCoeffsToElmtMapPtr[i]]);
-                     v.fetch_add(traceCoeffsToElmtSignPtr[i] *
-                                 tracePtr[traceCoeffsToElmtTracePtr[i]]);
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  TData *const ptr =
+                                      outPtr + traceCoeffsToElmtMapPtr[i];
+                                  const TData val =
+                                      traceCoeffsToElmtSignPtr[i] *
+                                      tracePtr[traceCoeffsToElmtTracePtr[i]];
+                                  Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 

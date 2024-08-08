@@ -81,7 +81,7 @@ MACRO(ADD_OPERATOR dir)
     ENDIF()
 
     # Loop through each possible execution space.
-    foreach (ExecSpace IN LISTS ExecSpaces)
+    FOREACH (ExecSpace IN LISTS ExecSpaces)
         # CUDA has cu and cuh extentions
         IF("${ExecSpace}" STREQUAL "CUDA")
             SET(SOURCE_EXT cu)
@@ -115,7 +115,7 @@ MACRO(ADD_OPERATOR dir)
         ENDIF()
 
         # Loop through each possible implementation.
-        foreach (Impl IN LISTS Implementations)
+        FOREACH (Impl IN LISTS Implementations)
 
             UNSET(SPECIFIC_HEADER)
             UNSET(KERNEL_HEADER)
@@ -145,7 +145,7 @@ MACRO(ADD_OPERATOR dir)
             # implementation of some sort.
             IF(${CURRENT_HEADERS})
 		# Look for a specific header and a kernel header.
-                foreach (header_file ${${CURRENT_HEADERS}})
+                FOREACH (header_file ${${CURRENT_HEADERS}})
                     get_filename_component(file "${header_file}" NAME)
                     get_filename_component(file_dir "${header_file}" DIRECTORY)
                     IF("${file}" STREQUAL "${name}${ExecSpace}${Impl}.${HEADER_EXT}")
@@ -153,7 +153,7 @@ MACRO(ADD_OPERATOR dir)
                     ELSEIF("${file}" STREQUAL "${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}")
                         SET(KERNEL_HEADER "#include \"${file_dir}/${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}\"")
                     ENDIF()
-                endforeach()
+                ENDFOREACH()
 
                 IF(COMMON_HEADER AND KERNEL_HEADER)
                     message("Add Op with a common impl. and kernels: " "${FactoryDeclName}")
@@ -210,8 +210,8 @@ MACRO(ADD_OPERATOR dir)
             # source and header files.
             SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${${CURRENT_HEADERS}})
             SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${${CURRENT_SOURCES}})
-        endforeach()
-    endforeach()
+        ENDFOREACH()
+    ENDFOREACH()
 
     # Add this operator's implemenations to the global operator source
     # and header files.
@@ -255,7 +255,7 @@ ENDFOREACH()
 SET(OPERATORS_DEPENDS
     MultiRegions)
 
-if(NEKTAR_ENABLE_CUDA)
+IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
     )
@@ -267,11 +267,11 @@ if(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
       ${NEKLIB_CUDA_LIBRARIES})
-endif()
+ENDIF()
 
 # Manually adding SYCL implementations here to avoid generation
 # of source files which should not exist
-if(NEKTAR_ENABLE_SYCL)
+IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       SYCLQueue.hpp
@@ -281,14 +281,14 @@ if(NEKTAR_ENABLE_SYCL)
       ${OPERATORS_SOURCES}
       SYCLQueue.cpp
     )
-endif()
+ENDIF()
 
 # Kokkos - if no Kokkos loops are serial
-if(NEKTAR_ENABLE_KOKKOS)
+IF(NEKTAR_ENABLE_KOKKOS)
     SET(OPERATORS_DEPENDS
         ${OPERATORS_DEPENDS}
         ${NEKTAR_KOKKOS_DEPENDS})
-endif()
+ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${OPERATORS_HEADERS} ${GROUP_SOURCES})

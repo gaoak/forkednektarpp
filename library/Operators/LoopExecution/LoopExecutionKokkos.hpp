@@ -36,12 +36,42 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include <LibUtilities/BasicUtils/SessionReader.h>
-
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 
 namespace Nektar
 {
+
+template <typename ExecSpace, typename TData>
+KOKKOS_INLINE_FUNCTION typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+atomic_add(TData *const dest, const TData val)
+{
+    Kokkos::atomic_add(dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+KOKKOS_INLINE_FUNCTION typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+atomic_sub(TData *const dest, const TData val)
+{
+    Kokkos::atomic_sub(dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+KOKKOS_INLINE_FUNCTION typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+atomic_max(TData *const dest, const TData val)
+{
+    Kokkos::atomic_max(dest, val);
+}
+
+template <typename ExecSpace, typename TData>
+KOKKOS_INLINE_FUNCTION typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+atomic_min(TData *const dest, const TData val)
+{
+    Kokkos::atomic_min(dest, val);
+}
 
 // Simple 1D Range parallel_for
 template <typename ExecSpace, typename Functor>
@@ -63,11 +93,27 @@ inline typename std::enable_if<
 parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
+    using TData = typename Reduction::value_type;
+
     std::string name = Nektar::demangleTypeName(typeid(Functor));
 
     Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(begin, end);
 
-    Kokkos::parallel_reduce(name, rangePolicy, functor, Reduction(red));
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
+    {
+        Kokkos::parallel_reduce(name, rangePolicy, functor,
+                                Kokkos::Sum<TData>(red));
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
+    {
+        Kokkos::parallel_reduce(name, rangePolicy, functor,
+                                Kokkos::Max<TData>(red));
+    }
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
+    {
+        Kokkos::parallel_reduce(name, rangePolicy, functor,
+                                Kokkos::Min<TData>(red));
+    }
 }
 
 } // namespace Nektar

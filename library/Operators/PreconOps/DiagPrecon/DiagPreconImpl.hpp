@@ -45,7 +45,6 @@
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
 
-#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>
 #include <MultiRegions/ContField.h>
 
 using namespace Nektar;

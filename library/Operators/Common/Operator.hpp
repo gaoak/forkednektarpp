@@ -94,32 +94,27 @@ public:
             std::string cmdValue =
                 session->GetCmdLineArgument<std::string>("opExecSpace");
 
-#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
             if (cmdValue == "AVX")
             {
                 g_OpExecSpace = "AVX";
             }
-            else
-#elif defined(NEKTAR_ENABLE_CUDA)
-            if (cmdValue == "CUDA")
+            else if (cmdValue == "CUDA")
             {
                 g_OpExecSpace = "CUDA";
             }
-            else
-#elif defined(NEKTAR_ENABLE_HIP)
-            if (cmdValue == "HIP")
+            else if (cmdValue == "HIP")
             {
                 g_OpExecSpace = "HIP";
             }
-            else
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            if (cmdValue == "Kokkos")
+            else if (cmdValue == "Kokkos")
             {
                 g_OpExecSpace = "Kokkos";
             }
-            else
-#endif
-                if (cmdValue == "Serial")
+            else if (cmdValue == "SYCL")
+            {
+                g_OpExecSpace = "SYCL";
+            }
+            else if (cmdValue == "Serial")
             {
                 g_OpExecSpace = "Serial";
             }
@@ -137,16 +132,11 @@ public:
             std::string cmdValue =
                 session->GetCmdLineArgument<std::string>("opImpl");
 
-#if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_KOKKOS) || defined(NEKTAR_ENABLE_SIMD_AVX2) ||       \
-    defined(NEKTAR_ENABLE_SIMD_AVX512)
             if (cmdValue == "SumFac")
             {
                 g_OpImpl = "SumFac";
             }
-            else
-#endif
-                if (cmdValue == "StdMat")
+            else if (cmdValue == "StdMat")
             {
                 g_OpImpl = "StdMat";
             }
