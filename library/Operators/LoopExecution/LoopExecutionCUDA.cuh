@@ -305,8 +305,9 @@ inline
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
         reduceSumKernel<TData><<<1, cudaGridSize>>>(
             0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans)
-            { ans += buffer[i]; });
+            [=] __device__(const unsigned int i, TData &ans) {
+                ans += buffer[i];
+            });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
@@ -314,8 +315,9 @@ inline
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
         reduceMaxKernel<TData><<<1, cudaGridSize>>>(
             0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans)
-            { ans = max(ans, buffer[i]); });
+            [=] __device__(const unsigned int i, TData &ans) {
+                ans = max(ans, buffer[i]);
+            });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
@@ -323,8 +325,9 @@ inline
             <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
         reduceMinKernel<TData><<<1, cudaGridSize>>>(
             0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans)
-            { ans = min(ans, buffer[i]); });
+            [=] __device__(const unsigned int i, TData &ans) {
+                ans = min(ans, buffer[i]);
+            });
     }
 }
 

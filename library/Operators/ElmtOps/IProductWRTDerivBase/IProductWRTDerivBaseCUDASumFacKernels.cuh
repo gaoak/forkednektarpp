@@ -261,11 +261,11 @@ __global__ void IProductWRTDerivBase2DKernel_QP_1D(
     {
         const unsigned int offset = nqTot * e;
 
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq1; idx += blockDim.x)
         {
-            const unsigned int i       = tid % nq0;
-            const unsigned int j       = tid / nq0;
-            const unsigned int index   = offset + tid;
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = idx / nq0;
+            const unsigned int index   = offset + idx;
             const unsigned int dfindex = DEFORMED ? index : e;
 
             if constexpr (SHAPETYPE == LibUtilities::Tri)
@@ -426,8 +426,7 @@ __global__ void IProductWRTDerivBase3DKernel(
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
-                                     s_f0[j];
+                        out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) * s_f0[j];
                         out[nsize + index] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
                         out[2u * nsize + index] = sum3;
                     }
@@ -521,8 +520,8 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0;
-                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
+                        out[index]         = (sum1 + (sum2 + sum3) * f1) * f0;
+                        out[nsize + index] = (sum2 + sum3 * f3) * f2;
                         out[2u * nsize + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
@@ -563,12 +562,12 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
     {
         const unsigned int offset = nqTot * e;
 
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int i = tid % nq0;
-            const unsigned int j = (tid / nq0) % nq1;
-            const unsigned int k = tid / (nq0 * nq1);
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq0 * nq1);
 
             if constexpr (SHAPETYPE == LibUtilities::Tet ||
                           SHAPETYPE == LibUtilities::Prism ||
@@ -595,7 +594,7 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
                 f1 = 0.5 * (1.0 + Z0[i]);
             }
 
-            const unsigned int index   = offset + tid;
+            const unsigned int index   = offset + idx;
             const unsigned int dfindex = DEFORMED ? index : e;
 
             TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;

@@ -36,6 +36,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Field/MemoryRegion.hpp"
@@ -91,8 +92,6 @@ public:
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
             const auto shapeType = expPtr->DetShapeType();
             const auto dimension = expPtr->GetShapeDimension();
-            const auto nmTot     = expPtr->GetNcoeffs();
-            const auto nqTot     = expPtr->GetTotPoints();
             const auto nm0       = expPtr->GetBasisNumModes(0);
             const auto nq0       = expPtr->GetNumPoints(0);
             const auto nm1 = (dimension > 1) ? expPtr->GetBasisNumModes(1) : 0;

@@ -36,7 +36,9 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 
 #define FLAG_QP false // TODO: to be removed
@@ -50,7 +52,7 @@ template <typename ExecSpace, typename Implementation, typename TData,
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorIProductWRTDerivBaseImpl
     : public OperatorIProductWRTDerivBase<TData>
 {

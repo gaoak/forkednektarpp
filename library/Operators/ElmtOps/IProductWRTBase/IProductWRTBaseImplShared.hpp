@@ -36,6 +36,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 
 #define FLAG_QP false // TODO: to be removed
@@ -49,7 +50,7 @@ template <typename ExecSpace, typename Implementation, typename TData,
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

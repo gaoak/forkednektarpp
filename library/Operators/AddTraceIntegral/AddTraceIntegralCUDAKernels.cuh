@@ -43,8 +43,7 @@ namespace Nektar::Operators::detail
 
 template <typename TData>
 __global__ void AddTraceIntegralKernel(
-    const unsigned int nsize,
-    const int *__restrict__ traceCoeffsToElmtMapPtr,
+    const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const int *__restrict__ traceCoeffsToElmtTracePtr,
     const TData *__restrict__ tracePtr, TData *__restrict__ outPtr)
