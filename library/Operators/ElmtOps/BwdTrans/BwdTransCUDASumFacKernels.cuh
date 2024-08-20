@@ -60,9 +60,9 @@ __global__ void BwdTransSegKernel(const unsigned int nm0,
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
         __syncthreads();
@@ -106,9 +106,9 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
     }
 
@@ -120,9 +120,9 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
         TData *outptr      = out + nq0 * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nm0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -162,14 +162,14 @@ __global__ void BwdTransQuadKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
         __syncthreads();
@@ -233,16 +233,16 @@ __global__ void BwdTransQuadKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
     }
 
@@ -254,11 +254,11 @@ __global__ void BwdTransQuadKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -323,14 +323,14 @@ __global__ void BwdTransQuadKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
     }
 
@@ -342,18 +342,18 @@ __global__ void BwdTransQuadKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nm1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nm1; idx += blockDim.x)
         {
-            const unsigned int q = tid % nm1;
-            const unsigned int i = tid / nm1;
+            const unsigned int q = idx % nm1;
+            const unsigned int i = idx / nm1;
             unsigned int cnt_qp  = nm0 * q;
 
             TData tmp = 0.0;
@@ -361,16 +361,16 @@ __global__ void BwdTransQuadKernel_QP_1D(
             {
                 tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
             }
-            s_wsp1[tid] = tmp;
+            s_wsp1[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i = tid % nq0;
-            const unsigned int j = tid / nq0;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
             unsigned int cnt_iq  = nm1 * i;
 
             TData tmp = 0.0;
@@ -378,7 +378,7 @@ __global__ void BwdTransQuadKernel_QP_1D(
             {
                 tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
             }
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();
@@ -406,15 +406,15 @@ __global__ void BwdTransTriKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
         __syncthreads();
@@ -485,16 +485,16 @@ __global__ void BwdTransTriKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nmTot * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
     }
 
@@ -506,11 +506,11 @@ __global__ void BwdTransTriKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -582,15 +582,15 @@ __global__ void BwdTransTriKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
     }
 
@@ -602,18 +602,18 @@ __global__ void BwdTransTriKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
         {
-            const unsigned int p = tid % nm0;
-            const unsigned int j = tid / nm0;
+            const unsigned int p = idx % nm0;
+            const unsigned int j = idx / nm0;
             unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
 
             TData tmp = 0.0;
@@ -621,16 +621,16 @@ __global__ void BwdTransTriKernel_QP_1D(
             {
                 tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
             }
-            s_wsp1[tid] = tmp;
+            s_wsp1[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i = tid % nq0;
-            const unsigned int j = tid / nq0;
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
             unsigned int cnt_jp  = nm0 * j;
 
             TData tmp = 0.0;
@@ -644,7 +644,7 @@ __global__ void BwdTransTriKernel_QP_1D(
                 tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
             }
 
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();
@@ -674,19 +674,19 @@ __global__ void BwdTransHexKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm2 * nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm2 * nq2; idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
         __syncthreads();
@@ -777,22 +777,22 @@ __global__ void BwdTransHexKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm2 * nq2; tid += stride)
+        for (unsigned int idx = idx0; idx < nm2 * nq2; idx += stride)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -804,12 +804,12 @@ __global__ void BwdTransHexKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -906,19 +906,19 @@ __global__ void BwdTransHexKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm2 * nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm2 * nq2; idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -930,20 +930,20 @@ __global__ void BwdTransHexKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nm1 * nm2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
+             idx += blockDim.x)
         {
-            const unsigned int q = tid % nm1;
-            const unsigned int r = (tid / nm1) % nm2;
-            const unsigned int i = tid / (nm1 * nm2);
+            const unsigned int q = idx % nm1;
+            const unsigned int r = (idx / nm1) % nm2;
+            const unsigned int i = idx / (nm1 * nm2);
             unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
 
             TData tmp = 0.0;
@@ -951,18 +951,18 @@ __global__ void BwdTransHexKernel_QP_1D(
             {
                 tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
             }
-            s_wsp1[tid] = tmp;
+            s_wsp1[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq1 * nm2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nm2;
+             idx += blockDim.x)
         {
-            const unsigned int r = tid % nm2;
-            const unsigned int i = (tid / nm2) % nq0;
-            const unsigned int j = tid / (nm2 * nq0);
+            const unsigned int r = idx % nm2;
+            const unsigned int i = (idx / nm2) % nq0;
+            const unsigned int j = idx / (nm2 * nq0);
             unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
 
             TData tmp = 0.0;
@@ -970,17 +970,17 @@ __global__ void BwdTransHexKernel_QP_1D(
             {
                 tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
             }
-            s_wsp2[tid] = tmp;
+            s_wsp2[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 2
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i = tid % nq0;
-            const unsigned int j = (tid / nq0) % nq1;
-            const unsigned int k = tid / (nq1 * nq0);
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
             unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
 
             TData tmp = 0.0;
@@ -988,7 +988,7 @@ __global__ void BwdTransHexKernel_QP_1D(
             {
                 tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
             }
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();
@@ -1019,21 +1019,21 @@ __global__ void BwdTransTetKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm01 * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm01 * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
         __syncthreads();
@@ -1158,22 +1158,22 @@ __global__ void BwdTransTetKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm01 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nm01 * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nmTot * nq2; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -1185,12 +1185,12 @@ __global__ void BwdTransTetKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -1333,21 +1333,21 @@ __global__ void BwdTransTetKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm01 * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm01 * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -1359,20 +1359,20 @@ __global__ void BwdTransTetKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 2
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nm1 * nm2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
+             idx += blockDim.x)
         {
-            const unsigned int k  = tid / nm01;
-            const unsigned int p  = pindex[tid % nm01];
-            const unsigned int q  = qindex[tid % nm01];
+            const unsigned int k  = idx / nm01;
+            const unsigned int p  = pindex[idx % nm01];
+            const unsigned int q  = qindex[idx % nm01];
             unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
             mode_pqr += nm2 * (nm2 + 1u) * p;
             mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
@@ -1384,18 +1384,18 @@ __global__ void BwdTransTetKernel_QP_1D(
             {
                 tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
             }
-            s_wsp1[tid] = tmp;
+            s_wsp1[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int p = tid % nm0;
-            const unsigned int j = (tid / nm0) % nq1;
-            const unsigned int k = tid / (nm0 * nq1);
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
             unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
             unsigned int cnt_kpq = nm01 * k + mode_pq;
 
@@ -1404,17 +1404,17 @@ __global__ void BwdTransTetKernel_QP_1D(
             {
                 tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
             }
-            s_wsp2[tid] = tmp;
+            s_wsp2[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i  = tid % nq0;
-            const unsigned int j  = (tid / nq0) % nq1;
-            const unsigned int k  = tid / (nq0 * nq1);
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
@@ -1446,7 +1446,7 @@ __global__ void BwdTransTetKernel_QP_1D(
                 }
             }
 
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();
@@ -1478,20 +1478,20 @@ __global__ void BwdTransPrismKernel(
     {
         const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm12 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm12 * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
         __syncthreads();
@@ -1598,22 +1598,22 @@ __global__ void BwdTransPrismKernel_QP(
     {
         const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm12 * nq2; tid += stride)
+        for (unsigned int idx = idx0; idx < nm12 * nq2; idx += stride)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -1625,12 +1625,12 @@ __global__ void BwdTransPrismKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -1741,20 +1741,20 @@ __global__ void BwdTransPrismKernel_QP_1D(
     {
         const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm12 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm12 * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -1766,20 +1766,20 @@ __global__ void BwdTransPrismKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 2
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int q  = tid % nm1;
-            const unsigned int p  = (tid / nm1) % nm0;
-            const unsigned int k  = tid / (nm1 * nm0);
+            const unsigned int q  = idx % nm1;
+            const unsigned int p  = (idx / nm1) % nm0;
+            const unsigned int k  = idx / (nm1 * nm0);
             unsigned int mode_pr  = (2u * nm2 - p + 1u) * p / 2u;
             unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
 
@@ -1788,18 +1788,18 @@ __global__ void BwdTransPrismKernel_QP_1D(
             {
                 tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
             }
-            s_wsp1[tid] = tmp;
+            s_wsp1[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int p  = tid % nm0;
-            const unsigned int j  = (tid / nm0) % nq1;
-            const unsigned int k  = tid / (nm0 * nq1);
+            const unsigned int p  = idx % nm0;
+            const unsigned int j  = (idx / nm0) % nq1;
+            const unsigned int k  = idx / (nm0 * nq1);
             unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
 
             TData tmp = 0.0;
@@ -1807,17 +1807,17 @@ __global__ void BwdTransPrismKernel_QP_1D(
             {
                 tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
             }
-            s_wsp2[tid] = tmp;
+            s_wsp2[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i  = tid % nq0;
-            const unsigned int j  = (tid / nq0) % nq1;
-            const unsigned int k  = tid / (nq0 * nq1);
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
@@ -1835,7 +1835,7 @@ __global__ void BwdTransPrismKernel_QP_1D(
                 }
             }
 
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();
@@ -1865,20 +1865,20 @@ __global__ void BwdTransPyrKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
         __syncthreads();
@@ -2000,22 +2000,22 @@ __global__ void BwdTransPyrKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nm0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nm1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nmTot * nq2; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -2027,12 +2027,12 @@ __global__ void BwdTransPyrKernel_QP(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nmTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
@@ -2162,20 +2162,20 @@ __global__ void BwdTransPyrKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
     }
 
@@ -2187,20 +2187,20 @@ __global__ void BwdTransPyrKernel_QP_1D(
         TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            s_wsp0[tid] = inptr[tid];
+            s_wsp0[idx] = inptr[idx];
         }
 
         __syncthreads();
 
         // direction 2
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int q  = tid % nm1;
-            const unsigned int p  = (tid / nm1) % nm0;
-            const unsigned int k  = tid / (nm1 * nm0);
+            const unsigned int q  = idx % nm1;
+            const unsigned int p  = (idx / nm1) % nm0;
+            const unsigned int k  = idx / (nm1 * nm0);
             unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
             mode_pqr -= (p - 1u) * p / 2u;
             mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -2214,7 +2214,7 @@ __global__ void BwdTransPyrKernel_QP_1D(
                 {
                     tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
                 }
-                s_wsp1[tid] = tmp;
+                s_wsp1[idx] = tmp;
             }
             else
             {
@@ -2226,19 +2226,19 @@ __global__ void BwdTransPyrKernel_QP_1D(
                 {
                     tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
                 }
-                s_wsp1[tid] = tmp;
+                s_wsp1[idx] = tmp;
             }
         }
 
         __syncthreads();
 
         // direction 1
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int p  = tid % nm0;
-            const unsigned int j  = (tid / nm0) % nq1;
-            const unsigned int k  = tid / (nm0 * nq1);
+            const unsigned int p  = idx % nm0;
+            const unsigned int j  = (idx / nm0) % nq1;
+            const unsigned int k  = idx / (nm0 * nq1);
             unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
 
             TData tmp = 0.0;
@@ -2246,17 +2246,17 @@ __global__ void BwdTransPyrKernel_QP_1D(
             {
                 tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
             }
-            s_wsp2[tid] = tmp;
+            s_wsp2[idx] = tmp;
         }
 
         __syncthreads();
 
         // direction 0
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i  = tid % nq0;
-            const unsigned int j  = (tid / nq0) % nq1;
-            const unsigned int k  = tid / (nq0 * nq1);
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
@@ -2275,7 +2275,7 @@ __global__ void BwdTransPyrKernel_QP_1D(
                 tmp += tmp1 * s_wsp0[1];
             }
 
-            outptr[tid] = tmp;
+            outptr[idx] = tmp;
         }
 
         __syncthreads();

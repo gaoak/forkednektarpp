@@ -37,8 +37,7 @@
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
-
-#define FLAG_QP false // TODO: to be removed
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -49,7 +48,7 @@ template <typename ExecSpace, typename Implementation, typename TData,
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::StdMat>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

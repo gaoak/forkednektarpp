@@ -169,7 +169,7 @@ include:
     - cd "$CI_PROJECT_DIR"
     - EXPORT_COMPILE_COMMANDS=1 BUILD_TYPE=full bash -x .gitlab-ci/build-and-test.sh
     - run-clang-tidy-$CL_T_VER -p build -header-filter='(library|solver|tests)' -j$NUM_CPUS -fix -clang-tidy-binary=clang-tidy-$CL_T_VER -clang-apply-replacements-binary=clang-apply-replacements-$CL_T_VER
-    - find $TARGETS -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" | xargs clang-format-$CL_F_VER -i
+    - find $TARGETS -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" -o -iname "*.cu" -o -iname "*.cuh" | xargs clang-format-$CL_F_VER -i
     - git diff > clang-tidy.diff
     - if [ -s clang-tidy.diff ]; then echo "Found changes in clang-tidy"; exit 1; fi
   allow_failure: true

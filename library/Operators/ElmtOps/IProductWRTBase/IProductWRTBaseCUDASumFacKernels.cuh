@@ -438,24 +438,24 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
     }
 
@@ -467,19 +467,19 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int p = tid / nq1;
+            const unsigned int j = idx % nq1;
+            const unsigned int p = idx / nq1;
             unsigned int cnt_ji  = nq0 * j;
 
             TData sum = 0.0;
@@ -487,16 +487,16 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
             {
                 sum += s_wsp0[cnt_ji] * s_basis0[p * nq0 + i] * s_w0[i];
             }
-            s_wsp1[tid] = sum;
+            s_wsp1[idx] = sum;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1; idx += blockDim.x)
         {
-            const unsigned int p     = tid % nm0;
-            const unsigned int q     = tid / nm0;
-            const unsigned int index = outoffset + tid;
+            const unsigned int p     = idx % nm0;
+            const unsigned int q     = idx / nm0;
+            const unsigned int index = outoffset + idx;
             unsigned int cnt_pj      = nq1 * p;
 
             TData sum = 0.0;
@@ -870,25 +870,25 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
     }
 
@@ -900,19 +900,19 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int p = tid / nq1;
+            const unsigned int j = idx % nq1;
+            const unsigned int p = idx / nq1;
             unsigned int cnt_ji  = nq0 * j;
 
             TData sum = 0.0;
@@ -920,21 +920,21 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
             {
                 sum += s_wsp0[cnt_ji] * s_basis0[p * nq0 + i] * s_w0[i];
             }
-            s_wsp1[tid] = sum;
+            s_wsp1[idx] = sum;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            const unsigned int p     = pindex[tid];
-            const unsigned int index = outoffset + tid;
+            const unsigned int p     = pindex[idx];
+            const unsigned int index = outoffset + idx;
             unsigned int cnt_pj      = nq1 * p;
 
             TData sum = 0.0;
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pj)
             {
-                sum += s_wsp1[cnt_pj] * s_basis1[tid * nq1 + j] * s_w1[j];
+                sum += s_wsp1[cnt_pj] * s_basis1[idx * nq1 + j] * s_w1[j];
             }
 
             if constexpr (SCALE)
@@ -964,13 +964,13 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
 
             __syncthreads();
 
-            for (unsigned int tid = threadIdx.x; tid < nq0 * nq1;
-                 tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1;
+                 idx += blockDim.x)
             {
-                const unsigned int i = tid % nq0;
-                const unsigned int j = tid / nq0;
+                const unsigned int i = idx % nq0;
+                const unsigned int j = idx / nq0;
                 TData tmp            = s_w1[j] * s_basis1[nq1 + j];
-                TData prod           = s_wsp0[tid] * tmp * s_w0[i];
+                TData prod           = s_wsp0[idx] * tmp * s_w0[i];
                 atomicAdd(s_iprod_01, prod * s_basis0[nq0 + i]);
             }
 
@@ -1331,34 +1331,34 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm2 * nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm2 * nq2; idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_w2[tid] = w2[tid];
+            s_w2[idx] = w2[idx];
         }
     }
 
@@ -1370,21 +1370,21 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int k = (tid / nq1) % nq2;
-            const unsigned int p = tid / (nq1 * nq2);
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
             unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
             TData sum_kj = 0.0;
@@ -1392,17 +1392,17 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
             {
                 sum_kj += s_wsp0[cnt_kji] * s_basis0[i + nq0 * p] * s_w0[i];
             }
-            s_wsp1[tid] = sum_kj;
+            s_wsp1[idx] = sum_kj;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int k = tid % nq2;
-            const unsigned int q = (tid / nq2) % nm1;
-            const unsigned int p = tid / (nq2 * nm1);
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
             unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k;
 
             TData sum_k = 0.0;
@@ -1410,18 +1410,18 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
             {
                 sum_k += s_wsp1[cnt_pkj] * s_basis1[q * nq1 + j] * s_w1[j];
             }
-            s_wsp2[tid] = sum_k;
+            s_wsp2[idx] = sum_k;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nm2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nm2;
+             idx += blockDim.x)
         {
-            const unsigned int p     = tid % nm0;
-            const unsigned int q     = (tid / nm0) % nm1;
-            const unsigned int r     = tid / (nm0 * nm1);
-            const unsigned int index = outoffset + tid;
+            const unsigned int p     = idx % nm0;
+            const unsigned int q     = (idx / nm0) % nm1;
+            const unsigned int r     = idx / (nm0 * nm1);
+            const unsigned int index = outoffset + idx;
             unsigned int cnt_pqk     = nm1 * nq2 * p + nq2 * q;
 
             TData sum = 0.0;
@@ -1752,8 +1752,8 @@ __global__ void IProductWRTBaseTetKernel_QP(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nqTot * e;
-        unsigned int outoffset = nmTot * e;
+        const unsigned int inoffset  = nqTot * e;
+        const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
         const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
@@ -2005,36 +2005,36 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm01 * nq1;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm01 * nq1;
+             idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_w2[tid] = w2[tid];
+            s_w2[idx] = w2[idx];
         }
     }
 
@@ -2042,25 +2042,25 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nqTot * e;
-        unsigned int outoffset = nmTot * e;
+        const unsigned int inoffset  = nqTot * e;
+        const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int k = (tid / nq1) % nq2;
-            const unsigned int p = tid / (nq1 * nq2);
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
             unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j;
 
             TData sum_kj = 0.0;
@@ -2068,18 +2068,18 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             {
                 sum_kj += s_wsp0[cnt_kji] * s_basis0[i + nq0 * p] * s_w0[i];
             }
-            s_wsp1[tid] = sum_kj;
+            s_wsp1[idx] = sum_kj;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm01 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm01 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int mode_pq = tid / nq2;
+            const unsigned int mode_pq = idx / nq2;
             const unsigned int p       = pindex1[mode_pq];
             const unsigned int q       = qindex1[mode_pq];
-            const unsigned int k       = tid % nq2;
+            const unsigned int k       = idx % nq2;
             unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
 
             TData sum_k = 0.0;
@@ -2088,22 +2088,22 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
                 sum_k +=
                     s_basis1[mode_pq * nq1 + j] * s_wsp1[cnt_pkj] * s_w1[j];
             }
-            s_wsp2[tid] = sum_k;
+            s_wsp2[idx] = sum_k;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            const unsigned int p       = pindex2[tid];
-            const unsigned int q       = qindex2[tid];
-            const unsigned int index   = outoffset + tid;
+            const unsigned int p       = pindex2[idx];
+            const unsigned int q       = qindex2[idx];
+            const unsigned int index   = outoffset + idx;
             const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
 
             TData tmp = 0.0;
             for (unsigned int k = 0u; k < nq2; ++k)
             {
-                tmp += s_wsp2[mode_pq * nq2 + k] * s_basis2[tid * nq2 + k] *
+                tmp += s_wsp2[mode_pq * nq2 + k] * s_basis2[idx * nq2 + k] *
                        s_w2[k];
             }
 
@@ -2125,19 +2125,19 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            for (unsigned int tid = threadIdx.x; tid < nm2; tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nm2; idx += blockDim.x)
             {
-                s_prod[tid] = 0.0;
+                s_prod[idx] = 0.0;
             }
 
             __syncthreads();
 
-            for (unsigned int tid = threadIdx.x; tid < nq0 * nq1 * nq2;
-                 tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
+                 idx += blockDim.x)
             {
-                const unsigned int i = tid % nq0;
-                const unsigned int j = (tid / nq0) % nq1;
-                const unsigned int k = tid / (nq0 * nq1);
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
                 TData tmpQ2          = s_w2[k];
                 TData tmpQ1          = tmpQ2 * s_w1[j];
 
@@ -2149,19 +2149,19 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
                 tmp += s_basis0[nq0 + i] * s_basis1[j];
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
-                tmp *= s_wsp0[tid] * tmpQ;
+                tmp *= s_wsp0[idx] * tmpQ;
                 atomicAdd(s_prod + nm2 - 1, tmp);
 
                 // bottom vertex
                 tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
-                      s_wsp0[tid] * tmpQ;
+                      s_wsp0[idx] * tmpQ;
                 atomicAdd(s_prod, tmp);
 
                 // singular edge
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
                     tmp = s_basis2[(r + 1) * nq2 + k] * s_basis1[nq1 + j] *
-                          s_basis0[nq0 + i] * s_wsp0[tid] * tmpQ;
+                          s_basis0[nq0 + i] * s_wsp0[idx] * tmpQ;
                     atomicAdd(s_prod + r, tmp);
                 }
             }
@@ -2174,10 +2174,10 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1] * scale;
                 }
-                for (unsigned int tid = threadIdx.x; tid < nm2 - 1u;
-                     tid += blockDim.x)
+                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
+                     idx += blockDim.x)
                 {
-                    out[outoffset + nm2 + tid] += s_prod[tid] * scale;
+                    out[outoffset + nm2 + idx] += s_prod[idx] * scale;
                 }
             }
             else
@@ -2186,10 +2186,10 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1];
                 }
-                for (unsigned int tid = threadIdx.x; tid < nm2 - 1u;
-                     tid += blockDim.x)
+                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
+                     idx += blockDim.x)
                 {
-                    out[outoffset + nm2 + tid] += s_prod[tid];
+                    out[outoffset + nm2 + idx] += s_prod[idx];
                 }
             }
         }
@@ -2322,7 +2322,7 @@ __global__ void IProductWRTBasePrismKernel(
                                  s_basis2[(mode_pr + r) * nq2 + k] * s_w2[k];
                     }
 
-                    if (SCALE)
+                    if constexpr (SCALE)
                     {
                         sum_k *= scale;
                     }
@@ -2547,7 +2547,7 @@ __global__ void IProductWRTBasePrismKernel_QP(
                                  s_wsp2[cnt_pqk];
                     }
 
-                    if (SCALE)
+                    if constexpr (SCALE)
                     {
                         sum_k *= scale;
                     }
@@ -2676,35 +2676,35 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm02 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm02 * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_w2[tid] = w2[tid];
+            s_w2[idx] = w2[idx];
         }
     }
 
@@ -2716,21 +2716,21 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int k = (tid / nq1) % nq2;
-            const unsigned int p = tid / (nq1 * nq2);
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
             unsigned int cnt_kji = nq1 * nq0 * k + nq0 * j;
 
             TData sum_kj = 0.0;
@@ -2738,17 +2738,17 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             {
                 sum_kj += s_wsp0[cnt_kji] * s_basis0[nq0 * p + i] * s_w0[i];
             }
-            s_wsp1[tid] = sum_kj;
+            s_wsp1[idx] = sum_kj;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int k = tid % nq2;
-            const unsigned int q = (tid / nq2) % nm1;
-            const unsigned int p = tid / (nq2 * nm1);
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
             unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
 
             TData sum_k = 0.0;
@@ -2756,18 +2756,18 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             {
                 sum_k += s_basis1[q * nq1 + j] * s_w1[j] * s_wsp1[cnt_pkj];
             }
-            s_wsp2[tid] = sum_k;
+            s_wsp2[idx] = sum_k;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            const unsigned int p       = pindex[tid];
-            const unsigned int q       = qindex[tid];
-            const unsigned int r       = rindex[tid];
+            const unsigned int p       = pindex[idx];
+            const unsigned int q       = qindex[idx];
+            const unsigned int r       = rindex[idx];
             const unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u + r;
-            const unsigned int index   = outoffset + tid;
+            const unsigned int index   = outoffset + idx;
             unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
 
             TData sum_k = 0.0;
@@ -2777,7 +2777,7 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
                     s_basis2[mode_pr * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
             }
 
-            if (SCALE)
+            if constexpr (SCALE)
             {
                 sum_k *= scale;
             }
@@ -2797,21 +2797,21 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            for (unsigned int tid = threadIdx.x; tid < nm1; tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
             {
-                s_wsp2[tid] = 0.0;
+                s_wsp2[idx] = 0.0;
             }
 
             __syncthreads();
 
-            for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
             {
-                const unsigned int i = tid % nq0;
-                const unsigned int j = (tid / nq0) % nq1;
-                const unsigned int k = tid / (nq0 * nq1);
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
                 TData k_weight       = s_w2[k];
                 TData kj_weight      = k_weight * s_w1[j];
-                TData prod           = kj_weight * s_w0[i] * s_wsp0[tid];
+                TData prod           = kj_weight * s_w0[i] * s_wsp0[idx];
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
                     atomicAdd(s_wsp2 + q, prod * s_basis2[nq2 + k] *
@@ -2822,16 +2822,16 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
 
             __syncthreads();
 
-            for (unsigned int tid = threadIdx.x; tid < nm1; tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
             {
-                const unsigned int index = outoffset + nm2 * tid + 1u;
+                const unsigned int index = outoffset + nm2 * idx + 1u;
                 if constexpr (SCALE)
                 {
-                    out[index] += s_wsp2[tid] * scale;
+                    out[index] += s_wsp2[idx] * scale;
                 }
                 else
                 {
-                    out[index] += s_wsp2[tid];
+                    out[index] += s_wsp2[idx];
                 }
             }
         }
@@ -3404,35 +3404,35 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
         {
-            s_basis0[tid] = basis0[tid];
+            s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nm1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
         {
-            s_basis1[tid] = basis1[tid];
+            s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+             idx += blockDim.x)
         {
-            s_basis2[tid] = basis2[tid];
+            s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_w0[tid] = w0[tid];
+            s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_w1[tid] = w1[tid];
+            s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_w2[tid] = w2[tid];
+            s_w2[idx] = w2[idx];
         }
     }
 
@@ -3444,21 +3444,21 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int index    = inoffset + tid;
+            const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
-            s_wsp0[tid]                 = in[index] * jac[jacindex];
+            s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nq1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int j = tid % nq1;
-            const unsigned int k = (tid / nq1) % nq2;
-            const unsigned int p = tid / (nq1 * nq2);
+            const unsigned int j = idx % nq1;
+            const unsigned int k = (idx / nq1) % nq2;
+            const unsigned int p = idx / (nq1 * nq2);
             unsigned int cnt_kji = k * nq1 * nq0 + j * nq0;
 
             TData sum_kj = 0.0;
@@ -3466,17 +3466,17 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             {
                 sum_kj += s_wsp0[cnt_kji] * s_basis0[nq0 * p + i] * s_w0[i];
             }
-            s_wsp1[tid] = sum_kj;
+            s_wsp1[idx] = sum_kj;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nm0 * nm1 * nq2;
-             tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
+             idx += blockDim.x)
         {
-            const unsigned int k = tid % nq2;
-            const unsigned int q = (tid / nq2) % nm1;
-            const unsigned int p = tid / (nq2 * nm1);
+            const unsigned int k = idx % nq2;
+            const unsigned int q = (idx / nq2) % nm1;
+            const unsigned int p = idx / (nq2 * nm1);
             unsigned int cnt_pkj = nq1 * nq2 * p + k * nq1;
 
             TData sum_k = 0.0;
@@ -3484,22 +3484,22 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             {
                 sum_k += s_basis1[q * nq1 + j] * s_w1[j] * s_wsp1[cnt_pkj];
             }
-            s_wsp2[tid] = sum_k;
+            s_wsp2[idx] = sum_k;
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nmTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            const unsigned int p     = pindex[tid];
-            const unsigned int q     = qindex[tid];
-            const unsigned int index = outoffset + tid;
+            const unsigned int p     = pindex[idx];
+            const unsigned int q     = qindex[idx];
+            const unsigned int index = outoffset + idx;
             unsigned int cnt_pqk     = nm1 * nq2 * p + nq2 * q;
 
             TData sum_k = 0.0;
             for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
             {
-                sum_k += s_basis2[tid * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
+                sum_k += s_basis2[idx * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
             }
             if constexpr (SCALE)
             {
@@ -3526,12 +3526,12 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
 
             __syncthreads();
 
-            for (unsigned int tid = threadIdx.x; tid < nq0 * nq1 * nq2;
-                 tid += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
+                 idx += blockDim.x)
             {
-                const unsigned int i = tid % nq0;
-                const unsigned int j = (tid / nq0) % nq1;
-                const unsigned int k = tid / (nq0 * nq1);
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
                 TData tmpQ2          = s_w2[k];
                 TData tmpQ1          = tmpQ2 * s_w1[j];
 
@@ -3543,7 +3543,7 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
                 tmp += s_basis0[nq0 + i] * s_basis1[j];
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
-                tmp *= s_wsp0[tid] * tmpQ;
+                tmp *= s_wsp0[idx] * tmpQ;
                 atomicAdd(s_prod, tmp);
             }
 

@@ -142,14 +142,14 @@ __global__ void PhysDeriv2DKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
     }
 
@@ -159,14 +159,14 @@ __global__ void PhysDeriv2DKernel(
         s_xfrm0 = SHMEM ? s_D1 + nq1 * nq1 : shared;
         s_xfrm1 = s_xfrm0 + nq1;
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_xfrm0[tid] = 2.0 / (1.0 - Z1[tid]);
+            s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_xfrm1[tid] = 0.5 * (1.0 + Z0[tid]);
+            s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
         }
     }
 
@@ -251,16 +251,16 @@ __global__ void PhysDeriv2DKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nq0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nq1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
     }
 
@@ -271,11 +271,11 @@ __global__ void PhysDeriv2DKernel_QP(
         const unsigned int offset = nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0   = blockDim.x * threadIdx.y + threadIdx.x;
+        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int tid = tid0; tid < nqTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            s_wsp[tid] = in[offset + tid];
+            s_wsp[idx] = in[offset + idx];
         }
 
         __syncthreads();
@@ -349,14 +349,14 @@ __global__ void PhysDeriv2DKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
     }
 
@@ -367,18 +367,18 @@ __global__ void PhysDeriv2DKernel_QP_1D(
         const unsigned int offset = nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            s_wsp[tid] = in[offset + tid];
+            s_wsp[idx] = in[offset + idx];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i       = tid % nq0;
-            const unsigned int j       = tid / nq0;
-            const unsigned int index   = offset + tid;
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = idx / nq0;
+            const unsigned int index   = offset + idx;
             const unsigned int dfindex = DEFORMED ? index : e;
 
             // Compute tensorial derivative.
@@ -445,19 +445,19 @@ __global__ void PhysDeriv3DKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2 * nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2 * nq2; idx += blockDim.x)
         {
-            s_D2[tid] = D2[tid];
+            s_D2[idx] = D2[idx];
         }
     }
 
@@ -469,24 +469,24 @@ __global__ void PhysDeriv3DKernel(
         s_xfrm_eta1m = s_xfrm_eta1 + nq1;
         s_xfrm_eta2  = s_xfrm_eta1m + nq1;
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_xfrm_eta0[tid] = 0.5 * (1.0 + Z0[tid]);
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_xfrm_eta1[tid] = 0.5 * (1.0 + Z1[tid]);
+            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_xfrm_eta1m[tid] = 2.0 / (1.0 - Z1[tid]);
+            s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_xfrm_eta2[tid] = 2.0 / (1.0 - Z2[tid]);
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
         }
     }
     else if constexpr (SHAPETYPE == LibUtilities::Prism)
@@ -494,14 +494,14 @@ __global__ void PhysDeriv3DKernel(
         s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : shared;
         s_xfrm_eta2 = s_xfrm_eta0 + nq0;
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_xfrm_eta0[tid] = 0.5 * (1.0 + Z0[tid]);
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_xfrm_eta2[tid] = 2.0 / (1.0 - Z2[tid]);
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
         }
     }
     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
@@ -510,19 +510,19 @@ __global__ void PhysDeriv3DKernel(
         s_xfrm_eta1 = s_xfrm_eta0 + nq0;
         s_xfrm_eta2 = s_xfrm_eta1 + nq1;
 
-        for (unsigned int tid = threadIdx.x; tid < nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_xfrm_eta0[tid] = 0.5 * (1.0 + Z0[tid]);
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_xfrm_eta1[tid] = 0.5 * (1.0 + Z1[tid]);
+            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_xfrm_eta2[tid] = 2.0 / (1.0 - Z2[tid]);
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
         }
     }
 
@@ -643,22 +643,22 @@ __global__ void PhysDeriv3DKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nq0 * nq0; tid += stride)
+        for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nq1 * nq1; tid += stride)
+        for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
 
-        for (unsigned int tid = tid0; tid < nq2 * nq2; tid += stride)
+        for (unsigned int idx = idx0; idx < nq2 * nq2; idx += stride)
         {
-            s_D2[tid] = D2[tid];
+            s_D2[idx] = D2[idx];
         }
     }
 
@@ -669,12 +669,12 @@ __global__ void PhysDeriv3DKernel_QP(
         const unsigned int offset = nqTot * e;
 
         // Copy to shared memory.
-        const unsigned int tid0 = blockDim.x * blockDim.y * threadIdx.z +
+        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
                                   blockDim.x * threadIdx.y + threadIdx.x;
         const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int tid = tid0; tid < nqTot; tid += stride)
+        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
-            s_wsp[tid] = in[offset + tid];
+            s_wsp[idx] = in[offset + idx];
         }
 
         __syncthreads();
@@ -790,19 +790,19 @@ __global__ void PhysDeriv3DKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int tid = threadIdx.x; tid < nq0 * nq0; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
         {
-            s_D0[tid] = D0[tid];
+            s_D0[idx] = D0[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq1 * nq1; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
         {
-            s_D1[tid] = D1[tid];
+            s_D1[idx] = D1[idx];
         }
 
-        for (unsigned int tid = threadIdx.x; tid < nq2 * nq2; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq2 * nq2; idx += blockDim.x)
         {
-            s_D2[tid] = D2[tid];
+            s_D2[idx] = D2[idx];
         }
     }
 
@@ -813,19 +813,19 @@ __global__ void PhysDeriv3DKernel_QP_1D(
         const unsigned int offset = nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            s_wsp[tid] = in[offset + tid];
+            s_wsp[idx] = in[offset + idx];
         }
 
         __syncthreads();
 
-        for (unsigned int tid = threadIdx.x; tid < nqTot; tid += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
         {
-            const unsigned int i       = tid % nq0;
-            const unsigned int j       = (tid / nq0) % nq1;
-            const unsigned int k       = tid / (nq0 * nq1);
-            unsigned int index         = offset + tid;
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = (idx / nq0) % nq1;
+            const unsigned int k       = idx / (nq0 * nq1);
+            unsigned int index         = offset + idx;
             const unsigned int dfindex = DEFORMED ? index : e;
 
             // Compute tensorial derivative.
@@ -921,8 +921,7 @@ inline
     }
     else
     {
-        unsigned int nshared = sizeof(TData) * (nq0 * nq0);
-        PhysDeriv1DKernel<TData, DEFORMED><<<gridsize, blocksize, nshared>>>(
+        PhysDeriv1DKernel<TData, DEFORMED><<<gridsize, blocksize>>>(
             nq0, ncoord, nelmts, nsize, dfsize, D0, df, in, out);
     }
 }
