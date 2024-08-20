@@ -260,10 +260,15 @@ INCLUDE (NektarCommon)
 
 # Redesign-specific options
 IF (NEKTAR_BUILD_REDESIGN)
+    SET(NEKTAR_ENABLE_SYCL OFF CACHE STRING "")
+    SET_PROPERTY(CACHE NEKTAR_ENABLE_SYCL PROPERTY STRINGS OFF Default CUDA)
+
     # All device libraries should be found first as other Thirdparty
     # libraries may depend on them (Currently not the case).
     IF (NEKTAR_ENABLE_CUDA)
-        IF (NEKTAR_ENABLE_HIP)
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
+        ELSEIF (NEKTAR_ENABLE_HIP)
             MESSAGE(FATAL_ERROR "Cannot use both CUDA and HIP")
         ELSEIF (NEKTAR_ENABLE_KOKKOS AND (!Kokkos_ENABLE_CUDA OR !Kokkos_ENABLE_Serial))
             MESSAGE(FATAL_ERROR "Cannot use CUDA and KOKKOS without CUDA/Serial")
@@ -273,28 +278,32 @@ IF (NEKTAR_BUILD_REDESIGN)
     ENDIF ()
 
     IF (NEKTAR_ENABLE_HIP)
-        IF (NEKTAR_ENABLE_CUDA)
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both HIP and AVX")
+        ELSEIF (NEKTAR_ENABLE_CUDA)
             MESSAGE(FATAL_ERROR "Cannot use both HIP and CUDA")
         ELSEIF (NEKTAR_ENABLE_KOKKOS AND (!Kokkos_ENABLE_HIP OR !Kokkos_ENABLE_Serial))
             MESSAGE(FATAL_ERROR "Cannot use HIP and KOKKOS without HIP/Serial")
+        ELSE()
+            #INCLUDE(NektarHIP)
         ENDIF()
     ENDIF ()
 
     IF (NEKTAR_ENABLE_SYCL)
-        # Temporary config
-        # Still requires -DCMAKE_CXX_FLAGS="-fsycl" for IntelSYCL
-        OPTION(NEKTAR_ENABLE_SYCL "Enable SYCL execution" OFF)
-        ADD_DEFINITIONS(-DNEKTAR_ENABLE_SYCL)
+        IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+            MESSAGE(FATAL_ERROR "Cannot use both SYCL and AVX")
+        ELSEIF (NEKTAR_ENABLE_CUDA)
+            MESSAGE(FATAL_ERROR "Cannot use both SYCL and CUDA")
+        ELSEIF (NEKTAR_ENABLE_HIP)
+            MESSAGE(FATAL_ERROR "Cannot use both SYCL and HIP")
+        ELSEIF (NEKTAR_ENABLE_KOKKOS AND (!Kokkos_ENABLE_SYCL OR !Kokkos_ENABLE_Serial))
+            MESSAGE(FATAL_ERROR "Cannot use SYCL and KOKKOS without SYCL/Serial")
+        ELSE()
+            INCLUDE(NektarSYCL)
+        ENDIF()
     ENDIF()
 
     IF (NEKTAR_ENABLE_KOKKOS)
-      # For now do not require a min version and see what happens. The
-      # incompatibile Boost versions will be caught
-      # below. Incompatible CUDA versions should be caught when
-      # building Kokkos.
-#        SET(BOOST_MIN_VERSION "1.75.0")
-#        SET(CUDA_MIN_VERSION "12.2")
-
         IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
             MESSAGE(FATAL_ERROR "Cannot use both Kokkos and AVX")
         ELSE()
