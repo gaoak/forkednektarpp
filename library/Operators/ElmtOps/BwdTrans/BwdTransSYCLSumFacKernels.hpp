@@ -1373,7 +1373,7 @@ inline
     {
         SYCLQueue::GetInstance()
             .submit([=](sycl::handler &cgh) {
-                unsigned int nshared = sizeof(TData) * nm0;
+                unsigned int nshared = nm0;
                 // Create local shared memory
                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                       cgh);
@@ -1399,7 +1399,7 @@ inline
     {
         SYCLQueue::GetInstance()
             .submit([=](sycl::handler &cgh) {
-                unsigned int nshared = sizeof(TData) * (nm0 * nq0);
+                unsigned int nshared = nm0 * nq0;
                 // Create local shared memory
                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                       cgh);
@@ -1443,10 +1443,10 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = sizeof(TData) * (nq0 * nm0 + nq1 * nm1);
+        unsigned int nshared = nq0 * nm0 + nq1 * nm1;
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nmTot + nq0 * nm1);
+            nshared += nmTot + nq0 * nm1;
 
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
@@ -1502,10 +1502,10 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = sizeof(TData) * (nm0 * nq0 + nmTot * nq1);
+        unsigned int nshared = nm0 * nq0 + nmTot * nq1;
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nmTot + nm0 * nq1);
+            nshared += nmTot + nm0 * nq1;
 
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
@@ -1570,14 +1570,12 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared =
-            sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2);
+        unsigned int nshared = nq0 * nm0 + nq1 * nm1 + nq2 * nm2;
 
         if constexpr (MULTILEVEL)
         {
-            nshared +=
-                sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
-                                 (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2));
+            nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
+                       (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
 
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
@@ -1645,14 +1643,12 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmTot * nq2);
+        unsigned int nshared    = nm0 * nq0 + nm01 * nq1 + nmTot * nq2;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) *
-                       (nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
-                        (nm0 * nq1 * nq2));
+            nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
+                       (nm0 * nq1 * nq2);
 
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
@@ -1711,12 +1707,10 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nm12 * nq2);
+        unsigned int nshared    = nm0 * nq0 + nm1 * nq1 + nm12 * nq2;
         if constexpr (MULTILEVEL)
         {
-            nshared +=
-                sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
+            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
                     sycl::local_accessor<TData, 1> shared(
@@ -1773,18 +1767,15 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nmTot * nq2);
+        unsigned int nshared = nm0 * nq0 + nm1 * nq1 + nmTot * nq2;
 
         if constexpr (MULTILEVEL)
         {
-            nshared +=
-                sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
+            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
             SYCLQueue::GetInstance()
                 .submit([=](sycl::handler &cgh) {
                     unsigned int nshared =
-                        sizeof(TData) *
-                        (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
+                        nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
                     sycl::local_accessor<TData, 1> shared(
                         sycl::range<1>(nshared), cgh);
                     sycl::range<3> globalSize =
