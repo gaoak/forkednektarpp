@@ -82,26 +82,15 @@ Note:
 - For A40, please use `-DCMAKE_CUDA_ARCHITECTURES=86`
 - For A100, please use `-DCMAKE_CUDA_ARCHITECTURES=80` 
 
+### SYCL (Default)
+    cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
+             -DNEKTAR_ENABLE_SYCL=Default \
+             -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
+
 ### SYCL (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_SYCL=ON \
-             -DCMAKE_CXX_COMPILER="/path-to-sycl-llvm/bin/clang-19" \
-             -DCMAKE_CXX_FLAGS="-fsycl -fsycl-targets=nvptx64-nvidia-cuda" 
-
-Note:
-- If desired, one can build the SYCL LLVM locally using
-```
-    module load cuda
-    python3 -m pip install ninja
-    git clone https://github.com/intel/llvm -b sycl
-    python3 llvm/buildbot/configure.py --cuda
-    python3 llvm/buildbot/compile.py  -j32
-```
-- If the SYCL LLVM is build locally, the `bin` and `lib` must be added to the PATHs environment variable
-```
-    PATH="$PATH:/path-to-llvm/build/bin/"
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/path-to-llvm/build/lib/"
-```
+             -DNEKTAR_ENABLE_SYCL=CUDA \
+             -DCMAKE_CXX_COMPILER="/path-to-intel-compiler/bin/icpx" 
 
 ### Kokkos (Serial)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
