@@ -99,8 +99,8 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> vEdgeCoeffs(
-             sycl::range<1>(sizeof(TData) * nmaxcoeff), cgh);
+         sycl::local_accessor<TData, 1> vEdgeCoeffs(sycl::range<1>(nmaxcoeff),
+                                                    cgh);
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
              [=](sycl::nd_item<1> indx) {

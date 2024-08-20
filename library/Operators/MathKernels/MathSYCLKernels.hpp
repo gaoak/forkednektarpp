@@ -165,8 +165,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -218,8 +217,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -272,8 +270,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -325,8 +322,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -376,8 +372,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -427,8 +422,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -479,8 +473,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
@@ -532,8 +525,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         sycl::local_accessor<TData, 1> scratch(
-             sycl::range<1>(sizeof(TData) * blockSize), cgh);
+         sycl::local_accessor<TData, 1> scratch(sycl::range<1>(blockSize), cgh);
 
          cgh.parallel_for(
              sycl::nd_range<1>(gridSize * blockSize, blockSize),
