@@ -57,10 +57,6 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        size_t nDim      = this->m_expansionList->GetShapeDimension();
-        size_t nCoord    = this->m_expansionList->GetCoordim(0);
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-
         // Initialise the derivative factor.
         m_dfSize = Operator<TData>::GetGeometricFactorSize();
 

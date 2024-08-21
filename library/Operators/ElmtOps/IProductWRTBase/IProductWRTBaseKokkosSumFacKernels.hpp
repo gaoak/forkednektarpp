@@ -1356,7 +1356,7 @@ void IProductWRTBaseTetKernel(
     constexpr unsigned int warpsize = 32u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    // const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     Kokkos::parallel_for(
         nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
@@ -1920,9 +1920,9 @@ void IProductWRTBaseTetKernel_QP_1D(
                 [&](const unsigned int &idx) {
                     const unsigned int mode_pq = idx / nq2;
                     const unsigned int p       = pindex1[mode_pq];
-                    const unsigned int q       = qindex1[mode_pq];
-                    const unsigned int k       = idx % nq2;
-                    unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+                    // const unsigned int q       = qindex1[mode_pq];
+                    const unsigned int k = idx % nq2;
+                    unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
 
                     TData sum_k = 0.0;
                     for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
@@ -2056,7 +2056,7 @@ void IProductWRTBasePrismKernel(
     constexpr unsigned int warpsize = 32u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+    // const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
 
     Kokkos::parallel_for(
         nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
@@ -3351,8 +3351,8 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
                         const unsigned int nelmts, const bool correct,
                         const TData *basis0, const TData *basis1,
                         const TData *w0, const TData *w1, const TData *jac,
-                        TData *wsp, const TData *in, TData *out,
-                        const TData scale = 1.0)
+                        [[maybe_unused]] TData *wsp, const TData *in,
+                        TData *out, const TData scale = 1.0)
 {
     if (shapetype == LibUtilities::Quad)
     {
@@ -3418,8 +3418,9 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
                         const unsigned int nelmts, const bool correct,
                         const TData *basis0, const TData *basis1,
                         const TData *basis2, const TData *w0, const TData *w1,
-                        const TData *w2, const TData *jac, TData *wsp,
-                        const TData *in, TData *out, const TData scale = 1.0)
+                        const TData *w2, const TData *jac,
+                        [[maybe_unused]] TData *wsp, const TData *in,
+                        TData *out, const TData scale = 1.0)
 {
     if (shapetype == LibUtilities::Hex)
     {

@@ -63,9 +63,6 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
-        size_t nDim   = this->m_expansionList->GetShapeDimension();
-        size_t nCoord = this->m_expansionList->GetCoordim(0);
-
         // Initialise the jacobian and the derivative factor.
         m_dfSize = Operator<TData>::GetGeometricFactorSize();
 
@@ -179,18 +176,6 @@ public:
             const auto w2 =
                 (dimension > 2)
                     ? m_weightMap[expPtr->GetBasis(2)->GetBasisKey()]
-                          .template GetPtr<MemSpace, ReadOnly>()
-                    : nullptr;
-            const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
-                                .template GetPtr<MemSpace, ReadOnly>();
-            const auto D1 =
-                (dimension > 1)
-                    ? m_derivativeMap[expPtr->GetBasis(1)->GetBasisKey()]
-                          .template GetPtr<MemSpace, ReadOnly>()
-                    : nullptr;
-            const auto D2 =
-                (dimension > 2)
-                    ? m_derivativeMap[expPtr->GetBasis(2)->GetBasisKey()]
                           .template GetPtr<MemSpace, ReadOnly>()
                     : nullptr;
             const auto Z0 = m_pointMap[expPtr->GetBasis(0)->GetBasisKey()]

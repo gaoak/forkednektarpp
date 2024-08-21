@@ -248,7 +248,7 @@ public:
 
         bool notFound = true;
 
-#if defined(REQUESTED_OPERATOR_ONLY)
+#if !defined(OPERATOR_ENABLE_DEFAULTING)
         constexpr size_t nOpTests = 1;
 #else
         constexpr size_t nOpTests = 3;
