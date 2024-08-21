@@ -93,6 +93,7 @@ include:
       -h "${CI_RUNNER_ID}.${CI_JOB_NAME}"
       -e "BUILD_TYPE=$BUILD_TYPE"
       -e "BUILD_SIMD=$BUILD_SIMD"
+      -e "BUILD_KOKKOS=$BUILD_KOKKOS"
       -e "BUILD_CC=$BUILD_CC"
       -e "BUILD_CXX=$BUILD_CXX"
       -e "BUILD_FC=$BUILD_FC"
@@ -266,12 +267,15 @@ debian-bookworm-default-build-and-test:
 debian-bookworm-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 debian-bookworm-full-avx2-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
   variables:
     BUILD_SIMD: avx2
+    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -280,6 +284,7 @@ debian-bookworm-full-avx512-build-and-test:
   needs: ["debian-bookworm-full-build-env"]
   variables:
     BUILD_SIMD: avx512
+    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -289,6 +294,7 @@ debian-bookworm-full-clang15-build-and-test:
   variables:
     BUILD_CC: clang-15
     BUILD_CXX: clang++-15
+    BUILD_KOKKOS: "on"
 
 debian-bullseye-default-build-and-test:
   <<: *build-and-test-template
@@ -306,12 +312,15 @@ debian-bullseye-performance-build-and-test:
 debian-bullseye-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bullseye-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 debian-bullseye-full-avx2-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bullseye-full-build-env"]
   variables:
     BUILD_SIMD: avx2
+    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -320,6 +329,7 @@ debian-bullseye-full-avx512-build-and-test:
   needs: ["debian-bullseye-full-build-env"]
   variables:
     BUILD_SIMD: avx512
+    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -332,6 +342,7 @@ debian-buster-full-build-and-test:
   needs: ["debian-buster-full-build-env"]
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
+    BUILD_KOKKOS: "off"
 
 
 # COMPILER WARNINGS
@@ -493,6 +504,8 @@ ubuntu-jammy-default-build-and-test:
 ubuntu-jammy-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 ubuntu-jammy-full-clang14-build-and-test:
   <<: *build-and-test-template
@@ -500,6 +513,7 @@ ubuntu-jammy-full-clang14-build-and-test:
   variables:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
+    BUILD_KOKKOS: "on"
 
 ubuntu-jammy-full-clang14-avx2-build-and-test:
   <<: *build-and-test-template
@@ -508,6 +522,7 @@ ubuntu-jammy-full-clang14-avx2-build-and-test:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
     BUILD_SIMD: avx2
+    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -518,6 +533,7 @@ ubuntu-jammy-full-clang14-avx512-build-and-test:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
     BUILD_SIMD: avx512
+    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -528,6 +544,8 @@ ubuntu-focal-default-build-and-test:
 ubuntu-focal-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-focal-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 ubuntu-bionic-default-build-and-test:
   <<: *build-and-test-template
@@ -536,6 +554,8 @@ ubuntu-bionic-default-build-and-test:
 ubuntu-bionic-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-bionic-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "off"
 
 
 # COMPILER WARNINGS
@@ -620,6 +640,8 @@ fedora-35-default-build-and-test:
 fedora-35-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-35-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 fedora-36-default-build-and-test:
   <<: *build-and-test-template
@@ -628,6 +650,8 @@ fedora-36-default-build-and-test:
 fedora-36-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-36-full-build-env"]
+  variables:
+    BUILD_KOKKOS: "on"
 
 
 # COMPILER WARNINGS
@@ -678,6 +702,7 @@ macos-full-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "full"
+    BUILD_KOKKOS: "on"
   needs: []
 
 macos-default-arm-warnings:

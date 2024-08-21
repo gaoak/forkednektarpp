@@ -94,43 +94,11 @@ Note:
 
 ### Kokkos (Serial)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_KOKKOS=ON \
-             -DKokkos_DIR=/path/kokkos-serial-install/lib/cmake/Kokkos/
-
-Note:
-- If desired, one can build Kokkos locally using
-```
-    git clone https://github.com/kokkos/kokkos.git
-    cd kokkos
-    mkdir build && cd build 
-    cmake .. -DCMAKE_CXX_COMPILER=g++ \
-             -DCMAKE_CXX_FLAGS=-fPIC \
-             -DCMAKE_INSTALL_PREFIX=~/path/kokkos-serial-install
-    make install
-```
+             -DNEKTAR_ENABLE_KOKKOS=Serial 
 
 ### Kokkos (CUDA)
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
-             -DNEKTAR_ENABLE_KOKKOS=ON \
-             -DKokkos_DIR=/path/kokkos-cuda-install/lib/cmake/Kokkos/
-
-Note:
-- If desired, one can build Kokkos locally using
-```
-    git clone https://github.com/kokkos/kokkos.git
-    cd kokkos
-    mkdir build && cd build 
-    cmake .. -DCMAKE_CXX_COMPILER=g++ \
-             -DCMAKE_CXX_FLAGS=-fPIC \
-             -DCMAKE_INSTALL_PREFIX=/path/kokkos-cuda-install \
-             -DKokkos_ARCH_AMPERE86=ON \
-             -DKokkos_ENABLE_CUDA=ON \
-             -DKokkos_ENABLE_CUDA_LAMBDA=ON \
-             -DKokkos_ENABLE_CUDA_CONSTEXPR=ON
-    make install
-```
-- For A40, please use `-DKokkos_ARCH_AMPERE86=ON`
-- For A100, please use `-DKokkos_ARCH_AMPERE80=ON` 
+             -DNEKTAR_ENABLE_KOKKOS=CUDA
 
 Installation
 ------------

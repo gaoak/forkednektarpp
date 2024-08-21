@@ -2178,7 +2178,7 @@ BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
 {
     if constexpr (MULTILEVEL)
     {
-        unsigned int nshared = nm0 + SHMEM ? nm0 * nq0 : 0u;
+        unsigned int nshared = nm0 + (SHMEM ? nm0 * nq0 : 0u);
         BwdTransSegKernel_QP<TData, SHMEM>(nshared, nm0, nq0, nelmt, basis0, in,
                                            out);
     }
@@ -2196,7 +2196,7 @@ BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  const unsigned int nm1, const unsigned int nq0,
                  const unsigned int nq1, const unsigned int nelmt,
                  const bool correct, const TData *basis0, const TData *basis1,
-                 TData *wsp, const TData *in, TData *out)
+                 [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
     if (shapetype == LibUtilities::Quad)
     {
@@ -2254,7 +2254,8 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  const unsigned int nq0, const unsigned int nq1,
                  const unsigned int nq2, const unsigned int nelmt,
                  const bool correct, const TData *basis0, const TData *basis1,
-                 const TData *basis2, TData *wsp, const TData *in, TData *out)
+                 const TData *basis2, [[maybe_unused]] TData *wsp,
+                 const TData *in, TData *out)
 {
     if (shapetype == LibUtilities::Hex)
     {

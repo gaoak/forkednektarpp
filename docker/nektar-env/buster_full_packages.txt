@@ -1,3 +1,4 @@
+git
 libarpack2-dev
 libboost-numpy-dev
 libboost-python-dev

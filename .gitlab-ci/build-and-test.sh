@@ -33,6 +33,9 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_SIMD_AVX512:BOOL=ON"
     fi
+    if [[ $BUILD_KOKKOS == "on" ]]; then
+        BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_KOKKOS:STRING=Serial" 
+    fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     BUILD_OPTS="-DCMAKE_BUILD_TYPE=Release \
         -DNEKTAR_BUILD_TESTS=OFF \
