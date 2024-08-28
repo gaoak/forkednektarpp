@@ -68,68 +68,44 @@ void divKernelLauncher(const size_t n, const double *x, const double *y,
     divKernel<ExecSpace, double>(n, x, y, z);
 }
 
-void sumKernelLauncher(const size_t n, const double *x, double *h_out)
+void sumKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    reduceSumKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    reduceSumKernel<ExecSpace, double>(n, x, out);
 }
 
-void maxKernelLauncher(const size_t n, const double *x, double *h_out)
+void maxKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    reduceMaxKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    reduceMaxKernel<ExecSpace, double>(n, x, out);
 }
 
-void minKernelLauncher(const size_t n, const double *x, double *h_out)
+void minKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    reduceMinKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    reduceMinKernel<ExecSpace, double>(n, x, out);
 }
 
 void innerproductKernelLauncher(const size_t n, const double *x,
-                                const double *y, double *h_out)
+                                const double *y, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    ddotKernel<ExecSpace, double>(n, x, y, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    ddotKernel<ExecSpace, double>(n, x, y, out);
 }
 
-void l1normKernelLauncher(const size_t n, const double *x, double *h_out)
+void l1normKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    l1normKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    l1normKernel<ExecSpace, double>(n, x, out);
 }
 
-void l2normKernelLauncher(const size_t n, const double *x, double *h_out)
+void l2normKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    l2normKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    l2normKernel<ExecSpace, double>(n, x, out);
 }
 
 void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *h_out)
+                          double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    lpnormKernel<ExecSpace, double>(n, p, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    lpnormKernel<ExecSpace, double>(n, p, x, out);
 }
 
-void linfnormKernelLauncher(const size_t n, const double *x, double *h_out)
+void linfnormKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out = sycl::malloc_device<double>(1, SYCLQueue::GetInstance());
-    linfnormKernel<ExecSpace, double>(n, x, d_out);
-    SYCLQueue::GetInstance().memcpy(h_out, d_out, sizeof(double)).wait();
-    sycl::free(d_out, SYCLQueue::GetInstance());
+    linfnormKernel<ExecSpace, double>(n, x, out);
 }

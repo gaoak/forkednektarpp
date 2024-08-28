@@ -57,67 +57,64 @@ public:
         fixt_explist->GetCoords(x, y, z);
         auto func1 = fixt_explist->GetSession()->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
-        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
-#if defined(NEKTAR_ENABLE_SYCL)
+        auto ptr   = fce.get();
+        auto inptr = fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
+        {
+            auto n = block.num_elements * block.num_pts;
+            std::copy(ptr, ptr + n, inptr);
+            ptr += n;
+            inptr += block.block_size;
+        }
         if (testModule.find("sycl") != std::string::npos ||
             testModule.find("SYCL") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_sycl_in->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_in);
         }
-#endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        if (testModule.find("Kokkos") != std::string::npos ||
-            testModule.find("KOKKOS") != std::string::npos)
+        else if (testModule.find("Kokkos") != std::string::npos ||
+                 testModule.find("KOKKOS") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_kokkos_in->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_in);
         }
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-        if (testModule.find("Cuda") != std::string::npos ||
-            testModule.find("CUDA") != std::string::npos)
+        else if (testModule.find("Cuda") != std::string::npos ||
+                 testModule.find("CUDA") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_cuda_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_cuda_in->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_in);
         }
-#endif
+
         auto func2 =
             fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
-        std::copy(fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                  fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
-#if defined(NEKTAR_ENABLE_SYCL)
+        ptr   = fce.get();
+        inptr = fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_out->GetBlocks())
+        {
+            auto n = block.num_elements * block.num_pts;
+            std::copy(ptr, ptr + n, inptr);
+            ptr += n;
+            inptr += block.block_size;
+        }
         if (testModule.find("sycl") != std::string::npos ||
             testModule.find("SYCL") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_sycl_out->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_out);
         }
-#endif
-#if defined(NEKTAR_ENABLE_KOKKOS)
-        if (testModule.find("Kokkos") != std::string::npos ||
-            testModule.find("KOKKOS") != std::string::npos)
+        else if (testModule.find("Kokkos") != std::string::npos ||
+                 testModule.find("KOKKOS") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_kokkos_out->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_out);
         }
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-        if (testModule.find("Cuda") != std::string::npos ||
-            testModule.find("CUDA") != std::string::npos)
+        else if (testModule.find("Cuda") != std::string::npos ||
+                 testModule.find("CUDA") != std::string::npos)
         {
-            std::copy(
-                fce.get(), fce.get() + fixt_explist->GetTotPoints(),
-                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());
+            fixt_cuda_out->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_out);
         }
-#endif
     }
 };
 

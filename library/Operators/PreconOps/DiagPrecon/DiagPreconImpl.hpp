@@ -34,16 +34,17 @@
 
 #pragma once
 
-#include "Operators/PreconOps/DiagPrecon/DiagPreconCUDAKernels.cuh"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconSYCLKernels.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
-
+#include "Operators/AssmbScatr/AssmbScatrImpl.hpp"
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/Field/Field.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+
+#include "Operators/PreconOps/DiagPrecon/DiagPreconCUDAKernels.cuh"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconSYCLKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -65,20 +66,24 @@ public:
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-        m_assmbMap = contfield->GetLocalToGlobalMap();
+        auto assmbMap = contfield->GetLocalToGlobalMap();
 
-        GlobalSysSolnType solnType = m_assmbMap->GetGlobalSysSolnType();
-        bool isFull                = solnType == eIterativeFull ? true : false;
-        m_nGlobal                  = (isFull) ? m_assmbMap->GetNumGlobalCoeffs()
-                                              : m_assmbMap->GetNumGlobalBndCoeffs();
-        m_nLocal                   = m_assmbMap->GetNumLocalCoeffs();
-        m_nDir                     = m_assmbMap->GetNumGlobalDirBndCoeffs();
+        bool isFull = assmbMap->GetGlobalSysSolnType() == eIterativeFull;
+        m_nGlobal   = (isFull) ? assmbMap->GetNumGlobalCoeffs()
+                               : assmbMap->GetNumGlobalBndCoeffs();
+        m_nLocal    = assmbMap->GetNumLocalCoeffs();
+        m_nDir      = assmbMap->GetNumGlobalDirBndCoeffs();
 
         m_diag = MemoryRegion<TData>::template create<MemSpace>(
-            "DiagPrecon diag", m_nGlobal,
-            EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-        m_wk = MemoryRegion<TData>::template create<MemSpace>("DiagPrecon wk",
-                                                              m_nGlobal);
+            "DiagPrecon diag", m_nGlobal, ExecSpace::alignment);
+
+        m_wk = MemoryRegion<TData>::template create<MemSpace>(
+            "DiagPrecon wk", m_nGlobal, ExecSpace::alignment);
+
+        auto map = assmbMap->GetLocalToGlobalMap();
+
+        m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         m_assmbScatrOp =
             AssmbScatr<TData>::template create<ExecSpace, Implementation>(
@@ -96,7 +101,7 @@ public:
         divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
                                     diagPtr + m_nDir, wkPtr + m_nDir);
 
-        m_wk.initialize(0, m_nDir);
+        m_wk.template initialize<DeviceOnly>(0, m_nDir);
 
         m_assmbScatrOp->GlobalToLocal(m_wk, out);
     }
@@ -109,28 +114,29 @@ public:
             RobBndCond<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
 
-        MemoryRegion<TData> diagMR =
-            MemoryRegion<TData>::template create<MemSpace>("DiagPrecon local",
-                                                           m_nLocal);
+        MemoryRegion<TData> diag =
+            MemoryRegion<TData>::template create<MemSpace>(
+                "DiagPrecon local", m_nLocal, ExecSpace::alignment);
 
         // create unit vector field to extract diagonal
         Field<TData, FieldState::Coeff> unit_vec =
             Field<TData, FieldState::Coeff>::template create<MemSpace>(
                 "DiagPrecon unit vec",
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList,
-                                   vec_t::width),
-                1, vec_t::alignment);
+                                   ExecSpace::width),
+                1, ExecSpace::alignment);
 
         // create action field to receive column action from unit vector
         Field<TData, FieldState::Coeff> action =
             Field<TData, FieldState::Coeff>::template create<MemSpace>(
                 "DiagPrecon action",
                 GetBlockAttributes(FieldState::Coeff, this->m_expansionList,
-                                   vec_t::width),
-                1, vec_t::alignment);
+                                   ExecSpace::width),
+                1, ExecSpace::alignment);
 
-        diagMR.template initialize<HostDevice>(0);
-        unit_vec.template initialize<HostDevice>(0);
+        m_diag.template initialize<DeviceOnly>(0);
+        diag.template initialize<DeviceOnly>(0);
+        unit_vec.template initialize<DeviceOnly>(0);
 
         size_t offset1 = 0;
         size_t offset2 = 0;
@@ -157,7 +163,7 @@ public:
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
                 CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, offset1,
-                                                     offset2, action, diagMR);
+                                                     offset2, action, diag);
 
                 // Reset the ith term in the unit vector to be 0
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, i, offset1,
@@ -170,20 +176,23 @@ public:
         }
 
         // Assembly
-        const TData *diagHost =
-            diagMR.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        const int *mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
+        const TData *diagPtr = diag.template GetPtr<MemSpace, ReadOnly>();
+        TData *glodiagPtr    = m_diag.template GetPtr<MemSpace, WriteOnly>();
 
-        Array<OneD, TData> glodiag(m_nGlobal, 0.0);
+        AssembleKernel<ExecSpace>(m_nLocal, mapPtr, diagPtr, glodiagPtr);
 
-        for (size_t i = 0; i < m_nLocal; ++i)
+        // TODO: Universal assembly on device.
+        auto contfield =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            size_t gid1 = m_assmbMap->GetLocalToGlobalMap(i);
-            glodiag[gid1] += diagHost[i];
+            auto glodiagArr = m_diag.toArray();
+
+            contfield->GetLocalToGlobalMap()->UniversalAssemble(glodiagArr);
+
+            m_diag.template copyArray<MemSpace, TData>(glodiagArr);
         }
-
-        m_assmbMap->UniversalAssemble(glodiag);
-
-        m_diag.template copyArray<MemSpace, TData>(glodiag);
     }
 
     // className - for OperatorFactory
@@ -202,10 +211,9 @@ protected:
     std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
     std::shared_ptr<OperatorRobBndCond<TData>> m_robBCOp;
 
-    AssemblyMapCGSharedPtr m_assmbMap;
-
     MemoryRegion<TData> m_diag;
     MemoryRegion<TData> m_wk;
+    MemoryRegion<int> m_map;
 
     size_t m_nGlobal;
     size_t m_nLocal;

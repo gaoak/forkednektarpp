@@ -73,7 +73,9 @@
 
 BOOST_AUTO_TEST_SUITE(TestFwdTransSYCL)
 
+#if !defined(NEKTAR_USE_MPI)
 TEST_FWDTRANS(fwdtrans_sycl_seg, Helmholtz1D_Seg, 1.0E-12)
+#endif
 
 TEST_FWDTRANS(fwdtrans_sycl_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 

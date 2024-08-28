@@ -117,7 +117,7 @@ public:
         }                                                                      \
     };
 
-TEST(Seg, "run/line.xml")
+TEST(Seg, "run/segment.xml")
 
 TEST(Quad, "run/square.xml")
 

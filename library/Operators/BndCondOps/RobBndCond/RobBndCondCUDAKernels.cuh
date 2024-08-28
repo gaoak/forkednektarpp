@@ -135,7 +135,7 @@ inline
                        const TData *matPtr, const unsigned int *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = 32u;
+    const unsigned int blockSize = NektarSpaces::CUDA::width;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     RobBndCond1DKernel<negflag><<<gridSize, blockSize>>>(
@@ -154,7 +154,7 @@ inline
                        const unsigned int *mapPtr, const int *signPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = 32u;
+    const unsigned int blockSize = NektarSpaces::CUDA::width;
     const unsigned int gridSize  = nsize;
 
     RobBndCond2DKernel<negflag>

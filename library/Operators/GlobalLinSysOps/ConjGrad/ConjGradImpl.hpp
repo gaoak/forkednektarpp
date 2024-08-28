@@ -34,12 +34,11 @@
 
 #pragma once
 
-#include "GlobalLinSysOps/OperatorConjGrad.hpp"
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
+#include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
 
-#include <LibUtilities/BasicUtils/SessionReader.h>
 #include <MultiRegions/ContField.h>
 
 #include <algorithm>
@@ -66,33 +65,33 @@ public:
           m_w_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad w_A",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_s_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad s_A",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_r_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad r_A",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_wk(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_q_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_p_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment))
+                                 ExecSpace::width),
+              1, ExecSpace::alignment))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
@@ -110,25 +109,11 @@ public:
             RobBndCond<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
 
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-                      std::is_same<ExecSpace, NektarSpaces::AVX>::value)
-        {
-            m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
+        m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
-            m_vExchangeArray = Array<OneD, TData>(4, 0.0);
-        }
-        else if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-                           std::is_same<ExecSpace, NektarSpaces::SYCL>::value)
-        {
-            m_vExchange = MemoryRegion<TData>::template create<MemSpace>(4);
-        }
-        else if constexpr (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value)
-        {
-            // For Kokkos, all reduction values are on the host side.
-            m_vExchange =
-                MemoryRegion<TData>::template create<NektarSpaces::HostSpace>(
-                    4);
-        }
+        m_vExchange =
+            MemoryRegion<TData>::template create<NektarSpaces::HostSpace>(
+                4, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -136,46 +121,11 @@ public:
     {
         // Set the fields to zero
         out.initialize(0);
-
         m_w_A.initialize(0);
         m_s_A.initialize(0);
-        m_wk.initialize(0);
-
         m_p_A.initialize(0);
         m_q_A.initialize(0);
-
-        TData *vExchangePtr;
-        const TData *vExchangeHostPtr;
-
-        // For Serial, all reduction values are on the host side.
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-                      std::is_same<ExecSpace, NektarSpaces::AVX>::value)
-        {
-            vExchangePtr     = m_vExchangeArray.get();
-            vExchangeHostPtr = m_vExchangeArray.get();
-        }
-        // For Kokkos, all reduction values are on the host side.
-        else if constexpr (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value)
-        {
-            m_vExchange.initialize(0);
-
-            vExchangePtr =
-                m_vExchange
-                    .template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-            vExchangeHostPtr =
-                m_vExchange
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        }
-        // For all others, the reduction values are on the MemSpace side.
-        else
-        {
-            m_vExchange.initialize(0);
-
-            vExchangePtr = m_vExchange.template GetPtr<MemSpace, ReadWrite>();
-            vExchangeHostPtr =
-                m_vExchange
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        }
+        m_wk.initialize(0);
 
         // Convergence parameters (host)
         size_t totalIterations = 0;
@@ -187,6 +137,9 @@ public:
         TData mu;
         TData eps;
 
+        TData *vExchangePtr =
+            m_vExchange.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
         // Copy RHS into initial residual
         m_r_A.template copyField<MemSpace>(in);
 
@@ -196,15 +149,15 @@ public:
         ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
         // Calculate rhs magnitude
+        m_wk.initialize(0);
         m_assmbScatrOp->apply(m_r_A, m_wk);
 
         ddot<ExecSpace, TData>(in, m_wk, vExchangePtr + 3);
 
-        reduceMemcpy();
+        m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-        eps          = vExchangeHostPtr[2];
-        rhsMagnitude = vExchangeHostPtr[3];
-        rhsMagnitude = (rhsMagnitude > 1.0e-6) ? rhsMagnitude : 1.0;
+        eps          = vExchangePtr[2];
+        rhsMagnitude = (vExchangePtr[3] > 1.0e-6) ? vExchangePtr[3] : 1.0;
 
         // If the input residual is less than tolerance then skip solve.
         if (eps < m_tol * m_tol * rhsMagnitude)
@@ -224,11 +177,10 @@ public:
 
         ddot<ExecSpace, TData>(m_s_A, m_w_A, vExchangePtr + 1);
 
-        reduceMemcpy();
+        m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-        rho = vExchangeHostPtr[0];
-        mu  = vExchangeHostPtr[1];
-
+        rho             = vExchangePtr[0];
+        mu              = vExchangePtr[1];
         beta            = 0.0;
         alpha           = rho / mu;
         totalIterations = 1;
@@ -276,15 +228,11 @@ public:
 
             ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
-            reduceMemcpy();
+            m_rowComm->AllReduce(m_vExchange, Nektar::LibUtilities::ReduceSum);
 
-            rho_new = vExchangeHostPtr[0];
-            mu      = vExchangeHostPtr[1];
-            eps     = vExchangeHostPtr[2];
-
-            // std::cout << "Iteration " << totalIterations << "
-            // -- eps = " << eps
-            //           << "\n";
+            rho_new = vExchangePtr[0];
+            mu      = vExchangePtr[1];
+            eps     = vExchangePtr[2];
 
             ++totalIterations;
 
@@ -301,6 +249,9 @@ public:
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in Operator Factory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -310,28 +261,7 @@ public:
             expansionList);
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
 protected:
-    // Helper method to reduce the host side and memcpy device to host.
-    void reduceMemcpy()
-    {
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-                      std::is_same<ExecSpace, NektarSpaces::AVX>::value)
-        {
-            m_rowComm->AllReduce(m_vExchangeArray,
-                                 Nektar::LibUtilities::ReduceSum);
-        }
-
-        // For CUDA reduction values are on the device side.
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-                      std::is_same<ExecSpace, NektarSpaces::SYCL>::value)
-        {
-            m_vExchange.template DeviceToHostCopy<MemSpace>();
-        }
-    }
-
     LibUtilities::CommSharedPtr m_rowComm = nullptr;
 
     std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;
@@ -345,8 +275,6 @@ protected:
     Field<TData, FieldState::Coeff> m_p_A;
 
     MemoryRegion<TData> m_vExchange;
-
-    Array<OneD, TData> m_vExchangeArray;
 
     TData m_tol;
     size_t m_nloc;

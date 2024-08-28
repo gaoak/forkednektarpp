@@ -93,6 +93,11 @@ struct GlobalConfiguration
 
 #ifdef NEKTAR_USE_MPI
         MPI_Init(&argc, &argv);
+#ifdef NEKTAR_ENABLE_CUDA
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        cudaSetDevice(rank);
+#endif
 #endif
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
@@ -178,7 +183,6 @@ public:
             delete fixt_expected;
         }
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
         if (fixt_kokkos_in)
         {
             delete fixt_kokkos_in;
@@ -187,8 +191,7 @@ public:
         {
             delete fixt_kokkos_out;
         }
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
+
         if (fixt_cuda_in)
         {
             delete fixt_cuda_in;
@@ -197,8 +200,7 @@ public:
         {
             delete fixt_cuda_out;
         }
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
+
         if (fixt_sycl_in)
         {
             delete fixt_sycl_in;
@@ -207,7 +209,6 @@ public:
         {
             delete fixt_sycl_out;
         }
-#endif
 
         if (session)
         {
@@ -252,63 +253,128 @@ public:
                     session, graph, true, "u", Collections::eNoCollection);
         }
 
-        // Generate a blocks definition from the expansion list for each state
-        using vec_t = tinysimd::simd<double>;
-
-        auto blocks_in =
-            GetBlockAttributes(stateIn, fixt_explist, vec_t::width);
-        auto blocks_out =
-            GetBlockAttributes(stateOut, fixt_explist, vec_t::width);
-
         // Create two Field objects with a MemoryRegionHost backend by default
-        auto f_in =
-            Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                "f_in", blocks_in, nin, vec_t::alignment);
-        auto f_out =
-            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
-                "f_out", blocks_out, nout, vec_t::alignment);
-        auto f_expected =
-            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
-                "f_expected", blocks_out, nout, vec_t::alignment);
-        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
+            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
+                                                NektarSpaces::KOKKOS::width);
+            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
+                                                 NektarSpaces::KOKKOS::width);
+            auto f_in =
+                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                    "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
+            auto f_out = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
+                                         NektarSpaces::KOKKOS::alignment);
             auto fkokkos_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
+                                           NektarSpaces::KOKKOS::alignment);
             auto fkokkos_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout);
+                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout,
+                                           NektarSpaces::KOKKOS::alignment);
+            auto f_expected = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
+                                         NektarSpaces::KOKKOS::alignment);
+            fixt_in        = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out       = new Field<TData, stateOut>(std::move(f_out));
             fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
             fixt_kokkos_out =
                 new Field<TData, stateOut>(std::move(fkokkos_out));
+            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-        if (testModule.find("CUDA") != std::string::npos)
+        else if (testModule.find("CUDA") != std::string::npos)
         {
+            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
+                                                NektarSpaces::CUDA::width);
+            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
+                                                 NektarSpaces::CUDA::width);
+            auto f_in =
+                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                    "f_in", blocks_in, nin, NektarSpaces::CUDA::alignment);
+            auto f_out = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
+                                         NektarSpaces::CUDA::alignment);
             auto fcuda_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin,
+                                           NektarSpaces::CUDA::alignment);
             auto fcuda_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_out", blocks_out, nout);
+                NektarSpaces::DeviceSpace>("fcuda_out", blocks_out, nout,
+                                           NektarSpaces::CUDA::alignment);
+            auto f_expected = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
+                                         NektarSpaces::CUDA::alignment);
+            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
             fixt_cuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
             fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
+            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-        if (testModule.find("SYCL") != std::string::npos)
+        else if (testModule.find("SYCL") != std::string::npos)
         {
+            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
+                                                NektarSpaces::SYCL::width);
+            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
+                                                 NektarSpaces::SYCL::width);
+            auto f_in =
+                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                    "f_in", blocks_in, nin, NektarSpaces::SYCL::alignment);
+            auto f_out = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
+                                         NektarSpaces::SYCL::alignment);
             auto fsycl_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin,
+                                           NektarSpaces::SYCL::alignment);
             auto fsycl_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_out", blocks_out, nout);
+                NektarSpaces::DeviceSpace>("fsycl_out", blocks_out, nout,
+                                           NektarSpaces::SYCL::alignment);
+            auto f_expected = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
+                                         NektarSpaces::SYCL::alignment);
+            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
             fixt_sycl_in  = new Field<TData, stateIn>(std::move(fsycl_in));
             fixt_sycl_out = new Field<TData, stateOut>(std::move(fsycl_out));
+            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
-#endif
+        else if (testModule.find("AVX") != std::string::npos)
+        {
+            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
+                                                NektarSpaces::AVX::width);
+            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
+                                                 NektarSpaces::AVX::width);
+            auto f_in =
+                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                    "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
+            auto f_out = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
+                                         NektarSpaces::AVX::alignment);
+            auto f_expected = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
+                                         NektarSpaces::AVX::alignment);
+            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+        }
+        else
+        {
+            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
+                                                NektarSpaces::Serial::width);
+            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
+                                                 NektarSpaces::Serial::width);
+            auto f_in =
+                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                    "f_in", blocks_in, nin, NektarSpaces::Serial::alignment);
+            auto f_out = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
+                                         NektarSpaces::Serial::alignment);
+            auto f_expected = Field<TData, stateOut>::template create<
+                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
+                                         NektarSpaces::Serial::alignment);
+            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+        }
     }
 
     void OutputIfNotMatch(const double *outptr, const double *expptr,
@@ -343,23 +409,16 @@ public:
     }
 
 protected:
-    std::string meshName                  = "";
-    Field<TData, stateIn> *fixt_in        = nullptr;
-    Field<TData, stateOut> *fixt_out      = nullptr;
-    Field<TData, stateOut> *fixt_expected = nullptr;
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
+    std::string meshName                    = "";
+    Field<TData, stateIn> *fixt_in          = nullptr;
+    Field<TData, stateOut> *fixt_out        = nullptr;
+    Field<TData, stateOut> *fixt_expected   = nullptr;
     Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
     Field<TData, stateOut> *fixt_kokkos_out = nullptr;
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-    Field<TData, stateIn> *fixt_cuda_in   = nullptr;
-    Field<TData, stateOut> *fixt_cuda_out = nullptr;
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-    Field<TData, stateIn> *fixt_sycl_in   = nullptr;
-    Field<TData, stateOut> *fixt_sycl_out = nullptr;
-#endif
+    Field<TData, stateIn> *fixt_cuda_in     = nullptr;
+    Field<TData, stateOut> *fixt_cuda_out   = nullptr;
+    Field<TData, stateIn> *fixt_sycl_in     = nullptr;
+    Field<TData, stateOut> *fixt_sycl_out   = nullptr;
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 
     LibUtilities::SessionReaderSharedPtr session;

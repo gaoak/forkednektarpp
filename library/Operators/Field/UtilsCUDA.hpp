@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorIdentity.hpp
+// File: UtilsCUDA.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,50 +34,40 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#if defined(NEKTAR_ENABLE_CUDA)
 
-namespace Nektar::Operators
+#include "Operators/Common/Spaces.hpp"
+
+#include "UtilsCUDALaunchers.hpp"
+
+namespace Nektar
 {
 
-// Identity base class
-// Defines the apply operator to enforce apply parameter types
-template <FieldState TFieldState, typename TData>
-class OperatorIdentity : public OperatorLinear<TFieldState, TFieldState, TData>
+template <size_t VectorWidth, typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    interleave(const unsigned int numMetaBlocks,
+               const unsigned int metaBlockSize, const unsigned int dataLen,
+               TData *inout)
 {
-public:
-    OperatorIdentity(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<TFieldState, TFieldState, TData>(expansionList)
-    {
-    }
+    interleaveCUDAlauncher(VectorWidth, numMetaBlocks, metaBlockSize, dataLen,
+                           inout);
+}
 
-    ~OperatorIdentity() override = default;
-
-    virtual void operator()(Field<TData, TFieldState> &in,
-                            Field<TData, TFieldState> &out)
-    {
-        this->apply(in, out);
-    }
-};
-
-// Descriptor / traits class for Identity
-template <FieldState TFieldState, typename TData = default_fp_type>
-struct Identity
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    deInterleave(const unsigned int VectorWidth,
+                 const unsigned int numMetaBlocks,
+                 const unsigned int metaBlockSize, const unsigned int dataLen,
+                 TData *inout)
 {
-    using class_name = OperatorIdentity<TFieldState, TData>;
+    deInterleaveCUDAlauncher(VectorWidth, numMetaBlocks, metaBlockSize, dataLen,
+                             inout);
+}
 
-    using FieldIn  = Field<TData, TFieldState>;
-    using FieldOut = Field<TData, TFieldState>;
+} // namespace Nektar
 
-    Identity() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template create<Identity<TFieldState, TData>,
-                                                ExecSpace, Impl>(expansionList);
-    }
-};
-
-} // namespace Nektar::Operators
+#endif

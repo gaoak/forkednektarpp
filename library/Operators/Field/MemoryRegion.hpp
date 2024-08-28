@@ -81,11 +81,12 @@ template <class T> struct const_if<true, T>
  *
  * @return - alignment
  */
-template <typename MemSpace> inline size_t EXECSPACE_MEMORY_REGION_ONLY()
+template <typename MemSpace, typename ExecSpace>
+inline size_t EXECSPACE_MEMORY_REGION_ONLY()
 {
     if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
     {
-        return __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        return ExecSpace::alignment;
     }
     else if constexpr (std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
     {
@@ -269,9 +270,8 @@ public:
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace>
-    static MemoryRegion<TData> create(
-        std::string name, size_t size,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static MemoryRegion<TData> create(std::string name, size_t size,
+                                      size_t alignment)
     {
         auto mr = MemoryRegion();
 
@@ -310,8 +310,7 @@ public:
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace>
-    static MemoryRegion<TData> create(
-        size_t size, size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static MemoryRegion<TData> create(size_t size, size_t alignment)
     {
         return MemoryRegion<TData>::template create<MemSpace>("", size,
                                                               alignment);
@@ -328,9 +327,8 @@ public:
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace, typename TDataIn>
-    static MemoryRegion<TData> fromData(
-        std::string name, const TDataIn *src, const size_t size,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static MemoryRegion<TData> fromData(std::string name, const TDataIn *src,
+                                        const size_t size, size_t alignment)
     {
         auto mr = MemoryRegion();
 
@@ -373,7 +371,7 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
         std::string name, std::vector<TDataIn, Alloc> const &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment)
     {
         return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
             name, array.data(), array.size(), alignment);
@@ -391,8 +389,7 @@ public:
     template <typename MemSpace, typename TDataIn,
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
-        std::vector<TDataIn, Alloc> const &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        std::vector<TDataIn, Alloc> const &array, size_t alignment)
     {
         return MemoryRegion<TData>::template fromVector<MemSpace, TDataIn>(
             "", array, alignment);
@@ -412,7 +409,7 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         std::string name, Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment)
     {
         return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
             name, array.data(), array.size(), alignment);
@@ -429,8 +426,7 @@ public:
      */
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
-        Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        Nektar::Array<Nektar::OneD, TDataIn> const &array, size_t alignment)
     {
         return MemoryRegion<TData>::template fromArray<MemSpace, TDataIn>(
             "", array, alignment);
@@ -452,7 +448,7 @@ public:
         std::string name,
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment)
     {
         size_t size = 0;
         for (auto i = 0; i < array.size(); ++i)
@@ -489,7 +485,7 @@ public:
     static MemoryRegion<TData> fromArray(
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+        size_t alignment)
     {
         return MemoryRegion<TData>::template fromArray<MemSpace, TDataIn>(
             "", array, alignment);
@@ -546,7 +542,6 @@ public:
             // MemCopy is ignored for host-only memory region.
             m_storage->copyFrom(src, size, offset);
         }
-
         else if constexpr (std::is_same<MemSpace,
                                         NektarSpaces::DeviceSpace>::value)
         {

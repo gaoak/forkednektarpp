@@ -58,55 +58,98 @@ public:
      */
     void ReConfigure(size_t nin = 1, [[maybe_unused]] size_t nout = 1)
     {
-        if (fixt_in)
-        {
-            delete fixt_in;
-        }
         const FieldState stateIn = FieldState::Phys;
-        auto blocks_in =
-            GetBlockAttributes(stateIn, fixt_explist->GetTrace(), vec_t::width);
-        auto f_in =
-            Field<double, stateIn>::template create<NektarSpaces::HostSpace>(
-                "f_in", blocks_in, nin, vec_t::alignment);
-        fixt_in = new Field<double, stateIn>(std::move(f_in));
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
+            if (fixt_in)
+            {
+                delete fixt_in;
+            }
             if (fixt_kokkos_in)
             {
                 delete fixt_kokkos_in;
             }
+            auto blocks_in = GetBlockAttributes(
+                stateIn, fixt_explist->GetTrace(), NektarSpaces::KOKKOS::width);
+            auto f_in = Field<double, stateIn>::template create<
+                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
+                                         NektarSpaces::KOKKOS::alignment);
             auto fkokkos_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
+                                           NektarSpaces::KOKKOS::alignment);
+            fixt_in        = new Field<double, stateIn>(std::move(f_in));
             fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
         }
-#endif
-#if defined(NEKTAR_ENABLE_CUDA)
-        if (testModule.find("CUDA") != std::string::npos)
+        else if (testModule.find("CUDA") != std::string::npos)
         {
+            if (fixt_in)
+            {
+                delete fixt_in;
+            }
             if (fixt_cuda_in)
             {
                 delete fixt_cuda_in;
             }
+            auto blocks_in = GetBlockAttributes(
+                stateIn, fixt_explist->GetTrace(), NektarSpaces::CUDA::width);
+            auto f_in = Field<double, stateIn>::template create<
+                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
+                                         NektarSpaces::CUDA::alignment);
             auto fcuda_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin,
+                                           NektarSpaces::CUDA::alignment);
+            fixt_in      = new Field<double, stateIn>(std::move(f_in));
             fixt_cuda_in = new Field<double, stateIn>(std::move(fcuda_in));
         }
-#endif
-#if defined(NEKTAR_ENABLE_SYCL)
-        if (testModule.find("SYCL") != std::string::npos)
+        else if (testModule.find("SYCL") != std::string::npos)
         {
+            if (fixt_in)
+            {
+                delete fixt_in;
+            }
             if (fixt_sycl_in)
             {
                 delete fixt_sycl_in;
             }
+            auto blocks_in = GetBlockAttributes(
+                stateIn, fixt_explist->GetTrace(), NektarSpaces::SYCL::width);
+            auto f_in = Field<double, stateIn>::template create<
+                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
+                                         NektarSpaces::SYCL::alignment);
             auto fsycl_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin);
+                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin,
+                                           NektarSpaces::SYCL::alignment);
+            fixt_in      = new Field<double, stateIn>(std::move(f_in));
             fixt_sycl_in = new Field<double, stateIn>(std::move(fsycl_in));
         }
-#endif
+        else if (testModule.find("AVX") != std::string::npos)
+        {
+            if (fixt_in)
+            {
+                delete fixt_in;
+            }
+            auto blocks_in = GetBlockAttributes(
+                stateIn, fixt_explist->GetTrace(), NektarSpaces::AVX::width);
+            auto f_in = Field<double, stateIn>::template create<
+                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
+                                         NektarSpaces::AVX::alignment);
+            fixt_in = new Field<double, stateIn>(std::move(f_in));
+        }
+        else
+        {
+            if (fixt_in)
+            {
+                delete fixt_in;
+            }
+            auto blocks_in = GetBlockAttributes(
+                stateIn, fixt_explist->GetTrace(), NektarSpaces::Serial::width);
+            auto f_in = Field<double, stateIn>::template create<
+                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
+                                         NektarSpaces::Serial::alignment);
+            fixt_in = new Field<double, stateIn>(std::move(f_in));
+        }
     }
 
     void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
@@ -180,7 +223,7 @@ public:
         }                                                                      \
     };
 
-TEST(Seg, "run/line.xml")
+TEST(Seg, "run/segment.xml")
 
 TEST(Quad, "run/square.xml")
 

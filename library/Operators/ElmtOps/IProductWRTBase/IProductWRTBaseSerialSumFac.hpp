@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialSumFacKernels.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialSumFacKernels.hpp"
 
 #include <StdRegions/StdExpansion.h>
 

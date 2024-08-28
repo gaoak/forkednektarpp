@@ -36,6 +36,7 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
+
 #include "ElmtOps/PhysDeriv/PhysDerivAVXSumFacKernels.hpp"
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
@@ -103,8 +104,8 @@ public:
         }
         // Reshape into vec_t::width. If the Field is already
         // interleaved, this method returns.
-        in.template ReshapeStorage<vec_t::width>();
-        out.template ReshapeStorage<vec_t::width>();
+        in.template ReshapeStorage<ExecSpace, vec_t::width>();
+        out.template ReshapeStorage<ExecSpace, vec_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outOrig     = out.template GetPtr<MemSpace, ReadWrite>();

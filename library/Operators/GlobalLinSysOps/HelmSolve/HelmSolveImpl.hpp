@@ -34,9 +34,6 @@
 
 #pragma once
 
-#include "GlobalLinSysOps/OperatorConjGrad.hpp"
-#include "GlobalLinSysOps/OperatorHelmSolve.hpp"
-
 #include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 #include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
@@ -44,10 +41,9 @@
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/ElmtOps/OperatorMass.hpp"
 #include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
+#include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
-
-using vec_t = tinysimd::simd<double>;
 
 namespace Nektar::Operators::detail
 {
@@ -64,13 +60,13 @@ public:
           m_rhs(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "HelmSolve RHS",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_tmp(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "HelmSolve TMP",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment))
+                                 ExecSpace::width),
+              1, ExecSpace::alignment))
     {
         m_IProdOp =
             IProductWRTBase<TData>::template create<ExecSpace, Implementation>(

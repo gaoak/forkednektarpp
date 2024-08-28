@@ -35,11 +35,12 @@
 #pragma once
 
 #include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 
 #define FLAG_QP false // TODO: to be removed
 
@@ -71,11 +72,11 @@ public:
 
         // Initialise the jacobian.
         m_jac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialise the derivative factor.
         m_derivFac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
         m_basisMap =
@@ -114,7 +115,8 @@ public:
         {
             m_tmpsize = nSize;
             m_tmp     = MemoryRegion<TData>::template create<MemSpace>(
-                nSize * this->m_expansionList->GetExp(0)->GetCoordim());
+                nSize * this->m_expansionList->GetExp(0)->GetCoordim(),
+                ExecSpace::alignment);
         }
 
         TData *tmpPtr = m_tmp.template GetPtr<MemSpace, WriteOnly>();
@@ -364,7 +366,8 @@ public:
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                    m_wspsize,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
             }
 
             if (m_wspsize > 0)

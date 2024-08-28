@@ -294,6 +294,8 @@ inline
 
     TData *buffer = (TData *)syclBuffer;
 
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
+
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
@@ -320,6 +322,8 @@ inline
                                    ans = sycl::min(ans, buffer[i]);
                                });
     }
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 } // namespace Nektar

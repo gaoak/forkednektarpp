@@ -53,7 +53,7 @@ __global__ void BwdTransSegKernel(const unsigned int nm0,
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
 
@@ -153,7 +153,7 @@ __global__ void BwdTransQuadKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -397,7 +397,7 @@ __global__ void BwdTransTriKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -664,7 +664,7 @@ __global__ void BwdTransHexKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1008,7 +1008,7 @@ __global__ void BwdTransTetKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -1466,7 +1466,7 @@ __global__ void BwdTransPrismKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1855,7 +1855,7 @@ __global__ void BwdTransPyrKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;

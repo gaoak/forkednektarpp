@@ -52,7 +52,7 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                        const TData *KOKKOS_RESTRICT in,
                        TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     Kokkos::parallel_for(
         nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
@@ -130,7 +130,7 @@ void PhysDeriv2DKernel(
     const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1;
 
@@ -402,7 +402,7 @@ void PhysDeriv3DKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int ncoord   = 3u;
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 

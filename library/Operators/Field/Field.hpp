@@ -35,6 +35,7 @@
 #pragma once
 
 #include "MemoryRegion.hpp"
+#include "Utils.hpp"
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
@@ -106,7 +107,7 @@ struct BlockAttributes
  */
 std::vector<BlockAttributes> GetBlockAttributes(
     FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist,
-    size_t VectorWidth = 1);
+    size_t VectorWidth);
 
 /**
  * @brief A Field represents expansion data to be operated on.
@@ -167,10 +168,10 @@ public:
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(
-        std::string name, std::vector<BlockAttributes> blocks,
-        std::vector<std::string> components,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static Field<TData, TState> create(std::string name,
+                                       std::vector<BlockAttributes> blocks,
+                                       std::vector<std::string> components,
+                                       size_t alignment)
     {
         int num_components = components.size();
         auto field         = Field(std::move(blocks), components);
@@ -224,10 +225,9 @@ public:
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(
-        std::vector<BlockAttributes> blocks,
-        std::vector<std::string> components,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
+                                       std::vector<std::string> components,
+                                       size_t alignment)
     {
         return Field<TData, TState>::template create<MemSpace>(
             blocks, components, alignment);
@@ -247,10 +247,9 @@ public:
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(
-        std::string name, std::vector<BlockAttributes> blocks,
-        int num_components = 1,
-        size_t alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static Field<TData, TState> create(std::string name,
+                                       std::vector<BlockAttributes> blocks,
+                                       int num_components, size_t alignment)
     {
         auto field = Field(std::move(blocks), num_components);
 
@@ -303,9 +302,8 @@ public:
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(
-        std::vector<BlockAttributes> blocks, int num_components = 1,
-        size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
+                                       int num_components, size_t alignment)
     {
         return Field<TData, TState>::template create<MemSpace>(
             "", blocks, num_components, alignment);
@@ -323,15 +321,18 @@ public:
      * @tparam  VectorWidth     Target vector width.
      * @tparam  alignment       Memory alignment to use.
      */
-    template <size_t VectorWidth> void ReshapeStorage()
+    template <typename ExecSpace = NektarSpaces::Serial, size_t VectorWidth>
+    void ReshapeStorage()
     {
+        using MemSpace = typename ExecSpace::memory_space;
+
         // No reshape required, early return
         if (m_curVecWidth == VectorWidth)
         {
             return;
         }
 
-        ReshapeToScalar();
+        ReshapeToScalar<ExecSpace>();
 
         // Early return if "scalar" shape is required
         if (VectorWidth == 1)
@@ -343,9 +344,8 @@ public:
 
         for (int component = 0; component < GetNumComponents(); ++component)
         {
-            auto *hostPtr =
-                this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
-                component * scalar_field_size;
+            auto *ptr = this->template GetPtr<MemSpace, ReadWrite>() +
+                        component * scalar_field_size;
 
             for (const auto &block : block_attributes)
             {
@@ -354,22 +354,53 @@ public:
                     VectorWidth;
                 const size_t MetaBlockSize = VectorWidth * block.num_pts;
 
-                Nektar::Array<Nektar::OneD, TData> temp(MetaBlockSize, 0.0);
+                // Interleave on the device
+                interleave<VectorWidth, ExecSpace>(numMetaBlocks, MetaBlockSize,
+                                                   block.num_pts, ptr);
 
-                for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
-                     ++metaBlock)
-                {
-                    // Copy data into temporary storage because inPtr and outPtr
-                    // access the same memory location
-                    std::copy(hostPtr, hostPtr + MetaBlockSize, temp.get());
-                    InterleaveFromScalar<VectorWidth>(temp.get(), block.num_pts,
-                                                      hostPtr);
-                    hostPtr += block.num_pts * VectorWidth;
-                }
+                ptr += block.block_size;
             }
         }
 
         m_curVecWidth = VectorWidth;
+    }
+
+    /**
+     * @brief Reshapes the current storage interleaving to a non-interleaved
+     * arrangement. For multi-component fields, all paddings will be placed
+     * at the end of each component after this operation.
+     */
+    template <typename ExecSpace> void ReshapeToScalar()
+    {
+        using MemSpace = typename ExecSpace::memory_space;
+
+        if (m_curVecWidth == 1)
+        {
+            return;
+        }
+
+        size_t scalar_field_size = GetFieldSize();
+
+        for (int component = 0; component < GetNumComponents(); ++component)
+        {
+            auto *ptr = this->template GetPtr<MemSpace, ReadWrite>() +
+                        component * scalar_field_size;
+
+            for (const auto &block : block_attributes)
+            {
+                const size_t numMetaBlocks =
+                    (block.num_elements + block.num_padding_elements) /
+                    m_curVecWidth;
+                const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
+
+                deInterleave<ExecSpace>(m_curVecWidth, numMetaBlocks,
+                                        MetaBlockSize, block.num_pts, ptr);
+
+                ptr += block.block_size;
+            }
+        }
+
+        m_curVecWidth = 1;
     }
 
     /**
@@ -407,7 +438,7 @@ public:
         {
             for (const auto &block : this->GetBlocks())
             {
-                size += block.block_size;
+                size += block.num_elements * block.num_pts;
             }
         }
 
@@ -431,7 +462,7 @@ public:
         {
             for (const auto &block : this->GetBlocks())
             {
-                size += block.block_size;
+                size += block.num_elements * block.num_pts;
             }
         }
 
@@ -478,6 +509,11 @@ public:
     template <typename MemSpace, typename MemCopy = HostToDevice>
     void copyField(Field &field)
     {
+        ASSERTL0(field.block_attributes.size() == block_attributes.size(),
+                 "Number of blocks are not the same!");
+        ASSERTL0(field.m_curVecWidth == m_curVecWidth,
+                 "Vector width are not the same!");
+
         if (this->size() != field.size())
         {
             std::stringstream msg;
@@ -620,14 +656,21 @@ public:
     {
         if (rhs.GetNumComponents() != GetNumComponents())
         {
+            std::cout << "Mismatch of number of components." << std::endl;
             return false;
         }
 
         const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
 
-        if ((rhs_blocks.size() != block_attributes.size()) ||
-            (rhs.m_curVecWidth != m_curVecWidth))
+        if (rhs_blocks.size() != block_attributes.size())
         {
+            std::cout << "Mismatch of block size." << std::endl;
+            return false;
+        }
+
+        if (rhs.m_curVecWidth != m_curVecWidth)
+        {
+            std::cout << "Mismatch of vector width." << std::endl;
             return false;
         }
 
@@ -653,6 +696,7 @@ public:
                 if ((num_elements != rhs_blocks[bl].num_elements) ||
                     (num_pts != rhs_blocks[bl].num_pts))
                 {
+                    std::cout << "Mismatch of block structure." << std::endl;
                     return false;
                 }
 
@@ -702,45 +746,6 @@ public:
         else
         {
             return false;
-        }
-    }
-
-    /**
-     * @brief Copy data from one field/component to another. The two fields
-     * must have the same storage layout.
-     *
-     * @param rhs Source field
-     * @param rhs_component the component to load in the source field
-     * @param component the component to overwrite in the destination field
-     */
-    void CopyFieldData(Field<TData, TState> &rhs, size_t rhs_component = 0,
-                       size_t component = 0)
-    {
-        ASSERTL0(rhs_component < rhs.GetNumComponents(),
-                 "rhs_component is out of range!");
-        ASSERTL0(component < GetNumComponents(), "component is out of range!");
-
-        const auto &rhs_blocks = rhs.GetBlocks();
-        ASSERTL0(rhs_blocks.size() == block_attributes.size(),
-                 "Number of blocks are not the same!");
-        ASSERTL0(rhs.m_curVecWidth == m_curVecWidth,
-                 "Vector width are not the same!");
-
-        size_t scalar_field_size = GetFieldSize();
-
-        auto *rhs_ptr =
-            rhs.template GetPtr<NektarSpaces::HostSpace, ReadOnly>() +
-            rhs_component * scalar_field_size;
-        auto *ptr =
-            this->template GetPtr<NektarSpaces::HostSpace, WriteOnly>() +
-            component * scalar_field_size;
-
-        for (const auto &block : block_attributes)
-        {
-            for (size_t pt = 0; pt < block.block_size; ++pt)
-            {
-                *ptr++ = *rhs_ptr++;
-            }
         }
     }
 
@@ -795,89 +800,6 @@ public:
     }
 
 private:
-    /**
-     * @brief Reshapes the current storage interleaving to a non-interleaved
-     * arrangement. For multi-component fields, all paddings will be placed
-     * at the end of each component after this operation.
-     */
-    void ReshapeToScalar()
-    {
-        if (m_curVecWidth == 1)
-        {
-            return;
-        }
-
-        size_t scalar_field_size = GetFieldSize();
-
-        for (int component = 0; component < GetNumComponents(); ++component)
-        {
-            auto *inPtr =
-                this->template GetPtr<NektarSpaces::HostSpace, ReadWrite>() +
-                component * scalar_field_size;
-
-            for (const auto &block : block_attributes)
-            {
-                const size_t numMetaBlocks =
-                    (block.num_elements + block.num_padding_elements) /
-                    m_curVecWidth;
-                const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
-
-                Nektar::Array<Nektar::OneD, TData> temp(MetaBlockSize, 0.0);
-
-                for (size_t metaBlock = 0; metaBlock < numMetaBlocks;
-                     ++metaBlock)
-                {
-                    // Copy data into temporary storage because inPtr and outPtr
-                    // access the same memory location
-                    std::copy(inPtr, inPtr + MetaBlockSize, temp.get());
-                    Deinterleave(temp.get(), block.num_pts, inPtr);
-                    inPtr += MetaBlockSize;
-                }
-            }
-        }
-
-        m_curVecWidth = 1;
-    }
-
-    /**
-     * @brief Interleave the data block to the given vector width
-     * @tparam  VectorWidth Target vector width.
-     * @param   in          Input array with VW of 1.
-     * @param   dataLen     Length of data blocks to be interleaved.
-     * @param   out         Output array of VW specified by VectorWidth.
-     */
-    template <size_t VectorWidth>
-    void InterleaveFromScalar(const TData *in, size_t dataLen, TData *out)
-    {
-        // TODO: SIMD this
-        for (size_t idx = 0; idx < dataLen; ++idx)
-        {
-            for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-            {
-                out[idx * VectorWidth + vecElem] = in[vecElem * dataLen + idx];
-            }
-        }
-    }
-
-    /**
-     * @brief Deinterleave data from the current vector width to be
-     * non-interleaved.
-     * @param   in      Input array
-     * @param   dataLen Length of a block of data (e.g. an element)
-     * @param   out     Output array
-     */
-    void Deinterleave(const TData *in, size_t dataLen, TData *out)
-    {
-        for (size_t idx = 0; idx < dataLen; ++idx)
-        {
-            for (size_t vecElem = 0; vecElem < m_curVecWidth; ++vecElem)
-            {
-                out[vecElem * dataLen + idx] =
-                    in[idx * m_curVecWidth + vecElem];
-            }
-        }
-    }
-
     /**
      * @brief Construct a new Field object.
      *

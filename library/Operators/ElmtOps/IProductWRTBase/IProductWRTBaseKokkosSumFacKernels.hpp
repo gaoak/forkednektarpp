@@ -51,7 +51,7 @@ void IProductWRTBaseSegKernel(
     const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     Kokkos::parallel_for(
         nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
@@ -183,7 +183,7 @@ void IProductWRTBaseQuadKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1;
 
@@ -493,7 +493,7 @@ void IProductWRTBaseTriKernel(
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1;
 
@@ -939,7 +939,7 @@ void IProductWRTBaseHexKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -1353,7 +1353,7 @@ void IProductWRTBaseTetKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     // const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -2053,7 +2053,7 @@ void IProductWRTBasePrismKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     // const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -2654,7 +2654,7 @@ void IProductWRTBasePyrKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 

@@ -46,8 +46,61 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const unsigned int offset,
-                   const int *assmbPtr, const TData *signPtr,
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *signPtr, const TData *inPtr, TData *outPtr)
+{
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
+
+                              while (i < nsize)
+                              {
+                                  TData *const ptr = outPtr + assmbPtr[i];
+                                  const TData val  = signPtr[i] * inPtr[i];
+                                  Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  i += indx.get_global_range(0);
+                              }
+                          });
+     }).wait();
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData sign, const TData *inPtr, TData *outPtr)
+{
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
+
+                              while (i < nsize)
+                              {
+                                  TData *const ptr = outPtr + assmbPtr[i];
+                                  const TData val  = sign * inPtr[i];
+                                  Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  i += indx.get_global_range(0);
+                              }
+                          });
+     }).wait();
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
@@ -61,10 +114,8 @@ inline
 
                               while (i < nsize)
                               {
-                                  TData *const ptr =
-                                      outPtr + assmbPtr[offset + i];
-                                  const TData val =
-                                      signPtr[offset + i] * inPtr[offset + i];
+                                  TData *const ptr = outPtr + assmbPtr[i];
+                                  const TData val  = inPtr[i];
                                   Nektar::atomic_add<ExecSpace>(ptr, val);
                                   i += indx.get_global_range(0);
                               }
@@ -76,9 +127,8 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const unsigned int offset,
-                   const int *assmbPtr, const TData sign, const TData *inPtr,
-                   TData *outPtr)
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -91,10 +141,7 @@ inline
 
                               while (i < nsize)
                               {
-                                  TData *const ptr =
-                                      outPtr + assmbPtr[offset + i];
-                                  const TData val = sign * inPtr[offset + i];
-                                  Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });
@@ -105,8 +152,8 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    AssembleKernel(const unsigned int nsize, const unsigned int offset,
-                   const int *assmbPtr, const TData *inPtr, TData *outPtr)
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData sign, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -119,10 +166,7 @@ inline
 
                               while (i < nsize)
                               {
-                                  TData *const ptr =
-                                      outPtr + assmbPtr[offset + i];
-                                  const TData val = inPtr[offset + i];
-                                  Nektar::atomic_add<ExecSpace>(ptr, val);
+                                  outPtr[i] = sign * inPtr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });
@@ -133,8 +177,7 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
-                        const int *assmbPtr, const TData *signPtr,
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = 256u;
@@ -148,62 +191,7 @@ inline
 
                               while (i < nsize)
                               {
-                                  outPtr[offset + i] =
-                                      signPtr[offset + i] *
-                                      inPtr[assmbPtr[offset + i]];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
-}
-
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
-                        const int *assmbPtr, const TData sign,
-                        const TData *inPtr, TData *outPtr)
-{
-    const unsigned int blockSize = 256u;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
-
-                              while (i < nsize)
-                              {
-                                  outPtr[offset + i] =
-                                      sign * inPtr[assmbPtr[offset + i]];
-                                  i += indx.get_global_range(0);
-                              }
-                          });
-     }).wait();
-}
-
-template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const unsigned int offset,
-                        const int *assmbPtr, const TData *inPtr, TData *outPtr)
-{
-    const unsigned int blockSize = 256u;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
-
-    sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
-
-                              while (i < nsize)
-                              {
-                                  outPtr[offset + i] =
-                                      inPtr[assmbPtr[offset + i]];
+                                  outPtr[i] = inPtr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });

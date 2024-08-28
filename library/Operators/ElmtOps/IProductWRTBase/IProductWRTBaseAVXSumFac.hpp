@@ -105,8 +105,8 @@ public:
         }
         // Reshape into vec_t::width. If the Field is already
         // interleaved, this method returns.
-        in.template ReshapeStorage<vec_t::width>();
-        out.template ReshapeStorage<vec_t::width>();
+        in.template ReshapeStorage<ExecSpace, vec_t::width>();
+        out.template ReshapeStorage<ExecSpace, vec_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();

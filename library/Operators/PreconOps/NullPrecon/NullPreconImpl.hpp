@@ -34,9 +34,8 @@
 
 #pragma once
 
-#include "Operators/PreconOps/OperatorNullPrecon.hpp"
-
 #include "Operators/OperatorAssmbScatr.hpp"
+#include "Operators/PreconOps/OperatorNullPrecon.hpp"
 
 using namespace Nektar;
 
@@ -70,6 +69,9 @@ public:
     {
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -78,9 +80,6 @@ public:
             OperatorNullPreconImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    // className - for OperatorFactory
-    static std::string className;
 
 protected:
     std::shared_ptr<OperatorAssmbScatr<TData>> m_assmbScatrOp;

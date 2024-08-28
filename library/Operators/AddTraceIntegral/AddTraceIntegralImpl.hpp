@@ -59,16 +59,16 @@ public:
         : OperatorAddTraceIntegral<TData>(std::move(expansionList)),
           m_trace(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               GetBlockAttributes(FieldState::Coeff, expansionList->GetTrace(),
-                                 vec_t::width),
-              1, vec_t::alignment))
+                                 ExecSpace::width),
+              1, ExecSpace::alignment))
     {
         // Set mapping to skip over padding elements
         int i, j;
 
         i = 0, j = 0;
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
+                                         ExecSpace::width);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -88,7 +88,7 @@ public:
         Array<OneD, int> alignmentTrace(
             expansionList->GetTrace()->GetNcoeffs());
         auto traceBlocks = GetBlockAttributes(
-            FieldState::Coeff, expansionList->GetTrace(), vec_t::width);
+            FieldState::Coeff, expansionList->GetTrace(), ExecSpace::width);
         for (auto &block : traceBlocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -134,17 +134,17 @@ public:
         m_traceCoeffsToElmtMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
                 alignedTraceCoeffsToElmtMap,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         m_traceCoeffsToElmtSign =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
                 TraceCoeffsToElmtSign,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         m_traceCoeffsToElmtTrace =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
                 alignedTraceCoeffsToElmtTrace,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
                           locTraceToTraceMap->GetNBwdCoeffs();

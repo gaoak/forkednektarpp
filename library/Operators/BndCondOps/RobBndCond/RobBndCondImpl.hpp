@@ -66,8 +66,8 @@ public:
         int i = 0, j = 0;
 
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
+                                         ExecSpace::width);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -100,41 +100,45 @@ public:
                 }
             }
 
-            // Initialize data
-            if (m_nBndEdge > 0)
+            // Return if no Robin boundary condition.
+            if (m_nBndEdge == 0)
             {
-                Array<OneD, TData> mat(m_nBndEdge);
-                Array<OneD, unsigned int> map(m_nBndEdge);
-                Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
-                unsigned int i = 0;
-                for (auto &r : robinBCInfo)
-                {
-                    auto n      = r.first;
-                    auto expPtr = this->m_expansionList->GetExp(n);
-
-                    for (auto rBC = r.second; rBC; rBC = rBC->next)
-                    {
-                        auto primCoeffs = rBC->m_robinPrimitiveCoeffs;
-                        auto vertid     = rBC->m_robinID;
-                        mat[i]          = primCoeffs[0];
-                        map[i]          = expPtr->GetVertexMap(vertid);
-                        offset[i] =
-                            alignmentMap[this->m_expansionList->GetCoeff_Offset(
-                                n)];
-                        i++;
-                    }
-                }
-
-                m_mat =
-                    MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                        mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_map = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_offset = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    offset, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                return;
             }
+
+            // Initialize data
+            Array<OneD, TData> mat(m_nBndEdge);
+            Array<OneD, unsigned int> map(m_nBndEdge);
+            Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
+            unsigned int i = 0;
+            for (auto &r : robinBCInfo)
+            {
+                auto n      = r.first;
+                auto expPtr = this->m_expansionList->GetExp(n);
+
+                for (auto rBC = r.second; rBC; rBC = rBC->next)
+                {
+                    auto primCoeffs = rBC->m_robinPrimitiveCoeffs;
+                    auto vertid     = rBC->m_robinID;
+                    mat[i]          = primCoeffs[0];
+                    map[i]          = expPtr->GetVertexMap(vertid);
+                    offset[i] =
+                        alignmentMap[this->m_expansionList->GetCoeff_Offset(n)];
+                    i++;
+                }
+            }
+
+            m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+                mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_map =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_offset =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    offset,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
@@ -161,87 +165,97 @@ public:
                 }
             }
 
-            // Initialize data
-            if (m_nBndEdge > 0)
+            // Return if no Robin boundary condition.
+            if (m_nBndEdge == 0)
             {
-                Array<OneD, TData> mat(matSize);
-                Array<OneD, unsigned int> map(mapSize);
-                Array<OneD, int> sign(mapSize);
-                Array<OneD, unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
-                Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
-                Array<OneD, unsigned int> matOffset(m_nBndEdge, 0u);
-                Array<OneD, unsigned int> mapOffset(m_nBndEdge, 0u);
-                unsigned int i = 0;
-                for (auto &r : robinBCInfo)
-                {
-                    auto n      = r.first;
-                    auto expPtr = this->m_expansionList->GetExp(n);
-
-                    for (auto rBC = r.second; rBC; rBC = rBC->next)
-                    {
-                        auto primCoeffs = rBC->m_robinPrimitiveCoeffs;
-                        auto edgeid     = rBC->m_robinID;
-                        auto orient     = expPtr->GetTraceOrient(edgeid);
-                        auto edgeExp    = expPtr->GetTraceExp(edgeid);
-                        auto ncoeff     = edgeExp->GetNcoeffs();
-
-                        // Initialize map and sign array
-                        Array<OneD, unsigned int> tmpMap(ncoeff);
-                        Array<OneD, int> tmpSign(ncoeff);
-                        expPtr->GetTraceToElementMap(edgeid, tmpMap, tmpSign,
-                                                     orient);
-                        std::copy(tmpMap.begin(), tmpMap.end(),
-                                  map.data() + mapOffset[i]);
-                        std::copy(tmpSign.begin(), tmpSign.end(),
-                                  sign.data() + mapOffset[i]);
-
-                        // Initialize mat array
-                        StdRegions::VarCoeffMap varcoeffs;
-                        varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
-                        LocalRegions::MatrixKey mkey(
-                            StdRegions::eMass, LibUtilities::eSegment, *edgeExp,
-                            StdRegions::NullConstFactorMap, varcoeffs);
-                        DNekScalMat &edgeMat = *edgeExp->GetLocMatrix(mkey);
-                        std::copy(edgeMat.GetRawPtr(),
-                                  edgeMat.GetRawPtr() + ncoeff * ncoeff,
-                                  mat.data() + matOffset[i]);
-
-                        // Update offset array
-                        nEdgeCoeff[i] = ncoeff;
-                        offset[i] =
-                            alignmentMap[this->m_expansionList->GetCoeff_Offset(
-                                n)];
-                        if (i < m_nBndEdge - 1)
-                        {
-                            matOffset[i + 1] = matOffset[i] + ncoeff * ncoeff;
-                            mapOffset[i + 1] = mapOffset[i] + ncoeff;
-                        }
-
-                        i++;
-                    }
-                }
-
-                m_mat =
-                    MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                        mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_map = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_sign = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                    sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_nEdgeCoeff = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    nEdgeCoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_offset = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    offset, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_matOffset = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    matOffset, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-                m_mapOffset = MemoryRegion<unsigned int>::template fromArray<
-                    MemSpace, unsigned int>(
-                    mapOffset, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                return;
             }
+
+            // Initialize data
+            Array<OneD, TData> mat(matSize);
+            Array<OneD, unsigned int> map(mapSize);
+            Array<OneD, int> sign(mapSize);
+            Array<OneD, unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
+            Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
+            Array<OneD, unsigned int> matOffset(m_nBndEdge, 0u);
+            Array<OneD, unsigned int> mapOffset(m_nBndEdge, 0u);
+            unsigned int i = 0;
+            for (auto &r : robinBCInfo)
+            {
+                auto n      = r.first;
+                auto expPtr = this->m_expansionList->GetExp(n);
+
+                for (auto rBC = r.second; rBC; rBC = rBC->next)
+                {
+                    auto primCoeffs = rBC->m_robinPrimitiveCoeffs;
+                    auto edgeid     = rBC->m_robinID;
+                    auto orient     = expPtr->GetTraceOrient(edgeid);
+                    auto edgeExp    = expPtr->GetTraceExp(edgeid);
+                    auto ncoeff     = edgeExp->GetNcoeffs();
+
+                    // Initialize map and sign array
+                    Array<OneD, unsigned int> tmpMap(ncoeff);
+                    Array<OneD, int> tmpSign(ncoeff);
+                    expPtr->GetTraceToElementMap(edgeid, tmpMap, tmpSign,
+                                                 orient);
+                    std::copy(tmpMap.begin(), tmpMap.end(),
+                              map.data() + mapOffset[i]);
+                    std::copy(tmpSign.begin(), tmpSign.end(),
+                              sign.data() + mapOffset[i]);
+
+                    // Initialize mat array
+                    StdRegions::VarCoeffMap varcoeffs;
+                    varcoeffs[StdRegions::eVarCoeffMass] = primCoeffs;
+                    LocalRegions::MatrixKey mkey(
+                        StdRegions::eMass, LibUtilities::eSegment, *edgeExp,
+                        StdRegions::NullConstFactorMap, varcoeffs);
+                    DNekScalMat &edgeMat = *edgeExp->GetLocMatrix(mkey);
+                    std::copy(edgeMat.GetRawPtr(),
+                              edgeMat.GetRawPtr() + ncoeff * ncoeff,
+                              mat.data() + matOffset[i]);
+
+                    // Update offset array
+                    nEdgeCoeff[i] = ncoeff;
+                    offset[i] =
+                        alignmentMap[this->m_expansionList->GetCoeff_Offset(n)];
+                    if (i < m_nBndEdge - 1)
+                    {
+                        matOffset[i + 1] = matOffset[i] + ncoeff * ncoeff;
+                        mapOffset[i + 1] = mapOffset[i] + ncoeff;
+                    }
+
+                    i++;
+                }
+            }
+
+            m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+                mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_map =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_sign = MemoryRegion<int>::template fromArray<MemSpace, int>(
+                sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_nEdgeCoeff =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    nEdgeCoeff,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_offset =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    offset,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_matOffset =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    matOffset,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_mapOffset =
+                MemoryRegion<unsigned int>::template fromArray<MemSpace,
+                                                               unsigned int>(
+                    mapOffset,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {
@@ -312,6 +326,9 @@ public:
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -321,9 +338,6 @@ public:
             expansionList);
     }
 
-    // className - for OperatorFactory
-    static std::string className;
-
 protected:
     MemoryRegion<TData> m_mat;
     MemoryRegion<unsigned int> m_map;
@@ -332,6 +346,7 @@ protected:
     MemoryRegion<unsigned int> m_offset;
     MemoryRegion<unsigned int> m_matOffset;
     MemoryRegion<unsigned int> m_mapOffset;
+
     size_t m_nmaxcoeff = 0;
     size_t m_nBndEdge  = 0;
 };

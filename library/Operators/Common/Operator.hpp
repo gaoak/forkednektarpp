@@ -38,12 +38,42 @@
 
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
+
+#include "Operators/Common/Spaces.hpp"
+#include "Operators/Field/Field.hpp"
 #include <Operators/Common/OperatorsDeclspec.hpp>
 
-#include "Operators/Field/Field.hpp"
-#include "Operators/LoopExecution/LoopExecution.hpp"
+namespace Nektar::LibUtilities
+{
+/**
+ * Partial specialisation for memory region
+ */
+template <class elemT> class CommDataTypeTraits<MemoryRegion<elemT>>
+{
+public:
+    static CommDataType &GetDataType()
+    {
+        return CommDataTypeTraits<elemT>::GetDataType();
+    }
+    static void *GetPointer(MemoryRegion<elemT> &val)
+    {
+        return val.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    }
+    static const void *GetPointer(const MemoryRegion<elemT> &val)
+    {
+        return val.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+    }
+    static size_t GetCount(const MemoryRegion<elemT> &val)
+    {
+        return val.size();
+    }
+    const static bool IsVector = true;
+};
+
+} // namespace Nektar::LibUtilities
 
 namespace Nektar::Operators
 {
@@ -63,7 +93,6 @@ class SumFac
 // Use typenames to define available implementations to
 // allow extension by users without modifying library
 using default_fp_type = double;
-using vec_t           = tinysimd::simd<double>;
 
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;

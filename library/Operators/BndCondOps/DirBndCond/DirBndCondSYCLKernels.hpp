@@ -96,6 +96,32 @@ template <typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
+    ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+                             TData *outPtr)
+{
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
+
+                              while (i < nsize)
+                              {
+                                  outPtr[signPtr[i]] *= -1;
+                                  ;
+                                  i += indx.get_global_range(0);
+                              }
+                          });
+     }).wait();
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
     LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                           const int *id1Ptr, const TData *signPtr,
                           TData *outPtr)

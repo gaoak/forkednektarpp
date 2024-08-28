@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssmbScatrKokkosKernels.hpp
+// File: AssmbScatrKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,85 +34,93 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], signPtr[i] * inPtr[i]);
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outPtr[assmbPtr[i]] += signPtr[i] * inPtr[i];
         });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
                const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], sign * inPtr[i]);
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outPtr[assmbPtr[i]] += sign * inPtr[i];
         });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], inPtr[i]);
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outPtr[assmbPtr[i]] += inPtr[i];
         });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
             outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
         });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData sign, const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
             outPtr[i] = sign * inPtr[assmbPtr[i]];
         });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *inPtr, TData *outPtr)
 {
-    Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
             outPtr[i] = inPtr[assmbPtr[i]];
         });
 }
 
 } // namespace Nektar::Operators::detail
-
-#endif

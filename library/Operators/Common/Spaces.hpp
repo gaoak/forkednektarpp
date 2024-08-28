@@ -34,6 +34,8 @@
 
 #pragma once
 
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
 #include <type_traits>
 
 #include <float.h>
@@ -60,24 +62,30 @@
 #define STRV(...) #__VA_ARGS__
 #define STRVX(...) STRV(__VA_ARGS__)
 
+using vec_t = tinysimd::simd<double>;
+
 namespace NektarSpaces
 {
 
+// Used to refer to any data in host memory.
 class HostSpace
 {
-    // Used to refer to any data in host memory.
 };
 
 class Serial
 {
 public:
-    using memory_space = NektarSpaces::HostSpace;
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t width     = vec_t::width;
+    static constexpr size_t alignment = vec_t::alignment;
 };
 
 class AVX
 {
 public:
-    using memory_space = NektarSpaces::HostSpace;
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t width     = vec_t::width;
+    static constexpr size_t alignment = vec_t::alignment;
 };
 
 using DefaultHostExecutionSpace = Serial; // Default Host implementation.
@@ -90,14 +98,14 @@ using DefaultHostExecutionSpace = Serial; // Default Host implementation.
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
     defined(NEKTAR_ENABLE_SYCL) || defined(KOKKOS_USING_GPU)
 
+// Used to refer to any data in device memory.
 class DeviceSpace
 {
-    // Used to refer to any data in device memory.
 };
 
 #else
 // No specific GPU so the device is the host.
-using DeviceSpace           = HostSpace;
+using DeviceSpace = HostSpace;
 
 #endif
 
@@ -105,21 +113,27 @@ using DeviceSpace           = HostSpace;
 class CUDA
 {
 public:
-    using memory_space = NektarSpaces::DeviceSpace;
+    using memory_space                = NektarSpaces::DeviceSpace;
+    static constexpr size_t width     = 32;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 };
 
 // Native pure HIP execution
 class HIP
 {
 public:
-    using memory_space = NektarSpaces::DeviceSpace;
+    using memory_space                = NektarSpaces::DeviceSpace;
+    static constexpr size_t width     = 64;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 };
 
 // Native pure SYCL execution
 class SYCL
 {
 public:
-    using memory_space = NektarSpaces::DeviceSpace;
+    using memory_space                = NektarSpaces::DeviceSpace;
+    static constexpr size_t width     = 64;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 };
 
 // Native pure Kokkos execution
@@ -127,32 +141,36 @@ class KOKKOS
 {
 public:
     using memory_space = NektarSpaces::DeviceSpace;
+#if defined(KOKKOS_ENABLE_CUDA)
+    static constexpr size_t width     = Kokkos::Impl::CudaTraits::WarpSize;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#elif defined(KOKKOS_ENABLE_HIP)
+    static constexpr size_t width     = Kokkos::Impl::HIPTraits::WarpSize;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#elif defined(KOKKOS_ENABLE_SYCL)
+    static constexpr size_t width     = 64;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#else
+    static constexpr size_t width     = vec_t::width;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+#endif
 };
 
 // Specific pure GPU execution
 #if defined(NEKTAR_ENABLE_CUDA)
 using DefaultExecutionSpace = CUDA;
-
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
-
 #elif defined(NEKTAR_ENABLE_HIP)
 using DefaultExecutionSpace = HIP;
-
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
-
 #elif defined(NEKTAR_ENABLE_SYCL)
 using DefaultExecutionSpace = SYCL;
-
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
-
 #elif defined(NEKTAR_ENABLE_KOKKOS)
 using DefaultExecutionSpace = KOKKOS;
-
 #define KOKKOS_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
-
 #else
 using DefaultExecutionSpace = DefaultHostExecutionSpace;
-
 #endif // GPU specific
 
 // These are used for LoopExecution.hpp

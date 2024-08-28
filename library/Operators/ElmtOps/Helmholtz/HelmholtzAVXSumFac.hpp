@@ -34,7 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzImplBase.hpp"
+#include "ElmtOps/OperatorHelmholtz.hpp"
+
+#include "ElmtOps/OperatorBwdTrans.hpp"
+#include "ElmtOps/OperatorIProductWRTBase.hpp"
+#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "ElmtOps/OperatorPhysDeriv.hpp"
+
+#include "Common/OperatorHelper.hpp"
 
 #include "HelmholtzAVXSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransAVXSumFacKernels.hpp"
@@ -56,15 +63,13 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
               std::is_same<Implementation, Operators::SumFac>::value>::type>
-class OperatorHelmholtzImpl
-    : public OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>
+class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>(
-              expansionList)
+        : OperatorHelmholtz<TData>(expansionList)
     {
         // Initialise jacobian with paddings
         auto blocks =
@@ -126,8 +131,8 @@ public:
         }
         // Reshape into vec_t::width. If the Field is already
         // interleaved, this method returns.
-        in.template ReshapeStorage<vec_t::width>();
-        out.template ReshapeStorage<vec_t::width>();
+        in.template ReshapeStorage<ExecSpace, vec_t::width>();
+        out.template ReshapeStorage<ExecSpace, vec_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
@@ -181,6 +186,9 @@ public:
             }
         }
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
