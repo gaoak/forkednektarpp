@@ -2302,7 +2302,8 @@ inline
     {
         unsigned int nshared = sizeof(TData) * (nm0 + (SHMEM ? nm0 * nq0 : 0u));
         BwdTransSegKernel_QP<TData, SHMEM>
-            <<<gridsize, dim3(32), nshared>>>(nm0, nq0, nelmt, basis0, in, out);
+            <<<gridsize, NektarSpaces::CUDA::width, nshared>>>(nm0, nq0, nelmt,
+                                                               basis0, in, out);
     }
     else
     {
