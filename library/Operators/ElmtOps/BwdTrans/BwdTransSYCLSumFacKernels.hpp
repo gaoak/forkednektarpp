@@ -31,9 +31,12 @@
 // Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
 #if defined(NEKTAR_ENABLE_SYCL)
+
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
 
 #include "Operators/Common/Spaces.hpp"
 #include "Operators/SYCLQueue.hpp"
@@ -41,66 +44,85 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransSegKernel(const unsigned int nm0, const unsigned int nq0,
                        const unsigned int nelmt, const TData *__restrict basis0,
                        const TData *__restrict in, TData *__restrict out,
-                       TData *__restrict s_basis0,
+                       TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
 
     // Copy to shared memory.
-    unsigned int sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm0 * nq0)
+    if constexpr (SHMEM)
     {
-        s_basis0[sIndex] = basis0[sIndex];
-        sIndex += item_ct1.get_local_range(2);
-    }
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nm0 * e;
-        unsigned int outoffset = nq0 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
 
-        for (unsigned int i = 0; i < nq0; ++i)
+        for (unsigned int i = 0u; i < nq0; ++i)
         {
             TData tmp = 0.0;
-            for (unsigned int p = 0; p < nm0; ++p)
+            for (unsigned int p = 0u; p < nm0; ++p)
             {
-                tmp += in[inoffset + p] * s_basis0[p * nq0 + i];
+                tmp += in[nm0 * warpsize * iwarp + warpsize * p + ilane] *
+                       s_basis0[p * nq0 + i];
             }
-            out[outoffset + i] = tmp;
+            out[nq0 * warpsize * iwarp + warpsize * i + ilane] = tmp;
         }
 
         e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransSegKernel_QP(const unsigned int nm0, const unsigned int nq0,
                           const unsigned int nelmt,
                           const TData *__restrict basis0,
                           const TData *__restrict in, TData *__restrict out,
-                          TData *__restrict s_wsp0,
+                          TData *__restrict shared,
                           const sycl::nd_item<3> &item_ct1)
 {
+    TData *s_wsp0   = shared;
+    TData *s_basis0 = SHMEM ? s_wsp0 + nm0 : (TData *)basis0;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nm0 * e;
-        unsigned int outoffset = nq0 * e;
+        const TData *inptr = in + nm0 * e;
+        TData *outptr      = out + nq0 * e;
 
         // Copy to shared memory.
-        for (unsigned int p = 0; p < nm0; p++)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0;
+             idx += item_ct1.get_local_range(2))
         {
-            s_wsp0[p] = in[inoffset + p];
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -109,11 +131,11 @@ void BwdTransSegKernel_QP(const unsigned int nm0, const unsigned int nq0,
              i += item_ct1.get_local_range(2))
         {
             TData tmp = 0.0;
-            for (unsigned int p = 0; p < nm0; p++)
+            for (unsigned int p = 0u; p < nm0; p++)
             {
-                tmp += s_wsp0[p] * basis0[p * nq0 + i];
+                tmp += s_wsp0[p] * s_basis0[p * nq0 + i];
             }
-            out[outoffset + i] = tmp;
+            outptr[i] = tmp;
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -122,67 +144,74 @@ void BwdTransSegKernel_QP(const unsigned int nm0, const unsigned int nq0,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
                         const unsigned int nmTot, const unsigned int nq0,
                         const unsigned int nq1, const unsigned int nelmt,
                         const TData *__restrict basis0,
-                        const TData *__restrict basis1,
+                        const TData *__restrict basis1, TData *__restrict wsp,
                         const TData *__restrict in, TData *__restrict out,
-                        TData *__restrict shared, TData *__restrict g_wsp,
+                        TData *__restrict shared,
                         const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
-    TData *s_basis0 = shared;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
     // Copy to shared memory.
-    unsigned int sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm0 * nq0)
+    if constexpr (SHMEM)
     {
-        s_basis0[sIndex] = basis0[sIndex];
-        sIndex += item_ct1.get_local_range(2);
-    }
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
 
-    sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm1 * nq1)
-    {
-        s_basis1[sIndex] = basis1[sIndex];
-        sIndex += item_ct1.get_local_range(2);
-    }
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    // Assign correct area of global memory to thread
-    TData *wsp = g_wsp + (e * nm1);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
 
-        for (unsigned int i = 0; i < nq0; ++i)
+        for (unsigned int i = 0u; i < nq0; ++i)
         {
-            for (unsigned int q = 0, cnt_qp = 0; q < nm1; ++q)
+            // direction 0
+            for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
             {
                 TData tmp = 0.0;
-                for (unsigned int p = 0; p < nm0; ++p, ++cnt_qp)
+                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
                 {
-                    tmp += in[inoffset + cnt_qp] * s_basis0[p * nq0 + i];
+                    tmp += in[nmTot * warpsize * iwarp + warpsize * cnt_qp +
+                              ilane] *
+                           s_basis0[p * nq0 + i];
                 }
-                wsp[q] = tmp;
+                wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] = tmp;
             }
 
-            for (unsigned int j = 0; j < nq1; ++j)
+            // direction 1
+            for (unsigned int j = 0u; j < nq1; ++j)
             {
                 TData tmp = 0.0;
-                for (unsigned int q = 0; q < nm1; ++q)
+                for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    tmp += wsp[q] * s_basis1[q * nq1 + j];
+                    tmp += wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] *
+                           s_basis1[q * nq1 + j];
                 }
-                out[outoffset + nq0 * j + i] = tmp;
+                out[nqTot * warpsize * iwarp + warpsize * (nq0 * j + i) +
+                    ilane] = tmp;
             }
         }
 
@@ -190,7 +219,7 @@ void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
                            const unsigned int nmTot, const unsigned int nq0,
                            const unsigned int nq1, const unsigned int nelmt,
@@ -200,44 +229,65 @@ void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
                            TData *__restrict shared,
                            const sycl::nd_item<3> &item_ct1)
 {
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-             q += item_ct1.get_local_range(1))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            unsigned int cnt_qp = nm0 * q;
-
-            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                 p += item_ct1.get_local_range(2))
-            {
-                s_wsp0[cnt_qp + p] = in[inoffset + cnt_qp + p];
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-             i += item_ct1.get_local_range(2))
+        // direction 0
+        for (unsigned int i = item_ct1.get_local_id(1); i < nq0;
+             i += item_ct1.get_local_range(1))
         {
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                 q += item_ct1.get_local_range(1))
+            for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                 q += item_ct1.get_local_range(2))
             {
-                unsigned int cnt_iq = nm1 * i + q;
-                unsigned int cnt_qp = nm0 * q;
+                const unsigned int cnt_iq = nm1 * i + q;
+                unsigned int cnt_qp       = nm0 * q;
 
                 TData tmp = 0.0;
-                for (unsigned int p = 0; p < nm0; ++p, ++cnt_qp)
+                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
                 {
-                    tmp += s_wsp0[cnt_qp] * basis0[p * nq0 + i];
+                    tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
                 }
                 s_wsp1[cnt_iq] = tmp;
             }
@@ -245,21 +295,22 @@ void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-             i += item_ct1.get_local_range(2))
+        // direction 1
+        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+             j += item_ct1.get_local_range(1))
         {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
+            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                 i += item_ct1.get_local_range(2))
             {
-                unsigned int cnt_iq = nm1 * i;
-                unsigned int cnt_ji = nq0 * j + i;
+                const unsigned int cnt_ji = nq0 * j + i;
+                unsigned int cnt_iq       = nm1 * i;
 
                 TData tmp = 0.0;
-                for (unsigned int q = 0; q < nm1; ++q, ++cnt_iq)
+                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
                 {
-                    tmp += s_wsp1[cnt_iq] * basis1[q * nq1 + j];
+                    tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
                 }
-                out[outoffset + cnt_ji] = tmp;
+                outptr[cnt_ji] = tmp;
             }
         }
 
@@ -269,54 +320,168 @@ void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
+void BwdTransQuadKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
+                              const unsigned int nmTot, const unsigned int nq0,
+                              const unsigned int nq1, const unsigned int nelmt,
+                              const TData *__restrict basis0,
+                              const TData *__restrict basis1,
+                              const TData *__restrict in, TData *__restrict out,
+                              TData *__restrict shared,
+                              const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int q = idx % nm1;
+            const unsigned int i = idx / nm1;
+            unsigned int cnt_qp  = nm0 * q;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
+            {
+                tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
+            }
+            s_wsp1[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_iq  = nm1 * i;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
+            {
+                tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
+            }
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, bool SHMEM = true>
 void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nmTot, const unsigned int nq0,
                        const unsigned int nq1, const unsigned int nelmt,
                        const bool correct, const TData *__restrict basis0,
-                       const TData *__restrict basis1,
+                       const TData *__restrict basis1, TData *__restrict wsp,
                        const TData *__restrict in, TData *__restrict out,
-                       TData *__restrict g_wsp,
+                       TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    // Assign correct area of global memory to thread
-    TData *wsp = g_wsp + (e * nm0);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
 
-        for (unsigned int j = 0, cnt_ji = 0; j < nq1; ++j)
+        for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
         {
-            for (unsigned int p = 0, mode_pq = 0; p < nm0; ++p)
+            // direction 1
+            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
             {
                 TData tmp = 0.0;
-                for (unsigned int q = 0; q < (nm1 - p); ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < (nm1 - p); ++q, ++mode_pq)
                 {
-                    tmp += basis1[mode_pq * nq1 + j] * in[inoffset + mode_pq];
+                    tmp += in[nmTot * warpsize * iwarp + warpsize * mode_pq +
+                              ilane] *
+                           s_basis1[mode_pq * nq1 + j];
                 }
-                wsp[p] = tmp;
+                wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
             }
 
-            for (unsigned int i = 0; i < nq0; ++i, ++cnt_ji)
+            // direction 0
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
             {
                 TData tmp = 0.0;
-                for (unsigned int p = 0; p < nm0; ++p)
+                for (unsigned int p = 0u; p < nm0; ++p)
                 {
-                    tmp += wsp[p] * basis0[p * nq0 + i];
+                    tmp += wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
+                           s_basis0[p * nq0 + i];
                 }
 
                 if (correct)
                 {
-                    tmp += in[inoffset + 1] * basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp += in[nmTot * warpsize * iwarp + warpsize + ilane] *
+                           s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 }
 
-                out[outoffset + cnt_ji] = tmp;
+                out[nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane] = tmp;
             }
         }
 
@@ -324,7 +489,7 @@ void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nmTot, const unsigned int nq0,
                           const unsigned int nq1, const unsigned int nelmt,
@@ -334,45 +499,65 @@ void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           TData *__restrict shared,
                           const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nmTot * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-             p += item_ct1.get_local_range(2))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            unsigned int mode_pq = (2 * nm1 - p + 1) * p / 2;
-
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1 - p;
-                 q += item_ct1.get_local_range(1))
-            {
-                s_wsp0[mode_pq + q] = in[inoffset + mode_pq + q];
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-             p += item_ct1.get_local_range(2))
+        // direction 1
+        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+             j += item_ct1.get_local_range(1))
         {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
+            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+                 p += item_ct1.get_local_range(2))
             {
-                unsigned int mode_pq = (2 * nm1 - p + 1) * p / 2;
-                unsigned int cnt_jp  = nm0 * j + p;
+                const unsigned int cnt_jp = nm0 * j + p;
+                unsigned int mode_pq      = (2u * nm1 - p + 1u) * p / 2u;
 
                 TData tmp = 0.0;
-                for (unsigned int q = 0; q < (nm1 - p); ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                 {
-                    tmp += basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
+                    tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
                 }
                 s_wsp1[cnt_jp] = tmp;
             }
@@ -380,27 +565,28 @@ void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-             i += item_ct1.get_local_range(2))
+        // direction 0
+        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+             j += item_ct1.get_local_range(1))
         {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
+            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                 i += item_ct1.get_local_range(2))
             {
-                unsigned int cnt_jp = nm0 * j;
-                unsigned int cnt_ij = nq0 * j + i;
+                const unsigned int cnt_ij = nq0 * j + i;
+                unsigned int cnt_jp       = nm0 * j;
 
                 TData tmp = 0.0;
-                for (unsigned int p = 0; p < nm0; ++p, ++cnt_jp)
+                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
                 {
-                    tmp += s_wsp1[cnt_jp] * basis0[p * nq0 + i];
+                    tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
                 }
 
                 if (correct)
                 {
-                    tmp += s_wsp0[1] * basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 }
 
-                out[outoffset + cnt_ij] = tmp;
+                outptr[cnt_ij] = tmp;
             }
         }
 
@@ -410,91 +596,199 @@ void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
-void BwdTransHexKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared, TData *__restrict g_wsp1,
-    TData *__restrict g_wsp2, const sycl::nd_item<3> &item_ct1)
+template <typename TData, bool SHMEM = true>
+void BwdTransTriKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
+                             const unsigned int nmTot, const unsigned int nq0,
+                             const unsigned int nq1, const unsigned int nelmt,
+                             const bool correct, const TData *__restrict basis0,
+                             const TData *__restrict basis1,
+                             const TData *__restrict in, TData *__restrict out,
+                             TData *__restrict shared,
+                             const sycl::nd_item<3> &item_ct1)
 {
-
-    TData *s_basis0 = shared;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-    TData *s_basis2 = s_basis1 + nm1 * nq1;
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
-    unsigned int sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm0 * nq0)
+    if constexpr (SHMEM)
     {
-        s_basis0[sIndex] = basis0[sIndex];
-        sIndex += item_ct1.get_local_range(2);
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
     }
 
-    sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm1 * nq1)
-    {
-        s_basis1[sIndex] = basis1[sIndex];
-        sIndex += item_ct1.get_local_range(2);
-    }
+    unsigned int e = item_ct1.get_group(2);
 
-    sIndex = item_ct1.get_local_id(2);
-    while (sIndex < nm2 * nq2)
+    while (e < nelmt)
     {
-        s_basis2[sIndex] = basis2[sIndex];
-        sIndex += item_ct1.get_local_range(2);
-    }
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
-    item_ct1.barrier(sycl::access::fence_space::local_space);
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = idx / nm0;
+            unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+            {
+                tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
+            }
+            s_wsp1[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = idx / nq0;
+            unsigned int cnt_jp  = nm0 * j;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
+            {
+                tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
+            }
+
+            if (correct)
+            {
+                tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
+            }
+
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, bool SHMEM = true>
+void BwdTransHexKernel(const unsigned int nm0, const unsigned int nm1,
+                       const unsigned int nm2, const unsigned int nmTot,
+                       const unsigned int nq0, const unsigned int nq1,
+                       const unsigned int nq2, const unsigned int nelmt,
+                       const TData *__restrict basis0,
+                       const TData *__restrict basis1,
+                       const TData *__restrict basis2, TData *__restrict wsp,
+                       const TData *__restrict in, TData *__restrict out,
+                       TData *__restrict shared,
+                       const sycl::nd_item<3> &item_ct1)
+{
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    TData *wsp1 = g_wsp1 + (e * nm1 * nm2);
-    TData *wsp2 = g_wsp2 + (e * nm2);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
+        TData *wsp1        = wsp;
+        TData *wsp2        = wsp1 + (nm1 * nm2) * nelmt;
 
-        for (unsigned int i = 0; i < nq0; ++i)
+        for (unsigned int i = 0u; i < nq0; ++i)
         {
-            for (unsigned int r = 0, cnt_rqp = 0, cnt_rq = 0; r < nm2; ++r)
+            // direction 0
+            for (unsigned int r = 0u, cnt_rqp = 0u, cnt_rq = 0u; r < nm2; ++r)
             {
-                for (unsigned int q = 0; q < nm1; ++q, ++cnt_rq)
+                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p, ++cnt_rqp)
+                    for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
                     {
-                        tmp += in[inoffset + cnt_rqp] * s_basis0[p * nq0 + i];
+                        tmp += in[nmTot * warpsize * iwarp +
+                                  warpsize * cnt_rqp + ilane] *
+                               s_basis0[p * nq0 + i];
                     }
-                    wsp1[cnt_rq] = tmp;
+                    wsp1[nm1 * nm2 * warpsize * iwarp + warpsize * cnt_rq +
+                         ilane] = tmp;
                 }
             }
 
-            for (unsigned int j = 0; j < nq1; ++j)
+            // direction 1
+            for (unsigned int j = 0u; j < nq1; ++j)
             {
-                for (unsigned int r = 0, cnt_rq = 0; r < nm2; ++r)
+                for (unsigned int r = 0u, cnt_rq = 0u; r < nm2; ++r)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1; ++q, ++cnt_rq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
                     {
-                        tmp += wsp1[cnt_rq] * s_basis1[q * nq1 + j];
+                        tmp += wsp1[nm1 * nm2 * warpsize * iwarp +
+                                    warpsize * cnt_rq + ilane] *
+                               s_basis1[q * nq1 + j];
                     }
-                    wsp2[r] = tmp;
+                    wsp2[nm2 * warpsize * iwarp + warpsize * r + ilane] = tmp;
                 }
 
-                for (unsigned int k = 0; k < nq2; ++k)
+                // direction 2
+                for (unsigned int k = 0u; k < nq2; ++k)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2; ++r)
+                    for (unsigned int r = 0u; r < nm2; ++r)
                     {
-                        tmp += wsp2[r] * s_basis2[r * nq2 + k];
+                        tmp += wsp2[nm2 * warpsize * iwarp + warpsize * r +
+                                    ilane] *
+                               s_basis2[r * nq2 + k];
                     }
-                    out[outoffset + k * nq1 * nq0 + j * nq0 + i] = tmp;
+                    out[nqTot * warpsize * iwarp +
+                        warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
                 }
             }
         }
@@ -503,7 +797,7 @@ void BwdTransHexKernel(
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -515,53 +809,81 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           TData *__restrict shared,
                           const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
-    TData *s_wsp2 = s_wsp1 + (nq0 * nm1 * nm2);
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm2 * nq2; idx += stride)
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int r = item_ct1.get_local_id(0); r < nm2;
-             r += item_ct1.get_local_range(0))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                 q += item_ct1.get_local_range(1))
-            {
-                unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
-
-                for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                     p += item_ct1.get_local_range(2))
-                {
-                    s_wsp0[cnt_rqp + p] = in[inoffset + cnt_rqp + p];
-                }
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-             i += item_ct1.get_local_range(2))
+        // direction 0
+        for (unsigned int i = item_ct1.get_local_id(0); i < nq0;
+             i += item_ct1.get_local_range(0))
         {
-            for (unsigned int r = item_ct1.get_local_id(0); r < nm2;
-                 r += item_ct1.get_local_range(0))
+            for (unsigned int r = item_ct1.get_local_id(1); r < nm2;
+                 r += item_ct1.get_local_range(1))
             {
-                for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                     q += item_ct1.get_local_range(1))
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                     q += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
-                    unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r + q;
+                    const unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r + q;
+                    unsigned int cnt_rqp       = nm1 * nm0 * r + nm0 * q;
 
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p, ++cnt_rqp)
+                    for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
                     {
-                        tmp += s_wsp0[cnt_rqp] * basis0[p * nq0 + i];
+                        tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
                     }
                     s_wsp1[cnt_irq] = tmp;
                 }
@@ -570,22 +892,23 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-             j += item_ct1.get_local_range(1))
+        // direction 1
+        for (unsigned int j = item_ct1.get_local_id(0); j < nq1;
+             j += item_ct1.get_local_range(0))
         {
-            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                 i += item_ct1.get_local_range(2))
+            for (unsigned int i = item_ct1.get_local_id(1); i < nq0;
+                 i += item_ct1.get_local_range(1))
             {
-                for (unsigned int r = item_ct1.get_local_id(0); r < nm2;
-                     r += item_ct1.get_local_range(0))
+                for (unsigned int r = item_ct1.get_local_id(2); r < nm2;
+                     r += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
-                    unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i + r;
+                    const unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i + r;
+                    unsigned int cnt_irq       = nm1 * nm2 * i + nm1 * r;
 
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1; ++q, ++cnt_irq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
                     {
-                        tmp += s_wsp1[cnt_irq] * basis1[q * nq1 + j];
+                        tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
                     }
                     s_wsp2[cnt_jir] = tmp;
                 }
@@ -594,6 +917,7 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 2
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -603,15 +927,15 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                      i += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
-                    unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int cnt_jir       = nq0 * nm2 * j + nm2 * i;
 
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2; ++r, ++cnt_jir)
+                    for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
                     {
-                        tmp += s_wsp2[cnt_jir] * basis2[r * nq2 + k];
+                        tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
                     }
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -622,46 +946,195 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
+void BwdTransHexKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
+                             const unsigned int nm2, const unsigned int nmTot,
+                             const unsigned int nq0, const unsigned int nq1,
+                             const unsigned int nq2, const unsigned int nelmt,
+                             const TData *__restrict basis0,
+                             const TData *__restrict basis1,
+                             const TData *__restrict basis2,
+                             const TData *__restrict in, TData *__restrict out,
+                             TData *__restrict shared,
+                             const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1 * nm2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int q = idx % nm1;
+            const unsigned int r = (idx / nm1) % nm2;
+            const unsigned int i = idx / (nm1 * nm2);
+            unsigned int cnt_rqp = nm1 * nm0 * r + nm0 * q;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
+            {
+                tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
+            }
+            s_wsp1[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1 * nm2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int r = idx % nm2;
+            const unsigned int i = (idx / nm2) % nq0;
+            const unsigned int j = idx / (nm2 * nq0);
+            unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
+            {
+                tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
+            }
+            s_wsp2[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 2
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i = idx % nq0;
+            const unsigned int j = (idx / nq0) % nq1;
+            const unsigned int k = idx / (nq1 * nq0);
+            unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i;
+
+            TData tmp = 0.0;
+            for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
+            {
+                tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
+            }
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
 void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nm2, const unsigned int nmTot,
                        const unsigned int nq0, const unsigned int nq1,
                        const unsigned int nq2, const unsigned int nelmt,
                        const bool correct, const TData *__restrict basis0,
                        const TData *__restrict basis1,
-                       const TData *__restrict basis2,
+                       const TData *__restrict basis2, TData *__restrict wsp,
                        const TData *__restrict in, TData *__restrict out,
-                       TData *__restrict g_fpq, TData *__restrict g_fp,
-                       sycl::nd_item<3> &item_ct1)
+                       TData *__restrict shared,
+                       const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
+
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    // This is the largest cnt_pq will get.
-    // Allows for smaller memory footprint than nm0 * nm1
-    unsigned int nm01 = (2 * nm1 - nm0 + 1) * nm0 / 2;
-
-    TData *fpq = g_fpq + (e * nm01);
-    TData *fp  = g_fp + (e * nm0);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
+        TData *fpq         = wsp;
+        TData *fp          = fpq + nm01 * nelmt;
 
-        for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            for (unsigned int p = 0, cnt_pq = 0, mode_pqr = 0; p < nm0; ++p)
+            // direction 2
+            for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
             {
-                for (unsigned int q = 0; q < nm1 - p; ++q, ++cnt_pq)
+                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[k + nq2 * mode_pqr] *
-                               in[inoffset + mode_pqr];
+                        tmp += in[nmTot * warpsize * iwarp +
+                                  warpsize * mode_pqr + ilane] *
+                               s_basis2[nq2 * mode_pqr + k];
                     }
-                    fpq[cnt_pq] = tmp;
+                    fpq[nm01 * warpsize * iwarp + warpsize * mode_pq + ilane] =
+                        tmp;
                 }
 
                 // increment mode in case order1!=order2
@@ -671,50 +1144,60 @@ void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
                 }
             }
 
-            for (unsigned int j = 0; j < nq1; ++j)
+            // direction 1
+            for (unsigned int j = 0u; j < nq1; ++j)
             {
-                for (unsigned int p = 0, mode_pq = 0; p < nm0; ++p)
+                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1 - p; ++q, ++mode_pq)
+                    for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                     {
-                        tmp += fpq[mode_pq] * basis1[mode_pq * nq1 + j];
+                        tmp += fpq[nm01 * warpsize * iwarp +
+                                   warpsize * mode_pq + ilane] *
+                               s_basis1[mode_pq * nq1 + j];
                     }
-                    fp[p] = tmp;
+                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
 
-                for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                // direction 0
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p)
+                    for (unsigned int p = 0u; p < nm0; ++p)
                     {
-                        tmp += basis0[p * nq0 + i] * fp[p];
+                        tmp +=
+                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
+                            s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
                         // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 * in[inoffset + 1];
+                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[nq2 + k];
+                        tmp += tmp1 *
+                               in[nmTot * warpsize * iwarp + warpsize + ilane];
 
                         // bottom vertex
-                        tmp1 = basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[k];
-                        tmp += tmp1 * in[inoffset + nm2];
+                        tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[k];
+                        tmp += tmp1 * in[nmTot * warpsize * iwarp +
+                                         warpsize * nm2 + ilane];
 
                         // singular edge
-                        for (unsigned int r = 1; r < nm2 - 1; ++r)
+                        for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                         {
-                            tmp1 = basis1[nq1 + j] * basis0[nq0 + i];
-                            tmp1 *= basis2[(r + 1) * nq2 + k];
-                            tmp += tmp1 * in[inoffset + nm2 + r];
+                            tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
+                            tmp1 *= s_basis2[(r + 1u) * nq2 + k];
+                            tmp += tmp1 * in[nmTot * warpsize * iwarp +
+                                             warpsize * (nm2 + r) + ilane];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
+                        tmp;
                 }
             }
         }
@@ -723,7 +1206,7 @@ void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
 void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -735,64 +1218,87 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           TData *__restrict shared,
                           const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + nm01 * nq2;
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
-    TData *s_wsp2 = s_wsp1 + ((2 * nm1 - nm0 + 1) * nm0 / 2 * nq2);
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
 
-    unsigned int nm01 = (2 * nm1 - nm0 + 1) * nm0 / 2;
+        for (unsigned int idx = idx0; idx < nm01 * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-             p += item_ct1.get_local_range(2))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1 - p;
-                 q += item_ct1.get_local_range(1))
-            {
-                unsigned int mode_pqr = (2 * (nm2 - p) - q + 1) * q;
-                mode_pqr += nm2 * (nm2 + 1) * p;
-                mode_pqr -= (2 * nm2 + 1) * (p - 1) * p / 2;
-                mode_pqr += (p - 1) * p * (2 * p - 1) / 6;
-                mode_pqr /= 2;
-
-                for (unsigned int r = item_ct1.get_local_id(0); r < nm2 - p - q;
-                     r += item_ct1.get_local_range(0))
-                {
-                    s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
-                }
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 2
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
-            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                 p += item_ct1.get_local_range(2))
+            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+                 p += item_ct1.get_local_range(1))
             {
-                for (unsigned int q = item_ct1.get_local_id(1); q < nm1 - p;
-                     q += item_ct1.get_local_range(1))
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1 - p;
+                     q += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_kpq =
-                        nm01 * k + (2 * nm1 - p + 1) * p / 2 + q;
-                    unsigned int mode_pqr = (2 * (nm2 - p) - q + 1) * q;
-                    mode_pqr += nm2 * (nm2 + 1) * p;
-                    mode_pqr -= (2 * nm2 + 1) * (p - 1) * p / 2;
-                    mode_pqr += (p - 1) * p * (2 * p - 1) / 6;
-                    mode_pqr /= 2;
+                    const unsigned int cnt_kpq =
+                        nm01 * k + (2u * nm1 - p + 1u) * p / 2u + q;
+                    unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
+                    mode_pqr += nm2 * (nm2 + 1u) * p;
+                    mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+                    mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
+                    mode_pqr /= 2u;
 
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[k + nq2 * mode_pqr] * s_wsp0[mode_pqr];
+                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
                     }
                     s_wsp1[cnt_kpq] = tmp;
                 }
@@ -801,6 +1307,7 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 1
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -810,15 +1317,15 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
                      p += item_ct1.get_local_range(2))
                 {
-                    unsigned int mode_pq  = (2 * nm1 - p + 1) * p / 2;
-                    unsigned int cnt_kpq  = nm01 * k + mode_pq;
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
+                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
+                    unsigned int mode_pq        = (2u * nm1 - p + 1u) * p / 2u;
+                    unsigned int cnt_kpq        = nm01 * k + mode_pq;
 
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1 - p; ++q, ++cnt_kpq)
+                    for (unsigned int q = 0u; q < nm1 - p;
+                         ++q, ++cnt_kpq, ++mode_pq)
                     {
-                        tmp +=
-                            s_wsp1[cnt_kpq] * basis1[(mode_pq + q) * nq1 + j];
+                        tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
                     }
                     s_wsp2[mode_kjp] = tmp;
                 }
@@ -827,6 +1334,7 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 0
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -836,39 +1344,39 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                      i += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_kji  = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p, ++mode_kjp)
+                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
                     {
-                        tmp += basis0[p * nq0 + i] * s_wsp2[mode_kjp];
+                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
                         // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
+                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[nq2 + k];
                         tmp += tmp1 * s_wsp0[1];
 
                         // bottom vertex
-                        tmp1 = basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[k];
+                        tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[k];
                         tmp += tmp1 * s_wsp0[nm2];
 
                         // singular edge
-                        for (unsigned int r = 1; r < nm2 - 1; ++r)
+                        for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                         {
-                            tmp1 = basis1[nq1 + j] * basis0[nq0 + i];
-                            tmp1 *= basis2[(r + 1) * nq2 + k];
+                            tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
+                            tmp1 *= s_basis2[(r + 1u) * nq2 + k];
                             tmp += tmp1 * s_wsp0[nm2 + r];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -879,78 +1387,283 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+void BwdTransTetKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int *__restrict pindex,
+    const unsigned int *__restrict qindex, const TData *__restrict basis0,
+    const TData *__restrict basis1, const TData *__restrict basis2,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + nm01 * nq2;
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+
+    // Temporary solution, to be removed - TODO
+    unsigned int *vpindex = (unsigned int *)pindex;
+    unsigned int *vqindex = (unsigned int *)qindex;
+    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+         p += item_ct1.get_local_range(2))
+    {
+        for (unsigned int q = 0; q < nm1 - p; q++)
+        {
+            unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
+            vpindex[mode_pq]     = p;
+            vqindex[mode_pq]     = q;
+        }
+    }
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 2
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1 * nm2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int k  = idx / nm01;
+            const unsigned int p  = pindex[idx % nm01];
+            const unsigned int q  = qindex[idx % nm01];
+            unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
+            mode_pqr += nm2 * (nm2 + 1u) * p;
+            mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+            mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
+            mode_pqr /= 2u;
+
+            TData tmp = 0.0;
+            for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+            {
+                tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
+            }
+            s_wsp1[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int p = idx % nm0;
+            const unsigned int j = (idx / nm0) % nq1;
+            const unsigned int k = idx / (nm0 * nq1);
+            unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u;
+            unsigned int cnt_kpq = nm01 * k + mode_pq;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1 - p; ++q, ++cnt_kpq, ++mode_pq)
+            {
+                tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
+            }
+            s_wsp2[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
+            unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
+            }
+
+            if (correct)
+            {
+                // top vertex
+                TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp1 *= s_basis2[nq2 + k];
+                tmp += tmp1 * s_wsp0[1];
+
+                // bottom vertex
+                tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp1 *= s_basis2[k];
+                tmp += tmp1 * s_wsp0[nm2];
+
+                // singular edge
+                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                {
+                    tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
+                    tmp1 *= s_basis2[(r + 1u) * nq2 + k];
+                    tmp += tmp1 * s_wsp0[nm2 + r];
+                }
+            }
+
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, bool SHMEM = true>
 void BwdTransPrismKernel(const unsigned int nm0, const unsigned int nm1,
                          const unsigned int nm2, const unsigned int nmTot,
                          const unsigned int nq0, const unsigned int nq1,
                          const unsigned int nq2, const unsigned int nelmt,
                          const bool correct, const TData *__restrict basis0,
                          const TData *__restrict basis1,
-                         const TData *__restrict basis2,
+                         const TData *__restrict basis2, TData *__restrict wsp,
                          const TData *__restrict in, TData *__restrict out,
-                         TData *__restrict g_fpq, TData *__restrict g_fp,
+                         TData *__restrict shared,
                          const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm12 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
+
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    // Assign correct area of global memory to thread
-    TData *fpq = g_fpq + (e * nm0 * nm1);
-    TData *fp  = g_fp + (e * nm0);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
+        TData *fpq         = wsp;
+        TData *fp          = fpq + nm0 * nm1 * nelmt;
 
-        for (unsigned int k = 0, cnt_kji = 0; k < nq2; ++k)
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            for (unsigned int p = 0, mode_pr = 0, mode_pq = 0, mode_pqr = 0;
+            // direction 2
+            for (unsigned int p = 0u, mode_pr = 0u, mode_pq = 0u, mode_pqr = 0u;
                  p < nm0; ++p)
             {
-                for (unsigned int q = 0; q < nm1; ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                     {
-                        tmp += in[inoffset + mode_pqr] *
-                               basis2[(mode_pr + r) * nq2 + k];
+                        tmp += in[nmTot * warpsize * iwarp +
+                                  warpsize * mode_pqr + ilane] *
+                               s_basis2[(mode_pr + r) * nq2 + k];
                     }
-                    fpq[mode_pq] = tmp;
+                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
+                        ilane] = tmp;
                 }
                 mode_pr += nm2 - p;
             }
 
-            for (unsigned int j = 0; j < nq1; ++j)
+            // direction 1
+            for (unsigned int j = 0u; j < nq1; ++j)
             {
-                for (unsigned int p = 0, mode_pq = 0; p < nm0; ++p)
+                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1; ++q, ++mode_pq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                     {
-                        tmp += fpq[mode_pq] * basis1[q * nq1 + j];
+                        tmp += fpq[nm0 * nm1 * warpsize * iwarp +
+                                   warpsize * mode_pq + ilane] *
+                               s_basis1[q * nq1 + j];
                     }
-                    fp[p] = tmp;
+                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
 
-                for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                // direction 0
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p)
+                    for (unsigned int p = 0u; p < nm0; ++p)
                     {
-                        tmp += fp[p] * basis0[p * nq0 + i];
+                        tmp +=
+                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
+                            s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
-                        for (unsigned int q = 0; q < nm1; ++q)
+                        for (unsigned int q = 0u; q < nm1; ++q)
                         {
-                            tmp += basis2[nq2 + k] * basis1[q * nq1 + j] *
-                                   basis0[nq0 + i] * in[inoffset + nm2 * q + 1];
+                            tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                                   s_basis0[nq0 + i] *
+                                   in[nmTot * warpsize * iwarp +
+                                      warpsize * (nm2 * q + 1u) + ilane];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
+                        tmp;
                 }
             }
         }
@@ -959,7 +1672,7 @@ void BwdTransPrismKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData>
+template <typename TData, bool SHMEM = true>
 void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
                             const unsigned int nm2, const unsigned int nmTot,
                             const unsigned int nq0, const unsigned int nq1,
@@ -971,56 +1684,85 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
                             TData *__restrict shared,
                             const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
-    TData *s_wsp2 = s_wsp1 + (nm0 * nm1 * nq2);
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm12 * nq2; idx += stride)
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-             p += item_ct1.get_local_range(2))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                 q += item_ct1.get_local_range(1))
-            {
-                unsigned int mode_pr  = (2 * nm2 - p + 1) * p / 2;
-                unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
-
-                for (unsigned int r = item_ct1.get_local_id(0); r < nm2 - p;
-                     r += item_ct1.get_local_range(0))
-                {
-                    s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
-                }
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 2
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
-            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                 p += item_ct1.get_local_range(2))
+            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+                 p += item_ct1.get_local_range(1))
             {
-                for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                     q += item_ct1.get_local_range(1))
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                     q += item_ct1.get_local_range(2))
                 {
-                    unsigned int mode_pr  = (2 * nm2 - p + 1) * p / 2;
-                    unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
-                    unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
+                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
+                    unsigned int mode_pr        = (2u * nm2 - p + 1u) * p / 2u;
+                    unsigned int mode_pqr       = mode_pr * nm1 + (nm2 - p) * q;
 
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p;
+                         ++r, ++mode_pqr, ++mode_pr)
                     {
-                        tmp +=
-                            s_wsp0[mode_pqr] * basis2[(mode_pr + r) * nq2 + k];
+                        tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
                     }
                     s_wsp1[mode_kpq] = tmp;
                 }
@@ -1029,6 +1771,7 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 1
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -1038,13 +1781,13 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
                      p += item_ct1.get_local_range(2))
                 {
-                    unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
+                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
+                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
 
                     TData tmp = 0.0;
-                    for (int q = 0; q < nm1; ++q, ++mode_kpq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
                     {
-                        tmp += s_wsp1[mode_kpq] * basis1[q * nq1 + j];
+                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
                     }
                     s_wsp2[mode_kjp] = tmp;
                 }
@@ -1053,6 +1796,7 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 0
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -1062,25 +1806,25 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                      i += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_kji  = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
                     TData tmp = 0.0;
-                    for (int p = 0; p < nm0; ++p, ++mode_kjp)
+                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
                     {
-                        tmp += s_wsp2[mode_kjp] * basis0[p * nq0 + i];
+                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
-                        for (int q = 0; q < nm1; ++q)
+                        for (unsigned int q = 0u; q < nm1; ++q)
                         {
-                            tmp += basis2[nq2 + k] * basis1[q * nq1 + j] *
-                                   basis0[nq0 + i] * s_wsp0[q * nm2 + 1];
+                            tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                                   s_basis0[nq0 + i] * s_wsp0[q * nm2 + 1u];
                         }
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -1091,54 +1835,218 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
+void BwdTransPrismKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const TData *__restrict basis0, const TData *__restrict basis1,
+    const TData *__restrict basis2, const TData *__restrict in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm12 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 2
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int q  = idx % nm1;
+            const unsigned int p  = (idx / nm1) % nm0;
+            const unsigned int k  = idx / (nm1 * nm0);
+            unsigned int mode_pr  = (2u * nm2 - p + 1u) * p / 2u;
+            unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q;
+
+            TData tmp = 0.0;
+            for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr, ++mode_pr)
+            {
+                tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
+            }
+            s_wsp1[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int p  = idx % nm0;
+            const unsigned int j  = (idx / nm0) % nq1;
+            const unsigned int k  = idx / (nm0 * nq1);
+            unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
+            {
+                tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
+            }
+            s_wsp2[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
+            unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
+            }
+
+            if (correct)
+            {
+                for (unsigned int q = 0u; q < nm1; ++q)
+                {
+                    tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                           s_basis0[nq0 + i] * s_wsp0[q * nm2 + 1u];
+                }
+            }
+
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
 void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nm2, const unsigned int nmTot,
                        const unsigned int nq0, const unsigned int nq1,
                        const unsigned int nq2, const unsigned int nelmt,
                        const bool correct, const TData *__restrict basis0,
                        const TData *__restrict basis1,
-                       const TData *__restrict basis2,
+                       const TData *__restrict basis2, TData *__restrict wsp,
                        const TData *__restrict in, TData *__restrict out,
-                       TData *__restrict g_fpq, TData *__restrict g_fp,
+                       TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+    }
+
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
 
-    // Assign correct area of global memory to thread
-    TData *fpq = g_fpq + (e * nm0 * nm1);
-    TData *fp  = g_fp + (e * nm0);
-
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        unsigned int iwarp = e / warpsize;
+        unsigned int ilane = e % warpsize;
+        TData *fpq         = wsp;
+        TData *fp          = fpq + nm0 * nm1 * nelmt;
 
-        for (int k = 0, cnt_kji = 0; k < nq2; ++k)
+        for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
-            for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0; ++p)
+            // direction 2
+            for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
             {
-                for (unsigned int q = 0; q < p; ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < p; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[mode_pqr * nq2 + k] *
-                               in[inoffset + mode_pqr];
+                        tmp += in[nmTot * warpsize * iwarp +
+                                  warpsize * mode_pqr + ilane] *
+                               s_basis2[mode_pqr * nq2 + k];
                     }
-                    fpq[mode_pq] = tmp;
+                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
+                        ilane] = tmp;
                 }
 
                 for (unsigned int q = p; q < nm1; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0; r < nm2 - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
                     {
-                        tmp += basis2[mode_pqr * nq2 + k] *
-                               in[inoffset + mode_pqr];
+                        tmp += in[nmTot * warpsize * iwarp +
+                                  warpsize * mode_pqr + ilane] *
+                               s_basis2[mode_pqr * nq2 + k];
                     }
-                    fpq[mode_pq] = tmp;
+                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
+                        ilane] = tmp;
                 }
 
                 // increment mode in case nm2>nm1
@@ -1148,37 +2056,45 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
                 }
             }
 
-            for (unsigned int j = 0; j < nq1; ++j)
+            // direction 1
+            for (unsigned int j = 0u; j < nq1; ++j)
             {
-                for (unsigned int p = 0, mode_pq = 0; p < nm0; ++p)
+                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1; ++q, ++mode_pq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                     {
-                        tmp += fpq[mode_pq] * basis1[q * nq1 + j];
+                        tmp += fpq[nm0 * nm1 * warpsize * iwarp +
+                                   warpsize * mode_pq + ilane] *
+                               s_basis1[q * nq1 + j];
                     }
-                    fp[p] = tmp;
+                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
 
-                for (unsigned int i = 0; i < nq0; ++i, ++cnt_kji)
+                // direction 0
+                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p)
+                    for (unsigned int p = 0u; p < nm0; ++p)
                     {
-                        tmp += fp[p] * basis0[p * nq0 + i];
+                        tmp +=
+                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
+                            s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
                         // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 * in[inoffset + 1];
+                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[nq2 + k];
+                        tmp += tmp1 *
+                               in[nmTot * warpsize * iwarp + warpsize + ilane];
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
+                        tmp;
                 }
             }
         }
@@ -1187,7 +2103,7 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
 void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -1199,77 +2115,88 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           TData *__restrict shared,
                           const sycl::nd_item<3> &item_ct1)
 {
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    TData *s_wsp0 = shared;
-    TData *s_wsp1 = s_wsp0 + nmTot;
-    TData *s_wsp2 = s_wsp1 + (nm0 * nm1 * nq2);
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
 
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
-        unsigned int inoffset  = nmTot * e;
-        unsigned int outoffset = nq0 * nq1 * nq2 * e;
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
         // Copy to shared memory.
-        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-             p += item_ct1.get_local_range(2))
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
+        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
         {
-            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                 q += item_ct1.get_local_range(1))
-            {
-                unsigned int mode_pqr = nm1 * (2 * nm2 + 1 - nm1) * p;
-                mode_pqr -= (p - 1) * p / 2;
-                mode_pqr -= (p - 1) * p * (2 * p - 1) / 6;
-                mode_pqr /= 2;
-
-                if (q < p)
-                {
-                    mode_pqr += q * (nm2 - p);
-                    for (unsigned int r = item_ct1.get_local_id(0); r < nm2 - p;
-                         r += item_ct1.get_local_range(0))
-                    {
-                        s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
-                    }
-                }
-                else
-                {
-                    mode_pqr += p * (nm2 - p);
-                    mode_pqr += ((2 * (nm2 - p) - (q - p) + 1) * (q - p)) / 2;
-                    for (unsigned int r = item_ct1.get_local_id(0); r < nm2 - q;
-                         r += item_ct1.get_local_range(0))
-                    {
-                        s_wsp0[mode_pqr + r] = in[inoffset + mode_pqr + r];
-                    }
-                }
-            }
+            s_wsp0[idx] = inptr[idx];
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 2
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
-            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                 p += item_ct1.get_local_range(2))
+            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+                 p += item_ct1.get_local_range(1))
             {
-                for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
-                     q += item_ct1.get_local_range(1))
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                     q += item_ct1.get_local_range(2))
                 {
-                    unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
-                    unsigned int mode_pqr = nm1 * (2 * nm2 + 1 - nm1) * p;
-                    mode_pqr -= (p - 1) * p / 2;
-                    mode_pqr -= (p - 1) * p * (2 * p - 1) / 6;
-                    mode_pqr /= 2;
+                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
+                    unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
+                    mode_pqr -= (p - 1u) * p / 2u;
+                    mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
+                    mode_pqr /= 2u;
 
                     if (q < p)
                     {
                         mode_pqr += q * (nm2 - p);
                         TData tmp = 0.0;
-                        for (unsigned int r = 0; r < nm2 - p; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                         {
                             tmp +=
-                                basis2[mode_pqr * nq2 + k] * s_wsp0[mode_pqr];
+                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -1277,13 +2204,13 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                     {
                         mode_pqr += p * (nm2 - p);
                         mode_pqr +=
-                            ((2 * (nm2 - p) - (q - p) + 1) * (q - p)) / 2;
+                            ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
 
                         TData tmp = 0.0;
-                        for (unsigned int r = 0; r < nm2 - q; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
                         {
                             tmp +=
-                                basis2[mode_pqr * nq2 + k] * s_wsp0[mode_pqr];
+                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -1293,6 +2220,7 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 1
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -1302,13 +2230,13 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
                      p += item_ct1.get_local_range(2))
                 {
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
+                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
+                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
 
                     TData tmp = 0.0;
-                    for (unsigned int q = 0; q < nm1; ++q, ++mode_kpq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
                     {
-                        tmp += s_wsp1[mode_kpq] * basis1[q * nq1 + j];
+                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
                     }
                     s_wsp2[mode_kjp] = tmp;
                 }
@@ -1317,6 +2245,7 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
+        // direction 0
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
         {
@@ -1326,26 +2255,26 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                      i += item_ct1.get_local_range(2))
                 {
-                    unsigned int cnt_kji  = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
                     TData tmp = 0.0;
-                    for (unsigned int p = 0; p < nm0; ++p, ++mode_kjp)
+                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
                     {
-                        tmp += s_wsp2[mode_kjp] * basis0[p * nq0 + i];
+                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
                     if (correct)
                     {
                         // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
+                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                        tmp1 *= s_basis2[nq2 + k];
                         tmp += tmp1 * s_wsp0[1];
                     }
 
-                    out[outoffset + cnt_kji] = tmp;
+                    outptr[cnt_kji] = tmp;
                 }
             }
         }
@@ -1356,8 +2285,158 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
+template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+void BwdTransPyrKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
+                             const unsigned int nm2, const unsigned int nmTot,
+                             const unsigned int nq0, const unsigned int nq1,
+                             const unsigned int nq2, const unsigned int nelmt,
+                             const bool correct, const TData *__restrict basis0,
+                             const TData *__restrict basis1,
+                             const TData *__restrict basis2,
+                             const TData *__restrict in, TData *__restrict out,
+                             TData *__restrict shared,
+                             const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp0            = shared;
+    TData *s_wsp1            = s_wsp0 + nmTot;
+    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp0[idx] = inptr[idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 2
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int q  = idx % nm1;
+            const unsigned int p  = (idx / nm1) % nm0;
+            const unsigned int k  = idx / (nm1 * nm0);
+            unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
+            mode_pqr -= (p - 1u) * p / 2u;
+            mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
+            mode_pqr /= 2u;
+
+            if (q < p)
+            {
+                mode_pqr += q * (nm2 - p);
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                {
+                    tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                }
+                s_wsp1[idx] = tmp;
+            }
+            else
+            {
+                mode_pqr += p * (nm2 - p);
+                mode_pqr += ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
+
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                {
+                    tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                }
+                s_wsp1[idx] = tmp;
+            }
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 1
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int p  = idx % nm0;
+            const unsigned int j  = (idx / nm0) % nq1;
+            const unsigned int k  = idx / (nm0 * nq1);
+            unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p;
+
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
+            {
+                tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
+            }
+            s_wsp2[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        // direction 0
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i  = idx % nq0;
+            const unsigned int j  = (idx / nq0) % nq1;
+            const unsigned int k  = idx / (nq0 * nq1);
+            unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
+            }
+
+            if (correct)
+            {
+                // top vertex
+                TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
+                tmp1 += s_basis0[nq0 + i] * s_basis1[j];
+                tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp1 *= s_basis2[nq2 + k];
+                tmp += tmp1 * s_wsp0[1];
+            }
+
+            outptr[idx] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
 // Kernel launchers
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true>
+template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
+          bool SHMEM = true>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1369,61 +2448,62 @@ inline
     const unsigned int blocksize = std::min(
         MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if constexpr (MULTILEVEL)
     {
-        SYCLQueue::GetInstance()
-            .submit([=](sycl::handler &cgh) {
-                unsigned int nshared = nm0;
-                // Create local shared memory
-                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                      cgh);
-                // Set WorkGroup dimensions
-                const sycl::range<3> wgSize(1, 1, 32);
-                const sycl::range<3> globalSize =
-                    sycl::range<3>(1, 1, gridsize) * wgSize;
+        unsigned int nshared = nm0 + (SHMEM ? nm0 * nq0 : 0u);
 
-                cgh.parallel_for(
-                    sycl::nd_range<3>(globalSize, wgSize),
-                    [=](sycl::nd_item<3> item) {
-                        TData *shmPtr = shared
-                                            .template get_multi_ptr<
-                                                sycl::access::decorated::no>()
-                                            .get();
-                        BwdTransSegKernel_QP<TData>(nm0, nq0, nelmt, basis0, in,
-                                                    out, shmPtr, item);
-                    });
-            })
-            .wait();
+        Q.submit([=](sycl::handler &cgh) {
+             // Create local shared memory
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             // Set WorkGroup dimensions
+             const sycl::range<3> wgSize(1, 1, NektarSpaces::SYCL::width);
+             const sycl::range<3> globalSize =
+                 sycl::range<3>(1, 1, gridsize) * wgSize;
+
+             cgh.parallel_for(
+                 sycl::nd_range<3>(globalSize, wgSize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmPtr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     BwdTransSegKernel_QP<TData>(nm0, nq0, nelmt, basis0, in,
+                                                 out, shmPtr, item);
+                 });
+         }).wait();
     }
     else
     {
-        SYCLQueue::GetInstance()
-            .submit([=](sycl::handler &cgh) {
-                unsigned int nshared = nm0 * nq0;
-                // Create local shared memory
-                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                      cgh);
-                // Set WorkGroup dimensions
-                const sycl::range<3> wgSize(1, 1, blocksize);
-                const sycl::range<3> globalSize =
-                    sycl::range<3>(1, 1, gridsize) * wgSize;
+        unsigned int nshared = nm0 * nq0;
 
-                cgh.parallel_for(
-                    sycl::nd_range<3>(globalSize, wgSize),
-                    [=](sycl::nd_item<3> item) {
-                        TData *shmPtr = shared
-                                            .template get_multi_ptr<
-                                                sycl::access::decorated::no>()
-                                            .get();
-                        BwdTransSegKernel<TData>(nm0, nq0, nelmt, basis0, in,
-                                                 out, shmPtr, item);
-                    });
-            })
-            .wait();
+        Q.submit([=](sycl::handler &cgh) {
+             // Create local shared memory
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             // Set WorkGroup dimensions
+             const sycl::range<3> wgSize(1, 1, blocksize);
+             const sycl::range<3> globalSize =
+                 sycl::range<3>(1, 1, gridsize) * wgSize;
+
+             cgh.parallel_for(
+                 sycl::nd_range<3>(globalSize, wgSize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmPtr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     BwdTransSegKernel<TData, SHMEM>(nm0, nq0, nelmt, basis0,
+                                                     in, out, shmPtr, item);
+                 });
+         }).wait();
     }
 }
 
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true>
+template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
+          bool SHMEM = true>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1439,115 +2519,126 @@ inline
     const unsigned int blocksize = std::min(
         MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if (shapetype == LibUtilities::Quad)
     {
         const unsigned int nmTot =
             LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = nq0 * nm0 + nq1 * nm1;
+        unsigned int nshared = SHMEM ? (nq0 * nm0 + nq1 * nm1) : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + nq0 * nm1;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    // Create local shared memory
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize2d;
-
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize2d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransQuadKernel_QP<TData>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                basis1, in, out, shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize2d,
+                                       blocksize2d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransQuadKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
+                             in, out, shmPtr, item);
+                     });
+             }).wait();
+            // BwdTransQuadKernel_QP_1D<TData, SHMEM>
+            //    <<<gridsize, blocksize, nshared>>>(
+            //         nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in,
+            //         out);
         }
         else
         {
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-                    const sycl::range<3> wgSize(1, 1, blocksize);
-                    const sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * wgSize;
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, wgSize),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransQuadKernel<TData>(nm0, nm1, nmTot, nq0, nq1,
-                                                      nelmt, basis0, basis1, in,
-                                                      out, shmPtr, wsp, item);
-                        });
-                })
-                .wait();
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
+
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, wgSize),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransQuadKernel<TData, SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
+                             wsp, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tri)
     {
         const unsigned int nmTot =
             LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = nm0 * nq0 + nmTot * nq1;
+        unsigned int nshared = SHMEM ? (nm0 * nq0 + nmTot * nq1) : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + nm0 * nq1;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize2d;
-
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize2d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransTriKernel_QP<TData>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmt, correct,
-                                basis0, basis1, in, out, shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize2d,
+                                       blocksize2d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransTriKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
+                             basis1, in, out, shmPtr, item);
+                     });
+             }).wait();
+            // BwdTransTriKernel_QP_1D<TData, SHMEM>
+            //     <<<nelmt, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
+            //                                        nelmt, correct, basis0,
+            //                                        basis1, in, out);
         }
         else
         {
-            sycl::range<3> wgSize(1, 1, blocksize);
-            sycl::range<3> globalSize = sycl::range<3>(1, 1, gridsize) * wgSize;
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(globalSize, wgSize),
-                              [=](sycl::nd_item<3> item) {
-                                  BwdTransTriKernel<TData>(
-                                      nm0, nm1, nmTot, nq0, nq1, nelmt, correct,
-                                      basis0, basis1, in, out, wsp, item);
-                              })
-                .wait();
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
+
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, wgSize),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransTriKernel<TData, SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
+                             basis1, wsp, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
 }
 
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true>
+template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
+          bool SHMEM = true>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1566,59 +2657,53 @@ inline
     const unsigned int blocksize = std::min(
         MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if (shapetype == LibUtilities::Hex)
     {
         const unsigned int nmTot =
             LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared = nq0 * nm0 + nq1 * nm1 + nq2 * nm2;
-
+        unsigned int nshared = SHMEM ? (nq0 * nm0 + nq1 * nm1 + nq2 * nm2) : 0u;
         if constexpr (MULTILEVEL)
         {
-            nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
-                       (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
+            nshared += (nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
+                        (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2));
 
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize3d;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize3d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransHexKernel_QP<TData>(
-                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                basis0, basis1, basis2, in, out, shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransHexKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
+                             basis1, basis2, in, out, shmPtr, item);
+                     });
+             }).wait();
+            // BwdTransHexKernel_QP_1D<TData, SHMEM>
+            //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nmTot, nq0,
+            //                                          nq1, nq2, nelmt,
+            //                                          basis0, basis1, basis2,
+            //                                          in, out);
         }
         else
         {
-            /**
-             * NOTE: THIS HAS BEEN LEFT IN FOR COMPLETENESS
-             * The orginal kernel was not designed to use `wsp` parameter and
-             * since the kernels will need to be redone to match the CUDA
-             * versions it will be updated then.
-             */
-            sycl::queue &Q = SYCLQueue::GetInstance();
-            sycl::range<3> wgSize(1, 1, blocksize);
-            sycl::range<3> globalSize = sycl::range<3>(1, 1, gridsize) * wgSize;
-            TData *device_wsp1 =
-                sycl::malloc_device<TData>(globalSize.size() * nm1 * nm2, Q);
-            TData *device_wsp2 =
-                sycl::malloc_device<TData>(globalSize.size() * nm2, Q);
-
             Q.submit([=](sycl::handler &cgh) {
-                 // Create local shared memory accessor
+                 // Create local shared memory
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
+
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
                  cgh.parallel_for(
                      sycl::nd_range<3>(globalSize, wgSize),
@@ -1627,15 +2712,11 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransHexKernel<TData>(
+                         BwdTransHexKernel<TData, SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
-                             basis1, basis2, in, out, shmPtr, device_wsp1,
-                             device_wsp2, item);
+                             basis1, basis2, wsp, in, out, shmPtr, item);
                      });
              }).wait();
-
-            sycl::free(device_wsp1, Q);
-            sycl::free(device_wsp2, Q);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -1643,63 +2724,66 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared    = nm0 * nq0 + nm01 * nq1 + nmTot * nq2;
-
+        unsigned int nshared =
+            SHMEM ? (nm0 * nq0 + nm01 * nq1 + nmTot * nq2) : 0u;
         if constexpr (MULTILEVEL)
         {
-            nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
-                       (nm0 * nq1 * nq2);
+            nshared += (nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
+                        (nm0 * nq1 * nq2));
 
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize3d;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize3d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransTetKernel_QP<TData>(
-                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                correct, basis0, basis1, basis2, in, out,
-                                shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransTetKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, basis0, basis1, basis2, in, out, shmPtr,
+                             item);
+                     });
+             }).wait();
+            // unsigned int *pindex;
+            // unsigned int *qindex;
+            // cudaMalloc((void **)&pindex, sizeof(unsigned int)*nm01);
+            // cudaMalloc((void **)&qindex, sizeof(unsigned int)*nm01);
+            // BwdTransTetKernel_QP_1D<TData, SHMEM>
+            //     <<<gridsize, blocksize, nshared>>>(
+            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
+            //         pindex, qindex, basis0, basis1, basis2, in, out);
         }
         else
         {
-            /**
-             * NOTE: THIS HAS BEEN LEFT IN FOR COMPLETENESS
-             * The orginal kernel was not designed to use `wsp` parameter and
-             * since the kernels will need to be redone to match the CUDA
-             * versions it will be updated then.
-             */
-            sycl::queue &Q = SYCLQueue::GetInstance();
-            sycl::range<3> wgSize(1, 1, blocksize);
-            sycl::range<3> globalSize = sycl::range<3>(1, 1, gridsize) * wgSize;
-            TData *device_fpq         = sycl::malloc_device<TData>(
-                globalSize.size() * (2 * nm1 - nm0 + 1) * nm0 / 2, Q);
-            TData *device_fp =
-                sycl::malloc_device<TData>(globalSize.size() * nm0, Q);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            Q.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
-                           [=](sycl::nd_item<3> item) {
-                               BwdTransTetKernel<TData>(
-                                   nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                   correct, basis0, basis1, basis2, in, out,
-                                   device_fpq, device_fp, item);
-                           })
-                .wait();
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
-            sycl::free(device_fpq, Q);
-            sycl::free(device_fp, Q);
+                 cgh.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
+                                  [=](sycl::nd_item<3> item) {
+                                      TData *shmPtr =
+                                          shared
+                                              .template get_multi_ptr<
+                                                  sycl::access::decorated::no>()
+                                              .get();
+                                      BwdTransTetKernel<TData, SHMEM>(
+                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                          nelmt, correct, basis0, basis1,
+                                          basis2, wsp, in, out, shmPtr, item);
+                                  });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -1707,123 +2791,119 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-        unsigned int nshared    = nm0 * nq0 + nm1 * nq1 + nm12 * nq2;
+        unsigned int nshared =
+            SHMEM ? (nm0 * nq0 + nm1 * nq1 + nm12 * nq2) : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize3d;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize3d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransPrismKernel_QP<TData>(
-                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                correct, basis0, basis1, basis2, in, out,
-                                shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransPrismKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, basis0, basis1, basis2, in, out, shmPtr,
+                             item);
+                     });
+             }).wait();
+            // BwdTransPrismKernel_QP_1D<TData, SHMEM>
+            //     <<<gridsize, blocksize, nshared>>>(
+            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
+            //         basis0, basis1, basis2, in, out);
         }
         else
         {
-            /**
-             * NOTE: THIS HAS BEEN LEFT IN FOR COMPLETENESS
-             * The orginal kernel was not designed to use `wsp` parameter and
-             * since the kernels will need to be redone to match the CUDA
-             * versions it will be updated then.
-             */
-            sycl::queue &Q = SYCLQueue::GetInstance();
-            sycl::range<3> wgSize(1, 1, blocksize);
-            sycl::range<3> globalSize = sycl::range<3>(1, 1, gridsize) * wgSize;
-            TData *device_fpq =
-                sycl::malloc_device<TData>(globalSize.size() * nm0 * nm1, Q);
-            TData *device_fp =
-                sycl::malloc_device<TData>(globalSize.size() * nm0, Q);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            Q.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
-                           [=](sycl::nd_item<3> item) {
-                               BwdTransPrismKernel<TData>(
-                                   nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                   correct, basis0, basis1, basis2, in, out,
-                                   device_fpq, device_fp, item);
-                           })
-                .wait();
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
-            sycl::free(device_fpq, Q);
-            sycl::free(device_fp, Q);
+                 cgh.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
+                                  [=](sycl::nd_item<3> item) {
+                                      TData *shmPtr =
+                                          shared
+                                              .template get_multi_ptr<
+                                                  sycl::access::decorated::no>()
+                                              .get();
+                                      BwdTransPrismKernel<TData, SHMEM>(
+                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                          nelmt, correct, basis0, basis1,
+                                          basis2, wsp, in, out, shmPtr, item);
+                                  });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Pyr)
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared = nm0 * nq0 + nm1 * nq1 + nmTot * nq2;
-
+        unsigned int nshared = SHMEM ? nm0 * nq0 + nm1 * nq1 + nmTot * nq2 : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
-            SYCLQueue::GetInstance()
-                .submit([=](sycl::handler &cgh) {
-                    unsigned int nshared =
-                        nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
-                    sycl::range<3> globalSize =
-                        sycl::range<3>(1, 1, gridsize) * blocksize3d;
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(globalSize, blocksize3d),
-                        [=](sycl::nd_item<3> item) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            BwdTransPyrKernel_QP<TData>(
-                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                correct, basis0, basis1, basis2, in, out,
-                                shmPtr, item);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransPyrKernel_QP<TData, SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, basis0, basis1, basis2, in, out, shmPtr,
+                             item);
+                     });
+             }).wait();
+            // BwdTransPyrKernel_QP_1D<TData, SHMEM>
+            //     <<<gridsize, blocksize, nshared>>>(
+            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
+            //         basis0, basis1, basis2, in, out);
         }
         else
         {
-            /**
-             * NOTE: THIS HAS BEEN LEFT IN FOR COMPLETENESS
-             * The orginal kernel was not designed to use `wsp` parameter and
-             * since the kernels will need to be redone to match the CUDA
-             * versions it will be updated then.
-             */
-            sycl::queue &Q = SYCLQueue::GetInstance();
-            sycl::range<3> wgSize(1, 1, blocksize);
-            sycl::range<3> globalSize = sycl::range<3>(1, 1, gridsize) * wgSize;
-            TData *device_fpq =
-                sycl::malloc_device<TData>(globalSize.size() * nm0 * nm1, Q);
-            TData *device_fp =
-                sycl::malloc_device<TData>(globalSize.size() * nm0, Q);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-            Q.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
-                           [=](sycl::nd_item<3> item) {
-                               BwdTransPyrKernel<TData>(
-                                   nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                   correct, basis0, basis1, basis2, in, out,
-                                   device_fpq, device_fp, item);
-                           })
-                .wait();
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
-            sycl::free(device_fpq, Q);
-            sycl::free(device_fp, Q);
+                 cgh.parallel_for(sycl::nd_range<3>(globalSize, wgSize),
+                                  [=](sycl::nd_item<3> item) {
+                                      TData *shmPtr =
+                                          shared
+                                              .template get_multi_ptr<
+                                                  sycl::access::decorated::no>()
+                                              .get();
+                                      BwdTransPyrKernel<TData, SHMEM>(
+                                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                          nelmt, correct, basis0, basis1,
+                                          basis2, wsp, in, out, shmPtr, item);
+                                  });
+             }).wait();
         }
     }
 }
