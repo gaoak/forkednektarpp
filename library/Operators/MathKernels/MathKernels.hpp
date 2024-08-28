@@ -327,11 +327,7 @@ div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-reduceSum(Field<TData, TFieldState> &x, TData *out)
+void reduceSum(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -349,27 +345,8 @@ reduceSum(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-reduceSum(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    reduceSumKernel<ExecSpace>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-reduceMax(Field<TData, TFieldState> &x, TData *out)
+void reduceMax(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -387,27 +364,8 @@ reduceMax(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-reduceMax(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    reduceMaxKernel<ExecSpace>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-reduceMin(Field<TData, TFieldState> &x, TData *out)
+void reduceMin(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -425,27 +383,9 @@ reduceMin(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-reduceMin(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    reduceMinKernel<ExecSpace>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
+void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+          TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -473,36 +413,8 @@ ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-ddot(MemoryRegion<TData> &x, MemoryRegion<TData> &y, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    if (x.size() != y.size())
-    {
-        std::stringstream msg;
-
-        msg << "MathKernel::ddot - Memory size mismatch between Field";
-        NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-    }
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    ddotKernel<ExecSpace>(nsize, xptr, yptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-l1norm(Field<TData, TFieldState> &x, TData *out)
+void l1norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -520,27 +432,8 @@ l1norm(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-l1norm(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    l1norm<ExecSpace>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-l2norm(Field<TData, TFieldState> &x, TData *out)
+void l2norm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -558,27 +451,8 @@ l2norm(Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-l2norm(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    l2norm<ExecSpace>(nsize, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
+void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -596,27 +470,8 @@ lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     }
 }
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-lpnorm(const unsigned int p, MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    lpnorm<ExecSpace>(nsize, p, xptr, out);
-}
-
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-linfnorm(Field<TData, TFieldState> &x, TData *out)
+void linfnorm(Field<TData, TFieldState> &x, TData *out)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -632,21 +487,6 @@ linfnorm(Field<TData, TFieldState> &x, TData *out)
         xptr += block.block_size;
         *out = std::max(*out, reduce);
     }
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-linfnorm(MemoryRegion<TData> &x, TData *out)
-{
-    using MemSpace = typename ExecSpace::memory_space;
-
-    auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    linfnorm<ExecSpace>(nsize, xptr, out);
 }
 
 } // namespace Nektar

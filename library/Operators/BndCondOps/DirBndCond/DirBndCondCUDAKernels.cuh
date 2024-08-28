@@ -73,6 +73,20 @@ __global__ void DirBndCondKernel(const unsigned int nsize,
 }
 
 template <typename TData>
+__global__ void ParallelDirBndSignKernel(const unsigned int nsize,
+                                         const int *__restrict__ signPtr,
+                                         TData *__restrict__ outPtr)
+{
+    unsigned int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+    while (i < nsize)
+    {
+        outPtr[signPtr[i]] *= -1;
+        i += blockDim.x * gridDim.x;
+    }
+}
+
+template <typename TData>
 __global__ void LocalDirBndCondKernel(const unsigned int nsize,
                                       const int *__restrict__ id0Ptr,
                                       const int *__restrict__ id1Ptr,
@@ -99,8 +113,7 @@ inline
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    DirBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, mapPtr, inPtr, outPtr);
+    DirBndCondKernel<<<gridSize, blockSize>>>(nsize, mapPtr, inPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -113,8 +126,21 @@ inline
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    DirBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, signPtr, mapPtr, inPtr, outPtr);
+    DirBndCondKernel<<<gridSize, blockSize>>>(nsize, signPtr, mapPtr, inPtr,
+                                              outPtr);
+}
+
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+                             TData *outPtr)
+{
+    const unsigned int blockSize = 256u;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+
+    ParallelDirBndSignKernel<<<gridSize, blockSize>>>(nsize, signPtr, outPtr);
 }
 
 template <typename ExecSpace, typename TData>
@@ -128,8 +154,8 @@ inline
     const unsigned int blockSize = 256u;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
-    LocalDirBndCondKernel<TData>
-        <<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr, signPtr, outPtr);
+    LocalDirBndCondKernel<<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr,
+                                                   signPtr, outPtr);
 }
 
 } // namespace Nektar::Operators::detail

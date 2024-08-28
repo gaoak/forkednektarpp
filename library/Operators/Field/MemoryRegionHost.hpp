@@ -77,8 +77,7 @@ public:
      * @param size      - size of memory
      * @param alignment - memory alignment
      */
-    MemoryRegionHost(std::string name, size_t size,
-                     size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    MemoryRegionHost(std::string name, size_t size, size_t alignment)
     {
         m_size = size;
 
@@ -118,7 +117,7 @@ public:
      */
     template <typename TDataIn>
     MemoryRegionHost(std::string name, const TDataIn *src, const size_t size,
-                     size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                     size_t alignment)
     {
         m_size = size;
 

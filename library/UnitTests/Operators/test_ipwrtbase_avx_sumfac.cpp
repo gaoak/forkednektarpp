@@ -52,7 +52,7 @@
                     fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
         IProductWRTBase<>::template create<ExecSpace, Impl>(fixt_explist)      \
             ->apply(*fixt_in, *fixt_out);                                      \
-        fixt_out->ReshapeStorage<1>();                                         \
+        fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \

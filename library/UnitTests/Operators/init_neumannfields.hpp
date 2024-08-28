@@ -57,14 +57,52 @@ public:
     {
     }
 
-    void ExpectedSolution(
-        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
-        [[maybe_unused]] double *inptr)
+    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
+                          double *inptr)
     {
-        using ExecSpace = NektarSpaces::Serial;
-        using Impl      = Operators::StdMat;
+        using ExecSpace     = NektarSpaces::Serial;
+        using Impl          = Operators::StdMat;
+        const auto stateOut = FieldState::Coeff;
+
+        auto blocks_tmp = GetBlockAttributes(stateOut, fixt_explist,
+                                             NektarSpaces::Serial::width);
+        auto f_tmp =
+            Field<double, stateOut>::template create<NektarSpaces::HostSpace>(
+                "f_out", blocks_tmp, 1, NektarSpaces::Serial::alignment);
+        auto fixt_tmp = new Field<double, stateOut>(std::move(f_tmp));
+
         NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_expected);
+            ->apply(*fixt_tmp);
+
+        // Copy expected result from Array to fixt_expected
+        const double *ptr =
+            fixt_tmp->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (size_t bl = 0; bl < blocks.size(); bl++)
+        {
+            for (size_t el = 0; el < blocks[bl].num_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < blocks[bl].num_pts; ++coeff)
+                {
+                    (*inptr++) = (*ptr++);
+                }
+            }
+            for (size_t el = 0; el < blocks[bl].num_padding_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < blocks[bl].num_pts; ++coeff)
+                {
+                    inptr++;
+                }
+            }
+            for (size_t el = 0; el < blocks_tmp[bl].num_padding_elements; ++el)
+            {
+                for (size_t coeff = 0; coeff < blocks_tmp[bl].num_pts; ++coeff)
+                {
+                    ptr++;
+                }
+            }
+        }
+
+        delete fixt_tmp;
     }
 };
 

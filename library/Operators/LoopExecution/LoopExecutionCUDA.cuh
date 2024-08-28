@@ -157,9 +157,11 @@ __global__ void reduceSumKernel(const unsigned int begin,
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
+    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = 0;
 
     if (block.thread_rank() == 0)
@@ -197,11 +199,12 @@ __global__ void reduceMaxKernel(const unsigned int begin,
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr TData min = ::cuda::std::numeric_limits<TData>::min();
+    constexpr TData min             = ::cuda::std::numeric_limits<TData>::min();
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
+    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = min;
 
     if (block.thread_rank() == 0)
@@ -238,11 +241,12 @@ __global__ void reduceMinKernel(const unsigned int begin,
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr TData max = ::cuda::std::numeric_limits<TData>::max();
+    constexpr TData max             = ::cuda::std::numeric_limits<TData>::max();
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
-    auto warp  = cg::tiled_partition<32>(block);
+    auto warp  = cg::tiled_partition<warpsize>(block);
     TData v    = max;
 
     if (block.thread_rank() == 0)
@@ -299,6 +303,8 @@ inline
 
     TData *buffer = (TData *)cudaBuffer;
 
+    TData *d_out;
+    cudaMalloc((void **)&d_out, sizeof(TData));
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>
@@ -329,6 +335,8 @@ inline
                 ans = min(ans, buffer[i]);
             });
     }
+    cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
+    cudaFree(d_out);
 }
 
 } // namespace Nektar

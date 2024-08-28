@@ -36,6 +36,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
+
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
 
@@ -63,7 +64,7 @@ public:
         auto derivFac = Operator<TData>::SetDerivativeFactor(m_dfSize);
 
         m_derivFac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the points.
         m_pointMap =

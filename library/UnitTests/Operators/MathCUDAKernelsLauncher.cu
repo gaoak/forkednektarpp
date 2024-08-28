@@ -71,78 +71,44 @@ void divKernelLauncher(const size_t n, const double *x, const double *y,
     divKernel<ExecSpace, double>(n, x, y, z);
 }
 
-void sumKernelLauncher(const size_t n, const double *x, double *h_out)
+void sumKernelLauncher(const size_t n, const double *x, double *out)
 {
-
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    reduceSumKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    reduceSumKernel<ExecSpace, double>(n, x, out);
 }
 
-void maxKernelLauncher(const size_t n, const double *x, double *h_out)
+void maxKernelLauncher(const size_t n, const double *x, double *out)
 {
-
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    reduceMaxKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    reduceMaxKernel<ExecSpace, double>(n, x, out);
 }
 
-void minKernelLauncher(const size_t n, const double *x, double *h_out)
+void minKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    reduceMinKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    reduceMinKernel<ExecSpace, double>(n, x, out);
 }
 
 void innerproductKernelLauncher(const size_t n, const double *x,
-                                const double *y, double *h_out)
+                                const double *y, double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    ddotKernel<ExecSpace, double>(n, x, y, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    ddotKernel<ExecSpace, double>(n, x, y, out);
 }
 
-void l1normKernelLauncher(const size_t n, const double *x, double *h_out)
+void l1normKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    l1normKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    l1normKernel<ExecSpace, double>(n, x, out);
 }
 
-void l2normKernelLauncher(const size_t n, const double *x, double *h_out)
+void l2normKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    l2normKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    l2normKernel<ExecSpace, double>(n, x, out);
 }
 
 void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *h_out)
+                          double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    lpnormKernel<ExecSpace, double>(n, p, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    lpnormKernel<ExecSpace, double>(n, p, x, out);
 }
 
-void linfnormKernelLauncher(const size_t n, const double *x, double *h_out)
+void linfnormKernelLauncher(const size_t n, const double *x, double *out)
 {
-    double *d_out;
-    cudaMalloc((void **)&d_out, sizeof(double));
-    linfnormKernel<ExecSpace, double>(n, x, d_out);
-    cudaMemcpy(h_out, d_out, sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(d_out);
+    linfnormKernel<ExecSpace, double>(n, x, out);
 }

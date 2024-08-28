@@ -34,8 +34,16 @@
 
 #pragma once
 
+#include "ElmtOps/OperatorHelmholtz.hpp"
+
+#include "ElmtOps/OperatorBwdTrans.hpp"
+#include "ElmtOps/OperatorIProductWRTBase.hpp"
+#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "ElmtOps/OperatorPhysDeriv.hpp"
+
+#include "Common/OperatorHelper.hpp"
+
 #include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzImplBase.hpp"
 #include "Operators/ElmtOps/Helmholtz/HelmholtzKokkosSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
@@ -48,24 +56,40 @@ template <typename ExecSpace, typename Implementation, typename TData,
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
                std::is_same<Implementation, Operators::SumFac>::value)>::type>
-class OperatorHelmholtzImpl
-    : public OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>
+class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>(
-              expansionList),
+        : OperatorHelmholtz<TData>(expansionList),
           m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz bwd",
-              GetBlockAttributes(FieldState::Phys, expansionList))),
-
+              GetBlockAttributes(FieldState::Phys, expansionList,
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz deriv",
-              GetBlockAttributes(FieldState::Phys, expansionList),
-              expansionList->GetCoordim(0)))
+              GetBlockAttributes(FieldState::Phys, expansionList,
+                                 ExecSpace::width),
+              expansionList->GetCoordim(0), ExecSpace::alignment)),
+          m_diffCoeff(MemoryRegion<TData>::template create<MemSpace>(
+              "Helmholtz diffCoeff",
+              expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
+              ExecSpace::alignment))
     {
+        auto nCoord = this->m_expansionList->GetCoordim(0);
+
+        m_diffCoeff.initialize(0);
+
+        TData *diffCoeff =
+            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        for (size_t d = 0; d < nCoord; d++)
+        {
+            diffCoeff[d * nCoord + d] = 1.0; // temporary solution
+        }
+
         m_BwdTransOp =
             BwdTrans<TData>::template create<ExecSpace, Implementation>(
                 this->m_expansionList);
@@ -151,6 +175,9 @@ public:
         }
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -169,6 +196,8 @@ private:
 
     Field<TData, FieldState::Phys> m_bwd;
     Field<TData, FieldState::Phys> m_deriv;
+
+    MemoryRegion<TData> m_diffCoeff;
 };
 
 } // namespace Nektar::Operators::detail

@@ -55,7 +55,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        fixt_out->ReshapeStorage<1>();                                         \
+        fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
         BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

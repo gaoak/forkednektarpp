@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MatrixKernels.hpp
+// File: UtilsSerial.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,35 +34,58 @@
 
 #pragma once
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
-namespace Nektar::Operators::detail
+namespace Nektar
 {
 
-// Generic kernel launchers except for CUDA.
-template <typename ExecSpace, typename TData>
+template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-MatrixKernel(const size_t nElmts, const size_t numPts, const size_t size,
-             const TData *mat, const TData *in, TData *out)
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+interleave(const unsigned int numMetaBlocks, const unsigned int metaBlockSize,
+           const unsigned int dataLen, TData *inout)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0, nElmts, NEKTAR_LAMBDA(int e) {
-            const TData *matrix = mat + e * numPts;
-            const TData *inPtr  = in + e * numPts;
-            TData *outPtr       = out + e * numPts;
+    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
 
-            for (size_t j = 0; j < size * size; j += size)
+    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    {
+        std::copy(inout, inout + metaBlockSize, wsp.get());
+
+        for (unsigned int idx = 0; idx < dataLen; ++idx)
+        {
+            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
             {
-                for (size_t i = 0; i < numPts; ++i)
-                {
-                    outPtr[i] += inPtr[i] * matrix[j + i];
-                }
+                inout[idx * VectorWidth + vecElem] =
+                    wsp[vecElem * dataLen + idx];
             }
-        });
+        }
+        inout += metaBlockSize;
+    }
 }
 
-} // namespace Nektar::Operators::detail
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+             const unsigned int metaBlockSize, const unsigned int dataLen,
+             TData *inout)
+{
+    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
+
+    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    {
+        std::copy(inout, inout + metaBlockSize, wsp.get());
+
+        for (unsigned int idx = 0; idx < dataLen; ++idx)
+        {
+            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
+            {
+                inout[vecElem * dataLen + idx] =
+                    wsp[idx * VectorWidth + vecElem];
+            }
+        }
+        inout += metaBlockSize;
+    }
+}
+
+} // namespace Nektar

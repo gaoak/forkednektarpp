@@ -34,18 +34,14 @@
 
 #pragma once
 
-#include "GlobalLinSysOps/OperatorConjGrad.hpp"
-#include "GlobalLinSysOps/OperatorFwdTrans.hpp"
-
 #include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/ElmtOps/OperatorMass.hpp"
 #include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
+#include "Operators/GlobalLinSysOps/OperatorFwdTrans.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
-
-using vec_t = tinysimd::simd<double>;
 
 namespace Nektar::Operators::detail
 {
@@ -62,13 +58,13 @@ public:
           m_rhs(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "FwdTrans RHS",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment)),
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
           m_tmp(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "FwdTrans TMP",
               GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 vec_t::width),
-              1, vec_t::alignment))
+                                 ExecSpace::width),
+              1, ExecSpace::alignment))
     {
         m_MassOp = Mass<TData>::template create<ExecSpace, Implementation>(
             this->m_expansionList);
@@ -116,6 +112,9 @@ public:
         m_CGOp->setPrecon(precon);
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -124,9 +123,6 @@ public:
             OperatorFwdTransImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    // className - for OperatorFactory
-    static std::string className;
 
 protected:
     std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;

@@ -35,11 +35,12 @@
 #pragma once
 
 #include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/Field/MemoryRegion.hpp"
+
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
-#include "Operators/Field/MemoryRegion.hpp"
 
 #define FLAG_QP false // TODO: to be removed
 
@@ -191,7 +192,8 @@ public:
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                    m_wspsize,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
             }
 
             if (m_wspsize > 0)

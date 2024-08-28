@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail

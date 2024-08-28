@@ -117,7 +117,8 @@ MemoryRegion<TDataOut> GetBasisData(
 
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-            return MemoryRegion<TDataOut>::template create<MemSpace>(0);
+            return MemoryRegion<TDataOut>::template create<MemSpace>(0,
+                                                                     alignment);
             break;
     }
 }

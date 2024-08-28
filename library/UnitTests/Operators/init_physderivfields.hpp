@@ -462,7 +462,7 @@ public:
         }                                                                      \
     };
 
-TEST1D(Seg, "run/line.xml")
+TEST1D(Seg, "run/segment.xml")
 
 #define TEST2D(type, filename)                                                 \
     class type : public PhysDerivField2D                                       \

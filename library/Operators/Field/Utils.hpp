@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssmbScatrKokkosGeneric.hpp
+// File: Utils.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,4 +34,8 @@
 
 #pragma once
 
-#include "AssmbScatrImplShared.hpp"
+#include "UtilsAVX.hpp"
+#include "UtilsCUDA.hpp"
+#include "UtilsKokkos.hpp"
+#include "UtilsSYCL.hpp"
+#include "UtilsSerial.hpp"

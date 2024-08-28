@@ -35,9 +35,10 @@
 #pragma once
 
 #include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 
 #define FLAG_QP false // TODO: to be removed
 
@@ -65,7 +66,7 @@ public:
         auto jac       = Operator<TData>::SetJacobian(jacSize);
 
         m_jac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
         m_basisMap =
@@ -324,7 +325,8 @@ public:
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                    m_wspsize,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
             }
 
             if (m_wspsize > 0)

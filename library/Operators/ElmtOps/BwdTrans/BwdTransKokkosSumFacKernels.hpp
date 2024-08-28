@@ -50,7 +50,7 @@ void BwdTransSegKernel(const unsigned int nm0, const unsigned int nq0,
                        const TData *KOKKOS_RESTRICT in,
                        TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     Kokkos::parallel_for(
         nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
@@ -139,7 +139,7 @@ void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
                         const TData *KOKKOS_RESTRICT in,
                         TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1;
 
@@ -380,7 +380,7 @@ void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
                        const TData *KOKKOS_RESTRICT in,
                        TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1;
 
@@ -641,7 +641,7 @@ void BwdTransHexKernel(
     const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -962,7 +962,7 @@ void BwdTransTetKernel(
     const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -1400,7 +1400,7 @@ void BwdTransPrismKernel(
     const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -1759,7 +1759,7 @@ void BwdTransPyrKernel(
     const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 

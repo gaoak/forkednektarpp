@@ -581,10 +581,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     reduceSumKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                            (TData *)syclBuffer);
     reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -598,10 +601,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     reduceMaxKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                            (TData *)syclBuffer);
     reduceMaxKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -615,10 +621,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     reduceMinKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                            (TData *)syclBuffer);
     reduceMinKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -633,10 +642,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     ddotKernel<TData>(syclGridSize, syclBlockSize, nsize, x, y,
                       (TData *)syclBuffer);
     reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -650,10 +662,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     l1normKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                         (TData *)syclBuffer);
     reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -667,10 +682,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     l2normKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                         (TData *)syclBuffer);
     reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -685,10 +703,13 @@ inline
         syclBuffer =
             sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     lpnormKernel<TData>(syclGridSize, syclBlockSize, nsize, p, x,
                         (TData *)syclBuffer);
     reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 template <typename ExecSpace, typename TData>
@@ -702,10 +723,13 @@ inline
         syclBuffer = (void *)sycl::malloc_device<TData>(
             syclGridSize, SYCLQueue::GetInstance());
     }
+    TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
     linfnormKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
                           (TData *)syclBuffer);
     reduceMaxKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           out);
+                           d_out);
+    SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
+    sycl::free(d_out, SYCLQueue::GetInstance());
 }
 
 } // namespace Nektar

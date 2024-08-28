@@ -52,10 +52,6 @@ ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmsolve_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_identitycoeff_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_serial_stdmat.cpp)
-ADD_NEKTAR_EXECUTABLE(test_identityphys_serial_stdmat
-    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_stdmat.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_stdmat
@@ -110,10 +106,6 @@ IF(NEKTAR_ENABLE_CUDA)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_cuda_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmsolve_cuda_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_cuda_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identityphys_cuda_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_cuda_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_cuda_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_cuda_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_cuda_sumfac
@@ -150,10 +142,6 @@ IF(NEKTAR_ENABLE_SYCL)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmsolve_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_sycl_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identityphys_sycl_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_sycl_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_sycl_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_sycl_sumfac
@@ -190,10 +178,6 @@ IF(NEKTAR_ENABLE_KOKKOS)
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_kokkos_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmsolve_kokkos_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmsolve_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identitycoeff_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identitycoeff_kokkos_sumfac.cpp)
-    ADD_NEKTAR_EXECUTABLE(test_identityphys_kokkos_sumfac
-        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_identityphys_kokkos_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_kokkos_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_kokkos_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_kokkos_sumfac
@@ -212,10 +196,10 @@ ENDIF()
 
 # Macro
 MACRO(SET_UNIT_TEST testname name mpi_flag)
-    IF (mpi_flag)
+    IF (${mpi_flag})
         ADD_TEST(
           NAME Operators${testname}MPI
-          COMMAND mpirun -np 2 ${name} --detect_memory_leaks=0
+          COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 2 ${CMAKE_CURRENT_BINARY_DIR}/${name} --detect_memory_leaks=0
       )
     ELSE()
         ADD_TEST(
@@ -232,13 +216,17 @@ SET_UNIT_TEST(AddTraceIntegral_serial_stdmat test_addtraceintegral_serial_stdmat
 SET_UNIT_TEST(BwdTrans_serial_stdmat test_bwdtrans_serial_stdmat FALSE)
 SET_UNIT_TEST(DiagPrecon_serial_stdmat test_diagprecon_serial_stdmat FALSE)
 SET_UNIT_TEST(Dirichlet_serial_stdmat test_dirichlet_serial_stdmat FALSE)
-SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat ${NEKTAR_USE_MPI})
+SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat FALSE)
+#IF (NEKTAR_USE_MPI AND NOT NEKTAR_ENABLE_SYCL)
+#    SET_UNIT_TEST(FwdTrans_serial_stdmat test_fwdtrans_serial_stdmat TRUE)
+#ENDIF()
 SET_UNIT_TEST(Helmholtz_serial_stdmat test_helmholtz_serial_stdmat FALSE)
-SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat ${NEKTAR_USE_MPI})
+SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat FALSE)
+#IF (NEKTAR_USE_MPI AND NOT NEKTAR_ENABLE_SYCL)
+#    SET_UNIT_TEST(HelmSolve_serial_stdmat test_helmsolve_serial_stdmat TRUE)
+#ENDIF()
 SET_UNIT_TEST(IProductWRTBase_serial_stdmat test_ipwrtbase_serial_stdmat FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_stdmat test_ipwrtderivbase_serial_stdmat FALSE)
-SET_UNIT_TEST(IdentityCoeff_serial_stdmat test_identitycoeff_serial_stdmat FALSE)
-SET_UNIT_TEST(IdentityPhys_serial_stdmat test_identityphys_serial_stdmat FALSE)
 SET_UNIT_TEST(Mass_serial_stdmat test_mass_serial_stdmat FALSE)
 SET_UNIT_TEST(MultiplyByElmtInvMass_serial_stdmat test_multiplybyelmtinvmass_serial_stdmat FALSE)
 SET_UNIT_TEST(Neumann_serial_stdmat test_neumann_serial_stdmat FALSE)
@@ -266,12 +254,16 @@ IF(NEKTAR_ENABLE_CUDA)
     SET_UNIT_TEST(DiagPrecon_cuda_sumfac test_diagprecon_cuda_sumfac FALSE)
     SET_UNIT_TEST(Dirichlet_cuda_sumfac test_dirichlet_cuda_sumfac FALSE)
     SET_UNIT_TEST(FwdTrans_cuda_sumfac test_fwdtrans_cuda_sumfac FALSE)
+    #IF (NEKTAR_USE_MPI)
+    #    SET_UNIT_TEST(FwdTrans_cuda_sumfac test_fwdtrans_cuda_sumfac TRUE)
+    #ENDIF()
     SET_UNIT_TEST(Helmholtz_cuda_sumfac test_helmholtz_cuda_sumfac FALSE)
     SET_UNIT_TEST(HelmSolve_cuda_sumfac test_helmsolve_cuda_sumfac FALSE)
+    #IF (NEKTAR_USE_MPI)
+    #    SET_UNIT_TEST(HelmSolve_cuda_sumfac test_helmsolve_cuda_sumfac TRUE)
+    #ENDIF()
     SET_UNIT_TEST(IProductWRTBase_cuda_sumfac test_ipwrtbase_cuda_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_cuda_sumfac test_ipwrtderivbase_cuda_sumfac FALSE)
-    SET_UNIT_TEST(IdentityCoeff_cuda_sumfac test_identitycoeff_cuda_sumfac FALSE)
-    SET_UNIT_TEST(IdentityPhys_cuda_sumfac test_identityphys_cuda_sumfac FALSE)
     SET_UNIT_TEST(Mass_cuda_sumfac test_mass_cuda_sumfac FALSE)
     SET_UNIT_TEST(MultiplyByElmtInvMass_cuda_sumfac test_multiplybyelmtinvmass_cuda_sumfac FALSE)
     SET_UNIT_TEST(Neumann_cuda_sumfac test_neumann_cuda_sumfac FALSE)
@@ -292,8 +284,6 @@ IF(NEKTAR_ENABLE_SYCL)
     #SET_UNIT_TEST(HelmSolve_sycl_sumfac test_helmsolve_sycl_sumfac FALSE)
     #SET_UNIT_TEST(IProductWRTBase_sycl_sumfac test_ipwrtbase_sycl_sumfac FALSE)
     #SET_UNIT_TEST(IProductWRTDerivBase_sycl_sumfac test_ipwrtderivbase_sycl_sumfac FALSE)
-    SET_UNIT_TEST(IdentityCoeff_sycl_sumfac test_identitycoeff_sycl_sumfac FALSE)
-    SET_UNIT_TEST(IdentityPhys_sycl_sumfac test_identityphys_sycl_sumfac FALSE)
     #SET_UNIT_TEST(Mass_sycl_sumfac test_mass_sycl_sumfac FALSE)
     #SET_UNIT_TEST(MultiplyByElmtInvMass_sycl_sumfac test_multiplybyelmtinvmass_sycl_sumfac FALSE)
     SET_UNIT_TEST(Neumann_sycl_sumfac test_neumann_sycl_sumfac FALSE)
@@ -314,10 +304,14 @@ IF((NOT ${NEKTAR_ENABLE_SIMD_AVX2}) AND (NOT ${NEKTAR_ENABLE_SIMD_AVX512}))
         SET_UNIT_TEST(DiagPrecon_kokkos_sumfac test_diagprecon_kokkos_sumfac FALSE)
         SET_UNIT_TEST(Dirichlet_kokkos_sumfac test_dirichlet_kokkos_sumfac FALSE)
         SET_UNIT_TEST(FwdTrans_kokkos_sumfac test_fwdtrans_kokkos_sumfac FALSE)
+        #IF (NEKTAR_USE_MPI)
+        #    SET_UNIT_TEST(FwdTrans_kokkos_sumfac test_fwdtrans_kokkos_sumfac TRUE)
+        #ENDIF()
         SET_UNIT_TEST(Helmholtz_kokkos_sumfac test_helmholtz_kokkos_sumfac FALSE)
         SET_UNIT_TEST(HelmSolve_kokkos_sumfac test_helmsolve_kokkos_sumfac FALSE)
-        SET_UNIT_TEST(IdentityCoeff_kokkos_sumfac test_identitycoeff_kokkos_sumfac FALSE)
-        SET_UNIT_TEST(IdentityPhys_kokkos_sumfac test_identityphys_kokkos_sumfac FALSE)
+        #IF (NEKTAR_USE_MPI)
+        #    SET_UNIT_TEST(HelmSolve_kokkos_sumfac test_helmsolve_kokkos_sumfac TRUE)
+        #ENDIF()
         SET_UNIT_TEST(IProductWRTBase_kokkos_sumfac test_ipwrtbase_kokkos_sumfac FALSE)
         SET_UNIT_TEST(IProductWRTDerivBase_kokkos_sumfac test_ipwrtderivbase_kokkos_sumfac FALSE)
         SET_UNIT_TEST(Mass_kokkos_sumfac test_mass_kokkos_sumfac FALSE)

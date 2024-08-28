@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 #include "Operators/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail
@@ -50,7 +50,7 @@ inline
                        const TData *matPtr, const unsigned int *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = 32u;
+    const unsigned int blockSize = NektarSpaces::SYCL::width;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -94,7 +94,7 @@ inline
                        const unsigned int *mapPtr, const int *signPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = 32u;
+    const unsigned int blockSize = NektarSpaces::SYCL::width;
     const unsigned int gridSize  = nsize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

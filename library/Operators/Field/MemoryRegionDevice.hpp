@@ -116,8 +116,7 @@ public:
      * @param size      - size of memory
      * @param alignment - memory alignment
      */
-    MemoryRegionDevice(std::string name, size_t size,
-                       size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    MemoryRegionDevice(std::string name, size_t size, size_t alignment)
         : MemoryRegionHost<TData>(name, size, alignment)
     {
         createMemory();
@@ -161,8 +160,7 @@ public:
      */
     template <typename TDataIn>
     MemoryRegionDevice(std::string name, [[maybe_unused]] const TDataIn *src,
-                       const size_t size,
-                       size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+                       const size_t size, size_t alignment)
         : MemoryRegionHost<TData>(name, size, alignment)
     {
         createMemory();

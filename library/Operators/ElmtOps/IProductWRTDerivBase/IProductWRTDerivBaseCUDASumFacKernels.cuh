@@ -50,7 +50,7 @@ __global__ void IProductWRTDerivBase1DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -117,7 +117,7 @@ __global__ void IProductWRTDerivBase2DKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_f0, *s_f1;
@@ -314,7 +314,7 @@ __global__ void IProductWRTDerivBase3DKernel(
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_f0, *s_f1, *s_f2, *s_f3;

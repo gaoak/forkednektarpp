@@ -41,12 +41,7 @@ MACRO(ADD_OPERATOR dir)
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
-    IF("${OPERATOR}" STREQUAL "Identity" OR
-        "${OPERATOR}" STREQUAL "Matrix")
-        SET(CONFIG_FILE OperatorFactoryDecCoeffPhys.cpp.in)
-    ELSE()
-      SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
-    ENDIF()
+    SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
     # Add the main operator header to the list of headers.
     # Does no seem to do abything     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
@@ -258,10 +253,12 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
+      Field/UtilsCUDALaunchers.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+      Field/UtilsCUDAKernels.cu
     )
 
     SET(OPERATORS_DEPENDS

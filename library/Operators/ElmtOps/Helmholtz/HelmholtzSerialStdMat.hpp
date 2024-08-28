@@ -34,7 +34,14 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzImplBase.hpp"
+#include "ElmtOps/OperatorHelmholtz.hpp"
+
+#include "ElmtOps/OperatorBwdTrans.hpp"
+#include "ElmtOps/OperatorIProductWRTBase.hpp"
+#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "ElmtOps/OperatorPhysDeriv.hpp"
+
+#include "Common/OperatorHelper.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -44,28 +51,48 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
               std::is_same<Implementation, Operators::StdMat>::value>::type>
-class OperatorHelmholtzImpl
-    : public OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>
+class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
 
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorHelmholtzImplBase<ExecSpace, Implementation, TData>(
-              expansionList),
+        : OperatorHelmholtz<TData>(expansionList),
           m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz bwd",
-              GetBlockAttributes(FieldState::Phys, expansionList))),
+              GetBlockAttributes(FieldState::Phys, expansionList,
+                                 ExecSpace::width),
+              1, ExecSpace::alignment)),
 
           m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz deriv",
-              GetBlockAttributes(FieldState::Phys, expansionList),
-              expansionList->GetCoordim(0)))
+              GetBlockAttributes(FieldState::Phys, expansionList,
+                                 ExecSpace::width),
+              expansionList->GetCoordim(0), ExecSpace::alignment)),
+          m_derivCoeff(
+              Field<TData, FieldState::Phys>::template create<MemSpace>(
+                  GetBlockAttributes(FieldState::Phys, expansionList,
+                                     ExecSpace::width),
+                  expansionList->GetCoordim(0), ExecSpace::alignment)),
+          m_diffCoeff(MemoryRegion<TData>::template create<MemSpace>(
+              "Helmholtz diffCoeff",
+              expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
+              ExecSpace::alignment))
     {
-        m_derivCoeff =
-            Field<TData, FieldState::Phys>::template create<MemSpace>(
-                GetBlockAttributes(FieldState::Phys, expansionList),
-                expansionList->GetCoordim(0));
+        auto nCoord = this->m_expansionList->GetCoordim(0);
+
+        m_diffCoeff = MemoryRegion<TData>::template create<MemSpace>(
+            "Helmholtz diffCoeff", nCoord * nCoord, ExecSpace::alignment);
+
+        m_diffCoeff.initialize(0);
+
+        TData *diffCoeff =
+            m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        for (size_t d = 0; d < nCoord; d++)
+        {
+            diffCoeff[d * nCoord + d] = 1.0; // temporary solution
+        }
 
         m_BwdTransOp =
             BwdTrans<TData>::template create<ExecSpace, Implementation>(
@@ -124,7 +151,8 @@ public:
 
         for (const auto &block : deriv.GetBlocks())
         {
-            auto nElmts = block.num_elements;
+            const auto nElmts    = block.num_elements;
+            const auto nPadElmts = block.num_padding_elements;
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -148,13 +176,16 @@ public:
             // Increment pointer and index for next element type.
             for (size_t d = 0; d < nCoord; d++)
             {
-                derivPtr[d] += nqTot * nElmts;
-                derivCoeffPtr[d] += nqTot * nElmts;
+                derivPtr[d] += nqTot * (nElmts + nPadElmts);
+                derivCoeffPtr[d] += nqTot * (nElmts + nPadElmts);
             }
 
             exp_idx += nElmts;
         }
     }
+
+    // className - for OperatorFactory
+    static std::string className;
 
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
@@ -175,6 +206,8 @@ private:
     Field<TData, FieldState::Phys> m_bwd;
     Field<TData, FieldState::Phys> m_deriv;
     Field<TData, FieldState::Phys> m_derivCoeff;
+
+    MemoryRegion<TData> m_diffCoeff;
 };
 
 } // namespace Nektar::Operators::detail

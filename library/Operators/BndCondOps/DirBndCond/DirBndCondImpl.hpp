@@ -66,7 +66,8 @@ public:
         auto assmbMap           = contfield->GetLocalToGlobalMap();
         auto &sign              = assmbMap->GetBndCondCoeffsToLocalCoeffsSign();
         auto &map               = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
-        m_signChange            = assmbMap->GetSignChange();
+        auto &parallelDirBndSign = assmbMap->GetParallelDirBndSign();
+        m_signChange             = assmbMap->GetSignChange();
 
         // Compute number boundary coefficients
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
@@ -76,6 +77,12 @@ public:
             {
                 m_nbndcoeff += bndCondExpansions[i]->GetNcoeffs();
             }
+        }
+
+        // Return if no Dirichlet boundary condition.
+        if (m_nbndcoeff == 0)
+        {
+            return;
         }
 
         // Collecting boundary coefficients
@@ -102,14 +109,14 @@ public:
         }
 
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
 
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
+                                         ExecSpace::width);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -133,7 +140,7 @@ public:
         }
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         if (m_signChange)
         {
@@ -144,105 +151,121 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                alignedSign,
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        }
+
+        m_parallelDirBndSignSize = parallelDirBndSign.size();
+        if (m_parallelDirBndSignSize > 0)
+        {
+            Array<OneD, int> alignedParallelDirBndSign(
+                m_parallelDirBndSignSize);
+            for (auto &it : parallelDirBndSign)
+            {
+                alignedParallelDirBndSign[i] = alignmentMap[it];
+            }
+
+            m_parallelDirBndSign =
+                MemoryRegion<int>::template fromArray<MemSpace, int>(
+                    alignedParallelDirBndSign,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         }
 
         // local
         m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
-        Array<OneD, int> locid0(m_localDirSize);
-        Array<OneD, int> locid1(m_localDirSize);
-        Array<OneD, TData> locsign(m_localDirSize);
-
-        cnt = 0;
-        for (auto &it : assmbMap->GetCopyLocalDirDofs())
+        if (m_localDirSize > 0)
         {
-            locid0[cnt]  = std::get<0>(it);
-            locid1[cnt]  = std::get<1>(it);
-            locsign[cnt] = std::get<2>(it);
-            cnt++;
-        }
+            Array<OneD, int> locid0(m_localDirSize);
+            Array<OneD, int> locid1(m_localDirSize);
+            Array<OneD, TData> locsign(m_localDirSize);
 
-        m_locid0 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            locid0, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-        m_locid1 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            locid1, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
-        m_locsign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            locsign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            cnt = 0;
+            for (auto &it : assmbMap->GetCopyLocalDirDofs())
+            {
+                locid0[cnt]  = alignmentMap[std::get<0>(it)];
+                locid1[cnt]  = alignmentMap[std::get<1>(it)];
+                locsign[cnt] = std::get<2>(it);
+                cnt++;
+            }
+
+            m_locid0 = MemoryRegion<int>::template fromArray<MemSpace, int>(
+                locid0, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_locid1 = MemoryRegion<int>::template fromArray<MemSpace, int>(
+                locid1, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            m_locsign =
+                MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+                    locsign,
+                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        }
     }
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        // Return if no Dirichlet boundary condition.
-        if (m_nbndcoeff == 0)
+        if (m_nbndcoeff > 0)
         {
-            return;
+            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto *mapPtr   = m_map.template GetPtr<MemSpace, ReadOnly>();
+            auto *bndcoeffPtr =
+                m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
+            const TData *signPtr =
+                m_signChange ? m_sign.template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
+
+            if (m_signChange)
+            {
+                DirBndCondKernel<ExecSpace>(m_nbndcoeff, signPtr, mapPtr,
+                                            bndcoeffPtr, inoutPtr);
+            }
+            else
+            {
+                DirBndCondKernel<ExecSpace>(m_nbndcoeff, mapPtr, bndcoeffPtr,
+                                            inoutPtr);
+            }
         }
 
-        auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto *bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
-        auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
-
-        if (m_signChange)
+        if (m_parallelDirBndSignSize > 0)
         {
-            const TData *signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
+            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto *parallelDirBndSignPtr =
+                m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
 
-            DirBndCondKernel<ExecSpace>(m_nbndcoeff, signPtr, mapPtr,
-                                        bndcoeffPtr, inoutPtr);
-        }
-        else
-        {
-            DirBndCondKernel<ExecSpace>(m_nbndcoeff, mapPtr, bndcoeffPtr,
-                                        inoutPtr);
+            ParallelDirBndSignKernel<ExecSpace>(
+                m_parallelDirBndSignSize, parallelDirBndSignPtr, inoutPtr);
         }
 
-        if constexpr (std::is_same<ExecSpace, NektarSpaces::Serial>::value)
+        // TODO: Universal assembly on device.
+        auto contfield =
+            std::dynamic_pointer_cast<ContField>(this->m_expansionList);
+        if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            // communicate local Dirichlet coeffs that are just
-            // touching a dirichlet boundary on another partition
-            auto contfield =
-                std::dynamic_pointer_cast<ContField>(this->m_expansionList);
-            auto assmbMap            = contfield->GetLocalToGlobalMap();
-            auto &ParallelDirBndSign = assmbMap->GetParallelDirBndSign();
-            auto nloc                = assmbMap->GetNumLocalCoeffs();
-
             // Copy the data from the input field.
             auto inoutarr = inout.toArray();
-            for (auto &it : ParallelDirBndSign)
-            {
-                inoutarr[it] *= -1;
-            }
 
-            Array<OneD, NekDouble> arr(nloc, inoutarr.data());
-            assmbMap->UniversalAbsMaxBnd(arr);
-            std::copy(arr.get(), arr.get() + nloc, inoutarr.data());
-
-            for (auto &it : ParallelDirBndSign)
-            {
-                inoutarr[it] *= -1;
-            }
-
-            auto &copyLocalDirDofs = assmbMap->GetCopyLocalDirDofs();
-            for (auto &it : copyLocalDirDofs)
-            {
-                inoutarr[std::get<0>(it)] =
-                    inoutarr[std::get<1>(it)] * std::get<2>(it);
-            }
+            contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
 
             // Copy the data to the output field.
             inout.template copyArray<MemSpace>(inoutarr);
         }
-        else
+
+        if (m_parallelDirBndSignSize > 0)
         {
-            // TODO: Global assembly
+            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto *parallelDirBndSignPtr =
+                m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
+
+            ParallelDirBndSignKernel<ExecSpace>(
+                m_parallelDirBndSignSize, parallelDirBndSignPtr, inoutPtr);
+        }
+
+        if (m_localDirSize > 0)
+        {
+            auto *inoutPtr   = inout.template GetPtr<MemSpace, ReadWrite>();
             auto *locid0Ptr  = m_locid0.template GetPtr<MemSpace, ReadOnly>();
             auto *locid1Ptr  = m_locid1.template GetPtr<MemSpace, ReadOnly>();
             auto *locsignPtr = m_locsign.template GetPtr<MemSpace, ReadOnly>();
 
-            if (m_localDirSize > 0)
-            {
-                LocalDirBndCondKernel<ExecSpace>(
-                    m_localDirSize, locid0Ptr, locid1Ptr, locsignPtr, inoutPtr);
-            }
+            LocalDirBndCondKernel<ExecSpace>(m_localDirSize, locid0Ptr,
+                                             locid1Ptr, locsignPtr, inoutPtr);
         }
     }
 
@@ -262,11 +285,14 @@ protected:
     MemoryRegion<int> m_map;
     MemoryRegion<TData> m_sign;
     MemoryRegion<TData> m_bndcoeff;
+    MemoryRegion<int> m_parallelDirBndSign;
     MemoryRegion<int> m_locid0;
     MemoryRegion<int> m_locid1;
     MemoryRegion<TData> m_locsign;
-    size_t m_nbndcoeff    = 0;
-    size_t m_localDirSize = 0;
+
+    size_t m_nbndcoeff              = 0;
+    size_t m_parallelDirBndSignSize = 0;
+    size_t m_localDirSize           = 0;
     bool m_signChange;
 };
 

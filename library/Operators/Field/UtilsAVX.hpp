@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: MatrixKernels.cuh
+// File: UtilsAVX.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,51 +34,62 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+#include "Operators/Common/Spaces.hpp"
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
-namespace Nektar::Operators::detail
+namespace Nektar
 {
 
-// CUDA Kernels
-template <typename TData>
-__global__ void MatrixKernel(const size_t nelmt, const size_t numPts,
-                             const size_t size, const TData *mat,
-                             const TData *in, TData *out)
+template <size_t VectorWidth, typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+                            void>::type
+    interleave(const unsigned int numMetaBlocks,
+               const unsigned int metaBlockSize, const unsigned int dataLen,
+               TData *inout)
 {
-    size_t e = blockDim.x * blockIdx.x + threadIdx.x;
+    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
 
-    while (e < nelmt)
+    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
-        const TData *matrix = mat + e * numPts;
-        const TData *inPtr  = in + e * numPts;
-        TData *outPtr       = out + e * numPts;
+        std::copy(inout, inout + metaBlockSize, wsp.get());
 
-        for (size_t j = 0; j < size * size; j += size)
+        for (unsigned int idx = 0; idx < dataLen; ++idx)
         {
-            for (size_t i = 0; i < numPts; ++i)
+            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
             {
-                outPtr[i] += inPtr[i] * matrix[j + i];
+                inout[idx * VectorWidth + vecElem] =
+                    wsp[vecElem * dataLen + idx];
             }
         }
-        e += blockDim.x * gridDim.x;
+        inout += metaBlockSize;
     }
 }
 
 template <typename ExecSpace, typename TData>
 inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
                             void>::type
-    MatrixKernel(const size_t nelmt, const size_t numPts, const size_t size,
-                 const TData *mat, const TData *in, TData *out)
+    deInterleave(const unsigned int VectorWidth,
+                 const unsigned int numMetaBlocks,
+                 const unsigned int metaBlockSize, const unsigned int dataLen,
+                 TData *inout)
 {
-    const unsigned int blockSize = 256u;
-    const unsigned int gridSize  = (nelmt + blockSize - 1u) / blockSize;
+    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
 
-    MatrixKernel<<<gridSize, blockSize>>>(nelmt, numPts, size, mat, in, out);
+    for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    {
+        std::copy(inout, inout + metaBlockSize, wsp.get());
+
+        for (unsigned int idx = 0; idx < dataLen; ++idx)
+        {
+            for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
+            {
+                inout[vecElem * dataLen + idx] =
+                    wsp[idx * VectorWidth + vecElem];
+            }
+        }
+        inout += metaBlockSize;
+    }
 }
 
-} // namespace Nektar::Operators::detail
-
-#endif
+} // namespace Nektar

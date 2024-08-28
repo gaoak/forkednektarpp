@@ -79,6 +79,12 @@ public:
             }
         }
 
+        // Return if no Neumann boundary condition.
+        if (m_nbndcoeff == 0)
+        {
+            return;
+        }
+
         // Collecting boundary coefficients
         Array<OneD, TData> bndcoeff(m_nbndcoeff);
         Array<OneD, int> index(m_nbndcoeff);
@@ -105,14 +111,14 @@ public:
         }
 
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
 
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes(FieldState::Coeff, expansionList, vec_t::width);
+        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
+                                         ExecSpace::width);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -136,7 +142,7 @@ public:
         }
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         if (m_signChange)
         {
@@ -147,7 +153,8 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace>());
+                alignedSign,
+                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         }
     }
 
@@ -162,12 +169,13 @@ public:
         auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto *bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
         auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
+        auto *signPtr     = m_signChange
+                                ? m_sign.template GetPtr<MemSpace, ReadOnly>()
+                                : nullptr;
 
         // Add weak boundary conditions to the forcing.
         if (m_signChange)
         {
-            auto *signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
-
             NeuBndCondKernel<ExecSpace, TData>(m_nbndcoeff, signPtr, mapPtr,
                                                bndcoeffPtr, inoutPtr);
         }
@@ -194,6 +202,7 @@ protected:
     MemoryRegion<int> m_map;
     MemoryRegion<TData> m_sign;
     MemoryRegion<TData> m_bndcoeff;
+
     size_t m_nbndcoeff = 0;
     bool m_signChange;
 };

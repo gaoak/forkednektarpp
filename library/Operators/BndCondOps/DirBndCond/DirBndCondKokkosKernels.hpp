@@ -67,6 +67,17 @@ DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+                         TData *outPtr)
+{
+    Kokkos::parallel_for(
+        nsize,
+        KOKKOS_LAMBDA(const unsigned int i) { outPtr[signPtr[i]] *= -1; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                       const int *id1Ptr, const TData *signPtr, TData *outPtr)
 {
