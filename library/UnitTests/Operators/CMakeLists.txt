@@ -288,7 +288,7 @@ IF(NEKTAR_ENABLE_SYCL)
     #SET_UNIT_TEST(MultiplyByElmtInvMass_sycl_sumfac test_multiplybyelmtinvmass_sycl_sumfac FALSE)
     SET_UNIT_TEST(Neumann_sycl_sumfac test_neumann_sycl_sumfac FALSE)
     SET_UNIT_TEST(NullPrecon_sycl_sumfac test_nullprecon_sycl_sumfac FALSE)
-    #SET_UNIT_TEST(PhysDeriv_sycl_sumfac test_physderiv_sycl_sumfac FALSE)
+    SET_UNIT_TEST(PhysDeriv_sycl_sumfac test_physderiv_sycl_sumfac FALSE)
 ENDIF()
 
 # Kokkos - if no Kokkos loops are serial
