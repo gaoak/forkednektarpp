@@ -39,6 +39,7 @@
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSYCLSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -47,6 +48,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
                std::is_same<Implementation, Operators::SumFac>::value)>::type>
