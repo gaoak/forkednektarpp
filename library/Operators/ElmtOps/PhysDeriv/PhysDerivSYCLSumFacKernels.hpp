@@ -44,7 +44,6 @@
 namespace Nektar::Operators::detail
 {
 
-// 1D
 template <typename TData, bool DEFORMED>
 void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                        const unsigned int nelmt, const unsigned int nsize,
@@ -87,7 +86,6 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
     }
 }
 
-// 1DQP
 template <typename TData, bool DEFORMED>
 void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
                           const unsigned int nelmt, const unsigned int nsize,
@@ -126,7 +124,6 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
     }
 }
 
-// 2D
 template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
           bool SHMEM = true>
 void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
@@ -337,6 +334,101 @@ void PhysDeriv2DKernel_QP(
                         d0 * df[(2u * d) * dfsize + dfindex] +
                         d1 * df[(2u * d + 1u) * dfsize + dfindex];
                 }
+            }
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
+          bool SHMEM = true>
+void PhysDeriv2DKernel_QP_1D(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nsize,
+    const unsigned int dfsize, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1;
+    TData *s_wsp             = shared;
+    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
+    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    TData xfrm0, xfrm1;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_D0[idx] = D0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_D1[idx] = D1[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const unsigned int offset = nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp[idx] = in[offset + idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = idx / nq0;
+            const unsigned int index   = offset + idx;
+            const unsigned int dfindex = DEFORMED ? index : e;
+
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * j + q];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * q + i];
+            }
+
+            // Moving from standard to collapsed coordinates.
+            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            {
+                xfrm0 = 2.0 / (1.0 - Z1[j]);
+                xfrm1 = 0.5 * (1.0 + Z0[i]);
+                d0 *= xfrm0;
+                d1 += d0 * xfrm1;
+            }
+
+            // Multiply by derivative factors.
+            for (unsigned int d = 0u; d < ncoord; d++)
+            {
+                out[d * nsize + index] =
+                    d0 * df[(2u * d) * dfsize + dfindex] +
+                    d1 * df[(2u * d + 1u) * dfsize + dfindex];
             }
         }
 
@@ -706,6 +798,144 @@ void PhysDeriv3DKernel_QP(
                             d2 * df[(3u * d + 2u) * dfsize + dfindex];
                     }
                 }
+            }
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
+          bool SHMEM = true>
+void PhysDeriv3DKernel_QP_1D(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const unsigned int nsize,
+    const unsigned int dfsize, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict D2,
+    const TData *__restrict Z0, const TData *__restrict Z1,
+    const TData *__restrict Z2, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
+{
+    constexpr unsigned int ncoord = 3u;
+
+    const unsigned int nqTot = nq0 * nq1 * nq2;
+    TData *s_wsp             = shared;
+    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
+    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
+    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
+
+    // Copy to shared memory.
+    if constexpr (SHMEM)
+    {
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq0;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_D0[idx] = D0[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_D1[idx] = D1[idx];
+        }
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2 * nq2;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_D2[idx] = D2[idx];
+        }
+    }
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const unsigned int offset = nqTot * e;
+
+        // Copy to shared memory.
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            s_wsp[idx] = in[offset + idx];
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = (idx / nq0) % nq1;
+            const unsigned int k       = idx / (nq0 * nq1);
+            unsigned int index         = offset + idx;
+            const unsigned int dfindex = DEFORMED ? index : e;
+
+            // Compute tensorial derivative.
+            // Direction 0
+            TData d0 = 0.0;
+            for (unsigned int q = 0u; q < nq0; ++q)
+            {
+                d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * nq1 * k + nq0 * j + q];
+            }
+
+            // Direction 1
+            TData d1 = 0.0;
+            for (unsigned int q = 0u; q < nq1; ++q)
+            {
+                d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * nq1 * k + nq0 * q + i];
+            }
+
+            // Direction 2
+            TData d2 = 0.0;
+            for (unsigned int q = 0u; q < nq2; ++q)
+            {
+                d2 += s_D2[q * nq2 + k] * s_wsp[nq0 * nq1 * q + nq0 * j + i];
+            }
+
+            // Moving from standard to collapsed coordinates.
+            if constexpr (SHAPETYPE == LibUtilities::Tet)
+            {
+                xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
+                xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
+                xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
+                xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
+
+                TData xfrm = xfrm_eta1m * xfrm_eta2;
+                TData tmp0 = xfrm * d0;
+                TData tmp1 = xfrm_eta0 * tmp0;
+                TData tmp2 = xfrm_eta2 * d1;
+                d0         = tmp0;
+                d1         = tmp1 + tmp2;
+                d2 += tmp1 + xfrm_eta1 * tmp2;
+            }
+            else if constexpr (SHAPETYPE == LibUtilities::Prism)
+            {
+                xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                d0 *= xfrm_eta2;
+                d2 += xfrm_eta0 * d0;
+            }
+            else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+            {
+                xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
+                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                d0 *= xfrm_eta2;
+                d1 *= xfrm_eta2;
+                d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
+            }
+
+            // Multiply by derivative factors.
+            for (unsigned int d = 0u; d < ncoord; d++)
+            {
+                out[d * nsize + index] =
+                    d0 * df[(3u * d) * dfsize + dfindex] +
+                    d1 * df[(3u * d + 1u) * dfsize + dfindex] +
+                    d2 * df[(3u * d + 2u) * dfsize + dfindex];
             }
         }
 
