@@ -1558,12 +1558,11 @@ void IProductWRTBaseTetKernel_QP(
                          Kokkos::DefaultExecutionSpace::scratch_memory_space,
                          Kokkos::MemoryTraits<Kokkos::Unmanaged>>
                 scratch(team.team_scratch(slevel), ssize);
-            TData *s_prod = &scratch[0];
-            TData *s_wsp0 = s_prod + nm2;
-            TData *s_wsp1 = s_wsp0 + nqTot;
-            TData *s_wsp2 = s_wsp1 + nm0 * nq1 * nq2;
-            TData *s_basis0 =
-                SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
+            TData *s_prod   = &scratch[0];
+            TData *s_wsp0   = s_prod + nm2;
+            TData *s_wsp1   = s_wsp0 + nqTot;
+            TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
+            TData *s_basis0 = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
             TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
             TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
             TData *s_w0     = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;

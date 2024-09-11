@@ -46,51 +46,59 @@ static unsigned int syclGridSize   = 1024u;
 static unsigned int syclBufferSize = 0u;
 static void *syclBuffer            = nullptr;
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData,
+          sycl::memory_scope MemoryScope = sycl::memory_scope::device,
+          sycl::access::address_space AddressSpace =
+              sycl::access::address_space::global_space>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
-    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                     sycl::memory_scope::device,
-                     sycl::access::address_space::global_space>(*dest)
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed, MemoryScope,
+                     AddressSpace>(*dest)
         .fetch_add(val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData,
+          sycl::memory_scope MemoryScope = sycl::memory_scope::device,
+          sycl::access::address_space AddressSpace =
+              sycl::access::address_space::global_space>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
-    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                     sycl::memory_scope::device,
-                     sycl::access::address_space::global_space>(*dest)
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed, MemoryScope,
+                     AddressSpace>(*dest)
         .fetch_sub(val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData,
+          sycl::memory_scope MemoryScope = sycl::memory_scope::device,
+          sycl::access::address_space AddressSpace =
+              sycl::access::address_space::global_space>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
-    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                     sycl::memory_scope::device,
-                     sycl::access::address_space::global_space>(*dest)
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed, MemoryScope,
+                     AddressSpace>(*dest)
         .fetch_max(val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename TData,
+          sycl::memory_scope MemoryScope = sycl::memory_scope::device,
+          sycl::access::address_space AddressSpace =
+              sycl::access::address_space::global_space>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
-    sycl::atomic_ref<TData, sycl::memory_order::relaxed,
-                     sycl::memory_scope::device,
-                     sycl::access::address_space::global_space>(*dest)
+    sycl::atomic_ref<TData, sycl::memory_order::relaxed, MemoryScope,
+                     AddressSpace>(*dest)
         .fetch_min(val);
 }
 

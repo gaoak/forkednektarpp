@@ -266,8 +266,6 @@ IF(NEKTAR_ENABLE_CUDA)
       ${NEKLIB_CUDA_LIBRARIES})
 ENDIF()
 
-# Manually adding SYCL implementations here to avoid generation
-# of source files which should not exist
 IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
