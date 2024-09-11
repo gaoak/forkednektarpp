@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseCUDASumFacKernels.cuh
+// File: IProductWRTBaseSYCLSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,26 +34,27 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
+#if defined(NEKTAR_ENABLE_SYCL)
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
 #include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseSegKernel(
+void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
     TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
@@ -61,8 +62,8 @@ __global__ void IProductWRTBaseSegKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -73,10 +74,11 @@ __global__ void IProductWRTBaseSegKernel(
             s_w0[idx] = w0[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -112,19 +114,19 @@ __global__ void IProductWRTBaseSegKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseSegKernel_QP(
+void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     TData *s_wsp0   = shared;
     TData *s_basis0 = SHMEM ? s_wsp0 + nq0 : (TData *)basis0;
@@ -133,8 +135,8 @@ __global__ void IProductWRTBaseSegKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -146,7 +148,7 @@ __global__ void IProductWRTBaseSegKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -154,16 +156,18 @@ __global__ void IProductWRTBaseSegKernel_QP(
         const unsigned int outoffset = nm0 * e;
 
         // Copy to shared memory.
-        for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+        for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+             i += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + i;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[i]                   = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+        for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+             p += item_ct1.get_local_range(2))
         {
             TData sum = 0.0;
             for (unsigned int i = 0u; i < nq0; ++i)
@@ -187,26 +191,25 @@ __global__ void IProductWRTBaseSegKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseQuadKernel(
+void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -217,8 +220,8 @@ __global__ void IProductWRTBaseQuadKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -239,10 +242,11 @@ __global__ void IProductWRTBaseQuadKernel(
             s_w1[idx] = w1[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -292,22 +296,21 @@ __global__ void IProductWRTBaseQuadKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseQuadKernel_QP(
+void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
     TData *s_wsp1            = s_wsp0 + nqTot;
@@ -319,8 +322,11 @@ __global__ void IProductWRTBaseQuadKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -342,7 +348,7 @@ __global__ void IProductWRTBaseQuadKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -350,8 +356,11 @@ __global__ void IProductWRTBaseQuadKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -359,11 +368,13 @@ __global__ void IProductWRTBaseQuadKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
+        for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+             p += item_ct1.get_local_range(1))
         {
-            for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+            for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                 j += item_ct1.get_local_range(2))
             {
                 const unsigned int cnt_pj = nq1 * p + j;
                 unsigned int cnt_ji       = nq0 * j;
@@ -377,11 +388,13 @@ __global__ void IProductWRTBaseQuadKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+        for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+             q += item_ct1.get_local_range(1))
         {
-            for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+                 p += item_ct1.get_local_range(2))
             {
                 const unsigned int cnt_pq = nm0 * q + p;
                 const unsigned int index  = outoffset + cnt_pq;
@@ -409,24 +422,23 @@ __global__ void IProductWRTBaseQuadKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseQuadKernel_QP_1D(
+void IProductWRTBaseQuadKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
     TData *s_wsp1            = s_wsp0 + nqTot;
@@ -438,28 +450,32 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -467,16 +483,18 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int p = idx / nq1;
@@ -490,9 +508,10 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
             s_wsp1[idx] = sum;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p     = idx % nm0;
             const unsigned int q     = idx / nm0;
@@ -520,26 +539,26 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTriKernel(
+void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool correct, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     TData *__restrict__ wsp, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -550,8 +569,8 @@ __global__ void IProductWRTBaseTriKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -571,11 +590,11 @@ __global__ void IProductWRTBaseTriKernel(
         {
             s_w1[idx] = w1[idx];
         }
-
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -669,22 +688,22 @@ __global__ void IProductWRTBaseTriKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTriKernel_QP(
+void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool correct, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
@@ -698,8 +717,11 @@ __global__ void IProductWRTBaseTriKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -721,7 +743,7 @@ __global__ void IProductWRTBaseTriKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -729,8 +751,11 @@ __global__ void IProductWRTBaseTriKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -738,11 +763,13 @@ __global__ void IProductWRTBaseTriKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
+        for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+             p += item_ct1.get_local_range(1))
         {
-            for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+            for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                 j += item_ct1.get_local_range(2))
             {
                 const unsigned int cnt_pj = nq1 * p + j;
                 unsigned int cnt_ji       = nq0 * j;
@@ -756,11 +783,13 @@ __global__ void IProductWRTBaseTriKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
+        for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
+             p += item_ct1.get_local_range(1))
         {
-            for (unsigned int q = threadIdx.x; q < nm1 - p; q += blockDim.x)
+            for (unsigned int q = item_ct1.get_local_id(2); q < nm1 - p;
+                 q += item_ct1.get_local_range(2))
             {
                 const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
                 const unsigned int index   = outoffset + mode_pq;
@@ -794,27 +823,36 @@ __global__ void IProductWRTBaseTriKernel_QP(
         // With contributions from every quadrature point
         if (correct)
         {
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (item_ct1.get_local_id(2) == 0 && item_ct1.get_local_id(1) == 0)
             {
                 *s_iprod_01 = 0.0;
             }
 
-            __syncthreads();
+            // s_iprod_01 is not an array so can get away with allocating
+            // atomic_ref once
+            sycl::atomic_ref<TData, sycl::memory_order_relaxed,
+                             sycl::memory_scope_work_group,
+                             sycl::access::address_space::local_space>
+                aref(s_iprod_01[0]);
 
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+            item_ct1.barrier(sycl::access::fence_space::local_space);
+
+            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+                 j += item_ct1.get_local_range(1))
             {
                 TData tmp = s_w1[j] * s_basis1[nq1 + j];
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                     i += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_ji = nq0 * j + i;
                     TData prod                = s_wsp0[cnt_ji] * tmp * s_w0[i];
-                    atomicAdd(s_iprod_01, prod * s_basis0[nq0 + i]);
+                    aref.fetch_add(prod * s_basis0[nq0 + i]);
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (item_ct1.get_local_id(2) == 0 && item_ct1.get_local_id(1) == 0)
             {
                 const unsigned int index = outoffset + 1u;
                 if constexpr (SCALE)
@@ -828,25 +866,24 @@ __global__ void IProductWRTBaseTriKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTriKernel_QP_1D(
+void IProductWRTBaseTriKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool correct, const unsigned int *__restrict__ pindex,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
     TData *s_wsp1            = s_wsp0 + nqTot;
@@ -858,7 +895,8 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
 
     // Temporary solution, to be removed - TODO
     unsigned int *vpindex = (unsigned int *)pindex;
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+         p += item_ct1.get_local_range(2))
     {
         for (unsigned int q = 0; q < nm1 - p; q++)
         {
@@ -870,29 +908,32 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -900,16 +941,18 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int p = idx / nq1;
@@ -923,9 +966,10 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
             s_wsp1[idx] = sum;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p     = pindex[idx];
             const unsigned int index = outoffset + idx;
@@ -957,15 +1001,15 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
         // With contributions from every quadrature point
         if (correct)
         {
-            if (threadIdx.x == 0)
+            if (item_ct1.get_local_id(2) == 0)
             {
                 *s_iprod_01 = 0.0;
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1;
-                 idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1;
+                 idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = idx / nq0;
@@ -974,9 +1018,9 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
                 atomicAdd(s_iprod_01, prod * s_basis0[nq0 + i]);
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            if (threadIdx.x == 0)
+            if (item_ct1.get_local_id(2) == 0)
             {
                 const unsigned int index = outoffset + 1u;
                 if constexpr (SCALE)
@@ -990,15 +1034,15 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseHexKernel(
+void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1007,11 +1051,11 @@ __global__ void IProductWRTBaseHexKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1024,8 +1068,8 @@ __global__ void IProductWRTBaseHexKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -1056,10 +1100,11 @@ __global__ void IProductWRTBaseHexKernel(
             s_w2[idx] = w2[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -1133,13 +1178,19 @@ __global__ void IProductWRTBaseHexKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseHexKernel_QP(
+void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1147,9 +1198,9 @@ __global__ void IProductWRTBaseHexKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_wsp0            = shared;
@@ -1165,9 +1216,14 @@ __global__ void IProductWRTBaseHexKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -1199,7 +1255,7 @@ __global__ void IProductWRTBaseHexKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -1207,9 +1263,14 @@ __global__ void IProductWRTBaseHexKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -1217,13 +1278,16 @@ __global__ void IProductWRTBaseHexKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int k = threadIdx.y; k < nq2; k += blockDim.y)
+            for (unsigned int k = item_ct1.get_local_id(1); k < nq2;
+                 k += item_ct1.get_local_range(1))
             {
-                for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+                for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                     j += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq0 * nq1 * k + nq0 * j;
@@ -1239,13 +1303,16 @@ __global__ void IProductWRTBaseHexKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int k = threadIdx.x; k < nq2; k += blockDim.x)
+                for (unsigned int k = item_ct1.get_local_id(2); k < nq2;
+                     k += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq2 * nq1 * p + nq1 * k;
@@ -1261,13 +1328,16 @@ __global__ void IProductWRTBaseHexKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int r = threadIdx.z; r < nm2; r += blockDim.z)
+        for (unsigned int r = item_ct1.get_local_id(0); r < nm2;
+             r += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+                for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+                     p += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_rqp = nm0 * nm1 * r + nm0 * q + p;
                     const unsigned int index   = outoffset + cnt_rqp;
@@ -1297,15 +1367,15 @@ __global__ void IProductWRTBaseHexKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseHexKernel_QP_1D(
+void IProductWRTBaseHexKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1313,10 +1383,9 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_wsp0            = shared;
     TData *s_wsp1            = s_wsp0 + nqTot;
@@ -1331,38 +1400,44 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm2 * nq2; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_w2[idx] = w2[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -1370,17 +1445,18 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
@@ -1395,10 +1471,10 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
             s_wsp1[idx] = sum_kj;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
@@ -1413,10 +1489,10 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
             s_wsp2[idx] = sum_k;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nm2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nm2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p     = idx % nm0;
             const unsigned int q     = (idx / nm0) % nm1;
@@ -1445,16 +1521,23 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTetKernel(
+void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -1463,11 +1546,11 @@ __global__ void IProductWRTBaseTetKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -1481,8 +1564,8 @@ __global__ void IProductWRTBaseTetKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -1513,10 +1596,11 @@ __global__ void IProductWRTBaseTetKernel(
             s_w2[idx] = w2[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -1679,14 +1763,21 @@ __global__ void IProductWRTBaseTetKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTetKernel_QP(
+void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -1694,9 +1785,9 @@ __global__ void IProductWRTBaseTetKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -1714,9 +1805,14 @@ __global__ void IProductWRTBaseTetKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -1748,7 +1844,7 @@ __global__ void IProductWRTBaseTetKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -1756,9 +1852,14 @@ __global__ void IProductWRTBaseTetKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -1766,13 +1867,16 @@ __global__ void IProductWRTBaseTetKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int k = threadIdx.y; k < nq2; k += blockDim.y)
+            for (unsigned int k = item_ct1.get_local_id(1); k < nq2;
+                 k += item_ct1.get_local_range(1))
             {
-                for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+                for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                     j += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq0 * nq1 * k + nq0 * j;
@@ -1788,13 +1892,16 @@ __global__ void IProductWRTBaseTetKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1 - p; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1 - p;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int k = threadIdx.x; k < nq2; k += blockDim.x)
+                for (unsigned int k = item_ct1.get_local_id(2); k < nq2;
+                     k += item_ct1.get_local_range(2))
                 {
                     const unsigned int mode_pq =
                         (2u * nm1 - p + 1u) * p / 2u + q;
@@ -1811,14 +1918,16 @@ __global__ void IProductWRTBaseTetKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1 - p; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1 - p;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int r = threadIdx.x; r < nm2 - p - q;
-                     r += blockDim.x)
+                for (unsigned int r = item_ct1.get_local_id(2); r < nm2 - p - q;
+                     r += item_ct1.get_local_range(2))
                 {
                     const unsigned int mode_pq =
                         (2u * nm1 - p + 1u) * p / 2u + q;
@@ -1856,23 +1965,27 @@ __global__ void IProductWRTBaseTetKernel_QP(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            if (threadIdx.x == 0 && threadIdx.y == 0)
+            if (item_ct1.get_local_id(2) == 0 && item_ct1.get_local_id(1) == 0)
             {
-                for (unsigned int r = threadIdx.z; r < nm2; r += blockDim.z)
+                for (unsigned int r = item_ct1.get_local_id(0); r < nm2;
+                     r += item_ct1.get_local_range(0))
                 {
                     s_prod[r] = 0.0;
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+            for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
+                 k += item_ct1.get_local_range(0))
             {
                 TData tmpQ2 = s_w2[k];
-                for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+                for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+                     j += item_ct1.get_local_range(1))
                 {
                     TData tmpQ1 = tmpQ2 * s_w1[j];
-                    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                         i += item_ct1.get_local_range(2))
                     {
                         const unsigned int cnt_kji =
                             nq1 * nq0 * k + nq0 * j + i;
@@ -1886,12 +1999,20 @@ __global__ void IProductWRTBaseTetKernel_QP(
                         tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                         tmp *= s_basis2[nq2 + k];
                         tmp *= s_wsp0[cnt_kji] * tmpQ;
-                        atomicAdd(s_prod + nm2 - 1, tmp);
+                        Nektar::atomic_add<
+                            NektarSpaces::SYCL, TData,
+                            sycl::memory_scope_work_group,
+                            sycl::access::address_space::local_space>(
+                            s_prod + nm2 - 1, tmp);
 
                         // bottom vertex
                         tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
                               s_basis2[k] * s_wsp0[cnt_kji] * tmpQ;
-                        atomicAdd(s_prod, tmp);
+                        Nektar::atomic_add<
+                            NektarSpaces::SYCL, TData,
+                            sycl::memory_scope_work_group,
+                            sycl::access::address_space::local_space>(s_prod,
+                                                                      tmp);
 
                         // singular edge
                         for (unsigned int r = 1u; r < nm2 - 1u; ++r)
@@ -1899,24 +2020,31 @@ __global__ void IProductWRTBaseTetKernel_QP(
                             tmp = s_basis2[(r + 1) * nq2 + k] *
                                   s_basis1[nq1 + j] * s_basis0[nq0 + i] *
                                   s_wsp0[cnt_kji] * tmpQ;
-                            atomicAdd(s_prod + r, tmp);
+                            Nektar::atomic_add<
+                                NektarSpaces::SYCL, TData,
+                                sycl::memory_scope_work_group,
+                                sycl::access::address_space::local_space>(
+                                s_prod + r, tmp);
                         }
                     }
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
             if constexpr (SCALE)
             {
-                if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
+                if (item_ct1.get_local_id(2) == 0 &&
+                    item_ct1.get_local_id(1) == 0 &&
+                    item_ct1.get_local_id(0) == 0)
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1] * scale;
                 }
-                if (threadIdx.z == 0 && threadIdx.y == 0)
+                if (item_ct1.get_local_id(0) == 0 &&
+                    item_ct1.get_local_id(1) == 0)
                 {
-                    for (unsigned int r = threadIdx.x; r < nm2 - 1u;
-                         r += blockDim.x)
+                    for (unsigned int r = item_ct1.get_local_id(2);
+                         r < nm2 - 1u; r += item_ct1.get_local_range(2))
                     {
                         out[outoffset + nm2 + r] += s_prod[r] * scale;
                     }
@@ -1924,14 +2052,17 @@ __global__ void IProductWRTBaseTetKernel_QP(
             }
             else
             {
-                if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
+                if (item_ct1.get_local_id(2) == 0 &&
+                    item_ct1.get_local_id(1) == 0 &&
+                    item_ct1.get_local_id(0) == 0)
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1];
                 }
-                if (threadIdx.z == 0 && threadIdx.y == 0)
+                if (item_ct1.get_local_id(0) == 0 &&
+                    item_ct1.get_local_id(1) == 0)
                 {
-                    for (unsigned int r = threadIdx.x; r < nm2 - 1u;
-                         r += blockDim.x)
+                    for (unsigned int r = item_ct1.get_local_id(2);
+                         r < nm2 - 1u; r += item_ct1.get_local_range(2))
                     {
                         out[outoffset + nm2 + r] += s_prod[r];
                     }
@@ -1939,16 +2070,23 @@ __global__ void IProductWRTBaseTetKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBaseTetKernel_QP_1D(
+void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -1960,10 +2098,9 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     TData *s_prod            = shared;
@@ -1977,12 +2114,12 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
-    // Temporary solution, to be removed - TODO
     unsigned int *vpindex1 = (unsigned int *)pindex1;
     unsigned int *vqindex1 = (unsigned int *)qindex1;
     unsigned int *vpindex2 = (unsigned int *)pindex2;
     unsigned int *vqindex2 = (unsigned int *)qindex2;
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+         p += item_ct1.get_local_range(2))
     {
         for (unsigned int q = 0; q < nm1 - p; q++)
         {
@@ -2005,40 +2142,44 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm01 * nq1;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_w2[idx] = w2[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -2046,17 +2187,18 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
@@ -2071,10 +2213,10 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             s_wsp1[idx] = sum_kj;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm01 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int mode_pq = idx / nq2;
             const unsigned int p       = pindex1[mode_pq];
@@ -2091,9 +2233,10 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             s_wsp2[idx] = sum_k;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p       = pindex2[idx];
             const unsigned int q       = qindex2[idx];
@@ -2125,15 +2268,16 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            for (unsigned int idx = threadIdx.x; idx < nm2; idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2;
+                 idx += item_ct1.get_local_range(2))
             {
                 s_prod[idx] = 0.0;
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
-                 idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2);
+                 idx < nq0 * nq1 * nq2; idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -2166,43 +2310,49 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
             if constexpr (SCALE)
             {
-                if (threadIdx.x == 0)
+                if (item_ct1.get_local_id(2) == 0)
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1] * scale;
                 }
-                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
-                     idx += blockDim.x)
+                for (unsigned int idx = item_ct1.get_local_id(2);
+                     idx < nm2 - 1u; idx += item_ct1.get_local_range(2))
                 {
                     out[outoffset + nm2 + idx] += s_prod[idx] * scale;
                 }
             }
             else
             {
-                if (threadIdx.x == 0)
+                if (item_ct1.get_local_id(2) == 0)
                 {
                     out[outoffset + 1] += s_prod[nm2 - 1];
                 }
-                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
-                     idx += blockDim.x)
+                for (unsigned int idx = item_ct1.get_local_id(2);
+                     idx < nm2 - 1u; idx += item_ct1.get_local_range(2))
                 {
                     out[outoffset + nm2 + idx] += s_prod[idx];
                 }
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePrismKernel(
+void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -2211,11 +2361,11 @@ __global__ void IProductWRTBasePrismKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -2229,8 +2379,8 @@ __global__ void IProductWRTBasePrismKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -2261,10 +2411,11 @@ __global__ void IProductWRTBasePrismKernel(
             s_w2[idx] = w2[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -2322,7 +2473,7 @@ __global__ void IProductWRTBasePrismKernel(
                                  s_basis2[(mode_pr + r) * nq2 + k] * s_w2[k];
                     }
 
-                    if constexpr (SCALE)
+                    if (SCALE)
                     {
                         sum_k *= scale;
                     }
@@ -2397,13 +2548,19 @@ __global__ void IProductWRTBasePrismKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePrismKernel_QP(
+void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -2411,9 +2568,9 @@ __global__ void IProductWRTBasePrismKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -2430,9 +2587,14 @@ __global__ void IProductWRTBasePrismKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -2464,7 +2626,7 @@ __global__ void IProductWRTBasePrismKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -2472,9 +2634,14 @@ __global__ void IProductWRTBasePrismKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -2482,13 +2649,16 @@ __global__ void IProductWRTBasePrismKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int k = threadIdx.y; k < nq2; k += blockDim.y)
+            for (unsigned int k = item_ct1.get_local_id(1); k < nq2;
+                 k += item_ct1.get_local_range(1))
             {
-                for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+                for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                     j += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq1 * nq0 * k + nq0 * j;
@@ -2504,13 +2674,16 @@ __global__ void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int k = threadIdx.x; k < nq2; k += blockDim.x)
+                for (unsigned int k = item_ct1.get_local_id(2); k < nq2;
+                     k += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
@@ -2526,13 +2699,17 @@ __global__ void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+        ;
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int r = threadIdx.x; r < nm2 - p; r += blockDim.x)
+                for (unsigned int r = item_ct1.get_local_id(2); r < nm2 - p;
+                     r += item_ct1.get_local_range(2))
                 {
                     unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
                     unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
@@ -2547,7 +2724,7 @@ __global__ void IProductWRTBasePrismKernel_QP(
                                  s_wsp2[cnt_pqk];
                     }
 
-                    if constexpr (SCALE)
+                    if (SCALE)
                     {
                         sum_k *= scale;
                     }
@@ -2564,47 +2741,56 @@ __global__ void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            if (threadIdx.y == 0 && threadIdx.z == 0)
+            if (item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
             {
-                for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                     q += item_ct1.get_local_range(2))
                 {
                     s_wsp2[q] = 0.0;
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+            for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
+                 k += item_ct1.get_local_range(0))
             {
                 TData k_weight = s_w2[k];
-                for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+                for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+                     j += item_ct1.get_local_range(1))
                 {
                     TData kj_weight = k_weight * s_w1[j];
-                    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                         i += item_ct1.get_local_range(2))
                     {
                         const unsigned int cnt_kji =
                             nq1 * nq0 * k + nq0 * j + i;
                         TData prod = kj_weight * s_w0[i] * s_wsp0[cnt_kji];
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
-                            atomicAdd(s_wsp2 + q, prod * s_basis2[nq2 + k] *
-                                                      s_basis1[q * nq1 + j] *
-                                                      s_basis0[nq0 + i]);
+                            Nektar::atomic_add<
+                                NektarSpaces::SYCL, TData,
+                                sycl::memory_scope_work_group,
+                                sycl::access::address_space::local_space>(
+                                s_wsp2 + q, prod * s_basis2[nq2 + k] *
+                                                s_basis1[q * nq1 + j] *
+                                                s_basis0[nq0 + i]);
                         }
                     }
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            if (threadIdx.y == 0 && threadIdx.z == 0)
+            if (item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
             {
-                for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
+                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
+                     q += item_ct1.get_local_range(2))
                 {
                     const unsigned int index = outoffset + nm2 * q + 1u;
                     if constexpr (SCALE)
@@ -2619,15 +2805,21 @@ __global__ void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePrismKernel_QP_1D(
+void IProductWRTBasePrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -2638,10 +2830,9 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
     TData *s_wsp0            = shared;
@@ -2658,7 +2849,8 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
     unsigned int *vpindex = (unsigned int *)pindex;
     unsigned int *vqindex = (unsigned int *)qindex;
     unsigned int *vrindex = (unsigned int *)rindex;
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+         p += item_ct1.get_local_range(2))
     {
         for (unsigned int q = 0u; q < nm1; q++)
         {
@@ -2676,39 +2868,44 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm02 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm02 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_w2[idx] = w2[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -2716,17 +2913,18 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
@@ -2741,10 +2939,10 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             s_wsp1[idx] = sum_kj;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
@@ -2759,9 +2957,10 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             s_wsp2[idx] = sum_k;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p       = pindex[idx];
             const unsigned int q       = qindex[idx];
@@ -2792,19 +2991,21 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1;
+                 idx += item_ct1.get_local_range(2))
             {
                 s_wsp2[idx] = 0.0;
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                 idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -2820,9 +3021,10 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1;
+                 idx += item_ct1.get_local_range(2))
             {
                 const unsigned int index = outoffset + nm2 * idx + 1u;
                 if constexpr (SCALE)
@@ -2836,16 +3038,23 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePyrKernel(
+void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -2854,11 +3063,11 @@ __global__ void IProductWRTBasePyrKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -2871,8 +3080,8 @@ __global__ void IProductWRTBasePyrKernel(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0   = threadIdx.x;
-        const unsigned int stride = blockDim.x;
+        const unsigned int idx0   = item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -2903,10 +3112,11 @@ __global__ void IProductWRTBasePyrKernel(
             s_w2[idx] = w2[idx];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
+    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+                     item_ct1.get_local_id(2);
 
     while (e < nelmt)
     {
@@ -3071,14 +3281,21 @@ __global__ void IProductWRTBasePyrKernel(
             }
         }
 
-        e += blockDim.x * gridDim.x;
+        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePyrKernel_QP(
+void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -3086,9 +3303,9 @@ __global__ void IProductWRTBasePyrKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale = 1.0)
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
+    TData *__restrict__ shared, const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_prod            = shared;
@@ -3105,9 +3322,14 @@ __global__ void IProductWRTBasePyrKernel_QP(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
         {
             s_basis0[idx] = basis0[idx];
@@ -3139,7 +3361,7 @@ __global__ void IProductWRTBasePyrKernel_QP(
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -3147,9 +3369,14 @@ __global__ void IProductWRTBasePyrKernel_QP(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
+        const unsigned int idx0 =
+            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
+                item_ct1.get_local_id(0) +
+            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
+            item_ct1.get_local_id(2);
+        const unsigned int stride = item_ct1.get_local_range(2) *
+                                    item_ct1.get_local_range(1) *
+                                    item_ct1.get_local_range(0);
         for (unsigned int idx = idx0; idx < nqTot; idx += stride)
         {
             const unsigned int index    = inoffset + idx;
@@ -3157,13 +3384,16 @@ __global__ void IProductWRTBasePyrKernel_QP(
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int k = threadIdx.y; k < nq2; k += blockDim.y)
+            for (unsigned int k = item_ct1.get_local_id(1); k < nq2;
+                 k += item_ct1.get_local_range(1))
             {
-                for (unsigned int j = threadIdx.x; j < nq1; j += blockDim.x)
+                for (unsigned int j = item_ct1.get_local_id(2); j < nq1;
+                     j += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = k * nq1 * nq0 + j * nq0;
@@ -3179,13 +3409,16 @@ __global__ void IProductWRTBasePyrKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
-                for (unsigned int k = threadIdx.x; k < nq2; k += blockDim.x)
+                for (unsigned int k = item_ct1.get_local_id(2); k < nq2;
+                     k += item_ct1.get_local_range(2))
                 {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq1 * nq2 * p + k * nq1;
@@ -3201,11 +3434,13 @@ __global__ void IProductWRTBasePyrKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int p = threadIdx.z; p < nm0; p += blockDim.z)
+        for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
+             p += item_ct1.get_local_range(0))
         {
-            for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
+            for (unsigned int q = item_ct1.get_local_id(1); q < nm1;
+                 q += item_ct1.get_local_range(1))
             {
                 unsigned int mode_pq = nm1 * (2u * nm2 + 1u - nm1) * p;
                 mode_pq -= (p - 1u) * p / 2u;
@@ -3214,8 +3449,8 @@ __global__ void IProductWRTBasePyrKernel_QP(
 
                 if (q < p)
                 {
-                    for (unsigned int r = threadIdx.x; r < nm2 - p;
-                         r += blockDim.x)
+                    for (unsigned int r = item_ct1.get_local_id(2); r < nm2 - p;
+                         r += item_ct1.get_local_range(2))
                     {
                         const unsigned int mode_pqr =
                             mode_pq + q * (nm2 - p) + r;
@@ -3246,8 +3481,8 @@ __global__ void IProductWRTBasePyrKernel_QP(
                 }
                 else
                 {
-                    for (unsigned int r = threadIdx.x; r < nm2 - q;
-                         r += blockDim.x)
+                    for (unsigned int r = item_ct1.get_local_id(2); r < nm2 - q;
+                         r += item_ct1.get_local_range(2))
                     {
                         unsigned int cnt_pqk  = nm1 * nq2 * p + nq2 * q;
                         unsigned int mode_pqr = mode_pq + p * (nm2 - p);
@@ -3283,20 +3518,24 @@ __global__ void IProductWRTBasePyrKernel_QP(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
+            if (item_ct1.get_local_id(2) == 0 &&
+                item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
             {
                 (*s_prod) = 0.0;
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
+            for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
+                 k += item_ct1.get_local_range(0))
             {
                 TData tmpQ2 = s_w2[k];
-                for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
+                for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
+                     j += item_ct1.get_local_range(1))
                 {
                     TData tmpQ1 = tmpQ2 * s_w1[j];
-                    for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
+                    for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
+                         i += item_ct1.get_local_range(2))
                     {
                         const unsigned int cnt_kji =
                             nq0 * nq1 * k + nq0 * j + i;
@@ -3310,15 +3549,20 @@ __global__ void IProductWRTBasePyrKernel_QP(
                         tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                         tmp *= s_basis2[nq2 + k];
                         tmp *= s_wsp0[cnt_kji] * tmpQ;
-                        atomicAdd(s_prod, tmp);
+                        Nektar::atomic_add<
+                            NektarSpaces::SYCL, TData,
+                            sycl::memory_scope_work_group,
+                            sycl::access::address_space::local_space>(s_prod,
+                                                                      tmp);
                     }
                 }
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
             // add to existing entry
-            if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
+            if (item_ct1.get_local_id(2) == 0 &&
+                item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
             {
                 if constexpr (SCALE)
                 {
@@ -3331,16 +3575,23 @@ __global__ void IProductWRTBasePyrKernel_QP(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
+/**
+NOTE: The total declared local variable size exceeds 128 bytes. This may cause
+high register pressure with a sub-group size of 32 depending on hardware.
+Leaving it for now but will have to profile later and make appropriate changes
+if necessary.
+
+NOTE: Not workign when nm2 > nm1
+*/
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-__global__ void IProductWRTBasePyrKernel_QP_1D(
+void IProductWRTBasePyrKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
@@ -3350,10 +3601,9 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    extern __shared__ TData shared[];
-
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_prod            = shared;
     TData *s_wsp0            = s_prod + 1u;
@@ -3369,7 +3619,8 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     // Temporary solution, to be removed - TODO
     unsigned int *vpindex = (unsigned int *)pindex;
     unsigned int *vqindex = (unsigned int *)qindex;
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
+    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
+         p += item_ct1.get_local_range(2))
     {
         for (unsigned int q = 0u; q < nm1; q++)
         {
@@ -3404,39 +3655,44 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis0[idx] = basis0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nm1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_basis2[idx] = basis2[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+             idx += item_ct1.get_local_range(2))
         {
             s_w0[idx] = w0[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+             idx += item_ct1.get_local_range(2))
         {
             s_w1[idx] = w1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+             idx += item_ct1.get_local_range(2))
         {
             s_w2[idx] = w2[idx];
         }
     }
 
-    unsigned int e = blockIdx.x;
+    unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
@@ -3444,17 +3700,18 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
         const unsigned int outoffset = nmTot * e;
 
         // Copy to shared memory.
-        for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int index    = inoffset + idx;
             const unsigned int jacindex = DEFORMED ? index : e;
             s_wsp0[idx]                 = in[index] * jac[jacindex];
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nq1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int j = idx % nq1;
             const unsigned int k = (idx / nq1) % nq2;
@@ -3469,10 +3726,10 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             s_wsp1[idx] = sum_kj;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
-             idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nm1 * nq2;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int k = idx % nq2;
             const unsigned int q = (idx / nq2) % nm1;
@@ -3487,9 +3744,10 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             s_wsp2[idx] = sum_k;
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
+             idx += item_ct1.get_local_range(2))
         {
             const unsigned int p     = pindex[idx];
             const unsigned int q     = qindex[idx];
@@ -3519,15 +3777,15 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
         // Add correction for collapsed coordinate.
         if (correct)
         {
-            if (threadIdx.x == 0)
+            if (item_ct1.get_local_id(2) == 0)
             {
                 (*s_prod) = 0.0;
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = threadIdx.x; idx < nq0 * nq1 * nq2;
-                 idx += blockDim.x)
+            for (unsigned int idx = item_ct1.get_local_id(2);
+                 idx < nq0 * nq1 * nq2; idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -3547,10 +3805,10 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
                 atomicAdd(s_prod, tmp);
             }
 
-            __syncthreads();
+            item_ct1.barrier(sycl::access::fence_space::local_space);
 
             // add to existing entry
-            if (threadIdx.x == 0)
+            if (item_ct1.get_local_id(2) == 0)
             {
                 if constexpr (SCALE)
                 {
@@ -3563,16 +3821,17 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             }
         }
 
-        __syncthreads();
+        item_ct1.barrier(sycl::access::fence_space::local_space);
 
-        e += gridDim.x;
+        e += item_ct1.get_group_range(2);
     }
 }
 
+// Launchers
 template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
           bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
 inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
                             const unsigned int nelmts, const TData *basis0,
@@ -3583,27 +3842,64 @@ inline
     const unsigned int blocksize = std::min(
         MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
 
-    unsigned int nshared = SHMEM ? sizeof(TData) * (nm0 * nq0 + nq0) : 0u;
+    unsigned int nshared = SHMEM ? nm0 * nq0 + nq0 : 0u;
 
     if constexpr (MULTILEVEL)
     {
-        nshared += sizeof(TData) * (nq0);
-        IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmts, basis0, w0,
-                                               jac, in, out, scale);
+        nshared += nq0;
+
+        SYCLQueue::GetInstance()
+            .submit([&](sycl::handler &cgh) {
+                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                      cgh);
+
+                cgh.parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          sycl::range<3>(1, 1, blocksize),
+                                      sycl::range<3>(1, 1, blocksize)),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        TData *shmPtr = shared
+                                            .template get_multi_ptr<
+                                                sycl::access::decorated::no>()
+                                            .get();
+                        IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND,
+                                                    DEFORMED, SHMEM>(
+                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
+                            item_ct1, shmPtr, scale);
+                    });
+            })
+            .wait();
     }
     else
     {
-        IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmts, basis0, w0,
-                                               jac, in, out, scale);
+        SYCLQueue::GetInstance()
+            .submit([&](sycl::handler &cgh) {
+                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                      cgh);
+
+                cgh.parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          sycl::range<3>(1, 1, blocksize),
+                                      sycl::range<3>(1, 1, blocksize)),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        TData *shmPtr = shared
+                                            .template get_multi_ptr<
+                                                sycl::access::decorated::no>()
+                                            .get();
+                        IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED,
+                                                 SHMEM>(
+                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
+                            item_ct1, shmPtr, scale);
+                    });
+            })
+            .wait();
     }
 }
 
 template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
           bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
 inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
                             const unsigned int nm0, const unsigned int nm1,
@@ -3614,7 +3910,8 @@ inline
                             TData *wsp, const TData *in, TData *out,
                             const TData scale = 1.0)
 {
-    const dim3 blocksize2d      = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
+    const sycl::range<3> blocksize2d =
+        sycl::range<3>(1, std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int gridsize = MULTILEVEL ? std::min(nq0 * nq1, 256u) : 256u;
     const unsigned int blocksize = std::min(
         MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
@@ -3623,59 +3920,120 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nq0 + nq1);
+        unsigned int nshared = nm0 * nq0 + nm1 * nq1 + nq0 + nq1;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1);
-            IProductWRTBaseQuadKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize2d, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-                                                     nelmts, basis0, basis1, w0,
-                                                     w1, jac, in, out, scale);
-            // IProductWRTBaseQuadKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                 SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-            //                                        nelmts, basis0, basis1,
-            //                                        w0, w1, jac, in, out,
-            //                                        scale);
+            nshared += nq0 * nq1 + nm0 * nq1;
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize2d,
+                                          blocksize2d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseQuadKernel_QP<TData, SCALE, APPEND,
+                                                         DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
+                                basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
+                                scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBaseQuadKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0, w1,
-                    jac, wsp, in, out, scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseQuadKernel<TData, SCALE, APPEND,
+                                                      DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
+                                basis1, w0, w1, jac, wsp, in, out, item_ct1,
+                                shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
     else if (shapetype == LibUtilities::Tri)
     {
         const unsigned int nmTot =
             LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nmTot * nq1 + nq0 + nq1);
+        unsigned int nshared = nm0 * nq0 + nmTot * nq1 + nq0 + nq1;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1 + 1u);
-            IProductWRTBaseTriKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize2d, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1,
-                    w0, w1, jac, in, out, scale);
-            // unsigned int *pindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBaseTriKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex,
-            //         basis0, basis1, w0, w1, jac, in, out, scale);
+            nshared += nq0 * nq1 + nm0 * nq1 + 1u;
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize2d,
+                                          blocksize2d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTriKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
+                                basis0, basis1, w0, w1, jac, in, out, item_ct1,
+                                shmPtr, scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBaseTriKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1,
-                    w0, w1, jac, wsp, in, out, scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTriKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
+                                basis0, basis1, w0, w1, jac, wsp, in, out,
+                                item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
 }
@@ -3683,7 +4041,7 @@ inline
 template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
           bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
 inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
                             const unsigned int nm0, const unsigned int nm1,
@@ -3696,8 +4054,8 @@ inline
                             TData *wsp, const TData *in, TData *out,
                             const TData scale = 1.0)
 {
-    const dim3 blocksize3d =
-        dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+    const sycl::range<3> blocksize3d =
+        sycl::range<3>(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
     const unsigned int gridsize =
         MULTILEVEL ? std::min(nq0 * nq1 * nq2, 256u) : 256u;
     const unsigned int blocksize = std::min(
@@ -3708,30 +4066,61 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
         unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
+            SHMEM ? nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 + nq1 + nq2 : 0u;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) *
-                       (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2);
-            IProductWRTBaseHexKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                    basis2, w0, w1, w2, jac, in, out, scale);
-            // IProductWRTBaseHexKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
-            //         basis1, basis2, w0, w1, w2, jac, in, out, scale);
+            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseHexKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                basis0, basis1, basis2, w0, w1, w2, jac, in,
+                                out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBaseHexKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                    basis2, w0, w1, w2, jac, wsp, in, out, scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseHexKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                basis0, basis1, basis2, w0, w1, w2, jac, wsp,
+                                in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -3740,40 +4129,61 @@ inline
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm01 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
+            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2 : 0u;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) *
-                       (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2);
-            IProductWRTBaseTetKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex1;
-            // unsigned int *qindex1;
-            // unsigned int *pindex2;
-            // unsigned int *qindex2;
-            // cudaMalloc((void **)&pindex1, sizeof(unsigned int) * nm01);
-            // cudaMalloc((void **)&qindex1, sizeof(unsigned int) * nm01);
-            // cudaMalloc((void **)&pindex2, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex2, sizeof(unsigned int) * nmTot);
-            // IProductWRTBaseTetKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex1, qindex1, pindex2, qindex2, basis0, basis1,
-            //         basis2, w0, w1, w2, jac, in, out, scale);
+            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2;
+
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTetKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBaseTetKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTetKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -3782,38 +4192,61 @@ inline
             LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
         const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
+            SHMEM ? nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 + nq1 + nq2 : 0u;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
-                                        nm0 * nm1 * nq2 + nm1);
-            IProductWRTBasePrismKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // unsigned int *rindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&rindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBasePrismKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                  SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex, qindex, rindex, basis0, basis1, basis2, w0, w1,
-            //         w2, jac, in, out, scale);
+            nshared +=
+                nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nm1;
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePrismKernel_QP<TData, SCALE, APPEND,
+                                                          DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBasePrismKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePrismKernel<TData, SCALE, APPEND,
+                                                       DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -3821,36 +4254,60 @@ inline
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
         unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
+            SHMEM ? nm0 * nq0 + nm1 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2 : 0u;
 
         if constexpr (MULTILEVEL)
         {
-            nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
-                                        nm0 * nm1 * nq2 + 1u);
-            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBasePyrKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac,
-            //         in, out, scale);
+            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
         else
         {
-            IProductWRTBasePyrKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
+            SYCLQueue::GetInstance()
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
+
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePyrKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
+                .wait();
         }
     }
 }
