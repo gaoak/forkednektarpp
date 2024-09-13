@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -53,9 +53,10 @@ __global__ void AddTraceIntegralKernel(
 
     while (i < nsize)
     {
-        atomicAdd(outPtr + traceCoeffsToElmtMapPtr[i],
-                  traceCoeffsToElmtSignPtr[i] *
-                      tracePtr[traceCoeffsToElmtTracePtr[i]]);
+        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+            outPtr + traceCoeffsToElmtMapPtr[i],
+            traceCoeffsToElmtSignPtr[i] *
+                tracePtr[traceCoeffsToElmtTracePtr[i]]);
         i += stride;
     }
 }

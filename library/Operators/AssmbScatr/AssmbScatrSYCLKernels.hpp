@@ -54,18 +54,20 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(
+             sycl::nd_range<1>(gridSize * blockSize, blockSize),
+             [=](sycl::nd_item<1> indx) {
+                 unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  TData *const ptr = outPtr + assmbPtr[i];
-                                  const TData val  = signPtr[i] * inPtr[i];
-                                  Nektar::atomic_add<ExecSpace>(ptr, val);
-                                  i += indx.get_global_range(0);
-                              }
-                          });
+                 while (i < nsize)
+                 {
+                     TData *const ptr = outPtr + assmbPtr[i];
+                     const TData val  = signPtr[i] * inPtr[i];
+                     Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
+                         ptr, val);
+                     i += indx.get_global_range(0);
+                 }
+             });
      }).wait();
 }
 
@@ -81,18 +83,20 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(
+             sycl::nd_range<1>(gridSize * blockSize, blockSize),
+             [=](sycl::nd_item<1> indx) {
+                 unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  TData *const ptr = outPtr + assmbPtr[i];
-                                  const TData val  = sign * inPtr[i];
-                                  Nektar::atomic_add<ExecSpace>(ptr, val);
-                                  i += indx.get_global_range(0);
-                              }
-                          });
+                 while (i < nsize)
+                 {
+                     TData *const ptr = outPtr + assmbPtr[i];
+                     const TData val  = sign * inPtr[i];
+                     Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
+                         ptr, val);
+                     i += indx.get_global_range(0);
+                 }
+             });
      }).wait();
 }
 
@@ -108,18 +112,20 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(
+             sycl::nd_range<1>(gridSize * blockSize, blockSize),
+             [=](sycl::nd_item<1> indx) {
+                 unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  TData *const ptr = outPtr + assmbPtr[i];
-                                  const TData val  = inPtr[i];
-                                  Nektar::atomic_add<ExecSpace>(ptr, val);
-                                  i += indx.get_global_range(0);
-                              }
-                          });
+                 while (i < nsize)
+                 {
+                     TData *const ptr = outPtr + assmbPtr[i];
+                     const TData val  = inPtr[i];
+                     Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
+                         ptr, val);
+                     i += indx.get_global_range(0);
+                 }
+             });
      }).wait();
 }
 

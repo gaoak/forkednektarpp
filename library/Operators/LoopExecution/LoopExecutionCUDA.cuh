@@ -60,6 +60,18 @@ __device__ __forceinline__ float atomicMax(float *address, float val)
     return __int_as_float(ret);
 }
 
+__device__ __forceinline__ float atomicMax_block(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val > __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
 __device__ __forceinline__ double atomicMax(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
@@ -67,6 +79,19 @@ __device__ __forceinline__ double atomicMax(double *address, double val)
     {
         unsigned long long old = ret;
         if ((ret = atomicCAS((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+__device__ __forceinline__ double atomicMax_block(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val > __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS_block((unsigned long long *)address, old,
                              __double_as_longlong(val))) == old)
             break;
     }
@@ -85,6 +110,18 @@ __device__ __forceinline__ float atomicMin(float *address, float val)
     return __int_as_float(ret);
 }
 
+__device__ __forceinline__ float atomicMin_block(float *address, float val)
+{
+    int ret = __float_as_int(*address);
+    while (val < __int_as_float(ret))
+    {
+        int old = ret;
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) == old)
+            break;
+    }
+    return __int_as_float(ret);
+}
+
 __device__ __forceinline__ double atomicMin(double *address, double val)
 {
     unsigned long long ret = __double_as_longlong(*address);
@@ -98,40 +135,81 @@ __device__ __forceinline__ double atomicMin(double *address, double val)
     return __longlong_as_double(ret);
 }
 
-template <typename ExecSpace, typename TData>
+__device__ __forceinline__ double atomicMin_block(double *address, double val)
+{
+    unsigned long long ret = __double_as_longlong(*address);
+    while (val < __longlong_as_double(ret))
+    {
+        unsigned long long old = ret;
+        if ((ret = atomicCAS_block((unsigned long long *)address, old,
+                             __double_as_longlong(val))) == old)
+            break;
+    }
+    return __longlong_as_double(ret);
+}
+
+template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
-    atomicAdd(dest, val);
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAdd(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicAdd_block(dest, val);
+    }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
-    atomicAdd(dest, -val);
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicAdd(dest, -val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicAdd_block(dest, -val);
+    }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
-    atomicMax(dest, val);
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicMax(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicMax_block(dest, val);
+    }
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
-    atomicMin(dest, val);
+    if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
+    {
+        atomicMin(dest, val);
+    }
+    else if constexpr (std::is_same_v<Scope, NektarSpaces::LocalScope>)
+    {
+        atomicMin_block(dest, val);
+    }
 }
 
 template <typename Functor>

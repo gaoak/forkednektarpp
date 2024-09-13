@@ -37,7 +37,7 @@
 namespace Nektar
 {
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
@@ -47,7 +47,7 @@ atomic_add(TData *const dest, const TData val)
     *dest += val;
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
@@ -57,7 +57,7 @@ atomic_sub(TData *const dest, const TData val)
     *dest -= val;
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
@@ -67,7 +67,7 @@ atomic_max(TData *const dest, const TData val)
     *dest = max(*dest, val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
