@@ -110,7 +110,7 @@ inline
     DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                      const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DirBndCondKernel<<<gridSize, blockSize>>>(nsize, mapPtr, inPtr, outPtr);
@@ -123,7 +123,7 @@ inline
     DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                      const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DirBndCondKernel<<<gridSize, blockSize>>>(nsize, signPtr, mapPtr, inPtr,
@@ -137,7 +137,7 @@ inline
     ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
                              TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     ParallelDirBndSignKernel<<<gridSize, blockSize>>>(nsize, signPtr, outPtr);
@@ -151,7 +151,7 @@ inline
                           const int *id1Ptr, const TData *signPtr,
                           TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     LocalDirBndCondKernel<<<gridSize, blockSize>>>(nsize, id0Ptr, id1Ptr,

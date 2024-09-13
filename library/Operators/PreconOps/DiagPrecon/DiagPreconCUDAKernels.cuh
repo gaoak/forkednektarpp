@@ -88,8 +88,8 @@ inline
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    unsigned int blockSize = 256u;
-    unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
 
     TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
 
@@ -108,8 +108,8 @@ inline
 {
     using MemSpace = typename ExecSpace::memory_space;
 
-    unsigned int blockSize = 256u;
-    unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = (nElmts + blockSize - 1u) / blockSize;
 
     const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
     TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();

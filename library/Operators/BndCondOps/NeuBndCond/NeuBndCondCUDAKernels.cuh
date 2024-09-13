@@ -79,7 +79,7 @@ inline
     NeuBndCondKernel(const size_t nsize, const int *mapPtr, const TData *inPtr,
                      TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     NeuBndCondKernel<TData>
@@ -93,7 +93,7 @@ inline
     NeuBndCondKernel(const size_t nsize, const TData *signPtr,
                      const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     NeuBndCondKernel<TData>

@@ -106,7 +106,7 @@ void interleaveCUDAlauncher(const unsigned int VectorWidth,
                             const unsigned int metaBlockSize,
                             const unsigned int dataLen, double *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(double) * VectorWidth * numMetaBlocks * metaBlockSize;
@@ -125,7 +125,7 @@ void interleaveCUDAlauncher(const unsigned int VectorWidth,
                             const unsigned int metaBlockSize,
                             const unsigned int dataLen, float *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(float) * VectorWidth * numMetaBlocks * metaBlockSize;
@@ -144,7 +144,7 @@ void interleaveCUDAlauncher(const unsigned int VectorWidth,
                             const unsigned int metaBlockSize,
                             const unsigned int dataLen, int *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(int) * VectorWidth * numMetaBlocks * metaBlockSize;
@@ -163,7 +163,7 @@ void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
                               const unsigned int metaBlockSize,
                               const unsigned int dataLen, double *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(double) * VectorWidth * numMetaBlocks * metaBlockSize;
@@ -182,7 +182,7 @@ void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
                               const unsigned int metaBlockSize,
                               const unsigned int dataLen, float *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(float) * VectorWidth * numMetaBlocks * metaBlockSize;
@@ -201,7 +201,7 @@ void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
                               const unsigned int metaBlockSize,
                               const unsigned int dataLen, int *inout)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
         sizeof(int) * VectorWidth * numMetaBlocks * metaBlockSize;

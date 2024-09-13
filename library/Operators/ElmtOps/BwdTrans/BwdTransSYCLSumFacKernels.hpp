@@ -2444,9 +2444,11 @@ inline
                      const unsigned int nelmt, const TData *basis0,
                      const TData *in, TData *out)
 {
-    const unsigned int gridsize  = MULTILEVEL ? std::min(nq0, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
+                   : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -2515,9 +2517,11 @@ inline
                      TData *out)
 {
     const sycl::range<3> blocksize2d(1, std::min(nq1, 16u), std::min(nq0, 16u));
-    const unsigned int gridsize = MULTILEVEL ? std::min(nq0 * nq1, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
+                   : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -2652,10 +2656,12 @@ inline
 {
     const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
                                      std::min(nq2, 8u));
-    const unsigned int gridsize =
-        MULTILEVEL ? std::min(nq0 * nq1 * nq2, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL
+            ? std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize)
+            : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 

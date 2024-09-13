@@ -910,14 +910,17 @@ inline
                       const unsigned int dfsize, const TData *D0,
                       const TData *df, const TData *in, TData *out)
 {
-    const unsigned int gridsize  = MULTILEVEL ? std::min(nq0, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
+                   : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if constexpr (MULTILEVEL)
     {
-        PhysDeriv1DKernel_QP<TData, DEFORMED><<<gridsize, dim3(32)>>>(
-            nq0, ncoord, nelmts, nsize, dfsize, D0, df, in, out);
+        PhysDeriv1DKernel_QP<TData, DEFORMED>
+            <<<gridsize, dim3(NektarSpaces::CUDA::width)>>>(
+                nq0, ncoord, nelmts, nsize, dfsize, D0, df, in, out);
     }
     else
     {
@@ -938,10 +941,12 @@ inline
                       const TData *D1, const TData *Z0, const TData *Z1,
                       const TData *df, const TData *in, TData *out)
 {
-    const dim3 blocksize2d      = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int gridsize = MULTILEVEL ? std::min(nq0 * nq1, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize)
+                   : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     unsigned int nshared = SHMEM ? sizeof(TData) * (nq0 * nq0 + nq1 * nq1) : 0u;
 
@@ -999,10 +1004,12 @@ inline
 {
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int gridsize =
-        MULTILEVEL ? std::min(nq0 * nq1 * nq2, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL
+            ? std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize)
+            : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     unsigned int nshared =
         SHMEM ? sizeof(TData) * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) : 0u;

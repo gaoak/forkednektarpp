@@ -48,8 +48,11 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                    const TData *matPtr, const unsigned int *mapPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::width;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             const unsigned int offset = offsetPtr[i];
             const unsigned int map    = mapPtr[i];
             if (negflag)
@@ -75,12 +78,14 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *mapPtr, const int *signPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::width;
+
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nmaxcoeff);
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nsize, Kokkos::AUTO)
+        Kokkos::TeamPolicy<>(nsize, blockSize)
             .set_scratch_size(0, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             Kokkos::View<TData *,

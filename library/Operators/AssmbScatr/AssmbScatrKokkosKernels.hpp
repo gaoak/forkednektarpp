@@ -47,8 +47,11 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[i], signPtr[i] * inPtr[i]);
         });
 }
@@ -59,8 +62,11 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
                const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[i], sign * inPtr[i]);
         });
 }
@@ -71,8 +77,11 @@ inline typename std::enable_if<
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + assmbPtr[i], inPtr[i]);
         });
 }
@@ -83,8 +92,11 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
         });
 }
@@ -95,8 +107,11 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData sign, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[i] = sign * inPtr[assmbPtr[i]];
         });
 }
@@ -107,8 +122,11 @@ inline typename std::enable_if<
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[i] = inPtr[assmbPtr[i]];
         });
 }

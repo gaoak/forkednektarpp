@@ -49,7 +49,7 @@ inline
     DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                      const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -74,7 +74,7 @@ inline
     DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                      const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -99,7 +99,7 @@ inline
     ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
                              TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -126,7 +126,7 @@ inline
                           const int *id1Ptr, const TData *signPtr,
                           TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

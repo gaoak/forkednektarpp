@@ -49,7 +49,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -76,7 +76,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData sign, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -103,7 +103,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -130,7 +130,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -155,7 +155,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData sign, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -180,7 +180,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

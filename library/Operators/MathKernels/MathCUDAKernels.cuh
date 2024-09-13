@@ -855,7 +855,10 @@ inline
                             void>::type
     negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
-    negKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    negKernel<<<gridSize, blockSize>>>(nsize, x, y);
 }
 
 template <typename ExecSpace, typename TData>
@@ -865,7 +868,10 @@ inline
     addKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
-    addKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    addKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -875,7 +881,10 @@ inline
     subKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
-    subKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    subKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -885,7 +894,10 @@ inline
     daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
                 const TData *y, TData *z)
 {
-    daxpyKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, alpha, x, y, z);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -895,7 +907,10 @@ inline
     divKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
-    vdivKernel<<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, z);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    vdivKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
@@ -904,19 +919,22 @@ inline
                             void>::type
     reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
-    cudaMemset(cudaBuffer, 0, sizeof(TData) * cudaGridSize);
+    cudaMemset(cudaBuffer, 0, sizeof(TData) * gridSize);
     cudaMemset(out, 0, sizeof(TData));
     reduceSumKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -927,17 +945,20 @@ inline
                             void>::type
     reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
     reduceMaxKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceMaxKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -948,17 +969,20 @@ inline
                             void>::type
     reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
     reduceMinKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceMinKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -970,17 +994,20 @@ inline
     ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
                TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
     ddotKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, y, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, x, y, (TData *)cudaBuffer);
     reduceSumKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -991,17 +1018,19 @@ inline
                             void>::type
     l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
-    l1normKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    l1normKernel<TData><<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -1012,17 +1041,19 @@ inline
                             void>::type
     l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
-    l2normKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+    l2normKernel<TData><<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -1034,17 +1065,20 @@ inline
     lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
                  TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
     lpnormKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, p, x, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, p, x, (TData *)cudaBuffer);
     reduceSumKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }
@@ -1055,17 +1089,20 @@ inline
                             void>::type
     linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
     TData *d_out;
     cudaMalloc((void **)&d_out, sizeof(TData));
     linfnormKernel<TData>
-        <<<cudaGridSize, cudaBlockSize>>>(nsize, x, (TData *)cudaBuffer);
+        <<<gridSize, blockSize>>>(nsize, x, (TData *)cudaBuffer);
     reduceMaxKernel<TData>
-        <<<1, cudaGridSize>>>(cudaGridSize, (TData *)cudaBuffer, d_out);
+        <<<1, gridSize>>>(gridSize, (TData *)cudaBuffer, d_out);
     cudaMemcpy(out, d_out, sizeof(TData), cudaMemcpyDeviceToHost);
     cudaFree(d_out);
 }

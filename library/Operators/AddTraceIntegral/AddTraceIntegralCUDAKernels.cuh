@@ -71,7 +71,7 @@ inline
                            const int *traceCoeffsToElmtTracePtr,
                            const TData *tracePtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AddTraceIntegralKernel<TData><<<gridSize, blockSize>>>(

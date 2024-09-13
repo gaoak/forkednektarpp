@@ -48,8 +48,10 @@ inline typename std::enable_if<
 DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize,
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) { deriv0[i] *= diffCoeff[0]; });
 }
 
@@ -59,8 +61,11 @@ inline typename std::enable_if<
 DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             TData deriv[2] = {deriv0[i], deriv1[i]};
 
             deriv0[i] = diffCoeff[0] * deriv[0] + diffCoeff[1] * deriv[1];
@@ -74,8 +79,11 @@ inline typename std::enable_if<
 DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1, TData *deriv2)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             TData deriv[3] = {deriv0[i], deriv1[i], deriv2[i]};
 
             deriv0[i] = diffCoeff[0] * deriv[0] + diffCoeff[1] * deriv[1] +

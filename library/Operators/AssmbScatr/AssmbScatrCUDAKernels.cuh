@@ -149,7 +149,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AssembleKernel<TData>
@@ -163,7 +163,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData sign, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AssembleKernel<TData>
@@ -177,7 +177,7 @@ inline
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                    const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AssembleKernel<TData>
@@ -191,7 +191,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     GlobalToLocalKernel<TData>
@@ -205,7 +205,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData sign, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     GlobalToLocalKernel<TData>
@@ -219,7 +219,7 @@ inline
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                         const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     GlobalToLocalKernel<TData>
