@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -53,7 +53,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomicAdd(outPtr + assmbPtr[i], signPtr[i] * inPtr[i]);
+        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+            outPtr + assmbPtr[i], signPtr[i] * inPtr[i]);
         i += stride;
     }
 }
@@ -70,7 +71,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomicAdd(outPtr + assmbPtr[i], sign * inPtr[i]);
+        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+            outPtr + assmbPtr[i], sign * inPtr[i]);
         i += stride;
     }
 }
@@ -86,7 +88,8 @@ __global__ void AssembleKernel(const unsigned int nsize,
 
     while (i < nsize)
     {
-        atomicAdd(outPtr + assmbPtr[i], inPtr[i]);
+        atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+            outPtr + assmbPtr[i], inPtr[i]);
         i += stride;
     }
 }

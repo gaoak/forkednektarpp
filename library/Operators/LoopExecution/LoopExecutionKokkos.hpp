@@ -41,7 +41,7 @@
 namespace Nektar
 {
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 KOKKOS_INLINE_FUNCTION typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 atomic_add(TData *const dest, const TData val)
@@ -49,7 +49,7 @@ atomic_add(TData *const dest, const TData val)
     Kokkos::atomic_add(dest, val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 KOKKOS_INLINE_FUNCTION typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 atomic_sub(TData *const dest, const TData val)
@@ -57,7 +57,7 @@ atomic_sub(TData *const dest, const TData val)
     Kokkos::atomic_sub(dest, val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 KOKKOS_INLINE_FUNCTION typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 atomic_max(TData *const dest, const TData val)
@@ -65,7 +65,7 @@ atomic_max(TData *const dest, const TData val)
     Kokkos::atomic_max(dest, val);
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace, typename Scope, typename TData>
 KOKKOS_INLINE_FUNCTION typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 atomic_min(TData *const dest, const TData val)

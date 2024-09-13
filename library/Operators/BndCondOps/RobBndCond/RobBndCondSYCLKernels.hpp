@@ -55,30 +55,34 @@ inline
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
-                          [=](sycl::nd_item<1> indx) {
-                              unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(
+             sycl::nd_range<1>(gridSize * blockSize, blockSize),
+             [=](sycl::nd_item<1> indx) {
+                 unsigned int i = indx.get_global_id(0);
 
-                              while (i < nsize)
-                              {
-                                  const unsigned int offset = offsetPtr[i];
-                                  const unsigned int map    = mapPtr[i];
+                 while (i < nsize)
+                 {
+                     const unsigned int offset = offsetPtr[i];
+                     const unsigned int map    = mapPtr[i];
 
-                                  TData *const ptr = coeffPtr + offset + map;
-                                  const TData val =
-                                      matPtr[i] * incoeffPtr[offset + map];
-                                  if constexpr (negflag)
-                                  {
-                                      Nektar::atomic_sub<ExecSpace>(ptr, val);
-                                  }
-                                  else
-                                  {
-                                      Nektar::atomic_add<ExecSpace>(ptr, val);
-                                  }
+                     TData *const ptr = coeffPtr + offset + map;
+                     const TData val  = matPtr[i] * incoeffPtr[offset + map];
+                     if constexpr (negflag)
+                     {
+                         Nektar::atomic_sub<ExecSpace,
+                                            NektarSpaces::GlobalScope>(ptr,
+                                                                       val);
+                     }
+                     else
+                     {
+                         Nektar::atomic_add<ExecSpace,
+                                            NektarSpaces::GlobalScope>(ptr,
+                                                                       val);
+                     }
 
-                                  i += indx.get_global_range(0);
-                              }
-                          });
+                     i += indx.get_global_range(0);
+                 }
+             });
      }).wait();
 }
 
@@ -143,11 +147,15 @@ inline
                          const TData val  = tmp * signPtr[index];
                          if constexpr (negflag)
                          {
-                             Nektar::atomic_sub<ExecSpace>(ptr, val);
+                             Nektar::atomic_sub<ExecSpace,
+                                                NektarSpaces::GlobalScope>(ptr,
+                                                                           val);
                          }
                          else
                          {
-                             Nektar::atomic_add<ExecSpace>(ptr, val);
+                             Nektar::atomic_add<ExecSpace,
+                                                NektarSpaces::GlobalScope>(ptr,
+                                                                           val);
                          }
                      }
 

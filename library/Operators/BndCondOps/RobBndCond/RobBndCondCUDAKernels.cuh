@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -58,13 +58,13 @@ __global__ void RobBndCond1DKernel(const unsigned int nsize,
 
         if constexpr (negflag)
         {
-            atomicAdd(coeffPtr + offset + map,
-                      -matPtr[i] * incoeffPtr[offset + map]);
+            atomic_sub<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                coeffPtr + offset + map, matPtr[i] * incoeffPtr[offset + map]);
         }
         else
         {
-            atomicAdd(coeffPtr + offset + map,
-                      matPtr[i] * incoeffPtr[offset + map]);
+            atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                coeffPtr + offset + map, matPtr[i] * incoeffPtr[offset + map]);
         }
 
         i += blockDim.x * gridDim.x;
@@ -111,13 +111,13 @@ __global__ void RobBndCond2DKernel(
             const unsigned int index = mapOffset + i;
             if constexpr (negflag)
             {
-                atomicAdd(coeffPtr + offset + mapPtr[index],
-                          -tmp * signPtr[index]);
+                atomic_sub<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                    coeffPtr + offset + mapPtr[index], tmp * signPtr[index]);
             }
             else
             {
-                atomicAdd(coeffPtr + offset + mapPtr[index],
-                          tmp * signPtr[index]);
+                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                    coeffPtr + offset + mapPtr[index], tmp * signPtr[index]);
             }
         }
 

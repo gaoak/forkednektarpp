@@ -38,7 +38,6 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
@@ -1015,7 +1014,8 @@ void IProductWRTBaseTriKernel_QP_1D(
                 const unsigned int j = idx / nq0;
                 TData tmp            = s_w1[j] * s_basis1[nq1 + j];
                 TData prod           = s_wsp0[idx] * tmp * s_w0[i];
-                atomicAdd(s_iprod_01, prod * s_basis0[nq0 + i]);
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
+                    s_iprod_01, prod * s_basis0[nq0 + i]);
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -1999,20 +1999,16 @@ void IProductWRTBaseTetKernel_QP(
                         tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                         tmp *= s_basis2[nq2 + k];
                         tmp *= s_wsp0[cnt_kji] * tmpQ;
-                        Nektar::atomic_add<
-                            NektarSpaces::SYCL, TData,
-                            sycl::memory_scope_work_group,
-                            sycl::access::address_space::local_space>(
+                        Nektar::atomic_add<NektarSpaces::SYCL,
+                                           NektarSpaces::LocalScope>(
                             s_prod + nm2 - 1, tmp);
 
                         // bottom vertex
                         tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
                               s_basis2[k] * s_wsp0[cnt_kji] * tmpQ;
-                        Nektar::atomic_add<
-                            NektarSpaces::SYCL, TData,
-                            sycl::memory_scope_work_group,
-                            sycl::access::address_space::local_space>(s_prod,
-                                                                      tmp);
+                        Nektar::atomic_add<NektarSpaces::SYCL,
+                                           NektarSpaces::LocalScope>(s_prod,
+                                                                     tmp);
 
                         // singular edge
                         for (unsigned int r = 1u; r < nm2 - 1u; ++r)
@@ -2020,10 +2016,8 @@ void IProductWRTBaseTetKernel_QP(
                             tmp = s_basis2[(r + 1) * nq2 + k] *
                                   s_basis1[nq1 + j] * s_basis0[nq0 + i] *
                                   s_wsp0[cnt_kji] * tmpQ;
-                            Nektar::atomic_add<
-                                NektarSpaces::SYCL, TData,
-                                sycl::memory_scope_work_group,
-                                sycl::access::address_space::local_space>(
+                            Nektar::atomic_add<NektarSpaces::SYCL,
+                                               NektarSpaces::LocalScope>(
                                 s_prod + r, tmp);
                         }
                     }
@@ -2294,19 +2288,22 @@ void IProductWRTBaseTetKernel_QP_1D(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-                atomicAdd(s_prod + nm2 - 1, tmp);
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
+                    s_prod + nm2 - 1, tmp);
 
                 // bottom vertex
                 tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
                       s_wsp0[idx] * tmpQ;
-                atomicAdd(s_prod, tmp);
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
+                                                                         tmp);
 
                 // singular edge
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
                     tmp = s_basis2[(r + 1) * nq2 + k] * s_basis1[nq1 + j] *
                           s_basis0[nq0 + i] * s_wsp0[idx] * tmpQ;
-                    atomicAdd(s_prod + r, tmp);
+                    atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
+                        s_prod + r, tmp);
                 }
             }
 
@@ -2773,10 +2770,8 @@ void IProductWRTBasePrismKernel_QP(
                         TData prod = kj_weight * s_w0[i] * s_wsp0[cnt_kji];
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
-                            Nektar::atomic_add<
-                                NektarSpaces::SYCL, TData,
-                                sycl::memory_scope_work_group,
-                                sycl::access::address_space::local_space>(
+                            Nektar::atomic_add<NektarSpaces::SYCL,
+                                               NektarSpaces::LocalScope>(
                                 s_wsp2 + q, prod * s_basis2[nq2 + k] *
                                                 s_basis1[q * nq1 + j] *
                                                 s_basis0[nq0 + i]);
@@ -3015,9 +3010,10 @@ void IProductWRTBasePrismKernel_QP_1D(
                 TData prod           = kj_weight * s_w0[i] * s_wsp0[idx];
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    atomicAdd(s_wsp2 + q, prod * s_basis2[nq2 + k] *
-                                              s_basis1[q * nq1 + j] *
-                                              s_basis0[nq0 + i]);
+                    atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
+                        s_wsp2 + q, prod * s_basis2[nq2 + k] *
+                                        s_basis1[q * nq1 + j] *
+                                        s_basis0[nq0 + i]);
                 }
             }
 
@@ -3549,11 +3545,9 @@ void IProductWRTBasePyrKernel_QP(
                         tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                         tmp *= s_basis2[nq2 + k];
                         tmp *= s_wsp0[cnt_kji] * tmpQ;
-                        Nektar::atomic_add<
-                            NektarSpaces::SYCL, TData,
-                            sycl::memory_scope_work_group,
-                            sycl::access::address_space::local_space>(s_prod,
-                                                                      tmp);
+                        Nektar::atomic_add<NektarSpaces::SYCL,
+                                           NektarSpaces::LocalScope>(s_prod,
+                                                                     tmp);
                     }
                 }
             }
@@ -3802,7 +3796,8 @@ void IProductWRTBasePyrKernel_QP_1D(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-                atomicAdd(s_prod, tmp);
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
+                                                                         tmp);
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);

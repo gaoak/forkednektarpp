@@ -185,4 +185,14 @@ using DefaultExecutionSpace = DefaultHostExecutionSpace;
 #define NEKTAR_LAMBDA [&]
 #endif
 
+class GlobalScope
+{
+public:
+};
+
+class LocalScope
+{
+public:
+};
+
 } // namespace NektarSpaces
