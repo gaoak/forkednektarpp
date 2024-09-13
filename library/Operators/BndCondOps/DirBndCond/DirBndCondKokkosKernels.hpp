@@ -47,8 +47,10 @@ inline typename std::enable_if<
 DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                  const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize,
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
 }
 
@@ -58,8 +60,11 @@ inline typename std::enable_if<
 DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                  const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
         });
 }
@@ -70,8 +75,10 @@ inline typename std::enable_if<
 ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
                          TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize,
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) { outPtr[signPtr[i]] *= -1; });
 }
 
@@ -81,8 +88,11 @@ inline typename std::enable_if<
 LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                       const int *id1Ptr, const TData *signPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
         });
 }

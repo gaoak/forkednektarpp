@@ -125,7 +125,7 @@ inline
     DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DiffusionCoeff1DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0);
@@ -138,7 +138,7 @@ inline
     DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0, TData *deriv1)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DiffusionCoeff2DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,
@@ -152,7 +152,7 @@ inline
     DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                            TData *deriv0, TData *deriv1, TData *deriv2)
 {
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     DiffusionCoeff3DKernel<<<gridSize, blockSize>>>(nsize, diffCoeff, deriv0,

@@ -51,19 +51,21 @@ inline
                             void>::type
     negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     y[i] = -x[i];
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  y[i] = -x[i];
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -74,19 +76,21 @@ inline
     addKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     z[i] = x[i] + y[i];
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  z[i] = x[i] + y[i];
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -97,19 +101,21 @@ inline
     subKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     z[i] = x[i] - y[i];
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  z[i] = x[i] - y[i];
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -120,19 +126,21 @@ inline
     daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
                 const TData *y, TData *z)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     z[i] = alpha * x[i] + y[i];
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  z[i] = alpha * x[i] + y[i];
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -143,19 +151,21 @@ inline
     divKernel(const unsigned int nsize, const TData *x, const TData *y,
               TData *z)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = indx.get_global_id(0);
 
-                 while (i < nsize)
-                 {
-                     z[i] = x[i] / y[i];
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < nsize)
+                              {
+                                  z[i] = x[i] / y[i];
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -576,16 +586,17 @@ inline
                             void>::type
     reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceSumKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                           (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    reduceSumKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -596,16 +607,17 @@ inline
                             void>::type
     reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceMaxKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                           (TData *)syclBuffer);
-    reduceMaxKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    reduceMaxKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceMaxKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -616,16 +628,17 @@ inline
                             void>::type
     reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    reduceMinKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                           (TData *)syclBuffer);
-    reduceMinKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    reduceMinKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceMinKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -637,16 +650,17 @@ inline
     ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
                TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    ddotKernel<TData>(syclGridSize, syclBlockSize, nsize, x, y,
-                      (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    ddotKernel<TData>(gridSize, blockSize, nsize, x, y, (TData *)syclBuffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -657,16 +671,17 @@ inline
                             void>::type
     l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    l1normKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                        (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    l1normKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -677,16 +692,17 @@ inline
                             void>::type
     l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    l2normKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                        (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    l2normKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -698,16 +714,17 @@ inline
     lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
                  TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer =
-            sycl::malloc_device<TData>(syclGridSize, SYCLQueue::GetInstance());
+            sycl::malloc_device<TData>(gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    lpnormKernel<TData>(syclGridSize, syclBlockSize, nsize, p, x,
-                        (TData *)syclBuffer);
-    reduceSumKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    lpnormKernel<TData>(gridSize, blockSize, nsize, p, x, (TData *)syclBuffer);
+    reduceSumKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }
@@ -718,16 +735,17 @@ inline
                             void>::type
     linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     if (syclBuffer == nullptr)
     {
         syclBuffer = (void *)sycl::malloc_device<TData>(
-            syclGridSize, SYCLQueue::GetInstance());
+            gridSize, SYCLQueue::GetInstance());
     }
     TData *d_out = sycl::malloc_device<TData>(1, SYCLQueue::GetInstance());
-    linfnormKernel<TData>(syclGridSize, syclBlockSize, nsize, x,
-                          (TData *)syclBuffer);
-    reduceMaxKernel<TData>(1, syclGridSize, syclGridSize, (TData *)syclBuffer,
-                           d_out);
+    linfnormKernel<TData>(gridSize, blockSize, nsize, x, (TData *)syclBuffer);
+    reduceMaxKernel<TData>(1, gridSize, gridSize, (TData *)syclBuffer, d_out);
     SYCLQueue::GetInstance().memcpy(out, d_out, sizeof(TData)).wait();
     sycl::free(d_out, SYCLQueue::GetInstance());
 }

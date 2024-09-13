@@ -43,8 +43,6 @@
 namespace Nektar
 {
 
-static unsigned int cudaBlockSize  = 256u;
-static unsigned int cudaGridSize   = 1024u;
 static unsigned int cudaBufferSize = 0u;
 static void *cudaBuffer            = nullptr;
 
@@ -283,7 +281,10 @@ inline
     parallel_for(const unsigned int begin, const unsigned int end,
                  const Functor &functor)
 {
-    parallel_for<<<cudaGridSize, cudaBlockSize>>>(begin, end, functor);
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
+    parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
@@ -293,11 +294,14 @@ inline
     parallel_reduce(const unsigned int begin, const unsigned int end,
                     const Functor &functor, typename Reduction::value_type *out)
 {
+    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+
     using TData = typename Reduction::value_type;
 
     if (cudaBuffer == nullptr)
     {
-        cudaBufferSize = sizeof(TData) * cudaGridSize;
+        cudaBufferSize = sizeof(TData) * gridSize;
         cudaMalloc(&cudaBuffer, cudaBufferSize);
     }
 
@@ -308,30 +312,27 @@ inline
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         reduceSumKernel<TData>
-            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
-        reduceSumKernel<TData><<<1, cudaGridSize>>>(
-            0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans) {
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceSumKernel<TData><<<1, gridSize>>>(
+            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans += buffer[i];
             });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         reduceMaxKernel<TData>
-            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
-        reduceMaxKernel<TData><<<1, cudaGridSize>>>(
-            0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans) {
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMaxKernel<TData><<<1, gridSize>>>(
+            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = max(ans, buffer[i]);
             });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         reduceMinKernel<TData>
-            <<<cudaGridSize, cudaBlockSize>>>(begin, end, buffer, functor);
-        reduceMinKernel<TData><<<1, cudaGridSize>>>(
-            0, cudaGridSize, out,
-            [=] __device__(const unsigned int i, TData &ans) {
+            <<<gridSize, blockSize>>>(begin, end, buffer, functor);
+        reduceMinKernel<TData><<<1, gridSize>>>(
+            0, gridSize, out, [=] __device__(const unsigned int i, TData &ans) {
                 ans = min(ans, buffer[i]);
             });
     }

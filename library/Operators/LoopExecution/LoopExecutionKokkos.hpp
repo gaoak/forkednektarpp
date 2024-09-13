@@ -79,9 +79,11 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 parallel_for(const int begin, const int end, const Functor &functor)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     std::string name = Nektar::demangleTypeName(typeid(Functor));
 
-    Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(begin, end);
+    Kokkos::RangePolicy<> rangePolicy(begin, end, Kokkos::ChunkSize(blockSize));
 
     Kokkos::parallel_for(name, rangePolicy, functor);
 }
@@ -93,11 +95,13 @@ inline typename std::enable_if<
 parallel_reduce(const int begin, const int end, const Functor &functor,
                 typename Reduction::value_type &red)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     using TData = typename Reduction::value_type;
 
     std::string name = Nektar::demangleTypeName(typeid(Functor));
 
-    Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace> rangePolicy(begin, end);
+    Kokkos::RangePolicy<> rangePolicy(begin, end, Kokkos::ChunkSize(blockSize));
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {

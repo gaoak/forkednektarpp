@@ -50,8 +50,11 @@ AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtTracePtr,
                        const TData *tracePtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        nsize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[i],
                                traceCoeffsToElmtSignPtr[i] *
                                    tracePtr[traceCoeffsToElmtTracePtr[i]]);

@@ -649,9 +649,10 @@ inline
                                  const unsigned int dfsize, const TData *df,
                                  const TData *in, TData *out)
 {
-    const unsigned int gridsize  = std::min(nq0, 256u);
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if constexpr (MULTILEVEL)
     {
@@ -680,10 +681,11 @@ inline
                                  const TData *Z1, const TData *df,
                                  const TData *in, TData *out)
 {
-    const dim3 blocksize2d       = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int gridsize  = std::min(nq0 * nq1, 256u);
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
+    const unsigned int blocksize =
+        std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -738,9 +740,10 @@ inline
 {
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int gridsize  = std::min(nq0 * nq1 * nq2, 256u);
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if (shapetype == LibUtilities::Hex)
     {

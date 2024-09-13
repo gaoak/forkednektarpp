@@ -116,6 +116,8 @@ public:
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t width     = 32;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 };
 
 // Native pure HIP execution
@@ -125,6 +127,8 @@ public:
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 };
 
 // Native pure SYCL execution
@@ -132,8 +136,17 @@ class SYCL
 {
 public:
     using memory_space                = NektarSpaces::DeviceSpace;
+#if defined(SYCL_ENABLE_CUDA)
     static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#else
+    static constexpr size_t width     = vec_t::width;
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 16u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#endif
 };
 
 // Native pure Kokkos execution
@@ -144,15 +157,23 @@ public:
 #if defined(KOKKOS_ENABLE_CUDA)
     static constexpr size_t width     = Kokkos::Impl::CudaTraits::WarpSize;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 #elif defined(KOKKOS_ENABLE_HIP)
     static constexpr size_t width     = Kokkos::Impl::HIPTraits::WarpSize;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 #elif defined(KOKKOS_ENABLE_SYCL)
     static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 #else
     static constexpr size_t width     = vec_t::width;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 16u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
 #endif
 };
 

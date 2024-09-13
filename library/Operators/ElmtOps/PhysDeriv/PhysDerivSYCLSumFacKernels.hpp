@@ -51,7 +51,7 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                        const TData *__restrict df, const TData *__restrict in,
                        TData *__restrict out, const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
@@ -135,7 +135,7 @@ void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
                        TData *__restrict out, TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_D0              = SHMEM ? shared : (TData *)D0;
@@ -451,7 +451,7 @@ void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
                        const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord   = 3u;
-    constexpr unsigned int warpsize = 32u;
+    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_D0              = SHMEM ? shared : (TData *)D0;
@@ -958,17 +958,19 @@ inline
                       const unsigned int dfsize, const TData *D0,
                       const TData *df, const TData *in, TData *out)
 {
-    const unsigned int gridsize  = MULTILEVEL ? std::min(nq0, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
+                   : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if constexpr (MULTILEVEL)
     {
         Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> localSize(1, 1, 32);
-             const sycl::range<3> globalSize(1, 1, gridsize * 32);
+             const sycl::range<3> localSize(1, 1,  NektarSpaces::SYCL::width);
+             const sycl::range<3> globalSize(1, 1, gridsize *  NektarSpaces::SYCL::width);
 
              cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
                               [=](sycl::nd_item<3> item) {
@@ -1013,9 +1015,11 @@ inline
                       const TData *df, const TData *in, TData *out)
 {
     const sycl::range<3> blocksize2d(1, std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int gridsize = MULTILEVEL ? std::min(nq0 * nq1, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
+                   : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -1152,10 +1156,12 @@ inline
 {
     const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
                                      std::min(nq2, 8u));
-    const unsigned int gridsize =
-        MULTILEVEL ? std::min(nq0 * nq1 * nq2, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL
+            ? std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize)
+            : NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 

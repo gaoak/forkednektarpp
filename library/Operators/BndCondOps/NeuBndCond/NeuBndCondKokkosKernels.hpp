@@ -49,8 +49,10 @@ inline typename std::enable_if<
 NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
                  TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        bndExpSize,
+        Kokkos::RangePolicy<>(0u, bndExpSize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] += inPtr[i]; });
 }
 
@@ -60,8 +62,11 @@ inline typename std::enable_if<
 NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
                  const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
+    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+
     Kokkos::parallel_for(
-        bndExpSize, KOKKOS_LAMBDA(const unsigned int i) {
+        Kokkos::RangePolicy<>(0u, bndExpSize, Kokkos::ChunkSize(blockSize)),
+        KOKKOS_LAMBDA(const unsigned int i) {
             outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
         });
 }

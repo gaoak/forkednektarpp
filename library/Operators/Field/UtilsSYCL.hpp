@@ -51,7 +51,7 @@ inline
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(
@@ -106,7 +106,7 @@ inline
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    const unsigned int blockSize = 256u;
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(

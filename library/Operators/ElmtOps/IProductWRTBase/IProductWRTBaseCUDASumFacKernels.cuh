@@ -3579,9 +3579,11 @@ inline
                             const TData *w0, const TData *jac, const TData *in,
                             TData *out, const TData scale = 1.0)
 {
-    const unsigned int gridsize  = MULTILEVEL ? std::min(nq0, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
+                   : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     unsigned int nshared = SHMEM ? sizeof(TData) * (nm0 * nq0 + nq0) : 0u;
 
@@ -3614,10 +3616,12 @@ inline
                             TData *wsp, const TData *in, TData *out,
                             const TData scale = 1.0)
 {
-    const dim3 blocksize2d      = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int gridsize = MULTILEVEL ? std::min(nq0 * nq1, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
+    const unsigned int blocksize =
+        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize)
+                   : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -3698,10 +3702,12 @@ inline
 {
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int gridsize =
-        MULTILEVEL ? std::min(nq0 * nq1 * nq2, 256u) : 256u;
-    const unsigned int blocksize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + gridsize - 1u) / gridsize, 2147483647u);
+    const unsigned int blocksize =
+        MULTILEVEL
+            ? std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize)
+            : NektarSpaces::CUDA::defaultBlockSize;
+    const unsigned int gridsize = std::min(
+        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
 
     if (shapetype == LibUtilities::Hex)
     {

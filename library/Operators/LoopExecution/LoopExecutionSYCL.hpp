@@ -41,8 +41,6 @@
 namespace Nektar
 {
 
-static unsigned int syclBlockSize  = 256u;
-static unsigned int syclGridSize   = 1024u;
 static unsigned int syclBufferSize = 0u;
 static void *syclBuffer            = nullptr;
 
@@ -109,19 +107,21 @@ inline
                             void>::type
     parallel_for(const int begin, const int end, const Functor &functor)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<1>(syclGridSize * syclBlockSize, syclBlockSize),
-             [=](sycl::nd_item<1> indx) {
-                 unsigned int i = begin + indx.get_global_id(0);
+         cgh.parallel_for(sycl::nd_range<1>(gridSize * blockSize, blockSize),
+                          [=](sycl::nd_item<1> indx) {
+                              unsigned int i = begin + indx.get_global_id(0);
 
-                 while (i < end)
-                 {
-                     functor(i);
-                     i += indx.get_global_range(0);
-                 }
-             });
+                              while (i < end)
+                              {
+                                  functor(i);
+                                  i += indx.get_global_range(0);
+                              }
+                          });
      }).wait();
 }
 
@@ -292,12 +292,15 @@ inline
     parallel_reduce(const unsigned int begin, const unsigned int end,
                     const Functor &functor, typename Reduction::value_type *out)
 {
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+
     using TData = typename Reduction::value_type;
 
     if (syclBuffer == nullptr)
     {
         syclBuffer = (void *)sycl::malloc_device<TData>(
-            syclGridSize, SYCLQueue::GetInstance());
+            gridSize, SYCLQueue::GetInstance());
     }
 
     TData *buffer = (TData *)syclBuffer;
@@ -306,26 +309,26 @@ inline
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-        reduceSumKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
+        reduceSumKernel<TData>(gridSize, blockSize, begin, end, buffer,
                                functor);
         reduceSumKernel<TData>(
-            1, syclGridSize, 0, syclGridSize, out,
+            1, gridSize, 0, gridSize, out,
             [=](const unsigned int i, TData &ans) { ans += buffer[i]; });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        reduceMaxKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
+        reduceMaxKernel<TData>(gridSize, blockSize, begin, end, buffer,
                                functor);
-        reduceMaxKernel<TData>(1, syclGridSize, 0, syclGridSize, out,
+        reduceMaxKernel<TData>(1, gridSize, 0, gridSize, out,
                                [=](const unsigned int i, TData &ans) {
                                    ans = sycl::max(ans, buffer[i]);
                                });
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        reduceMinKernel<TData>(syclGridSize, syclBlockSize, begin, end, buffer,
+        reduceMinKernel<TData>(gridSize, blockSize, begin, end, buffer,
                                functor);
-        reduceMinKernel<TData>(1, syclGridSize, 0, syclGridSize, out,
+        reduceMinKernel<TData>(1, gridSize, 0, gridSize, out,
                                [=](const unsigned int i, TData &ans) {
                                    ans = sycl::min(ans, buffer[i]);
                                });
