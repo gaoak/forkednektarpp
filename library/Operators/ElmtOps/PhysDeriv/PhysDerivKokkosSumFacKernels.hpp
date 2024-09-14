@@ -54,8 +54,13 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -123,19 +128,69 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
 template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
           bool SHMEM = true>
 void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
-    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nsize, const unsigned int dfsize,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_D0 = SHMEM ? &scratch[0] : (TData *)D0;
+            TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+            TData *s_xfrm0, *s_xfrm1;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0 * nq0),
+                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1 * nq1),
+                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
+            }
+
+            // Precompute geometric factors.
+            if (SHAPETYPE == LibUtilities::Tri)
+            {
+                s_xfrm0 = SHMEM ? s_D1 + nq1 * nq1 : &scratch[0];
+                s_xfrm1 = s_xfrm0 + nq1;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+                                     });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -146,7 +201,6 @@ void PhysDeriv2DKernel(
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
                     const unsigned int dfindex = DEFORMED ? index : e;
-                    TData xfrm0, xfrm1;
 
                     // Compute tensorial derivative.
                     // Direction 0
@@ -170,10 +224,8 @@ void PhysDeriv2DKernel(
                     // Moving from standard to collapsed coordinates.
                     if (SHAPETYPE == LibUtilities::Tri)
                     {
-                        xfrm0 = 2.0 / (1.0 - Z1[j]);
-                        xfrm1 = 0.5 * (1.0 + Z0[i]);
-                        d0 *= xfrm0;
-                        d1 += d0 * xfrm1;
+                        d0 *= s_xfrm0[i];
+                        d1 += d0 * s_xfrm1[i];
                     }
 
                     // Multiply by derivative factors.
@@ -393,8 +445,8 @@ void PhysDeriv2DKernel_QP_1D(
 template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
           bool SHMEM = true>
 void PhysDeriv3DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const unsigned int nsize,
+    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const unsigned int nsize,
     const unsigned int dfsize, const TData *KOKKOS_RESTRICT D0,
     const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
@@ -404,10 +456,121 @@ void PhysDeriv3DKernel(
     constexpr unsigned int ncoord   = 3u;
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_D0 = SHMEM ? &scratch[0] : (TData *)D0;
+            TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+            TData *s_D2 = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
+            TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0 * nq0),
+                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1 * nq1),
+                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq2 * nq2),
+                    [&](const unsigned int &idx) { s_D2[idx] = D2[idx]; });
+            }
+
+            // Precompute geometric factors.
+            if (SHAPETYPE == LibUtilities::Tet)
+            {
+                s_xfrm_eta0  = SHMEM ? s_D2 + nq2 * nq2 : &scratch[0];
+                s_xfrm_eta1  = s_xfrm_eta0 + nq0;
+                s_xfrm_eta1m = s_xfrm_eta1 + nq1;
+                s_xfrm_eta2  = s_xfrm_eta1m + nq1;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta0[idx] =
+                                             0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta1[idx] =
+                                             0.5 * (1.0 + Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta1m[idx] =
+                                             2.0 / (1.0 - Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta2[idx] =
+                                             2.0 / (1.0 - Z2[idx]);
+                                     });
+            }
+            else if (SHAPETYPE == LibUtilities::Prism)
+            {
+                s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : &scratch[0];
+                s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta0[idx] =
+                                             0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta2[idx] =
+                                             2.0 / (1.0 - Z2[idx]);
+                                     });
+            }
+            else if (SHAPETYPE == LibUtilities::Pyr)
+            {
+                s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : &scratch[0];
+                s_xfrm_eta1 = s_xfrm_eta0 + nq0;
+                s_xfrm_eta2 = s_xfrm_eta1 + nq1;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta0[idx] =
+                                             0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta1[idx] =
+                                             0.5 * (1.0 + Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_xfrm_eta2[idx] =
+                                             2.0 / (1.0 - Z2[idx]);
+                                     });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -420,7 +583,6 @@ void PhysDeriv3DKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int dfindex = DEFORMED ? index : e;
-                        TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
                         // Compute tensorial derivative.
                         // Direction 0
@@ -456,34 +618,24 @@ void PhysDeriv3DKernel(
                         // Moving from standard to collapsed coordinates.
                         if (SHAPETYPE == LibUtilities::Tet)
                         {
-                            xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-                            xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-                            xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-                            xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
-
-                            TData xfrm = xfrm_eta1m * xfrm_eta2;
+                            TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
                             TData tmp0 = xfrm * d0;
-                            TData tmp1 = xfrm_eta0 * tmp0;
-                            TData tmp2 = xfrm_eta2 * d1;
+                            TData tmp1 = s_xfrm_eta0[i] * tmp0;
+                            TData tmp2 = s_xfrm_eta2[k] * d1;
                             d0         = tmp0;
                             d1         = tmp1 + tmp2;
-                            d2 += tmp1 + xfrm_eta1 * tmp2;
+                            d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
                         }
                         else if (SHAPETYPE == LibUtilities::Prism)
                         {
-                            xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                            xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                            d0 *= xfrm_eta2;
-                            d2 += xfrm_eta0 * d0;
+                            d0 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0;
                         }
                         else if (SHAPETYPE == LibUtilities::Pyr)
                         {
-                            xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                            xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-                            xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                            d0 *= xfrm_eta2;
-                            d1 *= xfrm_eta2;
-                            d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
+                            d0 *= s_xfrm_eta2[k];
+                            d1 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
                         }
 
                         // Multiply by derivative factors.
@@ -835,8 +987,8 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         else
         {
             PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED, SHMEM>(
-                nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, nullptr,
-                nullptr, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
+                nullptr, nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -850,9 +1002,10 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         }
         else
         {
+            nshared += nq0 * nq1;
             PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED, SHMEM>(
-                nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, Z0, Z1, df, in,
-                out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, Z0,
+                Z1, df, in, out);
         }
     }
 }
@@ -882,8 +1035,8 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         else
         {
             PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED, SHMEM>(
-                nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, nullptr,
-                nullptr, nullptr, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                nullptr, nullptr, nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -897,9 +1050,10 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         }
         else
         {
+            nshared += nq0 + 2u * nq1 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED, SHMEM>(
-                nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0, Z1, Z2,
-                df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
+                Z1, Z2, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -913,9 +1067,10 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         }
         else
         {
+            nshared += nq0 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED, SHMEM>(
-                nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0, nullptr,
-                Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
+                nullptr, Z2, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -929,9 +1084,10 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         }
         else
         {
+            nshared += nq0 + nq1 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0, Z1, Z2,
-                df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
+                Z1, Z2, df, in, out);
         }
     }
 }
