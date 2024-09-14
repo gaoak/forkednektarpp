@@ -52,8 +52,13 @@ void IProductWRTDerivBase1DKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -106,18 +111,54 @@ void IProductWRTDerivBase1DKernel_QP(
 
 template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 void IProductWRTDerivBase2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *KOKKOS_RESTRICT Z0,
-    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int nsize, const unsigned int dfsize,
+    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_f0, *s_f1;
+
+            // Pre-compute factor.
+            if (SHAPETYPE == LibUtilities::Tri)
+            {
+                s_f0 = &scratch[0];
+                s_f1 = s_f0 + nq1;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_f0[idx] = 2.0 / (1.0 - Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                                     });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -125,14 +166,6 @@ void IProductWRTDerivBase2DKernel(
             {
                 for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
                 {
-                    TData f0, f1;
-
-                    if (SHAPETYPE == LibUtilities::Tri)
-                    {
-                        f0 = 2.0 / (1.0 - Z1[j]);
-                        f1 = 0.5 * (1.0 + Z0[i]);
-                    }
-
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
                     const unsigned int dfindex = DEFORMED ? index : e;
@@ -153,7 +186,7 @@ void IProductWRTDerivBase2DKernel(
                     }
                     else if (SHAPETYPE == LibUtilities::Tri)
                     {
-                        out[index]         = (sum1 + sum2 * f1) * f0;
+                        out[index]         = (sum1 + sum2 * s_f1[i]) * s_f0[j];
                         out[nsize + index] = sum2;
                     }
                 }
@@ -278,8 +311,8 @@ void IProductWRTDerivBase2DKernel_QP_1D(
 
 template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
 void IProductWRTDerivBase3DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nsize, const unsigned int dfsize,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
     const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
@@ -287,10 +320,93 @@ void IProductWRTDerivBase3DKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_f0, *s_f1, *s_f2, *s_f3;
+
+            // Pre-compute factor.
+            if (SHAPETYPE == LibUtilities::Tet)
+            {
+                s_f0 = &scratch[0];
+                s_f1 = s_f0 + nq1;
+                s_f2 = s_f1 + nq0;
+                s_f3 = s_f2 + nq2;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_f0[idx] = 2.0 / (1.0 - Z1[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
+                                     });
+            }
+            else if (SHAPETYPE == LibUtilities::Prism)
+            {
+                s_f1 = &scratch[0];
+                s_f2 = s_f1 + nq0;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
+                                     });
+            }
+            else if (SHAPETYPE == LibUtilities::Pyr)
+            {
+                s_f1 = &scratch[0];
+                s_f2 = s_f1 + nq0;
+                s_f3 = s_f2 + nq2;
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
+                                     });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -300,27 +416,6 @@ void IProductWRTDerivBase3DKernel(
                 {
                     for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                     {
-                        TData f0, f1, f2, f3;
-
-                        if (SHAPETYPE == LibUtilities::Tet ||
-                            SHAPETYPE == LibUtilities::Prism ||
-                            SHAPETYPE == LibUtilities::Pyr)
-                        {
-                            f1 = 0.5 * (1.0 + Z0[i]);
-                            f2 = 2.0 / (1.0 - Z2[k]);
-                        }
-
-                        if (SHAPETYPE == LibUtilities::Tet ||
-                            SHAPETYPE == LibUtilities::Pyr)
-                        {
-                            f3 = 0.5 * (1.0 + Z1[j]);
-                        }
-
-                        if (SHAPETYPE == LibUtilities::Tet)
-                        {
-                            f0 = 2.0 * f2 / (1.0 - Z1[j]);
-                        }
-
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int dfindex = DEFORMED ? index : e;
@@ -342,20 +437,23 @@ void IProductWRTDerivBase3DKernel(
                         }
                         else if (SHAPETYPE == LibUtilities::Tet)
                         {
-                            out[index] = (sum1 + (sum2 + sum3) * f1) * f0;
-                            out[nsize + index]      = (sum2 + sum3 * f3) * f2;
+                            out[index] =
+                                (sum1 + (sum2 + sum3) * s_f1[i]) * s_f0[j];
+                            out[nsize + index] =
+                                (sum2 + sum3 * s_f3[j]) * s_f2[k];
                             out[2u * nsize + index] = sum3;
                         }
                         else if (SHAPETYPE == LibUtilities::Prism)
                         {
-                            out[index]              = (sum1 + sum3 * f1) * f2;
+                            out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                             out[nsize + index]      = sum2;
                             out[2u * nsize + index] = sum3;
                         }
                         else if (SHAPETYPE == LibUtilities::Pyr)
                         {
-                            out[index]              = (sum1 + sum3 * f1) * f2;
-                            out[nsize + index]      = (sum2 + sum3 * f3) * f2;
+                            out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                            out[nsize + index] =
+                                (sum2 + sum3 * s_f3[j]) * s_f2[k];
                             out[2u * nsize + index] = sum3;
                         }
                     }
@@ -598,8 +696,10 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
+            unsigned int nshared = nq0 + nq1;
             IProductWRTDerivBase2DKernel<TData, LibUtilities::Tri, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, nsize, dfsize, Z0, Z1, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, Z0, Z1, df,
+                in, out);
         }
     }
 }
@@ -628,8 +728,8 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Hex, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, nullptr, nullptr,
-                nullptr, df, in, out);
+                0u, nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, nullptr,
+                nullptr, nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -642,9 +742,10 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
+            unsigned int nshared = nq0 + 2 * nq1 + nq2;
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Tet, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0, Z1, Z2, df,
-                in, out);
+                nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0, Z1,
+                Z2, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -658,9 +759,10 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
+            unsigned int nshared = nq0 + nq2;
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Prism, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0, nullptr, Z2,
-                df, in, out);
+                nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0,
+                nullptr, Z2, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -673,9 +775,10 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
+            unsigned int nshared = nq0 + nq1 + nq2;
             IProductWRTDerivBase3DKernel<TData, LibUtilities::Pyr, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0, Z1, Z2, df,
-                in, out);
+                nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize, Z0, Z1,
+                Z2, df, in, out);
         }
     }
 }

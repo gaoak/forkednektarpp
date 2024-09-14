@@ -122,7 +122,7 @@ __global__ void IProductWRTDerivBase2DKernel(
     const unsigned int nqTot = nq0 * nq1;
     TData *s_f0, *s_f1;
 
-    // Copy to shared memory.
+    // Pre-compute factor.
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
     if constexpr (SHAPETYPE == LibUtilities::Tri)
@@ -319,7 +319,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_f0, *s_f1, *s_f2, *s_f3;
 
-    // Copy to shared memory.
+    // Pre-compute factor.
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
     if constexpr (SHAPETYPE == LibUtilities::Tet)

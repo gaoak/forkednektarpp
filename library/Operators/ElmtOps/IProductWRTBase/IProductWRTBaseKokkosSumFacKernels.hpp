@@ -45,16 +45,51 @@ namespace Nektar::Operators::detail
 
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
-void IProductWRTBaseSegKernel(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
+void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
+                              const unsigned int nq0, const unsigned int nelmt,
+                              const TData *KOKKOS_RESTRICT basis0,
+                              const TData *KOKKOS_RESTRICT w0,
+                              const TData *KOKKOS_RESTRICT jac,
+                              const TData *KOKKOS_RESTRICT in,
+                              TData *KOKKOS_RESTRICT out,
+                              const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -66,8 +101,8 @@ void IProductWRTBaseSegKernel(
                     const unsigned int index =
                         nq0 * warpsize * iwarp + warpsize * i + ilane;
                     const unsigned int jacindex = DEFORMED ? index : e;
-                    sum +=
-                        in[index] * basis0[p * nq0 + i] * jac[jacindex] * w0[i];
+                    sum += in[index] * s_basis0[p * nq0 + i] * jac[jacindex] *
+                           s_w0[i];
                 }
 
                 if (SCALE)
@@ -119,7 +154,7 @@ void IProductWRTBaseSegKernel_QP(
             TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -175,20 +210,63 @@ void IProductWRTBaseSegKernel_QP(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBaseQuadKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
-    const TData *KOKKOS_RESTRICT jac, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const TData scale = 1.0)
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT w0,
+    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT jac,
+    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_w0     = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -202,8 +280,8 @@ void IProductWRTBaseQuadKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_ji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum += in[index] * basis0[p * nq0 + i] * jac[jacindex] *
-                               w0[i];
+                        sum += in[index] * s_basis0[p * nq0 + i] *
+                               jac[jacindex] * s_w0[i];
                     }
                     wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
                 }
@@ -215,7 +293,7 @@ void IProductWRTBaseQuadKernel(
                     {
                         sum +=
                             wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                            basis1[q * nq1 + j] * w1[j];
+                            s_basis1[q * nq1 + j] * s_w1[j];
                     }
 
                     if (SCALE)
@@ -275,7 +353,7 @@ void IProductWRTBaseQuadKernel_QP(
             TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -397,7 +475,7 @@ void IProductWRTBaseQuadKernel_QP_1D(
             TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -485,20 +563,64 @@ void IProductWRTBaseQuadKernel_QP_1D(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBaseTriKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT jac,
-    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const bool correct,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
+    const TData *KOKKOS_RESTRICT jac, TData *KOKKOS_RESTRICT wsp,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_w0     = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
 
@@ -512,8 +634,8 @@ void IProductWRTBaseTriKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_ji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum += in[index] * basis0[p * nq0 + i] * jac[jacindex] *
-                               w0[i];
+                        sum += in[index] * s_basis0[p * nq0 + i] *
+                               jac[jacindex] * s_w0[i];
                     }
                     wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
                 }
@@ -525,7 +647,7 @@ void IProductWRTBaseTriKernel(
                     {
                         sum +=
                             wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                            basis1[mode_pq * nq1 + j] * w1[j];
+                            s_basis1[mode_pq * nq1 + j] * s_w1[j];
                     }
 
                     if (SCALE)
@@ -557,7 +679,7 @@ void IProductWRTBaseTriKernel(
                     const unsigned int index = nqTot * warpsize * iwarp + ilane;
                     const unsigned int jacindex = DEFORMED ? index : e;
 
-                    TData tmp = w1[j] * basis1[nq1 + j];
+                    TData tmp = s_w1[j] * s_basis1[nq1 + j];
                     if constexpr (!DEFORMED)
                     {
                         tmp *= jac[jacindex];
@@ -569,12 +691,12 @@ void IProductWRTBaseTriKernel(
                                                    warpsize * cnt_ji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
 
-                        TData prod = in[index] * tmp * w0[i];
+                        TData prod = in[index] * tmp * s_w0[i];
                         if (DEFORMED)
                         {
                             prod *= jac[jacindex];
                         }
-                        iprod_01 += prod * basis0[nq0 + i];
+                        iprod_01 += prod * s_basis0[nq0 + i];
                     }
                 }
 
@@ -630,7 +752,7 @@ void IProductWRTBaseTriKernel_QP(
             TData *s_w1       = SHMEM ? s_w0 + nq0 : (TData *)w1;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -808,7 +930,7 @@ void IProductWRTBaseTriKernel_QP_1D(
                                  });
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -929,9 +1051,9 @@ void IProductWRTBaseTriKernel_QP_1D(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBaseHexKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
     const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
@@ -941,10 +1063,64 @@ void IProductWRTBaseHexKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+            TData *s_w0     = SHMEM ? s_basis2 + nm2 * nq2 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+            TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm2 * nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_basis2[idx] = basis2[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq2),
+                    [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
             TData *wsp0              = wsp;
@@ -964,8 +1140,8 @@ void IProductWRTBaseHexKernel(
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
                             const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * basis0[i + nq0 * p] *
-                                      jac[jacindex] * w0[i];
+                            sum_kj += in[index] * s_basis0[i + nq0 * p] *
+                                      jac[jacindex] * s_w0[i];
                         }
                         wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                              ilane] = sum_kj;
@@ -981,7 +1157,7 @@ void IProductWRTBaseHexKernel(
                         {
                             sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                           warpsize * cnt_kj + ilane] *
-                                     basis1[q * nq1 + j] * w1[j];
+                                     s_basis1[q * nq1 + j] * s_w1[j];
                         }
                         wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
                             sum_k;
@@ -999,7 +1175,7 @@ void IProductWRTBaseHexKernel(
                         {
                             sum += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                         ilane] *
-                                   basis2[r * nq2 + k] * w2[k];
+                                   s_basis2[r * nq2 + k] * s_w2[k];
                         }
 
                         if (SCALE)
@@ -1063,7 +1239,7 @@ void IProductWRTBaseHexKernel_QP(
             TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -1222,7 +1398,7 @@ void IProductWRTBaseHexKernel_QP_1D(
             TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -1343,23 +1519,77 @@ void IProductWRTBaseHexKernel_QP_1D(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBaseTetKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const TData scale = 1.0)
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
+    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
+    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
+    const TData *KOKKOS_RESTRICT w2, const TData *KOKKOS_RESTRICT jac,
+    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    // const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
 
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+            TData *s_w0     = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+            TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm01 * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_basis2[idx] = basis2[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq2),
+                    [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
             TData *wsp0              = wsp;
@@ -1380,8 +1610,8 @@ void IProductWRTBaseTetKernel(
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
                             const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * basis0[i + nq0 * p] *
-                                      jac[jacindex] * w0[i];
+                            sum_kj += in[index] * s_basis0[i + nq0 * p] *
+                                      jac[jacindex] * s_w0[i];
                         }
                         wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                              ilane] = sum_kj;
@@ -1397,7 +1627,7 @@ void IProductWRTBaseTetKernel(
                         {
                             sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                           warpsize * cnt_kj + ilane] *
-                                     basis1[mode_pq * nq1 + j] * w1[j];
+                                     s_basis1[mode_pq * nq1 + j] * s_w1[j];
                         }
                         wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
                             sum_k;
@@ -1410,7 +1640,7 @@ void IProductWRTBaseTetKernel(
                         {
                             tmp += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                         ilane] *
-                                   basis2[mode_pqr * nq2 + k] * w2[k];
+                                   s_basis2[mode_pqr * nq2 + k] * s_w2[k];
                         }
 
                         if (SCALE)
@@ -1442,7 +1672,7 @@ void IProductWRTBaseTetKernel(
 
                 for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
                 {
-                    TData tmpQ2 = w2[k];
+                    TData tmpQ2 = s_w2[k];
                     if constexpr (!DEFORMED)
                     {
                         tmpQ2 *= jac[e];
@@ -1450,7 +1680,7 @@ void IProductWRTBaseTetKernel(
 
                     for (unsigned int j = 0u; j < nq1; ++j)
                     {
-                        TData tmpQ1 = tmpQ2 * w1[j];
+                        TData tmpQ1 = tmpQ2 * s_w1[j];
                         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                         {
                             const unsigned int index =
@@ -1458,31 +1688,31 @@ void IProductWRTBaseTetKernel(
                                 ilane;
 
                             // Store jac * quadrature weight
-                            TData tmpQ = tmpQ1 * w0[i];
+                            TData tmpQ = tmpQ1 * s_w0[i];
                             if constexpr (DEFORMED)
                             {
                                 tmpQ *= jac[index];
                             }
 
                             // top vertex
-                            TData tmp = basis0[i] * basis1[nq1 + j];
-                            tmp += basis0[nq0 + i] * basis1[j];
-                            tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                            tmp *= basis2[nq2 + k];
+                            TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                            tmp += s_basis0[nq0 + i] * s_basis1[j];
+                            tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                            tmp *= s_basis2[nq2 + k];
                             tmp *= in[index] * tmpQ;
                             prod[nm2 * warpsize * iwarp + warpsize * (nm2 - 1) +
                                  ilane] += tmp;
 
                             // bottom vertex
-                            tmp = basis0[nq0 + i] * basis1[nq1 + j] *
-                                  basis2[k] * in[index] * tmpQ;
+                            tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
+                                  s_basis2[k] * in[index] * tmpQ;
                             prod[nm2 * warpsize * iwarp + ilane] += tmp;
 
                             // singular edge
                             for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                             {
-                                tmp = basis2[(r + 1) * nq2 + k] *
-                                      basis1[nq1 + j] * basis0[nq0 + i] *
+                                tmp = s_basis2[(r + 1) * nq2 + k] *
+                                      s_basis1[nq1 + j] * s_basis0[nq0 + i] *
                                       in[index] * tmpQ;
                                 prod[nm2 * warpsize * iwarp + warpsize * r +
                                      ilane] += tmp;
@@ -1570,7 +1800,7 @@ void IProductWRTBaseTetKernel_QP(
             TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -1851,7 +2081,7 @@ void IProductWRTBaseTetKernel_QP_1D(
                 });
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -2042,23 +2272,77 @@ void IProductWRTBaseTetKernel_QP_1D(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBasePrismKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const TData scale = 1.0)
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
+    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
+    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
+    const TData *KOKKOS_RESTRICT w2, const TData *KOKKOS_RESTRICT jac,
+    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    // const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
 
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+            TData *s_w0     = SHMEM ? s_basis2 + nm02 * nq2 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+            TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm02 * nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_basis2[idx] = basis2[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq2),
+                    [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
             TData *wsp0              = wsp;
@@ -2079,8 +2363,8 @@ void IProductWRTBasePrismKernel(
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
                             const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * basis0[nq0 * p + i] *
-                                      jac[jacindex] * w0[i];
+                            sum_kj += in[index] * s_basis0[nq0 * p + i] *
+                                      jac[jacindex] * s_w0[i];
                         }
                         wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                              ilane] = sum_kj;
@@ -2096,7 +2380,7 @@ void IProductWRTBasePrismKernel(
                         {
                             sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                           warpsize * cnt_kj + ilane] *
-                                     basis1[q * nq1 + j] * w1[j];
+                                     s_basis1[q * nq1 + j] * s_w1[j];
                         }
                         wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
                             sum_k;
@@ -2113,7 +2397,8 @@ void IProductWRTBasePrismKernel(
                         {
                             sum_k += wsp1[nq2 * warpsize * iwarp +
                                           warpsize * k + ilane] *
-                                     basis2[(mode_pr + r) * nq2 + k] * w2[k];
+                                     s_basis2[(mode_pr + r) * nq2 + k] *
+                                     s_w2[k];
                         }
 
                         if (SCALE)
@@ -2143,7 +2428,7 @@ void IProductWRTBasePrismKernel(
 
                 for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
                 {
-                    TData k_weight = w2[k];
+                    TData k_weight = s_w2[k];
                     if constexpr (!DEFORMED)
                     {
                         k_weight *= jac[e];
@@ -2151,13 +2436,13 @@ void IProductWRTBasePrismKernel(
 
                     for (unsigned int j = 0u; j < nq1; ++j)
                     {
-                        TData kj_weight = k_weight * w1[j];
+                        TData kj_weight = k_weight * s_w1[j];
                         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                         {
                             const unsigned int index =
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
-                            TData prod = kj_weight * w0[i] * in[index];
+                            TData prod = kj_weight * s_w0[i] * in[index];
                             if constexpr (DEFORMED)
                             {
                                 prod *= jac[index];
@@ -2166,9 +2451,9 @@ void IProductWRTBasePrismKernel(
                             for (unsigned int q = 0u; q < nm1; ++q)
                             {
                                 wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                     ilane] += prod * basis2[nq2 + k] *
-                                               basis1[q * nq1 + j] *
-                                               basis0[nq0 + i];
+                                     ilane] += prod * s_basis2[nq2 + k] *
+                                               s_basis1[q * nq1 + j] *
+                                               s_basis0[nq0 + i];
                             }
                         }
                     }
@@ -2239,7 +2524,7 @@ void IProductWRTBasePrismKernel_QP(
             TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -2474,7 +2759,7 @@ void IProductWRTBasePrismKernel_QP_1D(
                 });
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -2643,22 +2928,76 @@ void IProductWRTBasePrismKernel_QP_1D(
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 void IProductWRTBasePyrKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT w0,
-    const TData *KOKKOS_RESTRICT w1, const TData *KOKKOS_RESTRICT w2,
-    const TData *KOKKOS_RESTRICT jac, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const TData scale = 1.0)
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
+    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
+    const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
+    const TData *KOKKOS_RESTRICT w2, const TData *KOKKOS_RESTRICT jac,
+    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
+    const unsigned int shmem_size = Kokkos::View<
+        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
+    const unsigned int slevel = 0u;
+
     Kokkos::parallel_for(
-        nelmt, KOKKOS_LAMBDA(const unsigned int &e) {
+        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            // Set shared memory.
+            Kokkos::View<TData *,
+                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
+                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
+                scratch(team.team_scratch(slevel), ssize);
+            TData *s_basis0 = SHMEM ? &scratch[0] : (TData *)basis0;
+            TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+            TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+            TData *s_w0     = SHMEM ? s_basis2 + nm2 * nq2 : (TData *)w0;
+            TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+            TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+
+            // Copy to shared memory.
+            if (SHMEM)
+            {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
+                                     [&](const unsigned int &idx) {
+                                         s_basis0[idx] = basis0[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
+                                     [&](const unsigned int &idx) {
+                                         s_basis1[idx] = basis1[idx];
+                                     });
+
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                                     [&](const unsigned int &idx) {
+                                         s_basis2[idx] = basis2[idx];
+                                     });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq0),
+                    [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq1),
+                    [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nq2),
+                    [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+            }
+
+            unsigned int e =
+                team.league_rank() * team.team_size() + team.team_rank();
             const unsigned int iwarp = e / warpsize;
             const unsigned int ilane = e % warpsize;
             TData *wsp0              = wsp;
@@ -2678,8 +3017,8 @@ void IProductWRTBasePyrKernel(
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
                             const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * basis0[nq0 * p + i] *
-                                      jac[jacindex] * w0[i];
+                            sum_kj += in[index] * s_basis0[nq0 * p + i] *
+                                      jac[jacindex] * s_w0[i];
                         }
                         wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                              ilane] = sum_kj;
@@ -2695,7 +3034,7 @@ void IProductWRTBasePyrKernel(
                         {
                             sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                           warpsize * cnt_kj + ilane] *
-                                     basis1[q * nq1 + j] * w1[j];
+                                     s_basis1[q * nq1 + j] * s_w1[j];
                         }
                         wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
                             sum_k;
@@ -2708,7 +3047,7 @@ void IProductWRTBasePyrKernel(
                         {
                             sum_k += wsp1[nq2 * warpsize * iwarp +
                                           warpsize * k + ilane] *
-                                     basis2[mode_pqr * nq2 + k] * w2[k];
+                                     s_basis2[mode_pqr * nq2 + k] * s_w2[k];
                         }
 
                         if (SCALE)
@@ -2738,7 +3077,7 @@ void IProductWRTBasePyrKernel(
                         {
                             sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                           warpsize * cnt_kj + ilane] *
-                                     basis1[q * nq1 + j] * w1[j];
+                                     s_basis1[q * nq1 + j] * s_w1[j];
                         }
                         wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
                             sum_k;
@@ -2751,7 +3090,7 @@ void IProductWRTBasePyrKernel(
                         {
                             sum_k += wsp1[nq2 * warpsize * iwarp +
                                           warpsize * k + ilane] *
-                                     basis2[mode_pqr * nq2 + k] * w2[k];
+                                     s_basis2[mode_pqr * nq2 + k] * s_w2[k];
                         }
 
                         if (SCALE)
@@ -2779,7 +3118,7 @@ void IProductWRTBasePyrKernel(
                 TData prod = 0.0;
                 for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
                 {
-                    TData tmpQ2 = w2[k];
+                    TData tmpQ2 = s_w2[k];
                     if constexpr (!DEFORMED)
                     {
                         tmpQ2 *= jac[e];
@@ -2787,7 +3126,7 @@ void IProductWRTBasePyrKernel(
 
                     for (unsigned int j = 0u; j < nq1; ++j)
                     {
-                        TData tmpQ1 = tmpQ2 * w1[j];
+                        TData tmpQ1 = tmpQ2 * s_w1[j];
                         for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                         {
                             const unsigned int index =
@@ -2795,17 +3134,17 @@ void IProductWRTBasePyrKernel(
                                 ilane;
 
                             // Store jac * quadrature weight
-                            TData tmpQ = tmpQ1 * w0[i];
+                            TData tmpQ = tmpQ1 * s_w0[i];
                             if constexpr (DEFORMED)
                             {
                                 tmpQ *= jac[index];
                             }
 
                             // top vertex
-                            TData tmp = basis0[i] * basis1[nq1 + j];
-                            tmp += basis0[nq0 + i] * basis1[j];
-                            tmp += basis0[nq0 + i] * basis1[nq1 + j];
-                            tmp *= basis2[nq2 + k];
+                            TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                            tmp += s_basis0[nq0 + i] * s_basis1[j];
+                            tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                            tmp *= s_basis2[nq2 + k];
                             tmp *= in[index] * tmpQ;
                             prod += tmp;
                         }
@@ -2872,7 +3211,7 @@ void IProductWRTBasePyrKernel_QP(
             TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -3157,7 +3496,7 @@ void IProductWRTBasePyrKernel_QP_1D(
                 });
 
             // Copy to shared memory.
-            if constexpr (SHMEM)
+            if (SHMEM)
             {
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm0 * nq0),
                                      [&](const unsigned int &idx) {
@@ -3336,7 +3675,7 @@ IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
     else
     {
         IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nq0, nelmts, basis0, w0, jac, in, out, scale);
+            nshared, nm0, nq0, nelmts, basis0, w0, jac, in, out, scale);
     }
 }
 
@@ -3373,8 +3712,8 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBaseQuadKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0, w1, jac,
-                wsp, in, out, scale);
+                nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
+                w1, jac, wsp, in, out, scale);
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -3400,8 +3739,8 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBaseTriKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1, w0,
-                w1, jac, wsp, in, out, scale);
+                nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
+                basis1, w0, w1, jac, wsp, in, out, scale);
         }
     }
 }
@@ -3442,8 +3781,8 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBaseHexKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                basis2, w0, w1, w2, jac, wsp, in, out, scale);
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -3481,8 +3820,8 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBaseTetKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -3519,8 +3858,8 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBasePrismKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -3551,8 +3890,8 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         else
         {
             IProductWRTBasePyrKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
     }
 }
