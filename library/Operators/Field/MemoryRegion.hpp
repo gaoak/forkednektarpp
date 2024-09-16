@@ -809,7 +809,7 @@ public:
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage.
-                auto &ret =
+                [[maybe_unused]] auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
 
                 m_storage->DeviceToHostCopy(force);

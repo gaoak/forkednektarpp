@@ -1,6 +1,12 @@
 #!/bin/bash -x
 
-[[ $OS_VERSION != "macos" ]] && ccache -s && ccache -M 5G
+if [[ $OS_VERSION != "macos" ]]; then
+    # Make environment modules cmd available
+    . /etc/profile.d/modules.sh
+
+    # Display ccache usage and set limit
+    ccache -s && ccache -M 5G
+fi
 
 if [[ $BUILD_TYPE == "default" ]]; then
     BUILD_OPTS="-DCMAKE_BUILD_TYPE=Release \
@@ -35,6 +41,13 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
     if [[ $BUILD_KOKKOS == "on" ]]; then
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_KOKKOS:STRING=Serial" 
+    fi
+    if [[ $BUILD_SYCL == "on" ]]; then
+        # Load Intel compiler module for SYCL support on Linux
+        [[ $OS_VERSION != "macos" ]] && module load intel/compiler
+
+        # Enable SYCL in CMake configuration
+        BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_SYCL:STRING=Default"
     fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     BUILD_OPTS="-DCMAKE_BUILD_TYPE=Release \

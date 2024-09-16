@@ -2651,8 +2651,8 @@ inline
                      const unsigned int nq0, const unsigned int nq1,
                      const unsigned int nq2, const unsigned int nelmt,
                      const bool correct, const TData *basis0,
-                     const TData *basis1, const TData *basis2, TData *wsp,
-                     const TData *in, TData *out)
+                     const TData *basis1, const TData *basis2,
+                     [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
     const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
                                      std::min(nq2, 8u));
@@ -2857,7 +2857,9 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared = SHMEM ? nm0 * nq0 + nm1 * nq1 + nmTot * nq2 : 0u;
+        [[maybe_unused]] unsigned int nshared =
+            SHMEM ? nm0 * nq0 + nm1 * nq1 + nmTot * nq2 : 0u;
+
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
