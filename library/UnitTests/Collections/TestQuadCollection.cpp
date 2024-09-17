@@ -2408,7 +2408,7 @@ BOOST_AUTO_TEST_CASE(
     {
         Vmath::Vcopy(nq, phys1, 1, tmp = phys1 + i * nq, 1);
         Vmath::Vcopy(nq, phys2, 1, tmp = phys2 + i * nq, 1);
-        Vmath::Vcopy(nq, phys2, 1, tmp = phys3 + i * nq, 1);
+        Vmath::Vcopy(nq, phys3, 1, tmp = phys3 + i * nq, 1);
     }
 
     for (int i = 0; i < nelmts; ++i)
@@ -2908,8 +2908,9 @@ BOOST_AUTO_TEST_CASE(
     {
         phys1[i] = sin(xc[i]) * cos(yc[i]);
         phys2[i] = cos(xc[i]) * sin(yc[i]);
-        phys2[i] = cos(xc[i]) * sin(zc[i]);
+        phys3[i] = cos(xc[i]) * sin(zc[i]);
     }
+
     for (int i = 1; i < nelmts; ++i)
     {
         Vmath::Vcopy(nq, phys1, 1, tmp = phys1 + i * nq, 1);

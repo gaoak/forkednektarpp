@@ -75,46 +75,94 @@ MemoryRegion<TDataOut> GetBasisData(
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetBdata(), alignment);
-
+            break;
         case BASIS_BASIS_DERIVATIVE_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetDbdata(), alignment);
-
+            break;
         case BASIS_WEIGHT_DATA:
         {
             auto ndata = basis->GetW().size();
             Array<OneD, TDataIn> wTmp(ndata);
 
-            if (basis->GetPointsType() == LibUtilities::eGaussRadauMAlpha1Beta0)
+            switch (basis->GetBasisType())
             {
-                Vmath::Smul(ndata, 0.5, basis->GetW().get(), 1, wTmp.get(), 1);
-            }
-            else if (basis->GetPointsType() ==
-                     LibUtilities::eGaussRadauMAlpha2Beta0)
-            {
-                Vmath::Smul(ndata, 0.25, basis->GetW().get(), 1, wTmp.get(), 1);
-            }
-            else
-            {
-                Vmath::Vcopy(ndata, basis->GetW().get(), 1, wTmp.get(), 1);
+                case LibUtilities::eModified_B:
+                case LibUtilities::eOrtho_B:
+                {
+
+                    if (basis->GetPointsType() ==
+                        LibUtilities::eGaussRadauMAlpha1Beta0)
+                    {
+                        Vmath::Smul(ndata, 0.5, basis->GetW().get(), 1,
+                                    wTmp.get(), 1);
+                    }
+                    else
+                    {
+                        const Array<OneD, NekDouble> z = basis->GetZ();
+                        const Array<OneD, NekDouble> w = basis->GetW();
+                        for (int i = 0; i < ndata; ++i)
+                        {
+                            wTmp[i] = 0.5 * (1 - z[i]) * w[i];
+                        }
+                    }
+                }
+                break;
+                case LibUtilities::eModified_C:
+                case LibUtilities::eModifiedPyr_C:
+                case LibUtilities::eOrtho_C:
+                case LibUtilities::eOrthoPyr_C:
+                {
+                    if (basis->GetPointsType() ==
+                        LibUtilities::eGaussRadauMAlpha2Beta0)
+                    {
+                        Vmath::Smul(ndata, 0.25, basis->GetW().get(), 1,
+                                    wTmp.get(), 1);
+                    }
+                    else if (basis->GetPointsType() ==
+                             LibUtilities::eGaussRadauMAlpha1Beta0)
+                    {
+                        const Array<OneD, NekDouble> z = basis->GetZ();
+                        const Array<OneD, NekDouble> w = basis->GetW();
+                        for (int i = 0; i < ndata; ++i)
+                        {
+                            wTmp[i] = 0.25 * (1 - z[i]) * w[i];
+                        }
+                    }
+                    else
+                    {
+                        const Array<OneD, NekDouble> z = basis->GetZ();
+                        const Array<OneD, NekDouble> w = basis->GetW();
+                        for (int i = 0; i < ndata; ++i)
+                        {
+                            wTmp[i] = 0.25 * (1 - z[i]) * (1 - z[i]) * w[i];
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        Vmath::Vcopy(ndata, basis->GetW().get(), 1, wTmp.get(),
+                                     1);
+                    }
+                }
             }
 
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 wTmp, alignment);
         }
-
+        break;
         case BASIS_POINT_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetZ(), alignment);
-
+            break;
         case BASIS_DERIVATIVE_DATA:
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetD()->GetPtr(), alignment);
-
+            break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
             return MemoryRegion<TDataOut>::template create<MemSpace>(0,
@@ -124,13 +172,14 @@ MemoryRegion<TDataOut> GetBasisData(
 }
 
 /**
- * @brief Helper function to copy Basis data from the expansionList to
- * a MemoryRegionHost.
+ * @brief Helper function to copy Basis data from the expansionList
+ * to a MemoryRegionHost.
  *
- * The MemoryRegionHost is placed into a map that uses the BasisKey as
- * the key.
+ * The MemoryRegionHost is placed into a map that uses the BasisKey
+ * as the key.
  *
- * @param expansionList - The expanision list which contains the basis data.
+ * @param expansionList - The expanision list which contains the
+ * basis data.
  * @param basisDataType - Basis data to copy.
  *
  * @return BasisDataMap<TDataOut>

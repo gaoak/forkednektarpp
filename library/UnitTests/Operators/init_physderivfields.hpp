@@ -64,29 +64,22 @@ public:
         fixt_explist->GetCoords(x);
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                for (size_t phys = 0; phys < block.num_pts;
+                     ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
                     for (size_t i = 0; i < M / 2; i++)
                     {
                         tmp += std::pow(x[pts], i);
                     }
-                    *(inptr++) = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -110,20 +103,15 @@ public:
         double *ptr = outphys.get();
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
-                    (*inptr++) = (*ptr++);
+                    inptr[cnt] = (*ptr++);
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    *(inptr++) = 0.0;
-                }
-            }
+            inptr += block.block_size;
         }
     }
 
@@ -135,26 +123,22 @@ public:
         fixt_explist->GetCoords(x);
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                for (size_t phys = 0; phys < block.num_pts;
+                     ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
                     for (size_t i = 1; i < M / 2; i++)
                     {
                         tmp += i * std::pow(x[pts], i - 1);
                     }
-                    *(inptr++) = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    *(inptr++) = 0.0;
-                }
-            }
+            inptr += block.block_size;
         }
     }
 };
@@ -175,11 +159,13 @@ public:
         fixt_explist->GetCoords(x, y);
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                for (size_t phys = 0; phys < block.num_pts;
+                     ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
                     for (size_t i = 0; i < M / 2; i++)
@@ -189,19 +175,10 @@ public:
                             tmp += std::pow(x[pts], i) * std::pow(y[pts], j);
                         }
                     }
-                    *(inptr++) = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -228,20 +205,15 @@ public:
         {
             for (auto const &block : blocks)
             {
+                size_t cnt = 0;
                 for (size_t el = 0; el < block.num_elements; ++el)
                 {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        (*inptr++) = (*ptr++);
+                        inptr[cnt] = (*ptr++);
                     }
                 }
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
+                inptr += block.block_size;
             }
         }
     }
@@ -257,11 +229,13 @@ public:
             size_t el = 0, pts = 0;
             for (auto const &block : blocks)
             {
+                size_t cnt = 0;
                 for (size_t e = 0; e < block.num_elements; ++e, ++el)
                 {
                     size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                     size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                    for (size_t phys = 0; phys < block.num_pts;
+                         ++phys, ++pts, ++cnt)
                     {
                         double tmp = 0.0;
                         for (size_t i = 0; i < M / 2; i++)
@@ -280,16 +254,10 @@ public:
                                 }
                             }
                         }
-                        *(inptr++) = tmp;
+                        inptr[cnt] = tmp;
                     }
                 }
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
+                inptr += block.block_size;
             }
         }
     }
@@ -312,12 +280,14 @@ public:
         fixt_explist->GetCoords(x, y, z);
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t e = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
                 size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                for (size_t phys = 0; phys < block.num_pts;
+                     ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
                     for (size_t i = 0; i < M / 2; i++)
@@ -332,19 +302,10 @@ public:
                             }
                         }
                     }
-                    *(inptr++) = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -372,20 +333,15 @@ public:
         {
             for (auto const &block : blocks)
             {
+                size_t cnt = 0;
                 for (size_t el = 0; el < block.num_elements; ++el)
                 {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        (*inptr++) = (*ptr++);
+                        inptr[cnt] = (*ptr++);
                     }
                 }
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
+                inptr += block.block_size;
             }
         }
     }
@@ -402,12 +358,14 @@ public:
             size_t el = 0, pts = 0;
             for (auto const &block : blocks)
             {
+                size_t cnt = 0;
                 for (size_t e = 0; e < block.num_elements; ++e, ++el)
                 {
                     size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                     size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
                     size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++pts)
+                    for (size_t phys = 0; phys < block.num_pts;
+                         ++phys, ++pts, ++cnt)
                     {
                         double tmp = 0.0;
                         for (size_t i = 0; i < M / 2; i++)
@@ -437,16 +395,10 @@ public:
                                 }
                             }
                         }
-                        *(inptr++) = tmp;
+                        inptr[cnt] = tmp;
                     }
                 }
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        *(inptr++) = 0.0;
-                    }
-                }
+                inptr += block.block_size;
             }
         }
     }

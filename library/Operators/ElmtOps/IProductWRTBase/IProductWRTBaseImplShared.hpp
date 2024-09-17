@@ -86,6 +86,10 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
+        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = (lambda == 1.0)
@@ -96,13 +100,14 @@ public:
 
         // Initialize index.
         size_t exp_idx = 0;
+        size_t width   = in.GetVecWidth();
 
         // Loop over the blocks.
         for (const auto &block : in.GetBlocks())
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -146,8 +151,8 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr = SetWorkspace(shapeType, nElmts + nPadElmts, nq0,
-                                         nq1, nq2, nm1, nm2);
+            TData *wspPtr =
+                SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -157,16 +162,16 @@ public:
                     if (lambda == 1.0)
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, false, false,
-                                                true>(
-                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
-                            inPtr, outPtr);
+                                                true>(nm0, nq0, nElmtsPad,
+                                                      basis0, w0, jacPtr, inPtr,
+                                                      outPtr);
                     }
                     else
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, true, false,
-                                                true>(
-                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
-                            inPtr, outPtr, lambda);
+                                                true>(nm0, nq0, nElmtsPad,
+                                                      basis0, w0, jacPtr, inPtr,
+                                                      outPtr, lambda);
                     }
                 }
                 else
@@ -174,16 +179,16 @@ public:
                     if (lambda == 1.0)
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, false, false,
-                                                false>(
-                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
-                            inPtr, outPtr);
+                                                false>(nm0, nq0, nElmtsPad,
+                                                       basis0, w0, jacPtr,
+                                                       inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase1DKernel<ExecSpace, TData, true, false,
-                                                false>(
-                            nm0, nq0, nElmts + nPadElmts, basis0, w0, jacPtr,
-                            inPtr, outPtr, lambda);
+                                                false>(nm0, nq0, nElmtsPad,
+                                                       basis0, w0, jacPtr,
+                                                       inPtr, outPtr, lambda);
                     }
                 }
             }
@@ -195,17 +200,17 @@ public:
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, false, false,
                                                 true>(
-                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
-                            inPtr, outPtr);
+                            shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                            basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
+                            outPtr);
                     }
                     else
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, true, false,
                                                 true>(
-                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
-                            inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                            basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
+                            outPtr, lambda);
                     }
                 }
                 else
@@ -214,17 +219,17 @@ public:
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, false, false,
                                                 false>(
-                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
-                            inPtr, outPtr);
+                            shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                            basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
+                            outPtr);
                     }
                     else
                     {
                         IProductWRTBase2DKernel<ExecSpace, TData, true, false,
                                                 false>(
-                            shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                            correct, basis0, basis1, w0, w1, jacPtr, wspPtr,
-                            inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                            basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
+                            outPtr, lambda);
                     }
                 }
             }
@@ -236,17 +241,17 @@ public:
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, false, false,
                                                 true>(
-                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
-                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                            correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
+                            wspPtr, inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, true, false,
                                                 true>(
-                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
-                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                            correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
+                            wspPtr, inPtr, outPtr, lambda);
                     }
                 }
                 else
@@ -255,25 +260,25 @@ public:
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, false, false,
                                                 false>(
-                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
-                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                            correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
+                            wspPtr, inPtr, outPtr);
                     }
                     else
                     {
                         IProductWRTBase3DKernel<ExecSpace, TData, true, false,
                                                 false>(
-                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                            nElmts + nPadElmts, correct, basis0, basis1, basis2,
-                            w0, w1, w2, jacPtr, wspPtr, inPtr, outPtr, lambda);
+                            shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                            correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
+                            wspPtr, inPtr, outPtr, lambda);
                     }
                 }
             }
 
             // Increment pointer and index for next element type.
             jacPtr += deformed ? nqTot * nElmts : nElmts;
-            inPtr += nqTot * (nElmts + nPadElmts);
-            outPtr += nmTot * (nElmts + nPadElmts);
+            inPtr += nqTot * nElmtsPad;
+            outPtr += nmTot * nElmtsPad;
             exp_idx += nElmts;
         }
     }

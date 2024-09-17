@@ -111,75 +111,48 @@ NekDouble NodalTriExp::Integral(const Array<OneD, const NekDouble> &inarray)
     return ival;
 }
 
-void NodalTriExp::IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
+void NodalTriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
 {
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int order1 = m_base[1]->GetNumModes();
-
-    if (multiplybyweights)
-    {
-        Array<OneD, NekDouble> tmp(nquad0 * nquad1 + nquad0 * order1);
-        Array<OneD, NekDouble> wsp(tmp + nquad0 * nquad1);
-
-        MultiplyByQuadratureMetric(inarray, tmp);
-        StdTriExp::IProductWRTBase_SumFacKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), tmp, outarray, wsp);
-        NodalToModalTranspose(outarray, outarray);
-    }
-    else
-    {
-        Array<OneD, NekDouble> wsp(nquad0 * order1);
-
-        StdTriExp::IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                                m_base[1]->GetBdata(), inarray,
-                                                outarray, wsp);
-        NodalToModalTranspose(outarray, outarray);
-    }
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetBdata(),
+                                     m_base[1]->GetBdata(), inarray, outarray,
+                                     jac, Deformed);
+    NodalToModalTranspose(outarray, outarray);
 }
 
-void NodalTriExp::IProductWRTBase_MatOp(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int nq = GetTotPoints();
-    MatrixKey iprodmatkey(StdRegions::eIProductWRTBase, DetShapeType(), *this);
-    DNekScalMatSharedPtr iprodmat = m_matrixManager[iprodmatkey];
-
-    Blas::Dgemv('N', m_ncoeffs, nq, iprodmat->Scale(),
-                (iprodmat->GetOwnedMatrix())->GetPtr().get(), m_ncoeffs,
-                inarray.get(), 1, 0.0, outarray.get(), 1);
-}
-
-void NodalTriExp::IProductWRTDerivBase_SumFac(
+void NodalTriExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nqtot   = nquad0 * nquad1;
-    int wspsize = max(nqtot, m_ncoeffs);
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nqtot  = nquad0 * nquad1;
 
-    Array<OneD, NekDouble> tmp0(4 * wspsize);
-    Array<OneD, NekDouble> tmp1(tmp0 + wspsize);
-    Array<OneD, NekDouble> tmp2(tmp0 + 2 * wspsize);
-    Array<OneD, NekDouble> tmp3(tmp0 + 3 * wspsize);
-
+    Array<OneD, NekDouble> tmp1(nqtot);
+    Array<OneD, NekDouble> tmp2(nqtot);
+    Array<OneD, NekDouble> tmp3(m_ncoeffs);
     Array<OneD, Array<OneD, NekDouble>> tmp2D{2};
     tmp2D[0] = tmp1;
     tmp2D[1] = tmp2;
 
-    AlignVectorToCollapsedDir(dir, inarray, tmp2D);
+    NodalTriExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
-    MultiplyByQuadratureMetric(tmp1, tmp1);
-    MultiplyByQuadratureMetric(tmp2, tmp2);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                 tmp1, tmp3, tmp0);
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                 tmp2, outarray, tmp0);
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
+    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(),
+                                     m_base[1]->GetBdata(), tmp1, tmp3, jac,
+                                     Deformed);
+
+    StdTriExp::IProductWRTBaseKernel(m_base[0]->GetBdata(),
+                                     m_base[1]->GetDbdata(), tmp2, outarray,
+                                     jac, Deformed);
+
     Vmath::Vadd(m_ncoeffs, tmp3, 1, outarray, 1, outarray, 1);
 
     NodalToModalTranspose(outarray, outarray);

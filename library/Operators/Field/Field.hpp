@@ -84,14 +84,14 @@ struct BlockAttributes
     // default constructor: no padding
     BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts), num_padding_elements(0)
+          block_size(num_elements * num_pts), num_elmt_groups(0)
     {
     }
 
     size_t num_elements;
     size_t num_pts;
-    size_t block_size; // (num_elements + num_padding_elements) * num_pts
-    size_t num_padding_elements;
+    size_t block_size;      // (num_elements + num_padding_elements) * num_pts
+    size_t num_elmt_groups; // (num_elements + padding)/width
 };
 
 /**
@@ -349,9 +349,11 @@ public:
 
             for (const auto &block : block_attributes)
             {
+                size_t num_padding_elements =
+                    block.num_elmt_groups * VectorWidth - block.num_elements;
+
                 const size_t numMetaBlocks =
-                    (block.num_elements + block.num_padding_elements) /
-                    VectorWidth;
+                    (block.num_elements + num_padding_elements) / VectorWidth;
                 const size_t MetaBlockSize = VectorWidth * block.num_pts;
 
                 // Interleave on the device
@@ -388,9 +390,10 @@ public:
 
             for (const auto &block : block_attributes)
             {
+                size_t num_padding_elements =
+                    block.num_elmt_groups * m_curVecWidth - block.num_elements;
                 const size_t numMetaBlocks =
-                    (block.num_elements + block.num_padding_elements) /
-                    m_curVecWidth;
+                    (block.num_elements + num_padding_elements) / m_curVecWidth;
                 const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
 
                 deInterleave<ExecSpace>(m_curVecWidth, numMetaBlocks,
@@ -685,12 +688,9 @@ public:
         {
             for (size_t bl = 0; bl < block_attributes.size(); ++bl)
             {
-                size_t num_pts      = block_attributes[bl].num_pts;
-                size_t num_elements = block_attributes[bl].num_elements;
-                size_t num_padding_elements =
-                    block_attributes[bl].num_padding_elements;
-                size_t num_metaBlocks =
-                    (num_elements + num_padding_elements) / m_curVecWidth;
+                size_t num_pts        = block_attributes[bl].num_pts;
+                size_t num_elements   = block_attributes[bl].num_elements;
+                size_t num_metaBlocks = block_attributes[bl].num_elmt_groups;
 
                 // Check that each block have the same structure
                 if ((num_elements != rhs_blocks[bl].num_elements) ||

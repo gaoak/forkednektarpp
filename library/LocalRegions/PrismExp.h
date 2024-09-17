@@ -87,14 +87,12 @@ protected:
     LOCAL_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    LOCAL_REGIONS_EXPORT void v_IProductWRTBase_SumFac(
+#if 0
+    LOCAL_REGIONS_EXPORT void v_IProductWRTBase_SumFac_Kernel(
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        bool multiplybyweights = true) override;
-    LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase_SumFac(
+#endif
+    LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_AlignVectorToCollapsedDir(

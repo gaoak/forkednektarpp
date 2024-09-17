@@ -1247,8 +1247,8 @@ void Expansion2D::GetPhysEdgeVarCoeffsFromElement(
 }
 
 /**
- * Computes matrices needed for the HDG formulation. References to
- * equations relate to the following paper:
+ *   Computes matrices needed for the HDG formulation. References to
+ *   equations relate to the following paper:
  *   R. M. Kirby, S. J. Sherwin, B. Cockburn, To CG or to HDG: A
  *   Comparative Study, J. Sci. Comp P1-30
  *   DOI 10.1007/s10915-011-9501-7

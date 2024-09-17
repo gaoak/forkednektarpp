@@ -81,12 +81,17 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
         const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
 
         size_t nSize = out.GetFieldSize();
+        size_t width = in.GetVecWidth();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -95,7 +100,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -137,14 +142,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, true>(
-                        nq0, nCoord, nElmts + nPadElmts, nSize, m_dfSize, D0,
-                        dfPtr, inPtr, outPtr);
+                        nq0, nCoord, nElmtsPad, nSize, m_dfSize, D0, dfPtr,
+                        inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, false>(
-                        nq0, nCoord, nElmts + nPadElmts, nSize, m_dfSize, D0,
-                        dfPtr, inPtr, outPtr);
+                        nq0, nCoord, nElmtsPad, nSize, m_dfSize, D0, dfPtr,
+                        inPtr, outPtr);
                 }
             }
             else if (dimension == 2)
@@ -152,14 +157,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, true>(
-                        shape, nq0, nq1, nCoord, nElmts + nPadElmts, nSize,
-                        m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, m_dfSize, D0,
+                        D1, Z0, Z1, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, false>(
-                        shape, nq0, nq1, nCoord, nElmts + nPadElmts, nSize,
-                        m_dfSize, D0, D1, Z0, Z1, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, m_dfSize, D0,
+                        D1, Z0, Z1, dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 3)
@@ -167,21 +172,21 @@ public:
                 if (deformed)
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, true>(
-                        shape, nq0, nq1, nq2, nElmts + nPadElmts, nSize,
-                        m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, nSize, m_dfSize, D0,
+                        D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, false>(
-                        shape, nq0, nq1, nq2, nElmts + nPadElmts, nSize,
-                        m_dfSize, D0, D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, nSize, m_dfSize, D0,
+                        D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
                 }
             }
 
             // Increment pointer and index for next element type.
             dfPtr += deformed ? nqTot * nElmts : nElmts;
-            inPtr += (nElmts + nPadElmts) * nqTot;
-            outPtr += (nElmts + nPadElmts) * nqTot;
+            inPtr += nElmtsPad * nqTot;
+            outPtr += nElmtsPad * nqTot;
             exp_idx += nElmts;
         }
     }

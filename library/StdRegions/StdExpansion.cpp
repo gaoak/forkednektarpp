@@ -54,7 +54,10 @@ StdExpansion::StdExpansion(const int numcoeffs, const int numbases,
       m_stdStaticCondMatrixManager(
           std::bind(&StdExpansion::CreateStdStaticCondMatrix, this,
                     std::placeholders::_1),
-          std::string("StdExpansionStdStaticCondMatrix"))
+          std::string("StdExpansionStdStaticCondMatrix")),
+      m_stdFacManager(
+          std::bind(&StdExpansion::CreateStdFac, this, std::placeholders::_1),
+          std::string("StdExpansionStdFac"))
 {
     switch (m_base.size())
     {
@@ -84,7 +87,8 @@ StdExpansion::StdExpansion(const StdExpansion &T)
     : std::enable_shared_from_this<StdExpansion>(T), m_base(T.m_base),
       m_elmt_id(T.m_elmt_id), m_ncoeffs(T.m_ncoeffs),
       m_stdMatrixManager(T.m_stdMatrixManager),
-      m_stdStaticCondMatrixManager(T.m_stdStaticCondMatrixManager)
+      m_stdStaticCondMatrixManager(T.m_stdStaticCondMatrixManager),
+      m_stdFacManager(T.m_stdFacManager)
 {
 }
 
@@ -329,7 +333,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Zero(nq, tmpin, 1);
                 tmpin[i] = 1.0;
 
-                IProductWRTBase_SumFac(tmpin, tmpout);
+                IProductWRTBase(tmpin, tmpout);
 
                 Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
@@ -350,7 +354,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Zero(nq, tmpin, 1);
                 tmpin[i] = 1.0;
 
-                IProductWRTDerivBase_SumFac(0, tmpin, tmpout);
+                IProductWRTDerivBase(0, tmpin, tmpout);
 
                 Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
@@ -371,7 +375,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Zero(nq, tmpin, 1);
                 tmpin[i] = 1.0;
 
-                IProductWRTDerivBase_SumFac(1, tmpin, tmpout);
+                IProductWRTDerivBase(1, tmpin, tmpout);
 
                 Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
@@ -392,7 +396,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Zero(nq, tmpin, 1);
                 tmpin[i] = 1.0;
 
-                IProductWRTDerivBase_SumFac(2, tmpin, tmpout);
+                IProductWRTDerivBase(2, tmpin, tmpout);
 
                 Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
@@ -512,6 +516,176 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
     }
 
     return returnval;
+}
+
+std::shared_ptr<Array<OneD, const NekDouble>> StdExpansion::CreateStdFac(
+    [[maybe_unused]] const StdFacKey &mkey)
+{
+    Array<OneD, NekDouble> returnval;
+
+    switch (mkey.m_stdFacType)
+    {
+        case eWeights1:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[1]->GetPointsKey(),
+                     "PointsKey are differrent in CreateStdFac");
+
+            // deep copy of weights
+            returnval = m_base[1]->GetW();
+
+            int nquad1 = m_base[1]->GetNumPoints();
+
+            if (m_base[1]->GetPointsType() ==
+                LibUtilities::eGaussRadauMAlpha1Beta0)
+            {
+                Blas::Dscal(nquad1, 0.5, returnval.data(), 1);
+            }
+            else
+            {
+                const Array<OneD, NekDouble> z1 = m_base[1]->GetZ();
+                for (int i = 0; i < nquad1; ++i)
+                {
+                    returnval[i] *= 0.5 * (1 - z1[i]);
+                }
+            }
+        }
+        break;
+        case eWeights2:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[2]->GetPointsKey(),
+                     "PointsKey are differrent in CreateStdFac");
+
+            // deep copy of weights
+            returnval = m_base[2]->GetW();
+
+            int nquad2 = m_base[2]->GetNumPoints();
+
+            // For Prisms we need to do same scaling as for Weights1 code
+            if (mkey.m_basisKey.GetBasisType() == LibUtilities::eModified_B)
+            {
+                if (m_base[2]->GetPointsType() ==
+                    LibUtilities::eGaussRadauMAlpha1Beta0)
+                {
+                    Blas::Dscal(nquad2, 0.5, returnval.data(), 1);
+                }
+                else
+                {
+                    const Array<OneD, NekDouble> z2 = m_base[2]->GetZ();
+                    for (int i = 0; i < nquad2; ++i)
+                    {
+                        returnval[i] *= 0.5 * (1 - z2[i]);
+                    }
+                }
+            }
+            else // case for Tets and Pyramids
+            {
+                switch (m_base[2]->GetPointsType())
+                {
+                        // (2,0) Jacobi inner product.
+                    case LibUtilities::eGaussRadauMAlpha2Beta0:
+                    {
+                        Blas::Dscal(nquad2, 0.25, returnval.data(), 1);
+                    }
+                    break;
+                        // (1,0) Jacobi inner product.
+                    case LibUtilities::eGaussRadauMAlpha1Beta0:
+                    {
+                        const Array<OneD, NekDouble> z2 = m_base[2]->GetZ();
+
+                        for (int i = 0; i < nquad2; ++i)
+                        {
+                            returnval[i] *= 0.25 * (1 - z2[i]);
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        const Array<OneD, NekDouble> z2 = m_base[2]->GetZ();
+                        for (int i = 0; i < nquad2; ++i)
+                        {
+                            returnval[i] *= 0.25 * (1 - z2[i]) * (1 - z2[i]);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        break;
+        case eHalfMultOnePlusZ0:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[0]->GetPointsKey(),
+                     "PointssKey are differrent in CreateStdFac");
+
+            int nquad0 = m_base[0]->GetNumPoints();
+
+            returnval = Array<OneD, NekDouble>(nquad0);
+
+            const Array<OneD, NekDouble> z0 = m_base[0]->GetZ();
+            for (int i = 0; i < nquad0; ++i)
+            {
+                returnval[i] = 0.5 * (1.0 + z0[i]);
+            }
+        }
+        break;
+        case eHalfMultOnePlusZ1:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[1]->GetPointsKey(),
+                     "PointssKey are differrent in CreateStdFac");
+
+            int nquad1 = m_base[1]->GetNumPoints();
+
+            returnval = Array<OneD, NekDouble>(nquad1);
+
+            const Array<OneD, NekDouble> z1 = m_base[1]->GetZ();
+            for (int i = 0; i < nquad1; ++i)
+            {
+                returnval[i] = 0.5 * (1.0 + z1[i]);
+            }
+        }
+        break;
+        case eTwoOverOneMinusZ1:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[1]->GetPointsKey(),
+                     "PointssKey are differrent in CreateStdFac");
+
+            int nquad1 = m_base[1]->GetNumPoints();
+
+            returnval = Array<OneD, NekDouble>(nquad1);
+
+            const Array<OneD, NekDouble> z1 = m_base[1]->GetZ();
+            for (int i = 0; i < nquad1; ++i)
+            {
+                returnval[i] = 2.0 / (1.0 - z1[i]);
+            }
+        }
+        break;
+        case eTwoOverOneMinusZ2:
+        {
+            ASSERTL1(mkey.m_basisKey.GetPointsKey() ==
+                         m_base[2]->GetPointsKey(),
+                     "PointssKey are differrent in CreateStdFac");
+
+            int nquad2 = m_base[2]->GetNumPoints();
+
+            returnval = Array<OneD, NekDouble>(nquad2);
+
+            const Array<OneD, NekDouble> z2 = m_base[2]->GetZ();
+            for (int i = 0; i < nquad2; ++i)
+            {
+                returnval[i] = 2.0 / (1.0 - z2[i]);
+            }
+        }
+        break;
+        default:
+            NEKERROR(ErrorUtil::efatal, "Factor Type not defined");
+            break;
+    }
+    return std::make_shared<Array<OneD, const NekDouble>>(returnval);
 }
 
 void StdExpansion::GeneralMatrixOp(const Array<OneD, const NekDouble> &inarray,
@@ -712,7 +886,7 @@ void StdExpansion::LaplacianMatrixOp_MatFree(
                 Vmath::Vmul(nq, mkey.GetVarCoeff(varcoefftypes[k1][k1]), 1,
                             dtmp, 1, dtmp, 1);
             }
-            v_IProductWRTDerivBase_SumFac(k1, dtmp, outarray);
+            v_IProductWRTDerivBase(k1, dtmp, outarray);
         }
         else
         {
@@ -721,14 +895,14 @@ void StdExpansion::LaplacianMatrixOp_MatFree(
             {
                 Vmath::Vmul(nq, mkey.GetVarCoeff(varcoefftypes[k1][k2]), 1,
                             dtmp, 1, dtmp, 1);
-                v_IProductWRTDerivBase_SumFac(k1, dtmp, outarray);
+                v_IProductWRTDerivBase(k1, dtmp, outarray);
             }
             else if (mkey.HasVarCoeff(
                          varcoefftypes[k2][k1])) // Check symmetric varcoeff
             {
                 Vmath::Vmul(nq, mkey.GetVarCoeff(varcoefftypes[k2][k1]), 1,
                             dtmp, 1, dtmp, 1);
-                v_IProductWRTDerivBase_SumFac(k1, dtmp, outarray);
+                v_IProductWRTDerivBase(k1, dtmp, outarray);
             }
             else
             {
@@ -1449,27 +1623,15 @@ void StdExpansion::v_BwdTrans_SumFac(
     NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
 }
 
-void StdExpansion::v_IProductWRTBase_SumFac(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] Array<OneD, NekDouble> &outarray,
-    [[maybe_unused]] bool multiplybyweights)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
-}
-
-/**
- *
- */
-void StdExpansion::v_IProductWRTDirectionalDerivBase_SumFac(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &direction,
+void StdExpansion::v_IProductWRTBase_SumFac_Kernel(
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
     [[maybe_unused]] Array<OneD, NekDouble> &outarray)
 {
     NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
 }
 
-void StdExpansion::v_IProductWRTDerivBase_SumFac(
-    [[maybe_unused]] const int dir,
+void StdExpansion::v_IProductWRTDirectionalDerivBase_SumFac(
+    [[maybe_unused]] const Array<OneD, const NekDouble> &direction,
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
     [[maybe_unused]] Array<OneD, NekDouble> &outarray)
 {

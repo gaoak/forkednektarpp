@@ -79,18 +79,12 @@ public:
 
     /** \brief  Inner product of \a inarray over region with respect to the
         expansion basis (this)->_Base[0] and return in \a outarray */
-    void IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                         Array<OneD, NekDouble> &outarray)
-    {
-        NodalTriExp::IProductWRTBase_SumFac(inarray, outarray);
-    }
+    void v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
+                           Array<OneD, NekDouble> &outarray) override;
 
-    void IProductWRTDerivBase(const int dir,
-                              const Array<OneD, const NekDouble> &inarray,
-                              Array<OneD, NekDouble> &outarray)
-    {
-        NodalTriExp::IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-    }
+    void v_IProductWRTDerivBase(const int dir,
+                                const Array<OneD, const NekDouble> &inarray,
+                                Array<OneD, NekDouble> &outarray) override;
 
     //-----------------------------
     // Differentiation Methods
@@ -164,15 +158,6 @@ public:
 protected:
     DNekMatSharedPtr CreateStdMatrix(const StdRegions::StdMatrixKey &mkey);
 
-    void IProductWRTBase_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &outarray,
-                                bool multiplybyweights = true);
-    void IProductWRTBase_MatOp(const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray);
-
-    void IProductWRTDerivBase_SumFac(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
     void IProductWRTDerivBase_MatOp(const int dir,
                                     const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray);
@@ -212,20 +197,6 @@ private:
     NekDouble v_Integral(const Array<OneD, const NekDouble> &inarray) override
     {
         return Integral(inarray);
-    }
-
-    /** \brief Virtual call to TriExp::IProduct_WRT_B */
-    void v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray) override
-    {
-        IProductWRTBase(inarray, outarray);
-    }
-
-    void v_IProductWRTDerivBase(const int dir,
-                                const Array<OneD, const NekDouble> &inarray,
-                                Array<OneD, NekDouble> &outarray) override
-    {
-        IProductWRTDerivBase(dir, inarray, outarray);
     }
 
     void v_StdPhysDeriv(
@@ -310,21 +281,6 @@ private:
                            Array<OneD, NekDouble> &outarray) override
     {
         StdNodalTriExp::v_BwdTrans_SumFac(inarray, outarray);
-    }
-
-    void v_IProductWRTBase_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        [[maybe_unused]] bool multiplybyweights = true) override
-    {
-        IProductWRTBase_SumFac(inarray, outarray);
-    }
-
-    void v_IProductWRTDerivBase_SumFac(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override
-    {
-        IProductWRTDerivBase_SumFac(dir, inarray, outarray);
     }
 
     void v_AlignVectorToCollapsedDir(

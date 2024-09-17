@@ -103,22 +103,23 @@ protected:
     STD_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_IProductWRTBase_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        bool multiplybyweights = true) override;
-    STD_REGIONS_EXPORT void v_IProductWRTBase_SumFacKernel(
+    STD_REGIONS_EXPORT void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1,
-        bool doCheckCollDir2) override;
+        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
+        [[maybe_unused]] bool doCheckCollDir1,
+        [[maybe_unused]] bool doCheckCollDir2) override;
+    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
+        const Array<OneD, const NekDouble> &base0,
+        const Array<OneD, const NekDouble> &base1,
+        const Array<OneD, const NekDouble> &base2,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray,
+        const Array<OneD, const NekDouble> &jac, const bool Deformed);
     STD_REGIONS_EXPORT void v_IProductWRTDerivBase(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_IProductWRTDerivBase_SumFac(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
 

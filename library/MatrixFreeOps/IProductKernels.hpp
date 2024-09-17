@@ -445,6 +445,12 @@ NEK_FORCE_INLINE static void IProductTetKernel(
                                                                       // 1x
             }
         }
+
+        // increment mode in case order1!=order2
+        for (int q = nm1 - p; q < nm2 - p; ++q)
+        {
+            mode2 += nm2 - p - q;
+        }
     }
 
     if (correct)
@@ -762,6 +768,12 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
                 ScaleAppend<SCALE, APPEND>(out[mode_pqr], sum_k,
                                            scale); // Store 1x
             }
+        }
+
+        // increment mode in case order1!=order2
+        for (int q = nm1; q < nm2; ++q)
+        {
+            mode_pqr += nm2 - q;
         }
     }
 

@@ -72,12 +72,18 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;
+
+        size_t width = in.GetVecWidth();
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -86,8 +92,7 @@ public:
             // Block dependent
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts =
-                inblock.num_elements + inblock.num_padding_elements;
+            const auto nElmtsPad = inblock.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -115,24 +120,24 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr = SetWorkspace(shapeType, nElmts, nm0, nm1, nm2);
+            TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                BwdTrans1DKernel<ExecSpace>(nm0, nq0, nElmts, basis0, inPtr,
+                BwdTrans1DKernel<ExecSpace>(nm0, nq0, nElmtsPad, basis0, inPtr,
                                             outPtr);
             }
             else if (dimension == 2)
             {
                 BwdTrans2DKernel<ExecSpace>(shapeType, nm0, nm1, nq0, nq1,
-                                            nElmts, correct, basis0, basis1,
+                                            nElmtsPad, correct, basis0, basis1,
                                             wspPtr, inPtr, outPtr);
             }
             else if (dimension == 3)
             {
                 BwdTrans3DKernel<ExecSpace>(
-                    shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmts, correct,
+                    shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, correct,
                     basis0, basis1, basis2, wspPtr, inPtr, outPtr);
             }
 
@@ -144,40 +149,40 @@ public:
     }
 
     size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmts, size_t nm0, size_t nm1,
+                                  size_t nElmtsPad, size_t nm0, size_t nm1,
                                   size_t nm2)
     {
         size_t wspsize = 0;
 
         if (shapeType == LibUtilities::Quad)
         {
-            wspsize = nm1 * nElmts;
+            wspsize = nm1 * nElmtsPad;
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = nm0 * nElmts;
+            wspsize = nm0 * nElmtsPad;
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (nm1 * nm2 + nm2) * nElmts;
+            wspsize = (nm1 * nm2 + nm2) * nElmtsPad;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
+            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmtsPad;
         }
         else if (shapeType == LibUtilities::Prism)
         {
-            wspsize = (nm0 * nm1 + nm0) * nElmts;
+            wspsize = (nm0 * nm1 + nm0) * nElmtsPad;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
-            wspsize = (nm0 * nm1 + nm0) * nElmts;
+            wspsize = (nm0 * nm1 + nm0) * nElmtsPad;
         }
 
         return wspsize;
     }
 
-    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
+    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmtsPad,
                         size_t nm0, size_t nm1, size_t nm2)
     {
         TData *wspptr = nullptr;
@@ -185,7 +190,7 @@ public:
         if constexpr (!FLAG_QP)
         {
             size_t wspsize =
-                GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
+                GetSharedWorkspaceSize(shapeType, nElmtsPad, nm0, nm1, nm2);
 
             if (m_wspsize < wspsize)
             {

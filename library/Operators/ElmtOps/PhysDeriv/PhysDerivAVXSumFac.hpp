@@ -136,7 +136,7 @@ public:
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmts    = inblock.num_elements;
-            const auto nPadElmts = inblock.num_padding_elements;
+
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto nqTot     = expPtr->GetTotPoints();
@@ -145,7 +145,7 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = (nElmts + nPadElmts) / vec_t::width;
+            m_nElmtGroup = inblock.num_elmt_groups;
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();

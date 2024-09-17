@@ -31,49 +31,7 @@
 // Description: Two level switch statement with definable bounds
 //
 ///////////////////////////////////////////////////////////////////////////////
-#include <boost/preprocessor/arithmetic/inc.hpp>
-#include <boost/preprocessor/comparison/not_equal.hpp>
-#include <boost/preprocessor/repetition/for.hpp>
-#include <boost/preprocessor/tuple/elem.hpp>
-
-/* The following code sets up a two-level switch where the outer range
-   of the number of modes goes from MINXD to MAXXD which can be set
-   from CMake Parameter NEKTAR_SWITCH_MIN and NEKTAR_SWITCH_MAX. The
-   inner switch (typically on quadrature order) runs from the number
-   of modes at each level to twice the number of modes at each level.
-   Additional macros that needto be provided which are OPERATORXD_Q
-   and OPERATORXD_M_SHAPE giving details of the switch case for the
-   Quadrature case and the outer switch cases for each mode and
-   OPERATORXD_DEF_SHAPE which are the default, non-templated function
-   call */
-
-/** Macro tests the values of the tuple 'state' to see if the first
-   element, given by BOOST_PP_TUPLE_ELEM(0, state), is not equal to
-   the second element plus one, given by
-   BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)) and returns 1 if not
-   equal otherwise zero */
-#define LEV2TEST(r, state)                                                     \
-    BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(0, state),                          \
-                       BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
-
-#define LEV2TEST1(r, state)                                                    \
-    BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(1, state),                          \
-                       BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
-
-/** Macro returns an updated tuple where the first element, given by
-   BOOST_PP_TUPLE_ELEM(0, state), is incremented by one and the
-   second element, given by BOOST_PP_TUPLE_ELEM(1, state) remains
-   the same*/
-#define LEV2UPDATE(r, state)                                                   \
-    (BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, state)),                              \
-     BOOST_PP_TUPLE_ELEM(1, state), BOOST_PP_TUPLE_ELEM(2, state))
-
-#define LEV2UPDATE1(r, state)                                                  \
-    (BOOST_PP_TUPLE_ELEM(0, state),                                            \
-     BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)),                              \
-     BOOST_PP_TUPLE_ELEM(2, state))
-
-#include "SwitchLimits.h"
+#include "SwitchLevel2Defs.h"
 
 if (dimension == 1)
 {

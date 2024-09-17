@@ -146,7 +146,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * ExecSpace::width;
             const auto nmTot     = block.num_pts;
 
             for (size_t i = 0; i < nmTot; ++i)
@@ -170,7 +170,7 @@ public:
                                                     0.0, unit_vec);
             }
 
-            offset1 += (nElmts + nPadElmts) * nmTot;
+            offset1 += nElmtsPad * nmTot;
             offset2 += nElmts * nmTot;
             exp_idx += nElmts;
         }

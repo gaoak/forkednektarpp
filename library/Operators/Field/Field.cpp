@@ -102,15 +102,19 @@ std::vector<BlockAttributes> GetBlockAttributes(
             // compute the padding elements before creating a new block
             if (blockAttr.back().num_elements % VectorWidth == 0)
             {
-                blockAttr.back().num_padding_elements = 0;
+                blockAttr.back().num_elmt_groups =
+                    (blockAttr.back().num_elements / VectorWidth);
             }
             else
             {
-                blockAttr.back().num_padding_elements =
+                int num_padding_elements =
                     VectorWidth - blockAttr.back().num_elements % VectorWidth;
+
+                blockAttr.back().num_elmt_groups =
+                    ((blockAttr.back().num_elements + num_padding_elements) /
+                     VectorWidth);
                 blockAttr.back().block_size +=
-                    blockAttr.back().num_padding_elements *
-                    blockAttr.back().num_pts;
+                    num_padding_elements * blockAttr.back().num_pts;
             }
             // update num_pts for a new block
             num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
@@ -125,14 +129,20 @@ std::vector<BlockAttributes> GetBlockAttributes(
     // compute the padding elements
     if (blockAttr.back().num_elements % VectorWidth == 0)
     {
-        blockAttr.back().num_padding_elements = 0;
+        blockAttr.back().num_elmt_groups =
+            (blockAttr.back().num_elements / VectorWidth);
     }
     else
     {
-        blockAttr.back().num_padding_elements =
+        int num_padding_elements =
             VectorWidth - blockAttr.back().num_elements % VectorWidth;
+
+        blockAttr.back().num_elmt_groups =
+            ((blockAttr.back().num_elements + num_padding_elements) /
+             VectorWidth);
+
         blockAttr.back().block_size +=
-            blockAttr.back().num_padding_elements * blockAttr.back().num_pts;
+            num_padding_elements * blockAttr.back().num_pts;
     }
 
     return blockAttr;

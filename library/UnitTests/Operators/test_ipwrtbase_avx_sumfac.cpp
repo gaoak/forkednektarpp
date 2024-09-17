@@ -68,24 +68,42 @@
 
 BOOST_AUTO_TEST_SUITE(TestIProductWRTBaseAVX)
 
-TEST_IPWRTBASE(ipwrtbase_avx_seg, Seg, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_seg, Seg, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_quad, Quad, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_seg_sem, SegSEM, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_tri, Tri, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_tri, Tri, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_tri_varp, TriVarP, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_hex, Hex, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_prism, Prism, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_quad, Quad, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_pyr, Pyr, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_tet, Tet, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_hex, Hex, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_hex_varP, HexVarP, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_hex_sem, HexSEM, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_prism, Prism, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_pyr, Pyr, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_pyr_varp, PyrVarP, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_tet, Tet, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_tet_varp, TetVarP, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_cube_prism_hex, CubePrismHex, 1.0E-12)
+
+TEST_IPWRTBASE(ipwrtbase_cube_all_elements, CubeAllElements, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()

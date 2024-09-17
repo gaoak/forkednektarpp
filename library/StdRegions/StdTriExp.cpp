@@ -35,9 +35,15 @@
 #include <StdRegions/StdTriExp.h>
 
 using namespace std;
+#include <LibUtilities/BasicUtils/NekInline.hpp>
+#include <StdRegions/Operators/SwitchLevel2.h>
 
 namespace Nektar::StdRegions
 {
+// Declaration of scalar routine
+using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
+
 StdTriExp::StdTriExp(const LibUtilities::BasisKey &Ba,
                      const LibUtilities::BasisKey &Bb)
     : StdExpansion(LibUtilities::StdTriData::getNumberOfCoefficients(
@@ -50,6 +56,13 @@ StdTriExp::StdTriExp(const LibUtilities::BasisKey &Ba,
     ASSERTL0(Ba.GetNumModes() <= Bb.GetNumModes(),
              "order in 'a' direction is higher than order "
              "in 'b' direction");
+
+    // cache integration weights for future use
+    m_weights.push_back(m_base[0]->GetW());
+
+    StdFacKey w1key(eWeights1, Bb);
+    // get weights[1] from manager where points are rescaled
+    m_weights.push_back(GetStdFac(w1key));
 }
 
 //-------------------------------
@@ -416,75 +429,187 @@ void StdTriExp::v_FwdTransBndConstrained(
  *
  * In the triangular space the i (i.e. \f$\eta_1\f$ direction)
  * ordering still runs fastest by convention.
+ *
+ * This is a wrapper function around \a IProductWRTBaseKernel()
  */
 void StdTriExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
 {
-    StdTriExp::v_IProductWRTBase_SumFac(inarray, outarray);
+    const Array<OneD, const NekDouble> one(1, 1.0);
+    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(), inarray,
+                          outarray, one, false);
 }
 
-void StdTriExp::v_IProductWRTBase_SumFac(
+/** \brief Inner product of \a inarray over region with respect to the
+ *  expansion basis (this)->m_base[0] and return in \a outarray
+ *
+ * This is a wrapper function around \a IProductWRTBaseKernel()
+ */
+void StdTriExp::v_IProductWRTBaseKernel(
+    const Array<OneD, const NekDouble> &base0,
+    const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
+    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+    const bool Deformed, [[maybe_unused]] const bool doCheckCollDir0,
+    [[maybe_unused]] const bool doCheckCollDir1)
+{
+    IProductWRTBaseKernel(base0, base1, inarray, outarray, jac, Deformed);
+}
+
+/** \brief Inner product of \a inarray over region with respect to the
+ *  expansion basis (this)->m_base[0] and return in \a outarray
+ *
+ *  @param base0 - An array containing the values of the basis in the
+ *  0-direction at the quarature poitns
+ *  @param base1 - An array containing the values of the basis in the
+ *  1-direction at the quarature poitns
+ *  @param inarray - Array of values evaluated at the physical
+ *  quadrature points
+ *  @param outarray the values of the inner product with respect to
+ *  each basis over region will be stored in the array \a outarray as
+ *  output of the function
+ *  @param jac - An array of size 1 if not deformed or the number of
+ *  quadrature points if deformed holding the values of the jacobian
+ *  @param Deformed - a bool identifying if the inner product is to be
+ *  treated as a deformed or regular integration which just relates to
+ *  how the \param jac array is treated
+ */
+void StdTriExp::IProductWRTBaseKernel(
+    const Array<OneD, const NekDouble> &base0,
+    const Array<OneD, const NekDouble> &base1,
+    const Array<OneD, const NekDouble> &inarray,
+    Array<OneD, NekDouble> &outarray, const Array<OneD, const NekDouble> &jac,
+    const bool Deformed)
 {
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
     int order0 = m_base[0]->GetNumModes();
+    int order1 = m_base[1]->GetNumModes();
 
-    if (multiplybyweights)
+    const bool isModified =
+        (m_base[0]->GetBasisType() == LibUtilities::eModified_A);
+
+    std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nquad1);
+
+    // Swith statment using boost_pp and macros. This unfolls intwo a
+    // nested swtich statement where the outer swtich statement runs
+    // from SMIN to SMAX for modal order and the inner switch
+    // statemets run from the outer value of the case to 2*SMAX for
+    // the quadrature order. If you want to see it unwrapped compile
+    // in verbose mode and add --preprocess to the c++ command.
+    if (Deformed)
     {
-        Array<OneD, NekDouble> tmp(nquad0 * nquad1 + nquad1 * order0);
-        Array<OneD, NekDouble> wsp(tmp + nquad0 * nquad1);
+        // Default case
+#undef IPRODUCTWRTBASE_DEF
+#define IPRODUCTWRTBASE_DEF                                                    \
+    IProductTriKernel<false, false, true>(                                     \
+        order0, order1, nquad0, nquad1, isModified, inarray.data(),            \
+        (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
+        (const vec_t *)m_weights[0].data(),                                    \
+        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(), wsp0,   \
+        outarray.data())
 
-        // multiply by integration constants
-        MultiplyByQuadratureMetric(inarray, tmp);
-        IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                     m_base[1]->GetBdata(), tmp, outarray, wsp);
+        // Inner loop case over quarature points
+#undef IPRODUCTWRTBASE_Q
+#define IPRODUCTWRTBASE_Q(r, i)                                                \
+    case NQ(i):                                                                \
+        IProductTriKernel<false, false, true>(                                 \
+            NM(i), NM(i), NQ(i), NQ_M1(i), isModified, inarray.data(),         \
+            (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
+            (const vec_t *)m_weights[0].data(),                                \
+            (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
+            wsp0, outarray.data());                                            \
+        break;
+
+        // outer loop case over modes
+#undef IPRODUCTWRTBASE_M
+#define IPRODUCTWRTBASE_M(r, i)                                                \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1,                     \
+                             IPRODUCTWRTBASE_Q) default : IPRODUCTWRTBASE_DEF; \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad usage
+        // where quad order goes from mode order to 2(*mode order)
+        if ((order0 == order1) && (nquad0 == nquad1 + 1))
+        {
+            switch (order0)
+            {
+                BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                             IPRODUCTWRTBASE_M)
+                default:
+                    IPRODUCTWRTBASE_DEF;
+                    break;
+            }
+        }
+        else
+        {
+            IPRODUCTWRTBASE_DEF;
+        }
     }
-    else
+    else // non-deformed case
     {
-        Array<OneD, NekDouble> wsp(nquad1 * order0);
-        IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                     m_base[1]->GetBdata(), inarray, outarray,
-                                     wsp);
-    }
-}
+        // Default case
+#undef IPRODUCTWRTBASE_DEF
+#define IPRODUCTWRTBASE_DEF                                                    \
+    IProductTriKernel<false, false, false>(                                    \
+        order0, order1, nquad0, nquad1, isModified, inarray.data(),            \
+        (const vec_t *)base0.data(), (const vec_t *)base1.data(),              \
+        (const vec_t *)m_weights[0].data(),                                    \
+        (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(), wsp0,   \
+        outarray.data())
 
-void StdTriExp::v_IProductWRTBase_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1)
-{
-    int i;
-    int mode;
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nmodes0 = m_base[0]->GetNumModes();
-    int nmodes1 = m_base[1]->GetNumModes();
+        // Inner loop case over quarature points
+#undef IPRODUCTWRTBASE_Q
+#define IPRODUCTWRTBASE_Q(r, i)                                                \
+    case NQ(i):                                                                \
+        IProductTriKernel<false, false, false>(                                \
+            NM(i), NM(i), NQ(i), NQ_M1(i), isModified, inarray.data(),         \
+            (const vec_t *)base0.data(), (const vec_t *)base1.data(),          \
+            (const vec_t *)m_weights[0].data(),                                \
+            (const vec_t *)m_weights[1].data(), (const vec_t *)jac.data(),     \
+            wsp0, outarray.data());                                            \
+        break;
 
-    ASSERTL1(wsp.size() >= nquad1 * nmodes0,
-             "Workspace size is not sufficient");
+        // outer loop case over modes
+#undef IPRODUCTWRTBASE_M
+#define IPRODUCTWRTBASE_M(r, i)                                                \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1,                     \
+                             IPRODUCTWRTBASE_Q) default : IPRODUCTWRTBASE_DEF; \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
 
-    Blas::Dgemm('T', 'N', nquad1, nmodes0, nquad0, 1.0, inarray.get(), nquad0,
-                base0.get(), nquad0, 0.0, wsp.get(), nquad1);
-
-    // Inner product with respect to 'b' direction
-    for (mode = i = 0; i < nmodes0; ++i)
-    {
-        Blas::Dgemv('T', nquad1, nmodes1 - i, 1.0, base1.get() + mode * nquad1,
-                    nquad1, wsp.get() + i * nquad1, 1, 0.0,
-                    outarray.get() + mode, 1);
-        mode += nmodes1 - i;
-    }
-
-    // fix for modified basis by splitting top vertex mode
-    if (m_base[0]->GetBasisType() == LibUtilities::eModified_A)
-    {
-        outarray[1] +=
-            Blas::Ddot(nquad1, base1.get() + nquad1, 1, wsp.get() + nquad1, 1);
+        // templated cases on equi-ordered modes and standard quad usage
+        // where quad order goes from mode order to 2(*mode order)
+        if ((order0 == order1) && (nquad0 == nquad1 + 1))
+        {
+            switch (order0)
+            {
+                BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                             IPRODUCTWRTBASE_M)
+                default:
+                    IPRODUCTWRTBASE_DEF;
+                    break;
+            }
+        }
+        else
+        {
+            IPRODUCTWRTBASE_DEF;
+        }
     }
 }
 
@@ -492,74 +617,48 @@ void StdTriExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    StdTriExp::v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-}
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nqtot  = nquad0 * nquad1;
+    Array<OneD, NekDouble> tmpQuad(nqtot);
 
-void StdTriExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    int i;
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nqtot   = nquad0 * nquad1;
-    int nmodes0 = m_base[0]->GetNumModes();
-    int wspsize = max(max(nqtot, m_ncoeffs), nquad1 * nmodes0);
-
-    Array<OneD, NekDouble> gfac0(2 * wspsize);
-    Array<OneD, NekDouble> tmp0(gfac0 + wspsize);
-
-    const Array<OneD, const NekDouble> &z1 = m_base[1]->GetZ();
-
-    // set up geometric factor: 2/(1-z1)
-    for (i = 0; i < nquad1; ++i)
+    // multiply by 2/(1-z1)
+    StdFacKey fackey(eTwoOverOneMinusZ1, m_base[1]->GetBasisKey());
+    Array<OneD, const NekDouble> gfac = GetStdFac(fackey);
+    for (int i = 0; i < nquad1; ++i)
     {
-        gfac0[i] = 2.0 / (1 - z1[i]);
+        Vmath::Smul(nquad0, gfac[i], &inarray[0] + i * nquad0, 1,
+                    &tmpQuad[0] + i * nquad0, 1);
     }
 
-    for (i = 0; i < nquad1; ++i)
-    {
-        Vmath::Smul(nquad0, gfac0[i], &inarray[0] + i * nquad0, 1,
-                    &tmp0[0] + i * nquad0, 1);
-    }
-
-    MultiplyByQuadratureMetric(tmp0, tmp0);
-
+    const Array<OneD, const NekDouble> one(1, 1.0);
     switch (dir)
     {
         case 0:
-        {
-            IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(),
-                                         m_base[1]->GetBdata(), tmp0, outarray,
-                                         gfac0);
+            IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                                  tmpQuad, outarray, one, false);
             break;
-        }
         case 1:
         {
-            Array<OneD, NekDouble> tmp3(m_ncoeffs);
-            const Array<OneD, const NekDouble> &z0 = m_base[0]->GetZ();
+            Array<OneD, NekDouble> tmpCoeff(m_ncoeffs);
 
-            for (i = 0; i < nquad0; ++i)
+            // multiply by 0.5*(1-z0)
+            StdFacKey fackey1(eHalfMultOnePlusZ0, m_base[0]->GetBasisKey());
+            gfac = GetStdFac(fackey1);
+            for (int i = 0; i < nquad1; ++i)
             {
-                gfac0[i] = 0.5 * (1 + z0[i]);
+                Vmath::Vmul(nquad0, &gfac[0], 1, &tmpQuad[0] + i * nquad0, 1,
+                            &tmpQuad[0] + i * nquad0, 1);
             }
 
-            for (i = 0; i < nquad1; ++i)
-            {
-                Vmath::Vmul(nquad0, &gfac0[0], 1, &tmp0[0] + i * nquad0, 1,
-                            &tmp0[0] + i * nquad0, 1);
-            }
+            IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                                  tmpQuad, tmpCoeff, one, false);
 
-            IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(),
-                                         m_base[1]->GetBdata(), tmp0, tmp3,
-                                         gfac0);
+            IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                                  inarray, outarray, one, false);
 
-            MultiplyByQuadratureMetric(inarray, tmp0);
-            IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                         m_base[1]->GetDbdata(), tmp0, outarray,
-                                         gfac0);
-            Vmath::Vadd(m_ncoeffs, &tmp3[0], 1, &outarray[0], 1, &outarray[0],
-                        1);
+            Vmath::Vadd(m_ncoeffs, &tmpCoeff[0], 1, &outarray[0], 1,
+                        &outarray[0], 1);
             break;
         }
         default:
@@ -1498,43 +1597,21 @@ void StdTriExp::v_ReduceOrderCoeffs(int numMin,
 // Private helper functions
 //---------------------------------------
 
+// Still needed for calls from Collections - think can be removed with
+// Collections.
 void StdTriExp::v_MultiplyByStdQuadratureMetric(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    int i;
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
-
-    const Array<OneD, const NekDouble> &w0 = m_base[0]->GetW();
-    const Array<OneD, const NekDouble> &w1 = m_base[1]->GetW();
-    const Array<OneD, const NekDouble> &z1 = m_base[1]->GetZ();
-
-    // multiply by integration constants
-    for (i = 0; i < nquad1; ++i)
+    int cnt    = 0;
+    for (int i = 0; i < nquad1; ++i)
     {
-        Vmath::Vmul(nquad0, inarray.get() + i * nquad0, 1, w0.get(), 1,
-                    outarray.get() + i * nquad0, 1);
-    }
-
-    switch (m_base[1]->GetPointsType())
-    {
-            // (1,0) Jacobi Inner product
-        case LibUtilities::eGaussRadauMAlpha1Beta0:
-            for (i = 0; i < nquad1; ++i)
-            {
-                Blas::Dscal(nquad0, 0.5 * w1[i], outarray.get() + i * nquad0,
-                            1);
-            }
-            break;
-            // Legendre inner product
-        default:
-            for (i = 0; i < nquad1; ++i)
-            {
-                Blas::Dscal(nquad0, 0.5 * (1 - z1[i]) * w1[i],
-                            outarray.get() + i * nquad0, 1);
-            }
-            break;
+        for (int j = 0; j < nquad0; ++j, ++cnt)
+        {
+            outarray[cnt] = inarray[cnt] * m_weights[0][j] * m_weights[1][i];
+        }
     }
 }
 

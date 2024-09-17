@@ -8,16 +8,16 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="rho" tolerance="1e-12">2.81154e-06</value>
-            <value variable="rhou" tolerance="1e-12">4.45389e-06</value>
-            <value variable="rhov" tolerance="1e-12">6.25694e-06</value>
-            <value variable="E" tolerance="1e-12">1.4556e-05</value>
+            <value variable="rho" tolerance="1e-12">2.82539e-06</value>
+            <value variable="rhou" tolerance="1e-12">4.49031e-06</value>
+            <value variable="rhov" tolerance="1e-12">6.29024e-06</value>
+            <value variable="E" tolerance="1e-12">1.46058e-05</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="rho" tolerance="1e-12">1.04732e-05</value>
-            <value variable="rhou" tolerance="1e-12">1.0708e-05</value>
-            <value variable="rhov" tolerance="1e-12">9.07312e-06</value>
-            <value variable="E" tolerance="1e-12">3.03058e-05</value>
+            <value variable="rho" tolerance="1e-12">1.17071e-05</value>
+            <value variable="rhou" tolerance="1e-12">1.04793e-05</value>
+            <value variable="rhov" tolerance="1e-12">9.06146e-06</value>
+            <value variable="E" tolerance="1e-12">2.78702e-05</value>
         </metric>
         <metric type="ExecutionTime" id="3">
             <value tolerance="1e0" hostname="42.debian-bullseye-performance-build-and-test">34.0</value>

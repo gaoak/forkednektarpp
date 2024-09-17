@@ -23,6 +23,9 @@ ENDIF()
 # Currently two primary implementation types.
 SET(Implementations StdMat SumFac)
 
+# Shape types for seperate code compilation
+SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)
+
 # Macro for each operator
 MACRO(ADD_OPERATOR dir)
 
@@ -75,8 +78,39 @@ MACRO(ADD_OPERATOR dir)
         SET(BASE Base) # Used in the Impl.cpp.in file
     ENDIF()
 
+    # Check to see if shape specific BlockOpSwitch .h files have
+    # been generated and if not generate for later potential use
+    if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
+    ELSE()
+        SET(ShapeIncludeName "Common/BlockOpSwitchCode.h.in")
+        FOREACH (Shape IN LISTS Shapes)
+            SET(ShapeIncName BlockOpSwitchCode${Shape}.h)
+            message("Generating block header  file file: " "${ShapeIncName}")
+            configure_file(${ShapeIncludeName} ${ShapeIncName})
+        ENDFOREACH()
+    ENDIF()
+
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
+
+        # Look for file ${name}${ExexSpace}SumFacBlockOp.cpp.in file
+        # when using Serial or AVX This loop will then generate a
+        # shape specific cpp file containing the shape block method in
+        # seperate file which contain the boost_pp generated switch
+        # statements 
+        IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
+            IF(EXISTS "${dir}/${name}${ExecSpace}SumFacBlockOp.${SOURCE_EXT}.in")
+                 SET(ShapeConfigName "${dir}/${name}${ExecSpace}SumFacBlockOp.${SOURCE_EXT}.in")
+                 FOREACH (Shape IN LISTS Shapes)
+                     SET(ShapeName ${name}${ExecSpace}SumFac${Shape}.${SOURCE_EXT})
+                     message("Generating shape cpp file: " "${ShapeName}")
+                     configure_file(${ShapeConfigName} ${ShapeName})
+                     SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                     SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
+                 ENDFOREACH()
+             ENDIF()
+        ENDIF()
+
         # CUDA has cu and cuh extentions
         IF("${ExecSpace}" STREQUAL "CUDA")
             SET(SOURCE_EXT cu)

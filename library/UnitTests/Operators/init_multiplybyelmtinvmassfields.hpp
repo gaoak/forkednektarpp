@@ -54,23 +54,15 @@ public:
     {
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    *(inptr++) = coeff;
+                    inptr[cnt] = coeff;
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                    {
-                        inptr++;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -90,20 +82,15 @@ public:
         double *ptr = outcoeff.get();
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    (*inptr++) = (*ptr++);
+                    inptr[cnt] = (*ptr++);
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                {
-                    inptr++;
-                }
-            }
+            inptr += block.block_size;
         }
     }
 };

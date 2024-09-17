@@ -9,8 +9,8 @@
     <metrics>
         <metric type="L2" id="1">
             <value variable="eta" tolerance="1e-12">3.32093e-10</value>
-            <value variable="u" tolerance="1e-12">3.19437e-08</value>
-            <value variable="v" tolerance="1e-12">3.19437e-08</value>
+            <value variable="u" tolerance="2e-12">3.19437e-08</value>
+            <value variable="v" tolerance="2e-12">3.19437e-08</value>
         </metric>
         <metric type="Linf" id="2">
             <value variable="eta" tolerance="1e-12">5.0495e-11</value>

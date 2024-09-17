@@ -106,13 +106,6 @@ protected:
     LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    LOCAL_REGIONS_EXPORT void v_IProductWRTBase_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        bool multiplybyweights = true) override;
-    LOCAL_REGIONS_EXPORT void v_IProductWRTDerivBase_SumFac(
-        const int dir, const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray) override;
     LOCAL_REGIONS_EXPORT void v_AlignVectorToCollapsedDir(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray) override;

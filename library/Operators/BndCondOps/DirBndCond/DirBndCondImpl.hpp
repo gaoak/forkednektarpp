@@ -119,9 +119,10 @@ public:
                                          ExecSpace::width);
         for (auto &block : blocks)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto ncoeff = block.num_pts;
+            const auto nElmts = block.num_elements;
+            const auto nPadElmts =
+                block.num_elmt_groups * ExecSpace::width - block.num_elements;
             for (unsigned int e = 0; e < nElmts; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)

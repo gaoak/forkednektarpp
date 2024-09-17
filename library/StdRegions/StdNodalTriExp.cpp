@@ -53,6 +53,13 @@ StdNodalTriExp::StdNodalTriExp(const LibUtilities::BasisKey &Ba,
     ASSERTL0(m_base[0]->GetNumModes() == m_base[1]->GetNumModes(),
              "Nodal basis initiated with different orders in the a "
              "and b directions");
+
+    // cache integration weights for future use
+    m_weights.push_back(m_base[0]->GetW());
+
+    StdFacKey w1key(eWeights1, Bb);
+    // get weights[1] from manager where points are rescaled
+    m_weights.push_back(GetStdFac(w1key));
 }
 
 bool StdNodalTriExp::v_IsNodalNonTensorialExp()
@@ -186,14 +193,7 @@ void StdNodalTriExp::v_IProductWRTBase(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTBase_SumFac(inarray, outarray);
-}
-
-void StdNodalTriExp::v_IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
-{
-    StdTriExp::v_IProductWRTBase_SumFac(inarray, outarray, multiplybyweights);
+    StdTriExp::v_IProductWRTBase(inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 
@@ -201,14 +201,7 @@ void StdNodalTriExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-}
-
-void StdNodalTriExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    StdTriExp::v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
+    StdTriExp::v_IProductWRTDerivBase(dir, inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 

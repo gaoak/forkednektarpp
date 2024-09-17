@@ -127,6 +127,15 @@ public:
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
         bool doCheckCollDir0 = true, bool doCheckCollDir1 = true);
 
+    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
+        const Array<OneD, const NekDouble> &base0,
+        const Array<OneD, const NekDouble> &base1,
+        const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
+        [[maybe_unused]] bool doCheckCollDir1);
+
+    // needs deprating
     STD_REGIONS_EXPORT void IProductWRTBase_SumFacKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
@@ -177,12 +186,13 @@ protected:
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
         bool doCheckCollDir0, bool doCheckCollDir1) = 0;
 
-    STD_REGIONS_EXPORT virtual void v_IProductWRTBase_SumFacKernel(
+    STD_REGIONS_EXPORT virtual void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1) = 0;
+        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
+        [[maybe_unused]] bool doCheckCollDir1) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,

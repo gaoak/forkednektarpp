@@ -76,7 +76,7 @@ class Serial
 {
 public:
     using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t width     = vec_t::width;
+    static constexpr size_t width     = 1;
     static constexpr size_t alignment = vec_t::alignment;
 };
 
@@ -106,7 +106,6 @@ class DeviceSpace
 #else
 // No specific GPU so the device is the host.
 using DeviceSpace = HostSpace;
-
 #endif
 
 // Native pure CUDA execution
