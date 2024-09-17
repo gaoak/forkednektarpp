@@ -36,11 +36,6 @@
 /* Switch macros for two level switch over modes and then quadrature
    orders wrapped around a Deformed check */
 
-#define NM(i) BOOST_PP_TUPLE_ELEM(0, i)
-#define NM_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))
-#define NQ(i) BOOST_PP_TUPLE_ELEM(1, i)
-#define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(1, i))
-
 if (deformed)
 {
 

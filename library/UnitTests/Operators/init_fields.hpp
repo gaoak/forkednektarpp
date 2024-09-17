@@ -384,27 +384,24 @@ public:
             "#elm #pts output               expected            difference\n");
         for (auto const &block : fixt_out->GetBlocks())
         {
+            int cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
-                    if (fabs(*outptr - *expptr) > tol)
+                    if (std::abs(*outptr - *expptr) > tol)
                     {
                         printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el,
-                               phys, *outptr, *expptr, fabs(*outptr - *expptr));
+                               phys, *outptr, *expptr,
+                               std::abs(*outptr - *expptr));
                     }
                     expptr++;
                     outptr++;
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
-                {
-                    expptr++;
-                    outptr++;
-                }
-            }
+
+            expptr += block.block_size - cnt;
+            outptr += block.block_size - cnt;
         }
     }
 

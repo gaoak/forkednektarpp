@@ -457,9 +457,7 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_metaBlocks =
-                (blocks[blk].num_elements + blocks[blk].num_padding_elements) /
-                vec_t::width;
+            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
 
             const auto expPtr = this->m_expansionList->GetExp(exp_id);
 
@@ -491,10 +489,10 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements         = blocks[blk].num_elements;
-            size_t num_padding_elements = blocks[blk].num_padding_elements;
-            size_t num_metaBlocks =
-                (num_elements + num_padding_elements) / vec_t::width;
+            size_t num_elements   = blocks[blk].num_elements;
+            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
+            size_t num_padding_elements =
+                num_metaBlocks * vec_t::width - num_elements;
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 
@@ -589,6 +587,100 @@ protected:
             AllocateSharedPtr(jac);
     }
 
+    std::shared_ptr<std::vector<TData>> SetJacobian(
+        size_t jacSize, std::vector<BlockAttributes> &blocks, size_t width)
+    {
+        // Allocate memory for the jacobian
+        std::vector<TData> jac;
+        jac.resize(jacSize * width);
+
+        size_t exp_id = 0;
+        size_t jac_id = 0;
+
+        for (size_t blk = 0; blk < blocks.size(); ++blk)
+        {
+            size_t num_elements         = blocks[blk].num_elements;
+            size_t num_metaBlocks       = blocks[blk].num_elmt_groups;
+            size_t num_padding_elements = num_metaBlocks * width - num_elements;
+
+            auto expPtr = this->m_expansionList->GetExp(exp_id);
+
+            if (expPtr->GetMetricInfo()->GetGtype() ==
+                SpatialDomains::eDeformed)
+            {
+                Array<OneD, Array<OneD, NekDouble>> jacArray(width);
+
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t i = 0; i < width; ++i)
+                    {
+                        jacArray[i] = this->m_expansionList->GetExp(exp_id++)
+                                          ->GetMetricInfo()
+                                          ->GetJac(expPtr->GetPointsKeys());
+                    }
+
+                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                    {
+                        for (size_t i = 0; i < width; ++i)
+                        {
+                            jac[jac_id++] = jacArray[i][pt];
+                        }
+                    }
+                }
+
+                // Last block: may have padding elements
+                for (size_t i = 0; i < width - num_padding_elements; ++i)
+                {
+                    jacArray[i] = this->m_expansionList->GetExp(exp_id++)
+                                      ->GetMetricInfo()
+                                      ->GetJac(expPtr->GetPointsKeys());
+                }
+
+                for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                {
+                    for (size_t i = 0; i < width - num_padding_elements; ++i)
+                    {
+                        jac[jac_id++] = jacArray[i][pt];
+                    }
+
+                    for (size_t i = width - num_padding_elements; i < width;
+                         ++i)
+                    {
+                        jac[jac_id++] = 0.0;
+                    }
+                }
+            }
+            else // regular geometry
+            {
+                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                {
+                    for (size_t i = 0; i < width; ++i)
+                    {
+                        auto &auxJac = this->m_expansionList->GetExp(exp_id++)
+                                           ->GetMetricInfo()
+                                           ->GetJac(expPtr->GetPointsKeys());
+                        jac[jac_id++] = auxJac[0];
+                    }
+                }
+
+                // last block: may have padding elements
+                for (size_t i = 0; i < width - num_padding_elements; ++i)
+                {
+                    auto &auxJac = this->m_expansionList->GetExp(exp_id++)
+                                       ->GetMetricInfo()
+                                       ->GetJac(expPtr->GetPointsKeys());
+                    jac[jac_id++] = auxJac[0];
+                }
+
+                for (size_t i = width - num_padding_elements; i < width; ++i)
+                {
+                    jac[jac_id++] = 0.0;
+                }
+            }
+        }
+        return MemoryManager<std::vector<TData>>::AllocateSharedPtr(jac);
+    }
+
     std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
     SetDerivativeFactor(size_t dfSize, std::vector<BlockAttributes> &blocks)
     {
@@ -598,18 +690,16 @@ protected:
 
         std::vector<vec_t, tinysimd::allocator<vec_t>> derivFac;
         derivFac.resize(nDim * nCoord * dfSize);
-        // derivFac storage order: vec->dim->coord->point->element->block
-        // original df: point->dim->coord->element->block
 
         size_t exp_id = 0;
         size_t jac_id = 0;
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements         = blocks[blk].num_elements;
-            size_t num_padding_elements = blocks[blk].num_padding_elements;
-            size_t num_metaBlocks =
-                (num_elements + num_padding_elements) / vec_t::width;
+            size_t num_elements   = blocks[blk].num_elements;
+            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
+            size_t num_padding_elements =
+                num_metaBlocks * vec_t::width - num_elements;
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 

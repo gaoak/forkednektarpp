@@ -54,23 +54,15 @@ public:
     {
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
-                    *(inptr++) = phys;
+                    inptr[cnt] = phys;
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        inptr++;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -90,20 +82,15 @@ public:
         double *ptr = outcoeffs.get();
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    (*inptr++) = (*ptr++);
+                    inptr[cnt] = (*ptr++);
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                {
-                    inptr++;
-                }
-            }
+            inptr += block.block_size;
         }
     }
 };
@@ -120,19 +107,37 @@ public:
 
 TEST(Seg, "run/segment.xml")
 
+TEST(SegSEM, "run/line_sem.xml")
+
 TEST(Quad, "run/square.xml")
 
+TEST(QuadVarP, "run/square_varp.xml")
+
+TEST(QuadSEM, "run/square_sem.xml")
+
 TEST(Tri, "run/tri.xml")
+
+TEST(TriVarP, "run/tri_varp.xml")
 
 TEST(SquareAllElements, "run/square_all_elements.xml")
 
 TEST(Hex, "run/hex.xml")
 
+TEST(HexVarP, "run/hex_varp.xml")
+
+TEST(HexSEM, "run/hex_sem.xml")
+
 TEST(Prism, "run/prism.xml")
+
+TEST(PrismVarP, "run/prism_varp.xml")
 
 TEST(Pyr, "run/pyr.xml")
 
+TEST(PyrVarP, "run/pyr_varp.xml")
+
 TEST(Tet, "run/tet.xml")
+
+TEST(TetVarP, "run/tet_varp.xml")
 
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 

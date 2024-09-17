@@ -72,34 +72,33 @@ public:
                *fceptr = fce.get();
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys)
+                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
                     if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
                     {
-                        *(inptr++) = *(fceptr++);
+                        inptr[cnt] = *(fceptr++);
                     }
                     else
                     {
-                        *inptr = 1.0;
+                        inptr[cnt] = 1.0;
                         if (fixt_explist->GetCoordim(0) == 1)
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                *inptr += n * std::pow(*xptr, n);
+                                inptr[cnt] += n * std::pow(*xptr, n);
                             }
-                            inptr++;
                             xptr++;
                         }
                         else if (fixt_explist->GetCoordim(0) == 2)
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                *inptr +=
+                                inptr[cnt] +=
                                     n * std::pow(*xptr, n) * std::pow(*yptr, n);
                             }
-                            inptr++;
                             xptr++;
                             yptr++;
                         }
@@ -107,11 +106,10 @@ public:
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                *inptr += n * std::pow(*xptr, n) *
-                                          std::pow(*yptr, n) *
-                                          std::pow(*zptr, n);
+                                inptr[cnt] += n * std::pow(*xptr, n) *
+                                              std::pow(*yptr, n) *
+                                              std::pow(*zptr, n);
                             }
-                            inptr++;
                             xptr++;
                             yptr++;
                             zptr++;
@@ -119,16 +117,7 @@ public:
                     }
                 }
             }
-            if (padding)
-            {
-                for (size_t el = 0; el < block.num_padding_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys)
-                    {
-                        inptr++;
-                    }
-                }
-            }
+            inptr += (padding) ? block.block_size : cnt;
         }
     }
 
@@ -148,20 +137,15 @@ public:
         double *coeffptr = outcoeffs.get();
         for (auto const &block : blocks)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < block.num_elements; ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
+                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    (*inptr++) = (*coeffptr++);
+                    inptr[cnt] = (*coeffptr++);
                 }
             }
-            for (size_t el = 0; el < block.num_padding_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff)
-                {
-                    inptr++;
-                }
-            }
+            inptr += block.block_size;
         }
     }
 };

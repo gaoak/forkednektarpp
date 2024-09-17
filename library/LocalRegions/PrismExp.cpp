@@ -261,37 +261,12 @@ void PrismExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
 void PrismExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                  Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTBase_SumFac(inarray, outarray);
-}
-
-void PrismExp::v_IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
-{
-    const int nquad0 = m_base[0]->GetNumPoints();
-    const int nquad1 = m_base[1]->GetNumPoints();
-    const int nquad2 = m_base[2]->GetNumPoints();
-    const int order0 = m_base[0]->GetNumModes();
-    const int order1 = m_base[1]->GetNumModes();
-
-    Array<OneD, NekDouble> wsp(order0 * nquad2 * (nquad1 + order1));
-
-    if (multiplybyweights)
-    {
-        Array<OneD, NekDouble> tmp(nquad0 * nquad1 * nquad2);
-
-        MultiplyByQuadratureMetric(inarray, tmp);
-
-        IProductWRTBase_SumFacKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-            tmp, outarray, wsp, true, true, true);
-    }
-    else
-    {
-        IProductWRTBase_SumFacKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-            inarray, outarray, wsp, true, true, true);
-    }
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+    StdPrismExp::IProductWRTBaseKernel(
+        m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
+        inarray, outarray, jac, Deformed);
 }
 
 /**
@@ -328,18 +303,9 @@ void PrismExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-}
-
-void PrismExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
     const int nquad0 = m_base[0]->GetNumPoints();
     const int nquad1 = m_base[1]->GetNumPoints();
     const int nquad2 = m_base[2]->GetNumPoints();
-    const int order0 = m_base[0]->GetNumModes();
-    const int order1 = m_base[1]->GetNumModes();
     const int nqtot  = nquad0 * nquad1 * nquad2;
 
     Array<OneD, NekDouble> tmp1(nqtot);
@@ -347,31 +313,30 @@ void PrismExp::v_IProductWRTDerivBase_SumFac(
     Array<OneD, NekDouble> tmp3(nqtot);
     Array<OneD, NekDouble> tmp4(nqtot);
     Array<OneD, NekDouble> tmp6(m_ncoeffs);
-    Array<OneD, NekDouble> wsp(order0 * nquad2 * (nquad1 + order1));
-
-    MultiplyByQuadratureMetric(inarray, tmp1);
 
     Array<OneD, Array<OneD, NekDouble>> tmp2D{3};
     tmp2D[0] = tmp2;
     tmp2D[1] = tmp3;
     tmp2D[2] = tmp4;
 
-    PrismExp::v_AlignVectorToCollapsedDir(dir, tmp1, tmp2D);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetBdata(), tmp2, outarray, wsp,
-                                 true, true, true);
+    PrismExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                 m_base[2]->GetBdata(), tmp3, tmp6, wsp, true,
-                                 true, true);
+    StdPrismExp::IProductWRTBaseKernel(
+        m_base[0]->GetDbdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
+        tmp2, outarray, jac, Deformed);
 
+    StdPrismExp::IProductWRTBaseKernel(
+        m_base[0]->GetBdata(), m_base[1]->GetDbdata(), m_base[2]->GetBdata(),
+        tmp3, tmp6, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, tmp6, 1, outarray, 1, outarray, 1);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetDbdata(), tmp4, tmp6, wsp, true,
-                                 true, true);
-
+    StdPrismExp::IProductWRTBaseKernel(
+        m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetDbdata(),
+        tmp4, tmp6, jac, Deformed);
     Vmath::Vadd(m_ncoeffs, tmp6, 1, outarray, 1, outarray, 1);
 }
 
@@ -1115,10 +1080,15 @@ void PrismExp::v_DropLocStaticCondMatrix(const MatrixKey &mkey)
  * \mathbf{B}\hat{\mathbf{u}}\f$). The output is in coefficient space.
  *
  * @see %TetExp::v_HelmholtzMatrixOp_MatFree
+ *
+ * Note: Not currently using wsp for memory input as in other methods
+ * for different shapes. Also seems that the _MatFree_Kernel extension
+ * to the name might be redundant?
  */
 void PrismExp::v_LaplacianMatrixOp_MatFree_Kernel(
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp)
+    Array<OneD, NekDouble> &outarray,
+    [[maybe_unused]] Array<OneD, NekDouble> &wsp)
 {
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
@@ -1126,7 +1096,8 @@ void PrismExp::v_LaplacianMatrixOp_MatFree_Kernel(
     int nqtot  = nquad0 * nquad1 * nquad2;
     int i;
 
-    // Set up temporary storage.
+    // Set up temporary storage. -> not sure why this is not as compact as other
+    // shapes
     Array<OneD, NekDouble> alloc(11 * nqtot, 0.0);
     Array<OneD, NekDouble> wsp1(alloc);              // TensorDeriv 1
     Array<OneD, NekDouble> wsp2(alloc + 1 * nqtot);  // TensorDeriv 2
@@ -1283,18 +1254,17 @@ void PrismExp::v_LaplacianMatrixOp_MatFree_Kernel(
     Vmath::Vvtvp(nqtot, &g5[0], 1, &wsp2[0], 1, &wsp9[0], 1, &wsp9[0], 1);
 
     // Step 4.
-    // Multiply by quadrature metric
-    MultiplyByQuadratureMetric(wsp7, wsp7);
-    MultiplyByQuadratureMetric(wsp8, wsp8);
-    MultiplyByQuadratureMetric(wsp9, wsp9);
-
     // Perform inner product w.r.t derivative bases.
-    IProductWRTBase_SumFacKernel(dbase0, base1, base2, wsp7, wsp1, wsp, false,
-                                 true, true);
-    IProductWRTBase_SumFacKernel(base0, dbase1, base2, wsp8, wsp2, wsp, true,
-                                 false, true);
-    IProductWRTBase_SumFacKernel(base0, base1, dbase2, wsp9, outarray, wsp,
-                                 true, true, false);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
+    StdPrismExp::IProductWRTBaseKernel(dbase0, base1, base2, wsp7, wsp1, jac,
+                                       Deformed);
+    StdPrismExp::IProductWRTBaseKernel(base0, dbase1, base2, wsp8, wsp2, jac,
+                                       Deformed);
+    StdPrismExp::IProductWRTBaseKernel(base0, base1, dbase2, wsp9, outarray,
+                                       jac, Deformed);
 
     // Step 5.
     // Sum contributions from wsp1, wsp2 and outarray.

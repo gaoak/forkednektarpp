@@ -195,65 +195,56 @@ void StdExpansion2D::BwdTrans_SumFacKernel(
                             doCheckCollDir0, doCheckCollDir1);
 }
 
-void StdExpansion2D::IProductWRTBase_SumFacKernel(
+void StdExpansion2D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    bool doCheckCollDir0, bool doCheckCollDir1)
+    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+    const bool Deformed, const bool CollDir0, const bool CollDir1)
 {
-    v_IProductWRTBase_SumFacKernel(base0, base1, inarray, outarray, wsp,
-                                   doCheckCollDir0, doCheckCollDir1);
+    v_IProductWRTBaseKernel(base0, base1, inarray, outarray, jac, Deformed,
+                            CollDir0, CollDir1);
 }
 
 void StdExpansion2D::v_GenStdMatBwdDeriv(const int dir, DNekMatSharedPtr &mat)
 {
     ASSERTL1((dir == 0) || (dir == 1), "Invalid direction.");
 
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nqtot   = nquad0 * nquad1;
-    int nmodes0 = m_base[0]->GetNumModes();
+    const int nq0 = m_base[0]->GetNumPoints();
+    const int nq1 = m_base[1]->GetNumPoints();
+    const int nq  = nq0 * nq1;
 
-    Array<OneD, NekDouble> tmp1(2 * nqtot + m_ncoeffs + nmodes0 * nquad1, 0.0);
-    Array<OneD, NekDouble> tmp3(tmp1 + 2 * nqtot);
-    Array<OneD, NekDouble> tmp4(tmp1 + 2 * nqtot + m_ncoeffs);
+    Array<OneD, NekDouble> in(nq, 0.0);
+    Array<OneD, NekDouble> out(m_ncoeffs);
+    Array<OneD, NekDouble> one(1, 1.0);
 
-    switch (dir)
+    for (int i = 0; i < nq; i++)
     {
-        case 0:
-            for (int i = 0; i < nqtot; i++)
-            {
-                tmp1[i] = 1.0;
-                IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(),
-                                             m_base[1]->GetBdata(), tmp1, tmp3,
-                                             tmp4, false, true);
-                tmp1[i] = 0.0;
+        int l = i % nq0;
+        int m = (i / nq0);
 
-                for (int j = 0; j < m_ncoeffs; j++)
-                {
-                    (*mat)(j, i) = tmp3[j];
-                }
-            }
-            break;
-        case 1:
-            for (int i = 0; i < nqtot; i++)
-            {
-                tmp1[i] = 1.0;
-                IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                             m_base[1]->GetDbdata(), tmp1, tmp3,
-                                             tmp4, true, false);
-                tmp1[i] = 0.0;
+        // initialise with inverse of weights t
+        in[i] = 1.0 / (m_weights[0][l] * m_weights[1][m]);
 
-                for (int j = 0; j < m_ncoeffs; j++)
-                {
-                    (*mat)(j, i) = tmp3[j];
-                }
-            }
-            break;
-        default:
-            NEKERROR(ErrorUtil::efatal, "Not a 2D expansion.");
-            break;
+        // do standard iproduct
+        if (dir == 0)
+        {
+            v_IProductWRTBaseKernel(m_base[0]->GetDbdata(),
+                                    m_base[1]->GetBdata(), in, out, one, false,
+                                    false, m_base[1]->Collocation());
+        }
+        else if (dir == 1)
+        {
+            v_IProductWRTBaseKernel(m_base[0]->GetBdata(),
+                                    m_base[1]->GetDbdata(), in, out, one, false,
+                                    m_base[0]->Collocation(), false);
+        }
+        in[i] = 0.0;
+
+        for (int j = 0; j < m_ncoeffs; j++)
+        {
+            (*mat)(j, i) = out[j];
+        }
     }
 }
 
@@ -342,10 +333,7 @@ void StdExpansion2D::v_HelmholtzMatrixOp_MatFree(
             // outarray = B^T * wsp1  = B^T * W * B * u_hat = M * u_hat
             BwdTrans_SumFacKernel(base0, base1, inarray, wsp0, wsp2, true,
                                   true);
-            MultiplyByQuadratureMetric(wsp0, wsp1);
-            IProductWRTBase_SumFacKernel(base0, base1, wsp1, outarray, wsp2,
-                                         true, true);
-
+            IProductWRTBase(wsp0, outarray);
             LaplacianMatrixOp_MatFree_Kernel(wsp0, wsp1, wsp2);
         }
         else

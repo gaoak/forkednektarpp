@@ -195,14 +195,7 @@ void StdNodalTetExp::v_IProductWRTBase(
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTBase_SumFac(inarray, outarray);
-}
-
-void StdNodalTetExp::v_IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
-{
-    StdTetExp::v_IProductWRTBase_SumFac(inarray, outarray, multiplybyweights);
+    StdTetExp::v_IProductWRTBase(inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 
@@ -210,14 +203,7 @@ void StdNodalTetExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-}
-
-void StdNodalTetExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
-    StdTetExp::v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
+    StdTetExp::v_IProductWRTDerivBase(dir, inarray, outarray);
     NodalToModalTranspose(outarray, outarray);
 }
 

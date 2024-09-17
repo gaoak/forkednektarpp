@@ -103,6 +103,10 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Initialize pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
@@ -112,6 +116,8 @@ public:
         size_t exp_idx = 0;
         size_t df_idx  = 0;
 
+        size_t width = in.GetVecWidth();
+
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             3, LibUtilities::NullBasisKey);
@@ -120,7 +126,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -168,7 +174,7 @@ public:
                     }
                 }
 
-                outPtr += (nPadElmts + nElmts) * nqTot;
+                outPtr += nElmtsPad * nqTot;
                 df_idx += nqTot * nElmts;
             }
             else
@@ -194,11 +200,11 @@ public:
                     outPtr += nqTot;
                 }
 
-                outPtr += nPadElmts * nqTot;
+                outPtr += (nElmtsPad - nElmts) * nqTot;
                 df_idx += nElmts;
             }
 
-            inPtr += (nPadElmts + nElmts) * nqTot;
+            inPtr += nElmtsPad * nqTot;
             exp_idx += nElmts;
         }
     }

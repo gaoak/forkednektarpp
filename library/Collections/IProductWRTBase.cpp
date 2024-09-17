@@ -36,7 +36,9 @@
 #include <Collections/IProduct.h>
 #include <Collections/MatrixFreeBase.h>
 #include <Collections/Operator.h>
+#include <LocalRegions/Expansion.h>
 #include <MatrixFreeOps/Operator.hpp>
+#include <SpatialDomains/GeomFactors.h>
 
 using namespace std;
 
@@ -307,12 +309,24 @@ public:
         const int nPhys   = m_stdExp->GetTotPoints();
         Array<OneD, NekDouble> tmp;
 
-        Vmath::Vmul(m_jacWStdW.size(), m_jacWStdW, 1, input, 1, wsp, 1);
-
-        for (int i = 0; i < m_numElmt; ++i)
+        if (m_deformed)
         {
-            m_stdExp->IProductWRTBase_SumFac(wsp + i * nPhys,
-                                             tmp = output + i * nCoeffs, false);
+            Vmath::Vmul(m_jac.size(), m_jac, 1, input, 1, wsp, 1);
+            for (int i = 0; i < m_numElmt; ++i)
+            {
+                m_stdExp->IProductWRTBase(wsp + i * nPhys,
+                                          tmp = output + i * nCoeffs);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < m_numElmt; ++i)
+            {
+                Vmath::Smul(nPhys, m_jac[i], input + i * nPhys, 1,
+                            tmp = wsp + i * nPhys, 1);
+                m_stdExp->IProductWRTBase(wsp + i * nPhys,
+                                          tmp = output + i * nCoeffs);
+            }
         }
     }
 
@@ -331,7 +345,8 @@ public:
     }
 
 protected:
-    Array<OneD, NekDouble> m_jacWStdW;
+    bool m_deformed;
+    Array<OneD, NekDouble> m_jac;
 
 private:
     IProductWRTBase_IterPerExp(
@@ -341,7 +356,12 @@ private:
     {
         int nqtot = pCollExp[0]->GetTotPoints();
 
-        m_jacWStdW = pGeomData->GetJacWithStdWeights(pCollExp);
+        const StdRegions::StdExpansion *sep = &(*pCollExp[0]);
+        const LocalRegions::Expansion *lep =
+            dynamic_cast<const LocalRegions::Expansion *>(sep);
+        m_deformed =
+            (lep->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed);
+        m_jac = pGeomData->GetJac(pCollExp);
 
         m_wspSize = nqtot * m_numElmt;
     }

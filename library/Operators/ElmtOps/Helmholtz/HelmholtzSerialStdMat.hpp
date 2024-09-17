@@ -129,9 +129,15 @@ public:
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv,
                         Field<TData, FieldState::Phys> &derivCoeff)
     {
+        ASSERTL1(deriv.GetVecWidth() == derivCoeff.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Initialize pointers.
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
+
+        size_t width = deriv.GetVecWidth();
 
         auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
         auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
@@ -152,7 +158,7 @@ public:
         for (const auto &block : deriv.GetBlocks())
         {
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -176,8 +182,8 @@ public:
             // Increment pointer and index for next element type.
             for (size_t d = 0; d < nCoord; d++)
             {
-                derivPtr[d] += nqTot * (nElmts + nPadElmts);
-                derivCoeffPtr[d] += nqTot * (nElmts + nPadElmts);
+                derivPtr[d] += nqTot * nElmtsPad;
+                derivCoeffPtr[d] += nqTot * nElmtsPad;
             }
 
             exp_idx += nElmts;

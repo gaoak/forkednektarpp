@@ -332,76 +332,33 @@ void HexExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
 void HexExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &outarray)
 {
-    HexExp::v_IProductWRTBase_SumFac(inarray, outarray);
-}
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
 
-/**
- * \brief Calculate the inner product of inarray with respect to the
- * given basis B = base0 * base1 * base2.
- *
- * \f$ \begin{array}{rcl} I_{pqr} = (\phi_{pqr}, u)_{\delta}
- * & = & \sum_{i=0}^{nq_0} \sum_{j=0}^{nq_1} \sum_{k=0}^{nq_2}
- *     \psi_{p}^{a} (\xi_{1i}) \psi_{q}^{a} (\xi_{2j}) \psi_{r}^{a}
- *     (\xi_{3k}) w_i w_j w_k u(\xi_{1,i} \xi_{2,j} \xi_{3,k})
- * J_{i,j,k}\\ & = & \sum_{i=0}^{nq_0} \psi_p^a(\xi_{1,i})
- *     \sum_{j=0}^{nq_1} \psi_{q}^a(\xi_{2,j}) \sum_{k=0}^{nq_2}
- *     \psi_{r}^a u(\xi_{1i},\xi_{2j},\xi_{3k})
- * J_{i,j,k} \end{array} \f$ \n
- * where
- * \f$ \phi_{pqr} (\xi_1 , \xi_2 , \xi_3)
- *    = \psi_p^a ( \xi_1) \psi_{q}^a (\xi_2) \psi_{r}^a (\xi_3) \f$ \n
- * which can be implemented as \n
- * \f$f_{r} (\xi_{3k})
- *    = \sum_{k=0}^{nq_3} \psi_{r}^a u(\xi_{1i},\xi_{2j},\xi_{3k})
- * J_{i,j,k} = {\bf B_3 U}   \f$ \n
- * \f$ g_{q} (\xi_{3k}) = \sum_{j=0}^{nq_1} \psi_{q}^a (\xi_{2j})
- *                          f_{r} (\xi_{3k})  = {\bf B_2 F}  \f$ \n
- * \f$ (\phi_{pqr}, u)_{\delta}
- *    = \sum_{k=0}^{nq_0} \psi_{p}^a (\xi_{3k}) g_{q} (\xi_{3k})
- *    = {\bf B_1 G} \f$
- *
- * @param   base0       Basis to integrate wrt in first dimension.
- * @param   base1       Basis to integrate wrt in second dimension.
- * @param   base2       Basis to integrate wrt in third dimension.
- * @param   inarray     Input array.
- * @param   outarray    Output array.
- * @param   coll_check  (not used)
- */
-void HexExp::v_IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-    int order0 = m_base[0]->GetNumModes();
-    int order1 = m_base[1]->GetNumModes();
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
 
-    Array<OneD, NekDouble> wsp(nquad0 * nquad1 * (nquad2 + order0) +
-                               order0 * order1 * nquad2);
-
-    if (multiplybyweights)
+    if (CollDir0 && CollDir1 && CollDir2)
     {
-        Array<OneD, NekDouble> tmp(inarray.size());
-
-        MultiplyByQuadratureMetric(inarray, tmp);
-        IProductWRTBase_SumFacKernel(
-            m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-            tmp, outarray, wsp, true, true, true);
+        int nqtot = GetTotPoints();
+        if (Deformed)
+        {
+            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
+        }
+        else
+        {
+            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
+        }
+        v_MultiplyByStdQuadratureMetric(outarray, outarray);
     }
     else
     {
-        IProductWRTBase_SumFacKernel(
+        StdHexExp::IProductWRTBaseKernel(
             m_base[0]->GetBdata(), m_base[1]->GetBdata(), m_base[2]->GetBdata(),
-            inarray, outarray, wsp, true, true, true);
+            inarray, outarray, jac, Deformed, CollDir0, CollDir1, CollDir2);
     }
-}
-
-void HexExp::v_IProductWRTDerivBase(const int dir,
-                                    const Array<OneD, const NekDouble> &inarray,
-                                    Array<OneD, NekDouble> &outarray)
-{
-    HexExp::v_IProductWRTDerivBase_SumFac(dir, inarray, outarray);
 }
 
 /**
@@ -424,9 +381,9 @@ void HexExp::v_IProductWRTDerivBase(const int dir,
  * @param inarray   The function \f$ u \f$.
  * @param outarray  Value of the inner product.
  */
-void HexExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
+void HexExp::v_IProductWRTDerivBase(const int dir,
+                                    const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
 {
     ASSERTL1((dir == 0) || (dir == 1) || (dir == 2), "Invalid direction.");
 
@@ -434,38 +391,39 @@ void HexExp::v_IProductWRTDerivBase_SumFac(
     const int nq1 = m_base[1]->GetNumPoints();
     const int nq2 = m_base[2]->GetNumPoints();
     const int nq  = nq0 * nq1 * nq2;
-    const int nm0 = m_base[0]->GetNumModes();
-    const int nm1 = m_base[1]->GetNumModes();
 
-    Array<OneD, NekDouble> alloc(4 * nq + m_ncoeffs + nm0 * nq2 * (nq1 + nm1));
-    Array<OneD, NekDouble> tmp1(alloc);           // Quad metric
-    Array<OneD, NekDouble> tmp2(alloc + nq);      // Dir1 metric
-    Array<OneD, NekDouble> tmp3(alloc + 2 * nq);  // Dir2 metric
-    Array<OneD, NekDouble> tmp4(alloc + 3 * nq);  // Dir3 metric
-    Array<OneD, NekDouble> tmp5(alloc + 4 * nq);  // iprod tmp
-    Array<OneD, NekDouble> wsp(tmp5 + m_ncoeffs); // Wsp
-
-    MultiplyByQuadratureMetric(inarray, tmp1);
+    Array<OneD, NekDouble> tmp2(nq);        // Dir1 metric
+    Array<OneD, NekDouble> tmp3(nq);        // Dir2 metric
+    Array<OneD, NekDouble> tmp4(nq);        // Dir3 metric
+    Array<OneD, NekDouble> tmp5(m_ncoeffs); // iprod tmp
 
     Array<OneD, Array<OneD, NekDouble>> tmp2D{3};
     tmp2D[0] = tmp2;
     tmp2D[1] = tmp3;
     tmp2D[2] = tmp4;
 
-    HexExp::v_AlignVectorToCollapsedDir(dir, tmp1, tmp2D);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetBdata(), tmp2, outarray, wsp,
-                                 false, true, true);
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                 m_base[2]->GetBdata(), tmp3, tmp5, wsp, true,
-                                 false, true);
+    HexExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
+
+    IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                          m_base[2]->GetBdata(), tmp2, outarray, jac, Deformed,
+                          false, CollDir1, CollDir2);
+
+    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                          m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
+                          CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetDbdata(), tmp4, tmp5, wsp, true,
-                                 true, false);
+    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                          m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
+                          CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 }
 
@@ -521,43 +479,47 @@ void HexExp::v_IProductWRTDirectionalDerivBase_SumFac(
     const int nq1 = m_base[1]->GetNumPoints();
     const int nq2 = m_base[2]->GetNumPoints();
     const int nq  = nq0 * nq1 * nq2;
-    const int nm0 = m_base[0]->GetNumModes();
-    const int nm1 = m_base[1]->GetNumModes();
+
+    Array<OneD, NekDouble> tmp2(nq);        // Dir1 metric
+    Array<OneD, NekDouble> tmp3(nq);        // Dir2 metric
+    Array<OneD, NekDouble> tmp4(nq);        // Dir3 metric
+    Array<OneD, NekDouble> tmp5(m_ncoeffs); // iprod tmp
+
+    Array<OneD, Array<OneD, NekDouble>> tmp2D{3};
+    tmp2D[0] = tmp2;
+    tmp2D[1] = tmp3;
+    tmp2D[2] = tmp4;
+
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
 
     const Array<TwoD, const NekDouble> &df =
         m_metricinfo->GetDerivFactors(GetPointsKeys());
 
-    Array<OneD, NekDouble> alloc(4 * nq + m_ncoeffs + nm0 * nq2 * (nq1 + nm1));
-    Array<OneD, NekDouble> tmp1(alloc);           // Quad metric
-    Array<OneD, NekDouble> tmp2(alloc + nq);      // Dir1 metric
-    Array<OneD, NekDouble> tmp3(alloc + 2 * nq);  // Dir2 metric
-    Array<OneD, NekDouble> tmp4(alloc + 3 * nq);  // Dir3 metric
-    Array<OneD, NekDouble> tmp5(alloc + 4 * nq);  // iprod tmp
-    Array<OneD, NekDouble> wsp(tmp5 + m_ncoeffs); // Wsp
-
-    MultiplyByQuadratureMetric(inarray, tmp1);
-
     Array<OneD, Array<OneD, NekDouble>> dfdir(shapedim);
     Expansion::ComputeGmatcdotMF(df, direction, dfdir);
 
-    Vmath::Vmul(nq, &dfdir[0][0], 1, tmp1.get(), 1, tmp2.get(), 1);
-    Vmath::Vmul(nq, &dfdir[1][0], 1, tmp1.get(), 1, tmp3.get(), 1);
-    Vmath::Vmul(nq, &dfdir[2][0], 1, tmp1.get(), 1, tmp4.get(), 1);
+    Vmath::Vmul(nq, &dfdir[0][0], 1, inarray.get(), 1, tmp2.get(), 1);
+    Vmath::Vmul(nq, &dfdir[1][0], 1, inarray.get(), 1, tmp3.get(), 1);
+    Vmath::Vmul(nq, &dfdir[2][0], 1, inarray.get(), 1, tmp4.get(), 1);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetBdata(), tmp2, outarray, wsp,
-                                 false, true, true);
+    IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
+                          m_base[2]->GetBdata(), tmp2, outarray, jac, Deformed,
+                          false, CollDir1, CollDir2);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                 m_base[2]->GetBdata(), tmp3, tmp5, wsp, true,
-                                 false, true);
-
+    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
+                          m_base[2]->GetBdata(), tmp3, tmp5, jac, Deformed,
+                          CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                                 m_base[2]->GetDbdata(), tmp4, tmp5, wsp, true,
-                                 true, false);
-
+    IProductWRTBaseKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
+                          m_base[2]->GetDbdata(), tmp4, tmp5, jac, Deformed,
+                          CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, tmp5, 1, outarray, 1, outarray, 1);
 }
 
@@ -1411,25 +1373,28 @@ void HexExp::v_LaplacianMatrixOp_MatFree_Kernel(
                    &wsp1[0], 1, &wsp5[0], 1);
     Vmath::Vvtvp(nqtot, &metric22[0], 1, &wsp2[0], 1, &wsp5[0], 1, &wsp5[0], 1);
 
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
+
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
     // outarray = m = (D_xi1 * B)^T * k
     // wsp1     = n = (D_xi2 * B)^T * l
-    IProductWRTBase_SumFacKernel(dbase0, base1, base2, wsp3, outarray, wsp0,
-                                 false, true, true);
-    IProductWRTBase_SumFacKernel(base0, dbase1, base2, wsp4, wsp2, wsp0, true,
-                                 false, true);
+    IProductWRTBaseKernel(dbase0, base1, base2, wsp3, outarray, jac, Deformed,
+                          false, CollDir1, CollDir2);
+    IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac, Deformed,
+                          CollDir0, false, CollDir2);
     Vmath::Vadd(m_ncoeffs, wsp2.get(), 1, outarray.get(), 1, outarray.get(), 1);
-    IProductWRTBase_SumFacKernel(base0, base1, dbase2, wsp5, wsp2, wsp0, true,
-                                 true, false);
+    IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac, Deformed,
+                          CollDir0, CollDir1, false);
     Vmath::Vadd(m_ncoeffs, wsp2.get(), 1, outarray.get(), 1, outarray.get(), 1);
 }
 
 void HexExp::v_ComputeLaplacianMetric()
 {
-    if (m_metrics.count(eMetricQuadrature) == 0)
-    {
-        ComputeQuadratureMetric();
-    }
-
     const SpatialDomains::GeomType type = m_metricinfo->GetGtype();
     const unsigned int nqtot            = GetTotPoints();
     const unsigned int dim              = 3;
@@ -1455,7 +1420,6 @@ void HexExp::v_ComputeLaplacianMetric()
                 Vmath::Fill(nqtot, gmat[i * dim + j][0], &m_metrics[m[i][j]][0],
                             1);
             }
-            MultiplyByQuadratureMetric(m_metrics[m[i][j]], m_metrics[m[i][j]]);
         }
     }
 }

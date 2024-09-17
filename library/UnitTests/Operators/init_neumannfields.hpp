@@ -53,7 +53,7 @@ public:
 
     void SetTestCase(
         [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
-        [[maybe_unused]] double *inptr, [[maybe_unused]] bool padding = true)
+        [[maybe_unused]] double *inptr)
     {
     }
 
@@ -79,27 +79,18 @@ public:
             fixt_tmp->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         for (size_t bl = 0; bl < blocks.size(); bl++)
         {
+            size_t cnt = 0;
             for (size_t el = 0; el < blocks[bl].num_elements; ++el)
             {
-                for (size_t coeff = 0; coeff < blocks[bl].num_pts; ++coeff)
+                for (size_t coeff = 0; coeff < blocks[bl].num_pts;
+                     ++coeff, ++cnt)
                 {
-                    (*inptr++) = (*ptr++);
+                    inptr[cnt] = ptr[cnt];
                 }
             }
-            for (size_t el = 0; el < blocks[bl].num_padding_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < blocks[bl].num_pts; ++coeff)
-                {
-                    inptr++;
-                }
-            }
-            for (size_t el = 0; el < blocks_tmp[bl].num_padding_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < blocks_tmp[bl].num_pts; ++coeff)
-                {
-                    ptr++;
-                }
-            }
+
+            inptr += blocks[bl].block_size;
+            ptr += blocks[bl].block_size;
         }
 
         delete fixt_tmp;

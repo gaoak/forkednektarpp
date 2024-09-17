@@ -233,7 +233,7 @@ void QuadExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,
     }
     else
     {
-        IProductWRTBase(inarray, outarray);
+        v_IProductWRTBase(inarray, outarray);
 
         // get Mass matrix inverse
         MatrixKey masskey(StdRegions::eInvMass, DetShapeType(), *this);
@@ -334,7 +334,7 @@ void QuadExp::v_FwdTransBndConstrained(
             StdRegions::StdMatrixKey stdmasskey(StdRegions::eMass,
                                                 DetShapeType(), *this);
             MassMatrixOp(outarray, tmp0, stdmasskey);
-            IProductWRTBase(inarray, tmp1);
+            v_IProductWRTBase(inarray, tmp1);
 
             Vmath::Vsub(m_ncoeffs, tmp1, 1, tmp0, 1, tmp1, 1);
 
@@ -370,13 +370,31 @@ void QuadExp::v_FwdTransBndConstrained(
 void QuadExp::v_IProductWRTBase(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray)
 {
-    if (m_base[0]->Collocation() && m_base[1]->Collocation())
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
+    if (CollDir0 && CollDir1)
     {
-        MultiplyByQuadratureMetric(inarray, outarray);
+        int nqtot = GetTotPoints();
+        if (Deformed)
+        {
+            Vmath::Vmul(nqtot, jac, 1, inarray, 1, outarray, 1);
+        }
+        else
+        {
+            Vmath::Smul(nqtot, jac[0], inarray, 1, outarray, 1);
+        }
+        v_MultiplyByStdQuadratureMetric(outarray, outarray);
     }
     else
     {
-        IProductWRTBase_SumFac(inarray, outarray);
+        StdQuadExp::IProductWRTBaseKernel(
+            m_base[0]->GetBdata(), m_base[1]->GetBdata(), inarray, outarray,
+            jac, Deformed, CollDir0, CollDir1);
     }
 }
 
@@ -384,54 +402,17 @@ void QuadExp::v_IProductWRTDerivBase(
     const int dir, const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray)
 {
-    IProductWRTDerivBase_SumFac(dir, inarray, outarray);
-}
-
-void QuadExp::v_IProductWRTBase_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, bool multiplybyweights)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int order0 = m_base[0]->GetNumModes();
-
-    if (multiplybyweights)
-    {
-        Array<OneD, NekDouble> tmp(nquad0 * nquad1 + nquad1 * order0);
-        Array<OneD, NekDouble> wsp(tmp + nquad0 * nquad1);
-
-        MultiplyByQuadratureMetric(inarray, tmp);
-        StdQuadExp::IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                                 m_base[1]->GetBdata(), tmp,
-                                                 outarray, wsp, true, true);
-    }
-    else
-    {
-        Array<OneD, NekDouble> wsp(nquad1 * order0);
-
-        StdQuadExp::IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(),
-                                                 m_base[1]->GetBdata(), inarray,
-                                                 outarray, wsp, true, true);
-    }
-}
-
-void QuadExp::v_IProductWRTDerivBase_SumFac(
-    const int dir, const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
     ASSERTL1((dir == 0) || (dir == 1) || (dir == 2), "Invalid direction.");
     ASSERTL1((dir == 2) ? (m_geom->GetCoordim() == 3) : true,
              "Invalid direction.");
 
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nqtot   = nquad0 * nquad1;
-    int nmodes0 = m_base[0]->GetNumModes();
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nqtot  = nquad0 * nquad1;
 
-    Array<OneD, NekDouble> tmp1(2 * nqtot + m_ncoeffs + nmodes0 * nquad1);
-    Array<OneD, NekDouble> tmp2(tmp1 + nqtot);
-    Array<OneD, NekDouble> tmp3(tmp1 + 2 * nqtot);
-    Array<OneD, NekDouble> tmp4(tmp1 + 2 * nqtot + m_ncoeffs);
+    Array<OneD, NekDouble> tmp1(nqtot);
+    Array<OneD, NekDouble> tmp2(nqtot);
+    Array<OneD, NekDouble> tmp3(m_ncoeffs);
 
     Array<OneD, Array<OneD, NekDouble>> tmp2D{2};
     tmp2D[0] = tmp1;
@@ -439,13 +420,18 @@ void QuadExp::v_IProductWRTDerivBase_SumFac(
 
     QuadExp::v_AlignVectorToCollapsedDir(dir, inarray, tmp2D);
 
-    MultiplyByQuadratureMetric(tmp1, tmp1);
-    MultiplyByQuadratureMetric(tmp2, tmp2);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
 
-    IProductWRTBase_SumFacKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                                 tmp1, tmp3, tmp4, false, true);
-    IProductWRTBase_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                                 tmp2, outarray, tmp4, true, false);
+    StdQuadExp::IProductWRTBaseKernel(
+        m_base[0]->GetDbdata(), m_base[1]->GetBdata(), tmp1, tmp3, jac,
+        Deformed, false, m_base[1]->Collocation());
+
+    StdQuadExp::IProductWRTBaseKernel(
+        m_base[0]->GetBdata(), m_base[1]->GetDbdata(), tmp2, outarray, jac,
+        Deformed, m_base[0]->Collocation(), false);
+
     Vmath::Vadd(m_ncoeffs, tmp3, 1, outarray, 1, outarray, 1);
 }
 
@@ -457,18 +443,13 @@ void QuadExp::v_AlignVectorToCollapsedDir(
     ASSERTL1((dir == 2) ? (m_geom->GetCoordim() == 3) : true,
              "Invalid direction.");
 
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nqtot   = nquad0 * nquad1;
-    int nmodes0 = m_base[0]->GetNumModes();
+    int nqtot = m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints();
 
     const Array<TwoD, const NekDouble> &df =
         m_metricinfo->GetDerivFactors(GetPointsKeys());
 
     Array<OneD, NekDouble> tmp1 = outarray[0];
     Array<OneD, NekDouble> tmp2 = outarray[1];
-    Array<OneD, NekDouble> tmp3(m_ncoeffs);
-    Array<OneD, NekDouble> tmp4(nmodes0 * nquad1);
 
     if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
     {
@@ -1537,9 +1518,15 @@ void QuadExp::v_LaplacianMatrixOp_MatFree_Kernel(
 
     // outarray = m = (D_xi1 * B)^T * k
     // wsp1     = n = (D_xi2 * B)^T * l
-    IProductWRTBase_SumFacKernel(dbase0, base1, wsp0, outarray, wsp1, false,
-                                 true);
-    IProductWRTBase_SumFacKernel(base0, dbase1, wsp2, wsp1, wsp0, true, false);
+    const Array<OneD, const NekDouble> &jac =
+        m_metricinfo->GetJac(GetPointsKeys());
+    bool Deformed = (m_metricinfo->GetGtype() == SpatialDomains::eDeformed);
+
+    StdQuadExp::IProductWRTBaseKernel(dbase0, base1, wsp0, outarray, jac,
+                                      Deformed, false,
+                                      m_base[1]->Collocation());
+    StdQuadExp::IProductWRTBaseKernel(base0, dbase1, wsp2, wsp1, jac, Deformed,
+                                      m_base[1]->Collocation(), false);
 
     // outarray = outarray + wsp1
     //          = L * u_hat
@@ -1548,11 +1535,6 @@ void QuadExp::v_LaplacianMatrixOp_MatFree_Kernel(
 
 void QuadExp::v_ComputeLaplacianMetric()
 {
-    if (m_metrics.count(eMetricQuadrature) == 0)
-    {
-        ComputeQuadratureMetric();
-    }
-
     const SpatialDomains::GeomType type = m_metricinfo->GetGtype();
     const unsigned int nqtot            = GetTotPoints();
     const unsigned int dim              = 2;
@@ -1578,7 +1560,6 @@ void QuadExp::v_ComputeLaplacianMetric()
                 Vmath::Fill(nqtot, gmat[i * dim + j][0], &m_metrics[m[i][j]][0],
                             1);
             }
-            MultiplyByQuadratureMetric(m_metrics[m[i][j]], m_metrics[m[i][j]]);
         }
     }
 }

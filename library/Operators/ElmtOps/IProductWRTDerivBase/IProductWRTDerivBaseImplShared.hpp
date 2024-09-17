@@ -99,6 +99,10 @@ public:
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
+        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
+                 "Input and output widths are different but kernel is not "
+                 "setup for this (yet)");
+
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = APPEND ? out.template GetPtr<MemSpace, ReadWrite>()
@@ -106,6 +110,8 @@ public:
 
         const TData *jacPtr = m_jac.template GetPtr<MemSpace, ReadOnly>();
         const TData *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
+
+        size_t width = in.GetVecWidth();
 
         // Zero output.
         if (!APPEND)
@@ -133,7 +139,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto nElmtsPad = block.num_elmt_groups * width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -200,8 +206,8 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr = SetWorkspace(shapeType, nElmts + nPadElmts, nq0,
-                                         nq1, nq2, nm1, nm2);
+            TData *wspPtr =
+                SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -212,9 +218,8 @@ public:
                         nq0, nCoord, nElmts, nSize, m_dfSize, dfPtr, inPtr,
                         tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
-                                            true>(nm0, nq0, nElmts + nPadElmts,
-                                                  dbasis0, w0, jacPtr, tmpPtr,
-                                                  outPtr);
+                                            true>(nm0, nq0, nElmtsPad, dbasis0,
+                                                  w0, jacPtr, tmpPtr, outPtr);
                 }
                 else
                 {
@@ -222,9 +227,8 @@ public:
                         nq0, nCoord, nElmts, nSize, m_dfSize, dfPtr, inPtr,
                         tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
-                                            false>(nm0, nq0, nElmts + nPadElmts,
-                                                   dbasis0, w0, jacPtr, tmpPtr,
-                                                   outPtr);
+                                            false>(nm0, nq0, nElmtsPad, dbasis0,
+                                                   w0, jacPtr, tmpPtr, outPtr);
                 }
             }
             else if (dimension == 2)
@@ -236,15 +240,15 @@ public:
                         shapeType, nq0, nq1, nCoord, nElmts, nSize, m_dfSize,
                         Z0, Z1, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
-                                            true>(
-                        shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                        correct, dbasis0, basis1, w0, w1, jacPtr, wspPtr,
-                        tmpPtr, outPtr);
+                                            true>(shapeType, nm0, nm1, nq0, nq1,
+                                                  nElmtsPad, correct, dbasis0,
+                                                  basis1, w0, w1, jacPtr,
+                                                  wspPtr, tmpPtr, outPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             true>(
-                        shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                        correct, basis0, dbasis1, w0, w1, jacPtr, wspPtr,
-                        tmpPtr + nSize, outPtr);
+                        shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                        basis0, dbasis1, w0, w1, jacPtr, wspPtr, tmpPtr + nSize,
+                        outPtr);
                 }
                 else
                 {
@@ -253,14 +257,14 @@ public:
                         Z0, Z1, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             false>(
-                        shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                        correct, dbasis0, basis1, w0, w1, jacPtr, wspPtr,
-                        tmpPtr, outPtr);
+                        shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                        dbasis0, basis1, w0, w1, jacPtr, wspPtr, tmpPtr,
+                        outPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             false>(
-                        shapeType, nm0, nm1, nq0, nq1, nElmts + nPadElmts,
-                        correct, basis0, dbasis1, w0, w1, jacPtr, wspPtr,
-                        tmpPtr + nSize, outPtr);
+                        shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
+                        basis0, dbasis1, w0, w1, jacPtr, wspPtr, tmpPtr + nSize,
+                        outPtr);
                 }
             }
             else if (dimension == 3)
@@ -272,19 +276,19 @@ public:
                         m_dfSize, Z0, Z1, Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             true>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, dbasis0, basis1, basis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, dbasis0, basis1, basis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             true>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, basis0, dbasis1, basis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr + nSize, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr + nSize, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             true>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, basis0, basis1, dbasis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr + 2 * nSize, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr + 2 * nSize, outPtr);
                 }
                 else
                 {
@@ -293,19 +297,19 @@ public:
                         m_dfSize, Z0, Z1, Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             false>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, dbasis0, basis1, basis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, dbasis0, basis1, basis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             false>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, basis0, dbasis1, basis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr + nSize, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr + nSize, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             false>(
-                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2,
-                        nElmts + nPadElmts, correct, basis0, basis1, dbasis2,
-                        w0, w1, w2, jacPtr, wspPtr, tmpPtr + 2 * nSize, outPtr);
+                        shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
+                        correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
+                        wspPtr, tmpPtr + 2 * nSize, outPtr);
                 }
             }
 
@@ -313,9 +317,9 @@ public:
             jacPtr += deformed ? nqTot * nElmts : nElmts;
             dfPtr += deformed ? nqTot * nElmts : nElmts;
 
-            tmpPtr += nqTot * (nElmts + nPadElmts);
-            inPtr += nqTot * (nElmts + nPadElmts);
-            outPtr += nmTot * (nElmts + nPadElmts);
+            tmpPtr += nqTot * nElmtsPad;
+            inPtr += nqTot * nElmtsPad;
+            outPtr += nmTot * nElmtsPad;
             exp_idx += nElmts;
         }
     }

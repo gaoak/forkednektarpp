@@ -79,14 +79,6 @@ protected:
     STD_REGIONS_EXPORT void v_IProductWRTBase(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;
-    STD_REGIONS_EXPORT void v_IProductWRTBase(
-        const Array<OneD, const NekDouble> &base,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, int coll_check) override;
-    STD_REGIONS_EXPORT void v_IProductWRTBase_SumFac(
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray,
-        bool multiplybyweights = true) override;
     STD_REGIONS_EXPORT void v_IProductWRTDerivBase(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray) override;

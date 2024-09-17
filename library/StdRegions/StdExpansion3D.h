@@ -108,13 +108,15 @@ public:
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
         bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2);
 
-    STD_REGIONS_EXPORT void IProductWRTBase_SumFacKernel(
+    STD_REGIONS_EXPORT void IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2);
+        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
+        [[maybe_unused]] bool doCheckCollDir1,
+        [[maybe_unused]] bool doCheckCollDir2);
 
     /** \brief return the number of edges in 3D expansion
      */
@@ -188,13 +190,15 @@ protected:
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
         bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2) = 0;
 
-    STD_REGIONS_EXPORT virtual void v_IProductWRTBase_SumFacKernel(
+    STD_REGIONS_EXPORT virtual void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2) = 0;
+        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
+        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
+        [[maybe_unused]] bool doCheckCollDir1,
+        [[maybe_unused]] bool doCheckCollDir2) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,
