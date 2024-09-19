@@ -161,8 +161,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_QUAD)
-
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
     const size_t nq0, const size_t nq1, const bool isConstVarDiff,
@@ -401,8 +399,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
         }
     }
 }
-
-// #elif defined(SHAPE_TYPE_HEX)
 
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
@@ -1368,9 +1364,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
     }
 }
 
-// #endif // SHAPE_TYPE
-
-// #if defined(SHAPE_TYPE_TRI)
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void GetHelmholtz2DHalfSpace(
     const size_t nq0, const size_t nq1, const vec_t *z0, const vec_t *z1,
