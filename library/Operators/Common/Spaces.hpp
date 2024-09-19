@@ -134,7 +134,7 @@ public:
 class SYCL
 {
 public:
-    using memory_space                = NektarSpaces::DeviceSpace;
+    using memory_space = NektarSpaces::DeviceSpace;
 #if defined(SYCL_ENABLE_CUDA)
     static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;

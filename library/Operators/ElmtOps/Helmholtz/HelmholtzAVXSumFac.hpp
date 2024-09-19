@@ -169,7 +169,54 @@ public:
                 m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
             }
 
-#include "Operators/Common/SwitchLevel2Deformed.h"
+            switch (shapeType)
+            {
+                    // Segment
+                case LibUtilities::Seg:
+                {
+                    SegBlock(inPtr, outPtr);
+                    break;
+                }
+                // Quads
+                case LibUtilities::Quad:
+                {
+                    QuadBlock(inPtr, outPtr);
+                    break;
+                }
+                // Triangles
+                case LibUtilities::Tri:
+                {
+                    TriBlock(inPtr, outPtr);
+                    break;
+                }
+                // Hexes
+                case LibUtilities::Hex:
+                {
+                    HexBlock(inPtr, outPtr);
+                    break;
+                }
+                // Tet
+                case LibUtilities::Tet:
+                {
+                    TetBlock(inPtr, outPtr);
+                    break;
+                }
+                // Pyr
+                case LibUtilities::Pyr:
+                {
+                    PyrBlock(inPtr, outPtr);
+                    break;
+                }
+                // Prism
+                case LibUtilities::Prism:
+                {
+                    PrismBlock(inPtr, outPtr);
+                    break;
+                }
+                default:
+                    std::cout << "shapetype not implemented" << std::endl;
+            }
+            //#include "Operators/Common/SwitchLevel2Deformed.h"
 
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
@@ -210,39 +257,42 @@ private:
     BasisDataMap<vec_t> m_Wmap;
 
     std::vector<LibUtilities::BasisKey> m_basisKeys;
-
-    // std::vector<LibUtilities::BasisSharedPtr> m_basis;
-    // std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_B;
-    // std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_DB;
-    // std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_D;
-    // std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_Z;
-
-    // std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> m_jac;
-    // std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> m_df;
-    // std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, 3> m_w;
-    // std::vector<vec_t, tinysimd::allocator<vec_t>> m_h0, m_h1, m_h2, m_h3;
     Array<OneD, TData> m_diffCoeff;
+
+    void SegBlock(const TData *inPtr, TData *outPtr);
+
+    void TriBlock(const TData *inPtr, TData *outPtr);
+
+    void QuadBlock(const TData *inPtr, TData *outPtr);
+
+    void HexBlock(const TData *inPtr, TData *outPtr);
+
+    void PrismBlock(const TData *inPtr, TData *outPtr);
+
+    void PyrBlock(const TData *inPtr, TData *outPtr);
+
+    void TetBlock(const TData *inPtr, TData *outPtr);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator1D([[maybe_unused]] const NekDouble *input,
+    void Operator1D([[maybe_unused]] const NekDouble *input,
                     [[maybe_unused]] NekDouble *output)
     {
-        ASSERTL0(false, "HelmholtzMatFree::operator1D: Not Impelented.");
+        ASSERTL0(false, "HelmholtzMatFree::Operator1D: Not Impelented.");
     }
 
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nq0>
-    void operator1D([[maybe_unused]] const NekDouble *input,
+    void Operator1D([[maybe_unused]] const NekDouble *input,
                     [[maybe_unused]] NekDouble *output)
     {
-        ASSERTL0(false, "HelmholtzMatFree::operator1D: Not Impelented.");
+        ASSERTL0(false, "HelmholtzMatFree::Operator1D: Not Impelented.");
     }
 
-    // Non-size based operator.
+    // Non-size based Operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator2D(const NekDouble *input, NekDouble *output)
+    void Operator2D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -258,7 +308,7 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -334,11 +384,11 @@ private:
         {
             // Load and transpose data
             // Step 1: BwdTrans
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, B0, B1,
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
             IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, bwdvec, B0, B1, W0, W1, jacPtr,
+                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1, jacPtr,
                 wsp0, tmpOut, this->m_lambda);
             // Step 3: take derivatives in collapsed coordinate space
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
@@ -349,11 +399,11 @@ private:
                 deriv0, deriv1);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, deriv0vec, BD0, B1, W0, W1, jacPtr,
-                wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
+                jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, deriv1vec, B0, BD1, W0, W1, jacPtr,
-                wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
+                jacPtr, wsp0, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outPtr);
@@ -373,7 +423,7 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nq0, int nq1>
-    void operator2D(const NekDouble *input, NekDouble *output)
+    void Operator2D(const NekDouble *input, NekDouble *output)
     {
         constexpr auto nqTot = nq0 * nq1;
         constexpr auto ndf   = 4;
@@ -384,7 +434,7 @@ private:
 
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -455,11 +505,11 @@ private:
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, B0, B1,
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
             IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, bwdvec, B0, B1, W0, W1, jacPtr,
+                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1, jacPtr,
                 wsp0, tmpOut, this->m_lambda);
             // Step 3: take derivatives in collapsed coordinate space
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
@@ -470,11 +520,11 @@ private:
                 deriv0, deriv1);
             // Step 4: Apply Laplacian metrics & inner product
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, deriv0vec, BD0, B1, W0, W1, jacPtr,
-                wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
+                jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, deriv1vec, B0, BD1, W0, W1, jacPtr,
-                wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
+                jacPtr, wsp0, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outPtr);
@@ -488,7 +538,7 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator3D(const NekDouble *input, NekDouble *output)
+    void Operator3D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -507,7 +557,7 @@ private:
         // const auto nqBlocks = nqTot * vec_t::width;
         // const auto nmBlocks = m_nmTot * vec_t::width;
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -607,12 +657,13 @@ private:
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         B0, B1, B2, wsp0, wsp1, tmpIn, bwd);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, B0, B1, B2, wsp0, wsp1,
+                                         tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
             IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, bwdvec, B0, B1, B2, W0,
-                W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
+                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
             // Step 3: take derivatives in standard space
             PhysDerivTensor3DKernel(nq0, nq1, nq2, bwdvec, D0, D1, D2, deriv0,
                                     deriv1, deriv2);
@@ -625,14 +676,14 @@ private:
                 m_h2, m_h3, deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv0vec, BD0, B1, B2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
+                B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv1vec, B0, BD1, B2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, BD1,
+                B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv2vec, B0, B1, BD2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
+                BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
@@ -652,7 +703,7 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nm2, int nq0, int nq1, int nq2>
-    void operator3D(const NekDouble *input, NekDouble *output)
+    void Operator3D(const NekDouble *input, NekDouble *output)
     {
         constexpr auto ndf   = 9;
         constexpr auto nqTot = nq0 * nq1 * nq2;
@@ -663,7 +714,7 @@ private:
 
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -755,12 +806,13 @@ private:
             // Load and transpose data
             // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         B0, B1, B2, wsp0, wsp1, tmpIn, bwd);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, B0, B1, B2, wsp0, wsp1,
+                                         tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
             IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, bwdvec, B0, B1, B2, W0,
-                W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
+                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
             // Step 3: take derivatives in standard space
             PhysDerivTensor3DKernel(nq0, nq1, nq2, bwdvec, D0, D1, D2, deriv0,
                                     deriv1, deriv2);
@@ -773,14 +825,14 @@ private:
                 m_h2, m_h3, deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv0vec, BD0, B1, B2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
+                B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv1vec, B0, BD1, B2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, BD1,
+                B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, deriv2vec, B0, B1, BD2,
-                W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
+                BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
