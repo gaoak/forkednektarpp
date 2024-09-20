@@ -137,8 +137,6 @@ public:
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
 
-        size_t width = deriv.GetVecWidth();
-
         auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
         auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
         auto *derivPtr2 = derivPtr1 + deriv.GetFieldSize();
@@ -158,7 +156,7 @@ public:
         for (const auto &block : deriv.GetBlocks())
         {
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);

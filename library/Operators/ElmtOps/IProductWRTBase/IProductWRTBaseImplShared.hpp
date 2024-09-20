@@ -100,14 +100,13 @@ public:
 
         // Initialize index.
         size_t exp_idx = 0;
-        size_t width   = in.GetVecWidth();
 
         // Loop over the blocks.
         for (const auto &block : in.GetBlocks())
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

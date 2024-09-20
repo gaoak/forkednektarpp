@@ -1084,7 +1084,7 @@ void BwdTransHexKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransTetKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1099,6 +1099,8 @@ void BwdTransTetKernel(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
@@ -1132,7 +1134,7 @@ void BwdTransTetKernel(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -1148,18 +1150,18 @@ void BwdTransTetKernel(
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
                 // direction 2
-                for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0;
+                for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
                      ++p)
                 {
                     for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                     {
                         TData tmp = 0.0;
                         for (unsigned int r = 0u; r < nm2 - p - q;
-                             ++r, ++mode_pqr)
+                             ++r, ++mode2, ++mode_pqr)
                         {
                             tmp += in[nmTot * warpsize * iwarp +
                                       warpsize * mode_pqr + ilane] *
-                                   s_basis2[nq2 * mode_pqr + k];
+                                   s_basis2[nq2 * mode2 + k];
                         }
                         fpq[nm01 * warpsize * iwarp + warpsize * mode_pq +
                             ilane] = tmp;
@@ -1168,7 +1170,7 @@ void BwdTransTetKernel(
                     // increment mode in case order1!=order2
                     for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
                     {
-                        mode_pqr += nm2 - p - q;
+                        mode2 += nm2 - p - q;
                     }
                 }
 
@@ -1233,7 +1235,7 @@ void BwdTransTetKernel(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransTetKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1250,6 +1252,8 @@ void BwdTransTetKernel_QP(
     const unsigned int slevel = 0u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     Kokkos::parallel_for(
@@ -1282,7 +1286,7 @@ void BwdTransTetKernel_QP(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -1308,18 +1312,22 @@ void BwdTransTetKernel_QP(
                     {
                         const unsigned int cnt_kpq =
                             nm01 * k + (2u * nm1 - p + 1u) * p / 2u + q;
-                        unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
-                        mode_pqr += nm2 * (nm2 + 1u) * p;
-                        mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                        mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-                        mode_pqr /= 2u;
+                        unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
+                        mode2 += nm2 * (nm2 + 1u) * p;
+                        mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+                        mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
+                        mode2 /= 2u;
+                        unsigned int mode_pqr =
+                            mode2 - ((nm2 > nm1)
+                                    ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                    : 0u);
 
                         TData tmp = 0.0;
                         for (unsigned int r = 0u; r < nm2 - p - q;
-                             ++r, ++mode_pqr)
+                             ++r, ++mode2, ++mode_pqr)
                         {
                             tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
+                                s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
                         }
                         s_wsp1[cnt_kpq] = tmp;
                     }
@@ -1393,7 +1401,7 @@ void BwdTransTetKernel_QP(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransTetKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1412,6 +1420,8 @@ void BwdTransTetKernel_QP_1D(
     const unsigned int slevel = 0u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     Kokkos::parallel_for(
@@ -1457,7 +1467,7 @@ void BwdTransTetKernel_QP_1D(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -1480,16 +1490,20 @@ void BwdTransTetKernel_QP_1D(
                     const unsigned int k  = idx / nm01;
                     const unsigned int p  = pindex[idx % nm01];
                     const unsigned int q  = qindex[idx % nm01];
-                    unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
-                    mode_pqr += nm2 * (nm2 + 1u) * p;
-                    mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                    mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode_pqr /= 2u;
+                    unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
+                    mode2 += nm2 * (nm2 + 1u) * p;
+                    mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+                    mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
+                    mode2 /= 2u;
+                    unsigned int mode_pqr =
+                        mode2 - ((nm2 > nm1)
+                                ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                : 0u);
 
                     TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
                     {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
+                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
                     }
                     s_wsp1[idx] = tmp;
                 });
@@ -1963,7 +1977,7 @@ void BwdTransPrismKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransPyrKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1978,6 +1992,8 @@ void BwdTransPyrKernel(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -2010,7 +2026,7 @@ void BwdTransPyrKernel(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -2023,33 +2039,20 @@ void BwdTransPyrKernel(
             TData *fpq         = wsp;
             TData *fp          = fpq + nm0 * nm1 * nelmt;
 
-            for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+            for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
                 // direction 2
-                for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0;
+                for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
                      ++p)
                 {
-                    for (unsigned int q = 0u; q < p; ++q, ++mode_pq)
+                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                     {
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - std::max(p, q); ++r, ++mode2, ++mode_pqr)
                         {
                             tmp += in[nmTot * warpsize * iwarp +
                                       warpsize * mode_pqr + ilane] *
-                                   s_basis2[mode_pqr * nq2 + k];
-                        }
-                        fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
-                            ilane] = tmp;
-                    }
-
-                    for (unsigned int q = p; q < nm1; ++q, ++mode_pq)
-                    {
-                        TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
-                        {
-                            tmp += in[nmTot * warpsize * iwarp +
-                                      warpsize * mode_pqr + ilane] *
-                                   s_basis2[mode_pqr * nq2 + k];
+                                   s_basis2[mode2 * nq2 + k];
                         }
                         fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
                             ilane] = tmp;
@@ -2058,7 +2061,7 @@ void BwdTransPyrKernel(
                     // increment mode in case nm2>nm1
                     for (unsigned int q = nm1; q < nm2 - p; ++q)
                     {
-                        mode_pqr += nm2 - q;
+                        mode2 += nm2 - q;
                     }
                 }
 
@@ -2108,7 +2111,7 @@ void BwdTransPyrKernel(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransPyrKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2120,6 +2123,8 @@ void BwdTransPyrKernel_QP(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -2156,7 +2161,7 @@ void BwdTransPyrKernel_QP(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -2179,6 +2184,9 @@ void BwdTransPyrKernel_QP(
                 [&](const unsigned int &q, const unsigned int &p,
                     const unsigned int &k) {
                     const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
+                    unsigned int mode2 =
+                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                    : 0u;
                     unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
                     mode_pqr -= (p - 1u) * p / 2u;
                     mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -2187,11 +2195,12 @@ void BwdTransPyrKernel_QP(
                     if (q < p)
                     {
                         mode_pqr += q * (nm2 - p);
+                        mode2 += mode_pqr;
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
                         {
                             tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                                s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -2200,12 +2209,13 @@ void BwdTransPyrKernel_QP(
                         mode_pqr += p * (nm2 - p);
                         mode_pqr +=
                             ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
+                        mode2 += mode_pqr;
 
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
                         {
                             tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                                s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -2264,7 +2274,7 @@ void BwdTransPyrKernel_QP(
         });
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <typename TData, bool SHMEM = true>
 void BwdTransPyrKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2276,6 +2286,8 @@ void BwdTransPyrKernel_QP_1D(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -2312,7 +2324,7 @@ void BwdTransPyrKernel_QP_1D(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot * nq2),
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
                                      [&](const unsigned int &idx) {
                                          s_basis2[idx] = basis2[idx];
                                      });
@@ -2335,6 +2347,9 @@ void BwdTransPyrKernel_QP_1D(
                     const unsigned int q  = idx % nm1;
                     const unsigned int p  = (idx / nm1) % nm0;
                     const unsigned int k  = idx / (nm1 * nm0);
+                    unsigned int mode2 =
+                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                    : 0u;
                     unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
                     mode_pqr -= (p - 1u) * p / 2u;
                     mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -2343,11 +2358,12 @@ void BwdTransPyrKernel_QP_1D(
                     if (q < p)
                     {
                         mode_pqr += q * (nm2 - p);
+                        mode2 += mode_pqr;
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
                         {
                             tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                                s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[idx] = tmp;
                     }
@@ -2356,12 +2372,13 @@ void BwdTransPyrKernel_QP_1D(
                         mode_pqr += p * (nm2 - p);
                         mode_pqr +=
                             ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
+                        mode2 += mode_pqr;
 
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
                         {
                             tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                                s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[idx] = tmp;
                     }
@@ -2541,9 +2558,11 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
     {
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmTot * nq2 : 0u;
+            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
@@ -2595,7 +2614,9 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared = SHMEM ? nm0 * nq0 + nm1 * nq1 + nmTot * nq2 : 0u;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        unsigned int nshared = SHMEM ? nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);

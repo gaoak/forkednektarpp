@@ -90,7 +90,7 @@ public:
             }
 
             inptr += blocks[bl].block_size;
-            ptr += blocks[bl].block_size;
+            ptr += blocks_tmp[bl].block_size;
         }
 
         delete fixt_tmp;

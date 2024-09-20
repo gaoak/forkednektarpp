@@ -69,19 +69,37 @@ BOOST_AUTO_TEST_SUITE(TestBwdTransSYCL)
 
 TEST_BWDTRANS(bwdtrans_sycl_seg, Seg, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_sycl_seg_sem, SegSEM, 1.0E-12)
+
 TEST_BWDTRANS(bwdtrans_sycl_quad, Quad, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_sycl_quad_sem, QuadSEM, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_sycl_quad_varp, QuadVarP, 1.0E-12)
+
 TEST_BWDTRANS(bwdtrans_sycl_tri, Tri, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_sycl_tri_varp, TriVarP, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_sycl_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_sycl_hex, Hex, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_sycl_hex_sem, HexSEM, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_sycl_hex_varp, HexVarP, 1.0E-12)
+
 TEST_BWDTRANS(bwdtrans_sycl_prism, Prism, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_sycl_prism_varp, PrismVarP, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_sycl_pyr, Pyr, 1.0E-12)
 
+TEST_BWDTRANS(bwdtrans_sycl_pyr_varp, PyrVarP, 1.0E-12)
+
 TEST_BWDTRANS(bwdtrans_sycl_tet, Tet, 1.0E-12)
+
+TEST_BWDTRANS(bwdtrans_sycl_tet_varp, TetVarP, 1.0E-12)
 
 TEST_BWDTRANS(bwdtrans_sycl_cube_prism_hex, CubePrismHex, 1.0E-12)
 

@@ -69,20 +69,38 @@ BOOST_AUTO_TEST_SUITE(TestPhysDerivCUDA)
 
 TEST_PHYSDERIV(physderiv_cuda_seg, Seg, 1, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_cuda_seg_sem, SegSEM, 1, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_cuda_quad, Quad, 2, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_cuda_quad_sem, QuadSEM, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_cuda_quad_varp, QuadVarP, 2, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_cuda_tri, Tri, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_cuda_tri_varp, TriVarP, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cuda_square_all_elements, SquareAllElements, 2,
                1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cuda_hex, Hex, 3, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_cuda_hex_sem, HexSEM, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_cuda_hex_varp, HexVarP, 3, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_cuda_prism, Prism, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_cuda_prism_varp, PrismVarP, 3, 2.0E-12)
 
 TEST_PHYSDERIV(physderiv_cuda_pyr, Pyr, 3, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_cuda_pyr_varp, PyrVarP, 3, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_cuda_tet, Tet, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_cuda_tet_varp, TetVarP, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_cuda_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 

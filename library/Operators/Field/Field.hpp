@@ -84,7 +84,7 @@ struct BlockAttributes
     // default constructor: no padding
     BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts), num_elmt_groups(0)
+          block_size(num_elements * num_pts), num_elmt_groups(0), width(1)
     {
     }
 
@@ -92,6 +92,7 @@ struct BlockAttributes
     size_t num_pts;
     size_t block_size;      // (num_elements + num_padding_elements) * num_pts
     size_t num_elmt_groups; // (num_elements + padding)/width
+    size_t width;
 };
 
 /**
@@ -350,7 +351,7 @@ public:
             for (const auto &block : block_attributes)
             {
                 size_t num_padding_elements =
-                    block.num_elmt_groups * VectorWidth - block.num_elements;
+                    block.num_elmt_groups * block.width - block.num_elements;
 
                 const size_t numMetaBlocks =
                     (block.num_elements + num_padding_elements) / VectorWidth;
@@ -391,7 +392,7 @@ public:
             for (const auto &block : block_attributes)
             {
                 size_t num_padding_elements =
-                    block.num_elmt_groups * m_curVecWidth - block.num_elements;
+                    block.num_elmt_groups * block.width - block.num_elements;
                 const size_t numMetaBlocks =
                     (block.num_elements + num_padding_elements) / m_curVecWidth;
                 const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
@@ -688,9 +689,9 @@ public:
         {
             for (size_t bl = 0; bl < block_attributes.size(); ++bl)
             {
-                size_t num_pts        = block_attributes[bl].num_pts;
-                size_t num_elements   = block_attributes[bl].num_elements;
-                size_t num_metaBlocks = block_attributes[bl].num_elmt_groups;
+                size_t num_pts      = block_attributes[bl].num_pts;
+                size_t num_elements = block_attributes[bl].num_elements;
+                size_t block_size   = block_attributes[bl].block_size;
 
                 // Check that each block have the same structure
                 if ((num_elements != rhs_blocks[bl].num_elements) ||
@@ -702,34 +703,26 @@ public:
 
                 int MisMatchcnt = 0, total = 0;
 
-                for (size_t metaBlock = 0; metaBlock < num_metaBlocks;
-                     ++metaBlock)
+                size_t cnt = 0;
+                for (size_t el = 0; el < num_elements; ++el)
                 {
-                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
+                    for (size_t coeff = 0; coeff < num_pts; ++coeff, ++cnt)
                     {
-                        for (size_t k = 0; k < m_curVecWidth; ++k)
+                        // skip padding elements
+                        total++;
+                        if (std::abs(store[cnt] - rhs_store[cnt]) > tol)
                         {
-                            // skip padding elements
-                            if (metaBlock * m_curVecWidth + k + 1 <=
-                                num_elements)
+                            if (MisMatchcnt == 0)
                             {
-                                total++;
-                                if (std::abs(*store - *rhs_store) > tol)
-                                {
-                                    if (MisMatchcnt == 0)
-                                    {
-                                        isMatched = false;
-                                    }
-
-                                    MisMatchcnt++;
-                                }
+                                isMatched = false;
                             }
 
-                            store++;
-                            rhs_store++;
+                            MisMatchcnt++;
                         }
                     }
                 }
+                store+=block_size;
+                rhs_store+=block_size;
 
                 if (!isMatched)
                 {

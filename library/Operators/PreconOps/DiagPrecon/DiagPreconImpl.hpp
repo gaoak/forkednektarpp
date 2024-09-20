@@ -146,7 +146,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * ExecSpace::width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
             const auto nmTot     = block.num_pts;
 
             for (size_t i = 0; i < nmTot; ++i)
