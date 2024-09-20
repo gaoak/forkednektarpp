@@ -91,7 +91,6 @@ public:
         const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
 
         size_t nSize = out.GetFieldSize();
-        size_t width = in.GetVecWidth();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -100,7 +99,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

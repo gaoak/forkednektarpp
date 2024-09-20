@@ -41,7 +41,7 @@
 #include <iostream>
 #include <memory>
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_HELMHOLTZ(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         using ExecSpace = NektarSpaces::KOKKOS;                                \
@@ -67,24 +67,24 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmholtzKokkos)
 
-TEST_HELMSOLVE(helmholtz_kokkos_seg, Seg, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_seg, Seg, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_quad, Quad, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_quad, Quad, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_tri, Tri, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_tri, Tri, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_hex, Hex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_hex, Hex, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_prism, Prism, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_prism, Prism, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_pyr, Pyr, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_pyr, Pyr, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_tet, Tet, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_tet, Tet, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_kokkos_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

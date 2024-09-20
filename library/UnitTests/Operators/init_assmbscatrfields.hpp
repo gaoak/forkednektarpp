@@ -115,19 +115,37 @@ public:
 
 TEST(Seg, "run/segment.xml")
 
+TEST(SegSEM, "run/line_sem.xml")
+
 TEST(Quad, "run/square.xml")
 
+TEST(QuadVarP, "run/square_varp.xml")
+
+TEST(QuadSEM, "run/square_sem.xml")
+
 TEST(Tri, "run/tri.xml")
+
+TEST(TriVarP, "run/tri_varp.xml")
 
 TEST(SquareAllElements, "run/square_all_elements.xml")
 
 TEST(Hex, "run/hex.xml")
 
+TEST(HexVarP, "run/hex_varp.xml")
+
+TEST(HexSEM, "run/hex_sem.xml")
+
 TEST(Prism, "run/prism.xml")
+
+TEST(PrismVarP, "run/prism_varp.xml")
 
 TEST(Pyr, "run/pyr.xml")
 
+TEST(PyrVarP, "run/pyr_varp.xml")
+
 TEST(Tet, "run/tet.xml")
+
+TEST(TetVarP, "run/tet_varp.xml")
 
 TEST(CubePrismHex, "run/cube_prismhex.xml")
 

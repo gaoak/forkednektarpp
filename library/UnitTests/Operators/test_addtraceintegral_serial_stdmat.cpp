@@ -71,27 +71,44 @@ BOOST_AUTO_TEST_SUITE(TestAddTraceIntegral)
  * Currently fails in GetBlockAttributes
  * GEometry is not initialised for Expansion(0)
  * Possibly, because trace is not working for 1D expansions
-TEST_ADDTRACEINTEGRAL(addtraceintegral_seg, Seg, 1.0E-12)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_seg, Seg, 1.0E-12)
 */
 
-TEST_ADDTRACEINTEGRAL(addtraceintegral_quad, Quad, 1.0E-12)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_quad, Quad, 1.0E-12)
 
-TEST_ADDTRACEINTEGRAL(addtraceintegral_tri, Tri, 1.0E-12)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_ADDTRACEINTEGRAL(addtraceintegral_square_all_elements, SquareAllElements,
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_quad_varp, QuadVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tri, Tri, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tri_varp, TriVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_square_all_elements,
+                      SquareAllElements, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_hex, Hex, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_hex_sem, HexSEM, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_hex_varp, HexVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_prism, Prism, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_pyr, Pyr, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_pyr_varp, PyrVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tet, Tet, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tet_varp, TetVarP, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_prism_hex, CubePrismHex,
                       1.0E-12)
 
-TEST_ADDTRACEINTEGRAL(addtraceintegral_hex, Hex, 1.0E-12)
-
-TEST_ADDTRACEINTEGRAL(addtraceintegral_prism, Prism, 1.0E-12)
-
-TEST_ADDTRACEINTEGRAL(addtraceintegral_pyr, Pyr, 1.0E-12)
-
-TEST_ADDTRACEINTEGRAL(addtraceintegral_tet, Tet, 1.0E-12)
-
-TEST_ADDTRACEINTEGRAL(addtraceintegral_cube_prism_hex, CubePrismHex, 1.0E-12)
-
-TEST_ADDTRACEINTEGRAL(addtraceintegral_cube_all_elements, CubeAllElements,
-                      1.0E-12)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_all_elements,
+                      CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

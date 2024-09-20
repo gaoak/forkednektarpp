@@ -1453,7 +1453,6 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBaseTetKernel(
@@ -1472,13 +1471,15 @@ __global__ void IProductWRTBaseTetKernel(
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_basis0         = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1         = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2         = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    TData *s_w0             = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1             = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2             = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1495,7 +1496,7 @@ __global__ void IProductWRTBaseTetKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1528,7 +1529,8 @@ __global__ void IProductWRTBaseTetKernel(
         TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
         TData *prod              = wsp1 + nq2 * nelmt;
 
-        for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
+        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+             p < nm0; ++p)
         {
             for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
@@ -1562,14 +1564,15 @@ __global__ void IProductWRTBaseTetKernel(
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
 
-                for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - p - q;
+                     ++r, ++mode2, ++mode_pqr)
                 {
                     TData tmp = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k)
                     {
                         tmp += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                     ilane] *
-                               s_basis2[mode_pqr * nq2 + k] * s_w2[k];
+                               s_basis2[mode2 * nq2 + k] * s_w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -1588,6 +1591,12 @@ __global__ void IProductWRTBaseTetKernel(
                         out[index] = tmp;
                     }
                 }
+            }
+
+            // increment mode in case order1!=order2
+            for (int q = nm1 - p; q < nm2 - p; ++q)
+            {
+                mode2 += nm2 - p - q;
             }
         }
 
@@ -1685,7 +1694,6 @@ __global__ void IProductWRTBaseTetKernel(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBaseTetKernel_QP(
@@ -1701,17 +1709,19 @@ __global__ void IProductWRTBaseTetKernel_QP(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + nm2;
-    TData *s_wsp1            = s_wsp0 + nqTot;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_prod           = shared;
+    TData *s_wsp0           = s_prod + nm2;
+    TData *s_wsp1           = s_wsp0 + nqTot;
+    TData *s_wsp2           = s_wsp1 + nm0 * nq1 * nq2;
+    TData *s_basis0         = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
+    TData *s_basis1         = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2         = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    TData *s_w0             = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1             = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2             = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1729,7 +1739,7 @@ __global__ void IProductWRTBaseTetKernel_QP(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1824,18 +1834,22 @@ __global__ void IProductWRTBaseTetKernel_QP(
                 {
                     const unsigned int mode_pq =
                         (2u * nm1 - p + 1u) * p / 2u + q;
-                    unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
-                    mode_pqr += nm2 * (nm2 + 1u) * p;
-                    mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                    mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode_pqr /= 2u;
+                    unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
+                    mode2 += nm2 * (nm2 + 1u) * p;
+                    mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+                    mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
+                    mode2 /= 2u;
+                    const unsigned int mode_pqr =
+                        mode2 - ((nm2 > nm1)
+                                     ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                     : 0u);
                     const unsigned int index = outoffset + mode_pqr + r;
 
                     TData tmp = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k)
                     {
                         tmp += s_wsp2[mode_pq * nq2 + k] *
-                               s_basis2[(mode_pqr + r) * nq2 + k] * s_w2[k];
+                               s_basis2[(mode2 + r) * nq2 + k] * s_w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -1952,7 +1966,6 @@ __global__ void IProductWRTBaseTetKernel_QP(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBaseTetKernel_QP_1D(
@@ -1972,15 +1985,17 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + nm2;
-    TData *s_wsp1            = s_wsp0 + nqTot;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_prod           = shared;
+    TData *s_wsp0           = s_prod + nm2;
+    TData *s_wsp1           = s_wsp0 + nqTot;
+    TData *s_wsp2           = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
+    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
@@ -2001,6 +2016,8 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
             mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
             mode_pqr /= 2u;
+            mode_pqr -=
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
             for (unsigned int r = 0; r < nm2 - p - q; r++, mode_pqr++)
             {
                 vpindex2[mode_pqr] = p;
@@ -2023,7 +2040,7 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -2085,9 +2102,9 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
         {
             const unsigned int mode_pq = idx / nq2;
             const unsigned int p       = pindex1[mode_pq];
-            const unsigned int q       = qindex1[mode_pq];
-            const unsigned int k       = idx % nq2;
-            unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
+            // const unsigned int q    = qindex1[mode_pq];
+            const unsigned int k = idx % nq2;
+            unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k;
 
             TData sum_k = 0.0;
             for (unsigned int j = 0u; j < nq1; ++j, ++cnt_pkj)
@@ -2106,11 +2123,14 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
             const unsigned int q       = qindex2[idx];
             const unsigned int index   = outoffset + idx;
             const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
 
             TData tmp = 0.0;
             for (unsigned int k = 0u; k < nq2; ++k)
             {
-                tmp += s_wsp2[mode_pq * nq2 + k] * s_basis2[idx * nq2 + k] *
+                tmp += s_wsp2[mode_pq * nq2 + k] * s_basis2[mode2 * nq2 + k] *
                        s_w2[k];
             }
 
@@ -2855,7 +2875,6 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBasePyrKernel(
@@ -2874,12 +2893,14 @@ __global__ void IProductWRTBasePyrKernel(
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -2896,7 +2917,7 @@ __global__ void IProductWRTBasePyrKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -2928,7 +2949,7 @@ __global__ void IProductWRTBasePyrKernel(
         TData *wsp0              = wsp;
         TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
 
-        for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
+        for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
         {
             for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
@@ -2962,14 +2983,14 @@ __global__ void IProductWRTBasePyrKernel(
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
 
-                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
                 {
                     TData sum_k = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k)
                     {
                         sum_k += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                       ilane] *
-                                 s_basis2[mode_pqr * nq2 + k] * s_w2[k];
+                                 s_basis2[mode2 * nq2 + k] * s_w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -3004,14 +3025,14 @@ __global__ void IProductWRTBasePyrKernel(
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
 
-                for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
                 {
                     TData sum_k = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k)
                     {
                         sum_k += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                       ilane] *
-                                 s_basis2[mode_pqr * nq2 + k] * s_w2[k];
+                                 s_basis2[mode2 * nq2 + k] * s_w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -3030,6 +3051,12 @@ __global__ void IProductWRTBasePyrKernel(
                         out[index] = sum_k;
                     }
                 }
+            }
+
+            // increment mode in case order1!=order2
+            for (int q = nm1; q < nm2; ++q)
+            {
+                mode2 += nm2 - q;
             }
         }
 
@@ -3088,7 +3115,6 @@ __global__ void IProductWRTBasePyrKernel(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBasePyrKernel_QP(
@@ -3104,14 +3130,16 @@ __global__ void IProductWRTBasePyrKernel_QP(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + 1u;
-    TData *s_wsp1            = s_wsp0 + nq0 * nq1 * nq2;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_prod   = shared;
+    TData *s_wsp0   = s_prod + 1u;
+    TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
+    TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
+    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
@@ -3131,7 +3159,7 @@ __global__ void IProductWRTBasePyrKernel_QP(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -3220,6 +3248,8 @@ __global__ void IProductWRTBasePyrKernel_QP(
         {
             for (unsigned int q = threadIdx.y; q < nm1; q += blockDim.y)
             {
+                unsigned int mode2 =
+                    (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u;
                 unsigned int mode_pq = nm1 * (2u * nm2 + 1u - nm1) * p;
                 mode_pq -= (p - 1u) * p / 2u;
                 mode_pq -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -3232,13 +3262,14 @@ __global__ void IProductWRTBasePyrKernel_QP(
                     {
                         const unsigned int mode_pqr =
                             mode_pq + q * (nm2 - p) + r;
+                        mode2 += mode_pqr;
                         const unsigned int index = outoffset + mode_pqr;
                         unsigned int cnt_pqk     = nm1 * nq2 * p + nq2 * q;
 
                         TData sum_k = 0.0;
                         for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
                         {
-                            sum_k += s_basis2[mode_pqr * nq2 + k] * s_w2[k] *
+                            sum_k += s_basis2[mode2 * nq2 + k] * s_w2[k] *
                                      s_wsp2[cnt_pqk];
                         }
 
@@ -3267,12 +3298,13 @@ __global__ void IProductWRTBasePyrKernel_QP(
                         mode_pqr +=
                             ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u +
                             r;
+                        mode2 += mode_pqr;
                         const unsigned int index = outoffset + mode_pqr;
 
                         TData sum_k = 0.0;
                         for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
                         {
-                            sum_k += s_basis2[mode_pqr * nq2 + k] * s_w2[k] *
+                            sum_k += s_basis2[mode2 * nq2 + k] * s_w2[k] *
                                      s_wsp2[cnt_pqk];
                         }
                         if constexpr (SCALE)
@@ -3351,7 +3383,6 @@ __global__ void IProductWRTBasePyrKernel_QP(
     }
 }
 
-// NOTE: Not workign when nm2 > nm1
 template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM = true>
 __global__ void IProductWRTBasePyrKernel_QP_1D(
@@ -3369,14 +3400,16 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + 1u;
-    TData *s_wsp1            = s_wsp0 + nq0 * nq1 * nq2;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_prod   = shared;
+    TData *s_wsp0   = s_prod + 1u;
+    TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
+    TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmTot * nq2 : (TData *)w0;
+    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
@@ -3428,7 +3461,7 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -3505,15 +3538,18 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
 
         for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
         {
-            const unsigned int p     = pindex[idx];
-            const unsigned int q     = qindex[idx];
+            const unsigned int p = pindex[idx];
+            const unsigned int q = qindex[idx];
+            const unsigned int mode2 =
+                idx +
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
             const unsigned int index = outoffset + idx;
             unsigned int cnt_pqk     = nm1 * nq2 * p + nq2 * q;
 
             TData sum_k = 0.0;
             for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
             {
-                sum_k += s_basis2[idx * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
+                sum_k += s_basis2[mode2 * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
             }
             if constexpr (SCALE)
             {
@@ -3597,8 +3633,9 @@ inline
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
                    : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int gridsize =
+        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
+                 2147483647u);
 
     unsigned int nshared = SHMEM ? sizeof(TData) * (nm0 * nq0 + nq0) : 0u;
 
@@ -3635,8 +3672,9 @@ inline
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize)
                    : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int gridsize =
+        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
+                 2147483647u);
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -3721,8 +3759,9 @@ inline
         MULTILEVEL
             ? std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize)
             : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int gridsize =
+        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
+                 2147483647u);
 
     if (shapetype == LibUtilities::Hex)
     {
@@ -3759,10 +3798,12 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm01 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2)
+            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
+                                     nq0 + nq1 + nq2)
                   : 0u;
 
         if constexpr (MULTILEVEL)
@@ -3841,9 +3882,11 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         unsigned int nshared =
             SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nmTot * nq2 + nq0 + nq1 + nq2)
+                        (nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2)
                   : 0u;
 
         if constexpr (MULTILEVEL)

@@ -111,8 +111,6 @@ public:
         const TData *jacPtr = m_jac.template GetPtr<MemSpace, ReadOnly>();
         const TData *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
 
-        size_t width = in.GetVecWidth();
-
         // Zero output.
         if (!APPEND)
         {
@@ -139,7 +137,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

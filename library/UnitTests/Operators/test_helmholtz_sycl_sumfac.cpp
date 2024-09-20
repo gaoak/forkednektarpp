@@ -41,7 +41,7 @@
 #include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 #include "init_helmholtzfields.hpp"
 
-#define TEST_HELMSOLVE(test_name, test, tol)                                   \
+#define TEST_HELMHOLTZ(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
         using ExecSpace = NektarSpaces::SYCL;                                  \
@@ -67,24 +67,42 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmholtzSYCL)
 
-TEST_HELMSOLVE(helmholtz_sycl_seg, Seg, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_seg, Seg, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_quad, Quad, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_seg_sem, SegSEM, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_tri, Tri, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_quad, Quad, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_hex, Hex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_prism, Prism, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_tri, Tri, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_pyr, Pyr, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_tri_varp, TriVarP, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_tet, Tet, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_hex, Hex, 1.0E-12)
 
-TEST_HELMSOLVE(helmholtz_sycl_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_sycl_hex_sem, HexSEM, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_hex_varp, HexVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_prism, Prism, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_pyr, Pyr, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_pyr_varp, PyrVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_tet, Tet, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_tet_varp, TetVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_cube_prism_hex, CubePrismHex, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_sycl_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

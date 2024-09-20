@@ -1362,9 +1362,9 @@ void StdTetExp::v_GetInteriorMap(Array<OneD, unsigned int> &outarray)
     }
 
     int idx = 0;
-    for (int i = 2; i < P - 2; ++i)
+    for (int i = 2; i < P; ++i)
     {
-        for (int j = 1; j < Q - i - 1; ++j)
+        for (int j = 1; j < Q - i; ++j)
         {
             for (int k = 1; k < R - i - j; ++k)
             {
@@ -1495,10 +1495,12 @@ void StdTetExp::v_GetTraceCoeffMap(const unsigned int fid,
                 {
                     maparray[idx++] = GetMode(1, j, k);
                     // Incorporate modes from zeroth plane where needed.
+                    // Add in top vertex
                     if (j == 0 && k == 0)
                     {
                         maparray[idx++] = GetMode(0, 0, 1);
                     }
+                    // Add in bottom  singular vertex  plus singular edge
                     if (j == 0 && k == Q - 2)
                     {
                         for (int r = 0; r < Q - 1; ++r)
@@ -1783,11 +1785,11 @@ void StdTetExp::v_GetTraceInteriorToElementMap(
     {
         case 0:
             idx = 0;
-            for (i = 2; i < P - 1; ++i)
+            for (i = 2; i < P; ++i)
             {
                 for (j = 1; j < Q - i; ++j)
                 {
-                    if ((int)faceOrient == 7)
+                    if (faceOrient == eDir1BwdDir1_Dir2FwdDir2)
                     {
                         signarray[idx] = (i % 2 ? -1 : 1);
                     }
@@ -1801,7 +1803,7 @@ void StdTetExp::v_GetTraceInteriorToElementMap(
             {
                 for (k = 1; k < R - i; ++k)
                 {
-                    if ((int)faceOrient == 7)
+                    if (faceOrient == eDir1BwdDir1_Dir2FwdDir2)
                     {
                         signarray[idx] = (i % 2 ? -1 : 1);
                     }
@@ -1811,11 +1813,11 @@ void StdTetExp::v_GetTraceInteriorToElementMap(
             break;
         case 2:
             idx = 0;
-            for (j = 1; j < Q - 2; ++j)
+            for (j = 1; j < Q - 1; ++j)
             {
                 for (k = 1; k < R - 1 - j; ++k)
                 {
-                    if ((int)faceOrient == 7)
+                    if (faceOrient == eDir1BwdDir1_Dir2FwdDir2)
                     {
                         signarray[idx] = ((j + 1) % 2 ? -1 : 1);
                     }
@@ -1825,11 +1827,11 @@ void StdTetExp::v_GetTraceInteriorToElementMap(
             break;
         case 3:
             idx = 0;
-            for (j = 2; j < Q - 1; ++j)
+            for (j = 2; j < Q; ++j)
             {
                 for (k = 1; k < R - j; ++k)
                 {
-                    if ((int)faceOrient == 7)
+                    if (faceOrient == eDir1BwdDir1_Dir2FwdDir2)
                     {
                         signarray[idx] = (j % 2 ? -1 : 1);
                     }
@@ -1948,18 +1950,32 @@ DNekMatSharedPtr StdTetExp::v_CreateStdMatrix(const StdMatrixKey &mkey)
  *
  * Modes are numbered with the r index travelling fastest, followed by
  * q and then p, and each q-r plane is of size
- * (Q+1)*(Q+2)/2+max(0,R-Q-p)*Q. For example, when P=2, Q=3 and R=4
- * the indexing inside each q-r plane (with r increasing upwards and q
- * to the right) is:
+ * (Q+1)*(Q+2)/2+max(0,R-Q-p)*Q. For example, when P=2, Q=3 and R=4 (nm0=3, nm1
+ * = 4, nm2 = 5) the indexing inside each q-r plane (with r increasing upwards
+ * and q to the right) is:
  *
- * p = 0:      p = 1:       p = 2:
- * ----------------------------------
  * 4
  * 3 8         17
- * 2 7 11      16 20        26
- * 1 6 10 13   15 19 22     25 28
- * 0 5 9  12   14 18 21 23  24 27 29
+ * 2 7 11      16 20         25
+ * 1 6 10 13   15 19 22      24 27
+ * 0 5  9 12   14 18 21      23 26
  *
+ * Geometrically they can be interpreted as
+ * p = 0:      p = 2:       p = 1:
+ * ----------------------------------
+ * 1
+ * 4 8                      17
+ * 3 11 7       25          16 20
+ * 2 10 13 6    24 27       15 19 22
+ * 0 9  12 5    23 26       14 18 21
+ *
+ * so we have the following breakdown
+ *
+ * Vertices V[0,1,2,3] = [0, 14, 5, 1]
+ * Edges E[0,1,2,3,4,5,6] =[[23],[18, 21],
+ * [9, 12], [2,3,4], [15, 16, 17], [6,7,8]]
+ * Faces F[0.1,2,3] = [[26], [24,25], [19, 22, 20], [10, 13, 11]
+ * Interior [27]
  * Note that in this element, we must have that \f$ P \leq Q \leq
  * R\f$.
  */
@@ -1975,10 +1991,10 @@ int StdTetExp::GetMode(const int I, const int J, const int K)
     for (i = 0; i < I; ++i)
     {
         // Size of triangle part
-        q_hat = min(Q, R - i);
+        q_hat = Q - i;
         // Size of rectangle part
-        k_hat = max(R - Q - i, 0);
-        cnt += q_hat * (q_hat + 1) / 2 + k_hat * Q;
+        k_hat = R - Q;
+        cnt += q_hat * (q_hat + 1) / 2 + k_hat * (Q - i);
     }
 
     // Traverse to q column J

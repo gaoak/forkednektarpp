@@ -1012,9 +1012,11 @@ __global__ void BwdTransTetKernel(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1030,7 +1032,7 @@ __global__ void BwdTransTetKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -1051,16 +1053,18 @@ __global__ void BwdTransTetKernel(
         for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
             // direction 2
-            for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
+            for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+                 p < nm0; ++p)
             {
                 for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p - q;
+                         ++r, ++mode2, ++mode_pqr)
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * mode_pqr + ilane] *
-                               s_basis2[nq2 * mode_pqr + k];
+                               s_basis2[nq2 * mode2 + k];
                     }
                     fpq[nm01 * warpsize * iwarp + warpsize * mode_pq + ilane] =
                         tmp;
@@ -1069,7 +1073,7 @@ __global__ void BwdTransTetKernel(
                 // increment mode in case order1!=order2
                 for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
                 {
-                    mode_pqr += nm2 - p - q;
+                    mode2 += nm2 - p - q;
                 }
             }
 
@@ -1148,9 +1152,11 @@ __global__ void BwdTransTetKernel_QP(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + nm01 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
@@ -1171,7 +1177,7 @@ __global__ void BwdTransTetKernel_QP(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -1204,16 +1210,21 @@ __global__ void BwdTransTetKernel_QP(
                 {
                     const unsigned int cnt_kpq =
                         nm01 * k + (2u * nm1 - p + 1u) * p / 2u + q;
-                    unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
-                    mode_pqr += nm2 * (nm2 + 1u) * p;
-                    mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                    mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode_pqr /= 2u;
+                    unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
+                    mode2 += nm2 * (nm2 + 1u) * p;
+                    mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+                    mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
+                    mode2 /= 2u;
+                    unsigned int mode_pqr =
+                        mode2 - ((nm2 > nm1)
+                                     ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                     : 0u);
 
                     TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p - q;
+                         ++r, ++mode2, ++mode_pqr)
                     {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
+                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
                     }
                     s_wsp1[cnt_kpq] = tmp;
                 }
@@ -1310,9 +1321,11 @@ __global__ void BwdTransTetKernel_QP_1D(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + nm01 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
@@ -1344,7 +1357,7 @@ __global__ void BwdTransTetKernel_QP_1D(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -1370,19 +1383,22 @@ __global__ void BwdTransTetKernel_QP_1D(
         for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
              idx += blockDim.x)
         {
-            const unsigned int k  = idx / nm01;
-            const unsigned int p  = pindex[idx % nm01];
-            const unsigned int q  = qindex[idx % nm01];
-            unsigned int mode_pqr = (2u * (nm2 - p) - q + 1u) * q;
-            mode_pqr += nm2 * (nm2 + 1u) * p;
-            mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-            mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-            mode_pqr /= 2u;
+            const unsigned int k = idx / nm01;
+            const unsigned int p = pindex[idx % nm01];
+            const unsigned int q = qindex[idx % nm01];
+            unsigned int mode2   = (2u * (nm2 - p) - q + 1u) * q;
+            mode2 += nm2 * (nm2 + 1u) * p;
+            mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
+            mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
+            mode2 /= 2u;
+            unsigned int mode_pqr =
+                mode2 -
+                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
 
             TData tmp = 0.0;
-            for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+            for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
             {
-                tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode_pqr];
+                tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
             }
             s_wsp1[idx] = tmp;
         }
@@ -1858,9 +1874,11 @@ __global__ void BwdTransPyrKernel(
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1875,7 +1893,7 @@ __global__ void BwdTransPyrKernel(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -1896,38 +1914,27 @@ __global__ void BwdTransPyrKernel(
         for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
             // direction 2
-            for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
+            for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u, mode_pq = 0u;
+                 p < nm0; ++p)
             {
-                for (unsigned int q = 0u; q < p; ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - max(p, q);
+                         ++r, ++mode_pqr, ++mode2)
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * mode_pqr + ilane] *
-                               s_basis2[mode_pqr * nq2 + k];
-                    }
-                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
-                        ilane] = tmp;
-                }
-
-                for (unsigned int q = p; q < nm1; ++q, ++mode_pq)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * mode_pqr + ilane] *
-                               s_basis2[mode_pqr * nq2 + k];
+                               s_basis2[mode2 * nq2 + k];
                     }
                     fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
                         ilane] = tmp;
                 }
 
                 // increment mode in case nm2>nm1
-                for (unsigned int q = nm1; q < nm2 - p; ++q)
+                for (unsigned int q = nm1; q < nm2; ++q)
                 {
-                    mode_pqr += nm2 - q;
+                    mode2 += nm2 - q;
                 }
             }
 
@@ -1990,9 +1997,11 @@ __global__ void BwdTransPyrKernel_QP(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -2013,7 +2022,7 @@ __global__ void BwdTransPyrKernel_QP(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = idx0; idx < nmTot * nq2; idx += stride)
+        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
         {
             s_basis2[idx] = basis2[idx];
         }
@@ -2045,6 +2054,9 @@ __global__ void BwdTransPyrKernel_QP(
                 for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
                 {
                     const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
+                    unsigned int mode2 =
+                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                    : 0u;
                     unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
                     mode_pqr -= (p - 1u) * p / 2u;
                     mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -2053,11 +2065,12 @@ __global__ void BwdTransPyrKernel_QP(
                     if (q < p)
                     {
                         mode_pqr += q * (nm2 - p);
+                        mode2 += mode_pqr;
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - p;
+                             ++r, ++mode2, ++mode_pqr)
                         {
-                            tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -2066,12 +2079,13 @@ __global__ void BwdTransPyrKernel_QP(
                         mode_pqr += p * (nm2 - p);
                         mode_pqr +=
                             ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
+                        mode2 += mode_pqr;
 
                         TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                        for (unsigned int r = 0u; r < nm2 - q;
+                             ++r, ++mode2, ++mode_pqr)
                         {
-                            tmp +=
-                                s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                         }
                         s_wsp1[mode_kpq] = tmp;
                     }
@@ -2152,9 +2166,11 @@ __global__ void BwdTransPyrKernel_QP_1D(
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -2172,7 +2188,7 @@ __global__ void BwdTransPyrKernel_QP_1D(
             s_basis1[idx] = basis1[idx];
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nmTot * nq2;
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
              idx += blockDim.x)
         {
             s_basis2[idx] = basis2[idx];
@@ -2198,9 +2214,11 @@ __global__ void BwdTransPyrKernel_QP_1D(
         for (unsigned int idx = threadIdx.x; idx < nm0 * nm1 * nq2;
              idx += blockDim.x)
         {
-            const unsigned int q  = idx % nm1;
-            const unsigned int p  = (idx / nm1) % nm0;
-            const unsigned int k  = idx / (nm1 * nm0);
+            const unsigned int q = idx % nm1;
+            const unsigned int p = (idx / nm1) % nm0;
+            const unsigned int k = idx / (nm1 * nm0);
+            unsigned int mode2 =
+                (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u;
             unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
             mode_pqr -= (p - 1u) * p / 2u;
             mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -2209,10 +2227,11 @@ __global__ void BwdTransPyrKernel_QP_1D(
             if (q < p)
             {
                 mode_pqr += q * (nm2 - p);
+                mode2 += mode_pqr;
                 TData tmp = 0.0;
-                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
                 {
-                    tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                    tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                 }
                 s_wsp1[idx] = tmp;
             }
@@ -2220,11 +2239,12 @@ __global__ void BwdTransPyrKernel_QP_1D(
             {
                 mode_pqr += p * (nm2 - p);
                 mode_pqr += ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
+                mode2 += mode_pqr;
 
                 TData tmp = 0.0;
-                for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
                 {
-                    tmp += s_wsp0[mode_pqr] * s_basis2[mode_pqr * nq2 + k];
+                    tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
                 }
                 s_wsp1[idx] = tmp;
             }
@@ -2437,9 +2457,12 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmTot * nq2) : 0u;
+            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmode2 * nq2)
+                  : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared += sizeof(TData) *
@@ -2481,9 +2504,9 @@ inline
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
                     basis1, basis2, in, out);
             // BwdTransPrismKernel_QP_1D<TData, SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
+            //    <<<gridsize, blocksize, nshared>>>(
+            //        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
+            //        basis0, basis1, basis2, in, out);
         }
         else
         {
@@ -2496,8 +2519,10 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nmTot * nq2) : 0u;
+            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nmode2 * nq2) : 0u;
         if constexpr (MULTILEVEL)
         {
             nshared +=

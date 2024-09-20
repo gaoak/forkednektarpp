@@ -69,20 +69,38 @@ BOOST_AUTO_TEST_SUITE(TestPhysDerivKokkos)
 
 TEST_PHYSDERIV(physderiv_kokkos_seg, Seg, 1, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_kokkos_seg_sem, SegSEM, 1, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_kokkos_quad, Quad, 2, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_kokkos_quad_sem, QuadSEM, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_kokkos_quad_varp, QuadVarP, 2, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_kokkos_tri, Tri, 2, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_kokkos_tri_varp, TriVarP, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_kokkos_square_all_elements, SquareAllElements, 2,
                1.0E-12)
 
 TEST_PHYSDERIV(physderiv_kokkos_hex, Hex, 3, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_kokkos_hex_sem, HexSEM, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_kokkos_hex_varp, HexVarP, 3, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_kokkos_prism, Prism, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_kokkos_prism_varp, PrismVarP, 3, 2.5E-12)
 
 TEST_PHYSDERIV(physderiv_kokkos_pyr, Pyr, 3, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_kokkos_pyr_varp, PyrVarP, 3, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_kokkos_tet, Tet, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_kokkos_tet_varp, TetVarP, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_kokkos_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 

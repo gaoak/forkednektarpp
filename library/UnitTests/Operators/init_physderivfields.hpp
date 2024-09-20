@@ -416,6 +416,8 @@ public:
 
 TEST1D(Seg, "run/segment.xml")
 
+TEST1D(SegSEM, "run/line_sem.xml")
+
 #define TEST2D(type, filename)                                                 \
     class type : public PhysDerivField2D                                       \
     {                                                                          \
@@ -428,7 +430,13 @@ TEST1D(Seg, "run/segment.xml")
 
 TEST2D(Quad, "run/square.xml")
 
+TEST2D(QuadVarP, "run/square_varp.xml")
+
+TEST2D(QuadSEM, "run/square_sem.xml")
+
 TEST2D(Tri, "run/tri.xml")
+
+TEST2D(TriVarP, "run/tri_varp.xml")
 
 TEST2D(SquareAllElements, "run/square_all_elements.xml")
 
@@ -444,11 +452,21 @@ TEST2D(SquareAllElements, "run/square_all_elements.xml")
 
 TEST3D(Hex, "run/hex.xml")
 
+TEST3D(HexVarP, "run/hex_varp.xml")
+
+TEST3D(HexSEM, "run/hex_sem.xml")
+
 TEST3D(Prism, "run/prism.xml")
+
+TEST3D(PrismVarP, "run/prism_varp.xml")
 
 TEST3D(Pyr, "run/pyr.xml")
 
+TEST3D(PyrVarP, "run/pyr_varp.xml")
+
 TEST3D(Tet, "run/tet.xml")
+
+TEST3D(TetVarP, "run/tet_varp.xml")
 
 TEST3D(CubePrismHex, "run/cube_prismhex.xml")
 

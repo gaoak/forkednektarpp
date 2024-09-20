@@ -67,24 +67,42 @@
 
 BOOST_AUTO_TEST_SUITE(TestHelmholtz)
 
-// TEST_HELMHOLTZ(helmholtz_seg, Seg, 1.0E-12)
+// TEST_HELMHOLTZ(helmholtz_avx_seg, Seg, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_quad, Quad, 1.0E-12)
+// TEST_HELMHOLTZ(helmholtz_avx_seg_sem, SegSEM, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_tri, Tri, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_quad, Quad, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_hex, Hex, 1.0E-12)
+//TEST_HELMHOLTZ(helmholtz_avx_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_prism, Prism, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_tri, Tri, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_pyr, Pyr, 1.0E-12)
+//TEST_HELMHOLTZ(helmholtz_avx_tri_varp, TriVarP, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_tet, Tet, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_hex, Hex, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_avx_hex_sem, HexSEM, 1.0E-12)
+
+//TEST_HELMHOLTZ(helmholtz_avx_hex_varp, HexVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_avx_prism, Prism, 1.0E-12)
+
+//TEST_HELMHOLTZ(helmholtz_avx_prism_varp, PrismVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_avx_pyr, Pyr, 1.0E-12)
+
+//TEST_HELMHOLTZ(helmholtz_avx_pyr_varp, PyrVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_avx_tet, Tet, 1.0E-12)
+
+//TEST_HELMHOLTZ(helmholtz_avx_tet_varp, TetVarP, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_avx_cube_prism_hex, CubePrismHex, 1.0E-12)
+
+TEST_HELMHOLTZ(helmholtz_avx_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

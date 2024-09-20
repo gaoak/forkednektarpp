@@ -2007,6 +2007,7 @@ AssemblyMapCG::AssemblyMapCG(
         {
             k = cnt + bndmap[j];
 
+            // exclude if Dirichlet boundary already included in partition
             if (CoeffOnDirTrace.count(k) == 0)
             {
                 gloid = m_localToGlobalMap[k];

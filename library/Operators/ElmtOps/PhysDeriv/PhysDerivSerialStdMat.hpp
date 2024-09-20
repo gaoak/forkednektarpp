@@ -116,8 +116,6 @@ public:
         size_t exp_idx = 0;
         size_t df_idx  = 0;
 
-        size_t width = in.GetVecWidth();
-
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             3, LibUtilities::NullBasisKey);
@@ -126,7 +124,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * width;
+            const auto nElmtsPad = block.num_elmt_groups * block.width;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

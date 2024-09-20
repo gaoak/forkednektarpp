@@ -70,20 +70,47 @@ BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMassKokkos)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_seg, Seg, 1.0E-12)
 
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_seg_sem, SegSEM,
+                           1.0E-12)
+
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad, Quad, 1.0E-12)
 
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad_sem, QuadSEM,
+                           1.0E-12)
+
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad_varp, QuadVarP,
+                           1.0E-12)
+
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tri, Tri, 1.0E-12)
+
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tri_varp, TriVarP,
+                           1.0E-12)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_square_all_elements,
                            SquareAllElements, 1.0E-12)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex, Hex, 1.0E-12)
 
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex_sem, HexSEM,
+                           1.0E-12)
+
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex_varp, HexVarP,
+                           1.0E-12)
+
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_prism, Prism, 1.0E-12)
+
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_prism_varp, PrismVarP,
+                           1.0E-12)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_pyr, Pyr, 1.0E-12)
 
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_pyr_varp, PyrVarP,
+                           1.0E-12)
+
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tet, Tet, 1.0E-12)
+
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tet_varp, TetVarP,
+                           1.0E-12)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_cube_prism_hex,
                            CubePrismHex, 1.0E-12)
