@@ -75,7 +75,6 @@ A minimalist compilation command example is shown below for each available backe
 ### CUDA
     cmake .. -DNEKTAR_BUILD_REDESIGN=ON \
              -DNEKTAR_ENABLE_CUDA=ON \
-             -DCMAKE_CUDA_FLAGS="--extended-lambda --expt-relaxed-constexpr" \
              -DCMAKE_CUDA_ARCHITECTURES=86 
 
 Note:

@@ -15,6 +15,14 @@ for file in $(find $TARGETS -type f); do
             echo $file does not contains MIT License
             error=1
         fi
+        if [[ "${filename##*.}" == "cu" ]]; then
+            echo $file does not contains MIT License
+            error=1
+        fi
+        if [[ "${filename##*.}" == "hpp" ]]; then
+            echo $file does not contains MIT License
+            error=1
+        fi
     fi
 done
 

@@ -3,7 +3,12 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/SwitchLimits.h.in
                @ONLY)
 
 # Currently two primary execution spaces.
-SET(ExecSpaces Serial AVX)
+SET(ExecSpaces Serial)
+
+# Optional AVX execution space.
+IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET(ExecSpaces ${ExecSpaces} AVX)
+ENDIF()
 
 # Optional CUDA execution space.
 IF(NEKTAR_ENABLE_CUDA)

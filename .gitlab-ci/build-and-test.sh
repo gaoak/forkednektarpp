@@ -39,6 +39,14 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     elif [[ $BUILD_SIMD == "avx512" ]]; then
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_SIMD_AVX512:BOOL=ON"
     fi
+    if [[ $BUILD_CUDA == "on" ]]; then
+        # Load CUDA on Linux
+        [[ $OS_VERSION != "macos" ]] && module load cuda
+
+        # Enable CUDA in CMake configuration
+        BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_CUDA:BOOL=ON \
+                                -DCMAKE_CUDA_ARCHITECTURES=86 "
+    fi
     if [[ $BUILD_KOKKOS == "on" ]]; then
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_KOKKOS:STRING=Serial" 
     fi

@@ -274,6 +274,7 @@ IF (NEKTAR_BUILD_REDESIGN)
 
     # All device libraries should be found first as other Thirdparty
     # libraries may depend on them (Currently not the case).
+    OPTION(NEKTAR_ENABLE_CUDA "Enable CUDA execution" OFF)
     IF (NEKTAR_ENABLE_CUDA)
         IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
             MESSAGE(FATAL_ERROR "Cannot use both CUDA and AVX")
