@@ -10,7 +10,7 @@ RUN apt update && \
         echo "/apps/modules" >> /etc/environment-modules/modulespath
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
-        apt-get update && \
+	apt-get update && \
         apt-get install -y $(cat packages.txt) && \
         rm -rf /var/lib/apt/lists/*
 
