@@ -50,12 +50,18 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     if [[ $BUILD_KOKKOS == "on" ]]; then
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_KOKKOS:STRING=Serial" 
     fi
-    if [[ $BUILD_SYCL == "on" ]]; then
+    if [[ $BUILD_SYCL == "Default" ]]; then
         # Load Intel compiler module for SYCL support on Linux
         [[ $OS_VERSION != "macos" ]] && module load intel/compiler
 
         # Enable SYCL in CMake configuration
         BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_SYCL:STRING=Default"
+    elif [[ $BUILD_SYCL == "CUDA" ]]; then
+        # Load CUDA and Intel compiler module for SYCL support on Linux
+        [[ $OS_VERSION != "macos" ]] && module load cuda intel/compiler
+
+        # Enable SYCL in CMake configuration
+        BUILD_OPTS="$BUILD_OPTS -DNEKTAR_ENABLE_SYCL:STRING=CUDA"
     fi
 elif [[ $BUILD_TYPE == "performance" ]]; then
     BUILD_OPTS="-DCMAKE_BUILD_TYPE=Release \
