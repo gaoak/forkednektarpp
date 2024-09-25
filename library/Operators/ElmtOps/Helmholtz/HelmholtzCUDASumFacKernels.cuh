@@ -64,10 +64,10 @@ __global__ void DiffusionCoeff2DKernel(const unsigned int nsize,
     __shared__ TData s_diffCoeff[4];
 
     // Copy to shared memory.
-    unsigned int ind = threadIdx.x;
-    if (ind < 4)
+    unsigned int idx = threadIdx.x;
+    if (idx < 4)
     {
-        s_diffCoeff[ind] = diffCoeff[ind];
+        s_diffCoeff[idx] = diffCoeff[idx];
     }
 
     __syncthreads();
@@ -93,10 +93,10 @@ __global__ void DiffusionCoeff3DKernel(const unsigned int nsize,
     __shared__ TData s_diffCoeff[9];
 
     // Copy to shared memory.
-    unsigned int ind = threadIdx.x;
-    if (ind < 9)
+    unsigned int idx = threadIdx.x;
+    if (idx < 9)
     {
-        s_diffCoeff[ind] = diffCoeff[ind];
+        s_diffCoeff[idx] = diffCoeff[idx];
     }
 
     __syncthreads();

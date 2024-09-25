@@ -45,6 +45,7 @@
 
 #include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/Helmholtz/HelmholtzKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -53,6 +54,8 @@ namespace Nektar::Operators::detail
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
                std::is_same<Implementation, Operators::SumFac>::value)>::type>
