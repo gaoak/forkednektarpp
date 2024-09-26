@@ -219,6 +219,7 @@ include:
     - python3 .gitlab-ci/check-compiled-files.py build/compile_commands.json
   timeout: 15m
 
+
 ################################################
 ###################  DEBIAN  ###################
 ################################################
@@ -270,14 +271,13 @@ debian-bookworm-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 debian-bookworm-full-avx2-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bookworm-full-build-env"]
   variables:
     BUILD_SIMD: avx2
-    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -286,7 +286,6 @@ debian-bookworm-full-avx512-build-and-test:
   needs: ["debian-bookworm-full-build-env"]
   variables:
     BUILD_SIMD: avx512
-    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -296,7 +295,7 @@ debian-bookworm-full-clang15-build-and-test:
   variables:
     BUILD_CC: clang-15
     BUILD_CXX: clang++-15
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 debian-bookworm-full-icpx-build-and-test:
   <<: *build-and-test-template
@@ -324,14 +323,13 @@ debian-bullseye-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bullseye-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 debian-bullseye-full-avx2-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-bullseye-full-build-env"]
   variables:
     BUILD_SIMD: avx2
-    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -340,7 +338,6 @@ debian-bullseye-full-avx512-build-and-test:
   needs: ["debian-bullseye-full-build-env"]
   variables:
     BUILD_SIMD: avx512
-    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -353,7 +350,6 @@ debian-buster-full-build-and-test:
   needs: ["debian-buster-full-build-env"]
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-    BUILD_KOKKOS: "off"
 
 
 # COMPILER WARNINGS
@@ -423,6 +419,7 @@ debian-bullseye-xml-format:
   <<: *xml-format-template
   needs: []
 
+
 # DOCUMENTATION
 debian-bookworm-documentation-build-env:
   <<: *execution-conditions
@@ -476,7 +473,6 @@ tutorials-build:
     expire_in: 1 month
     paths:
       - build/docs/tutorial/
-
 
 
 ################################################
@@ -539,7 +535,7 @@ ubuntu-jammy-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 ubuntu-jammy-full-cuda-build-and-test:
   <<: *build-and-test-template
@@ -550,13 +546,22 @@ ubuntu-jammy-full-cuda-build-and-test:
   tags:
     - gpu
 
+ubuntu-jammy-full-kokkos-build-and-test:
+  <<: *build-and-test-template
+  needs: ["ubuntu-jammy-full-cuda-build-env"]
+  variables:
+    DOCKER_FLAGS: "--runtime nvidia --gpus=all -v /apps:/apps"
+    BUILD_KOKKOS: "CUDA"
+  tags:
+    - gpu
+
 ubuntu-jammy-full-clang14-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-jammy-full-build-env"]
   variables:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 ubuntu-jammy-full-clang14-avx2-build-and-test:
   <<: *build-and-test-template
@@ -565,7 +570,6 @@ ubuntu-jammy-full-clang14-avx2-build-and-test:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
     BUILD_SIMD: avx2
-    BUILD_KOKKOS: "off"
   tags:
     - avx2
 
@@ -576,7 +580,6 @@ ubuntu-jammy-full-clang14-avx512-build-and-test:
     BUILD_CC: clang-14
     BUILD_CXX: clang++-14
     BUILD_SIMD: avx512
-    BUILD_KOKKOS: "off"
   tags:
     - avx512
 
@@ -599,7 +602,7 @@ ubuntu-focal-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-focal-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 ubuntu-bionic-default-build-and-test:
   <<: *build-and-test-template
@@ -608,8 +611,7 @@ ubuntu-bionic-default-build-and-test:
 ubuntu-bionic-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-bionic-full-build-env"]
-  variables:
-    BUILD_KOKKOS: "off"
+
 
 # COMPILER WARNINGS
 ubuntu-jammy-default-warnings:
@@ -667,6 +669,7 @@ ubuntu-jammy-uncompiled-files:
   <<: *uncompiled-files-template
   image: $CI_REGISTRY_IMAGE:env-ubuntu-jammy-full
   needs: ["ubuntu-jammy-full-build-env"]
+
   
 ################################################
 ###################  FEDORA  ###################
@@ -702,7 +705,7 @@ fedora-35-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-35-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 fedora-36-default-build-and-test:
   <<: *build-and-test-template
@@ -712,7 +715,7 @@ fedora-36-full-build-and-test:
   <<: *build-and-test-template
   needs: ["fedora-36-full-build-env"]
   variables:
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
 
 
 # COMPILER WARNINGS
@@ -763,7 +766,7 @@ macos-full-arm-build-and-test:
     - macos-arm
   variables:
     BUILD_TYPE: "full"
-    BUILD_KOKKOS: "on"
+    BUILD_KOKKOS: "Serial"
   needs: []
 
 macos-default-arm-warnings:
