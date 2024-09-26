@@ -103,7 +103,7 @@ public:
             const auto shapeType = expPtr->DetShapeType();
             const auto dimension = expPtr->GetShapeDimension();
 
-            m_nElmtGroup = inblock.num_elmt_groups;
+            m_nElmtGroup = inblock.GetNumElmtGroups(vec_t::width);
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();

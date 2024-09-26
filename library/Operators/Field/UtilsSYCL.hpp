@@ -45,8 +45,7 @@ template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    interleave(const unsigned int numMetaBlocks,
-               const unsigned int metaBlockSize, const unsigned int dataLen,
+    interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
                TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -55,7 +54,7 @@ inline
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(
-        VectorWidth * numMetaBlocks * metaBlockSize, SYCLQueue::GetInstance());
+        VectorWidth * numMetaBlocks * dataLen, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(
@@ -70,8 +69,8 @@ inline
                     for (unsigned int vecElem = 0; vecElem < VectorWidth;
                          ++vecElem)
                     {
-                        inout[offset + vecElem * dataLen + idx] =
-                            buffer[offset + vecElem * dataLen + idx];
+                        buffer[offset + vecElem * dataLen + idx] =
+                            inout[offset + vecElem * dataLen + idx];
                     }
                 }
 
@@ -100,8 +99,7 @@ inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
     deInterleave(const unsigned int VectorWidth,
-                 const unsigned int numMetaBlocks,
-                 const unsigned int metaBlockSize, const unsigned int dataLen,
+                 const unsigned int numMetaBlocks, const unsigned int dataLen,
                  TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -110,7 +108,7 @@ inline
     const unsigned int gridSize  = numMetaBlocks;
 
     TData *buffer = sycl::malloc_device<TData>(
-        VectorWidth * numMetaBlocks * metaBlockSize, SYCLQueue::GetInstance());
+        VectorWidth * numMetaBlocks * dataLen, SYCLQueue::GetInstance());
 
     Q.submit([=](sycl::handler &cgh) {
         cgh.parallel_for(
@@ -148,6 +146,75 @@ inline
     });
 
     sycl::free(buffer, SYCLQueue::GetInstance());
+}
+
+template <typename ExecSpace>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
+                            void>::type
+    BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
+                             const unsigned int ncoeff,
+                             const unsigned int newVecWidth,
+                             const unsigned int offset, int *deInterleaveMapPtr,
+                             int *interleaveMapPtr)
+{
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
+    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int gridSize  = numMetaBlocks;
+
+    int *buffer = sycl::malloc_device<int>(newVecWidth * numMetaBlocks * ncoeff,
+                                           SYCLQueue::GetInstance());
+
+    Q.submit([=](sycl::handler &cgh) {
+        cgh.parallel_for(
+            sycl::nd_range<1>(gridSize * blockSize, blockSize),
+            [=](sycl::nd_item<1> indx) {
+                const unsigned int metaBlock = indx.get_group(0);
+                const unsigned int groupOffset =
+                    ncoeff * newVecWidth * metaBlock;
+
+                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
+                     i += indx.get_local_range(0))
+                {
+                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
+                         ++vecElem)
+                    {
+                        buffer[groupOffset + i * newVecWidth + vecElem] =
+                            offset + groupOffset + i * newVecWidth + vecElem;
+                    }
+                }
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
+                     i += indx.get_local_range(0))
+                {
+                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
+                         ++vecElem)
+                    {
+                        deInterleaveMapPtr[groupOffset + i * newVecWidth +
+                                           vecElem] =
+                            buffer[groupOffset + vecElem * ncoeff + i];
+                    }
+                }
+
+                indx.barrier(sycl::access::fence_space::local_space);
+
+                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
+                     i += indx.get_local_range(0))
+                {
+                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
+                         ++vecElem)
+                    {
+                        interleaveMapPtr[deInterleaveMapPtr[groupOffset +
+                                                            i * newVecWidth +
+                                                            vecElem]] =
+                            offset + groupOffset + i * newVecWidth + vecElem;
+                    }
+                }
+            });
+    });
 }
 
 } // namespace Nektar

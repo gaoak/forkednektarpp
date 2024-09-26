@@ -37,6 +37,8 @@
 #include "MemoryRegion.hpp"
 #include "Utils.hpp"
 
+#include "Operators/LoopExecution/LoopExecution.hpp"
+
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
@@ -84,15 +86,21 @@ struct BlockAttributes
     // default constructor: no padding
     BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts), num_elmt_groups(0), width(1)
+          block_size(num_elements * num_pts), num_padding_elements(0)
     {
     }
 
     size_t num_elements;
     size_t num_pts;
-    size_t block_size;      // (num_elements + num_padding_elements) * num_pts
-    size_t num_elmt_groups; // (num_elements + padding)/width
-    size_t width;
+    size_t block_size; // (num_elements + num_padding_elements) * num_pts
+    size_t num_padding_elements;
+
+    size_t GetNumElmtGroups(const size_t VectorWidth) const
+    {
+        ASSERTL0((num_elements + num_padding_elements) % VectorWidth == 0,
+                 "Number of elements is not divisible by vector width.");
+        return (num_elements + num_padding_elements) / VectorWidth;
+    }
 };
 
 /**
@@ -350,15 +358,10 @@ public:
 
             for (const auto &block : block_attributes)
             {
-                size_t num_padding_elements =
-                    block.num_elmt_groups * block.width - block.num_elements;
-
-                const size_t numMetaBlocks =
-                    (block.num_elements + num_padding_elements) / VectorWidth;
-                const size_t MetaBlockSize = VectorWidth * block.num_pts;
-
+                const size_t num_elmt_groups =
+                    block.GetNumElmtGroups(VectorWidth);
                 // Interleave on the device
-                interleave<VectorWidth, ExecSpace>(numMetaBlocks, MetaBlockSize,
+                interleave<VectorWidth, ExecSpace>(num_elmt_groups,
                                                    block.num_pts, ptr);
 
                 ptr += block.block_size;
@@ -391,14 +394,11 @@ public:
 
             for (const auto &block : block_attributes)
             {
-                size_t num_padding_elements =
-                    block.num_elmt_groups * block.width - block.num_elements;
-                const size_t numMetaBlocks =
-                    (block.num_elements + num_padding_elements) / m_curVecWidth;
-                const size_t MetaBlockSize = m_curVecWidth * block.num_pts;
+                const size_t num_elmt_groups =
+                    block.GetNumElmtGroups(m_curVecWidth);
 
-                deInterleave<ExecSpace>(m_curVecWidth, numMetaBlocks,
-                                        MetaBlockSize, block.num_pts, ptr);
+                deInterleave<ExecSpace>(m_curVecWidth, num_elmt_groups,
+                                        block.num_pts, ptr);
 
                 ptr += block.block_size;
             }
@@ -691,7 +691,8 @@ public:
             {
                 size_t num_pts      = block_attributes[bl].num_pts;
                 size_t num_elements = block_attributes[bl].num_elements;
-                size_t block_size   = block_attributes[bl].block_size;
+                size_t num_elmt_groups =
+                    block_attributes[bl].GetNumElmtGroups(m_curVecWidth);
 
                 // Check that each block have the same structure
                 if ((num_elements != rhs_blocks[bl].num_elements) ||
@@ -703,26 +704,34 @@ public:
 
                 int MisMatchcnt = 0, total = 0;
 
-                size_t cnt = 0;
-                for (size_t el = 0; el < num_elements; ++el)
+                for (size_t metaBlock = 0; metaBlock < num_elmt_groups;
+                     ++metaBlock)
                 {
-                    for (size_t coeff = 0; coeff < num_pts; ++coeff, ++cnt)
+                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
                     {
-                        // skip padding elements
-                        total++;
-                        if (std::abs(store[cnt] - rhs_store[cnt]) > tol)
+                        for (size_t k = 0; k < m_curVecWidth; ++k)
                         {
-                            if (MisMatchcnt == 0)
+                            // skip padding elements
+                            if (metaBlock * m_curVecWidth + k + 1 <=
+                                num_elements)
                             {
-                                isMatched = false;
+                                total++;
+                                if (std::abs(*store - *rhs_store) > tol)
+                                {
+                                    if (MisMatchcnt == 0)
+                                    {
+                                        isMatched = false;
+                                    }
+
+                                    MisMatchcnt++;
+                                }
                             }
 
-                            MisMatchcnt++;
+                            store++;
+                            rhs_store++;
                         }
                     }
                 }
-                store+=block_size;
-                rhs_store+=block_size;
 
                 if (!isMatched)
                 {
@@ -816,3 +825,64 @@ private:
 
     size_t m_curVecWidth = 1;
 };
+
+/// A generic function to reshuffle the map, based on the given interleave or
+/// deinterleave map.
+template <typename ExecSpace>
+void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
+{
+    // assume the map is always in the device memory space
+    using MemSpace = typename ExecSpace::memory_space;
+
+    // temporary storage for the map
+    MemoryRegion<int> temp = MemoryRegion<int>::template create<MemSpace>(
+        map.size(), EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+    // copy map to temp
+    temp.template copyMemoryRegion<MemSpace>(map);
+
+    // ReMapping using the deinterleave map, temp is used as workspace
+    auto *deInterleaveMapPtr =
+        deInterleaveMap.template GetPtr<MemSpace, ReadWrite>();
+    auto tempPtr = temp.template GetPtr<MemSpace, ReadOnly>();
+    auto mapPtr  = map.template GetPtr<MemSpace, WriteOnly>();
+
+    // use deinterleave map to reshuffle the temp
+    Nektar::parallel_for<ExecSpace>(
+        0, map.size(), NEKTAR_LAMBDA(unsigned int i) {
+            mapPtr[i] = deInterleaveMapPtr[tempPtr[i]];
+        });
+}
+
+/// A generic function to build the interleave map for a given field.
+template <typename ExecSpace>
+void BuildInterleaveMap(const std::vector<BlockAttributes> &blocks,
+                        const int newVecWidth,
+                        MemoryRegion<int> &deInterleaveMap,
+                        MemoryRegion<int> &InterleaveMap)
+{
+    // assume the map is always in the device memory space
+    using MemSpace = typename ExecSpace::memory_space;
+
+    auto *deInterleaveMapPtr =
+        deInterleaveMap.template GetPtr<MemSpace, WriteOnly>();
+    auto *InterleaveMapPtr =
+        InterleaveMap.template GetPtr<MemSpace, WriteOnly>();
+
+    // Counting the subindex that has been processed so far
+    size_t offset = 0;
+
+    for (auto &block : blocks)
+    {
+        auto const ncoeff        = block.num_pts;
+        const size_t nElmtGroups = block.GetNumElmtGroups(newVecWidth);
+
+        // this function fills both InterleaveMap and deInterleaveMap;
+        // deInterleaveMap is saved as a member for later use;
+        BuildInterleaveMapKernel<ExecSpace>(nElmtGroups, ncoeff, newVecWidth,
+                                            offset, deInterleaveMapPtr,
+                                            InterleaveMapPtr);
+
+        deInterleaveMapPtr += ncoeff * newVecWidth * nElmtGroups;
+        offset += ncoeff * newVecWidth * nElmtGroups;
+    }
+}

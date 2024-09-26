@@ -61,6 +61,15 @@ AddTraceIntegralKernel(const unsigned int nsize,
         });
 }
 
+// Launchers
+template <typename ExecSpace>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
+{
+}
+
 } // namespace Nektar::Operators::detail
 
 #endif

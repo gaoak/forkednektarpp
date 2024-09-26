@@ -76,7 +76,8 @@ public:
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
 
         // This jac is interleaved and ready to use.
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        size_t jacSize =
+            Operator<TData>::GetGeometricFactorSize(locblocks, vec_t::width);
         std::shared_ptr<std::vector<TData>> jac =
             Operator<TData>::SetJacobian(jacSize, locblocks, vec_t::width);
 
@@ -135,7 +136,7 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.num_elmt_groups;
+            m_nElmtGroup = inblock.GetNumElmtGroups(vec_t::width);
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();

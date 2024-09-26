@@ -74,6 +74,8 @@ ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
 # These AVX test do not work
 # AVX SumFac
 IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+    ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_math_avx
             COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_math_avx.cpp MathAVXKernelsLauncher.cpp)
     ADD_NEKTAR_EXECUTABLE(test_bwdtrans_avx_sumfac
@@ -238,6 +240,7 @@ SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+    SET_UNIT_TEST(AddTraceIntegral_avx_sumfac test_addtraceintegral_avx_sumfac FALSE)
     SET_UNIT_TEST(Math_avx test_math_avx FALSE)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)

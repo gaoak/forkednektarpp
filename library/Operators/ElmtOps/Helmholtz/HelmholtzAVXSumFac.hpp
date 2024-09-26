@@ -75,9 +75,10 @@ public:
         auto blocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
 
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize(blocks);
-        auto jac       = Operator<TData>::SetJacobian(jacSize, blocks);
-        m_jac = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
+        size_t jacSize =
+            Operator<TData>::GetGeometricFactorSize(blocks, vec_t::width);
+        auto jac = Operator<TData>::SetJacobian(jacSize, blocks);
+        m_jac    = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
             *jac, vec_t::alignment);
         auto derivFac = Operator<TData>::SetDerivativeFactor(jacSize, blocks);
         m_df = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
@@ -160,7 +161,7 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.num_elmt_groups;
+            m_nElmtGroup = inblock.GetNumElmtGroups(vec_t::width);
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();

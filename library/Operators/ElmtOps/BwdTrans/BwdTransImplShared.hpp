@@ -90,7 +90,8 @@ public:
             // Block dependent
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmtsPad = inblock.num_elmt_groups * inblock.width;
+            const auto nElmtsPad =
+                inblock.num_padding_elements + inblock.num_elements;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

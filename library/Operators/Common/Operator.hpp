@@ -450,25 +450,26 @@ protected:
     }
 
     // Vectorized Get/Set methods
-    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks)
+    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks,
+                                  const size_t width)
     {
         size_t gfSize = 0;
         size_t exp_id = 0;
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
+            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
 
             const auto expPtr = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                gfSize += num_metaBlocks * expPtr->GetTotPoints();
+                gfSize += num_elmt_groups * expPtr->GetTotPoints();
             }
             else
             {
-                gfSize += num_metaBlocks;
+                gfSize += num_elmt_groups;
             }
 
             exp_id += blocks[blk].num_elements;
@@ -489,10 +490,8 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements   = blocks[blk].num_elements;
-            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
-            size_t num_padding_elements =
-                num_metaBlocks * vec_t::width - num_elements;
+            size_t num_padding_elements = blocks[blk].num_padding_elements;
+            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(vec_t::width);
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 
@@ -502,7 +501,7 @@ protected:
                 Array<OneD, Array<OneD, NekDouble>> jacArray(vec_t::width);
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
 
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t i = 0; i < vec_t::width; ++i)
                     {
@@ -551,7 +550,7 @@ protected:
             {
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
 
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t i = 0; i < vec_t::width; ++i)
                     {
@@ -599,9 +598,8 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements         = blocks[blk].num_elements;
-            size_t num_metaBlocks       = blocks[blk].num_elmt_groups;
-            size_t num_padding_elements = num_metaBlocks * width - num_elements;
+            size_t num_padding_elements = blocks[blk].num_padding_elements;
+            size_t num_elmt_groups      = blocks[blk].GetNumElmtGroups(width);
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 
@@ -610,7 +608,7 @@ protected:
             {
                 Array<OneD, Array<OneD, NekDouble>> jacArray(width);
 
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t i = 0; i < width; ++i)
                     {
@@ -652,7 +650,7 @@ protected:
             }
             else // regular geometry
             {
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t i = 0; i < width; ++i)
                     {
@@ -696,12 +694,9 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements   = blocks[blk].num_elements;
-            size_t num_metaBlocks = blocks[blk].num_elmt_groups;
-            size_t num_padding_elements =
-                num_metaBlocks * vec_t::width - num_elements;
-
-            auto expPtr = this->m_expansionList->GetExp(exp_id);
+            size_t num_padding_elements = blocks[blk].num_padding_elements;
+            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(vec_t::width);
+            auto expPtr            = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
@@ -709,7 +704,7 @@ protected:
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
 
                 // loop over meta-blocks: except last one
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                     {
@@ -764,7 +759,7 @@ protected:
                 alignas(vec_t::alignment) NekDouble tmp[vec_t::width];
 
                 // loop over meta-blocks: except last one
-                for (size_t e = 0; e < num_metaBlocks - 1; ++e)
+                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
                 {
                     for (size_t d = 0; d < nDim * nCoord; ++d)
                     {

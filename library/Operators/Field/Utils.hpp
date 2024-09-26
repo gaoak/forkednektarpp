@@ -38,4 +38,3 @@
 #include "UtilsCUDA.hpp"
 #include "UtilsKokkos.hpp"
 #include "UtilsSYCL.hpp"
-#include "UtilsSerial.hpp"
