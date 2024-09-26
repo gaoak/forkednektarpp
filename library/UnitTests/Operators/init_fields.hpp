@@ -37,6 +37,8 @@
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/DisContField.h>
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraphIO.h>
+
 #include <Operators/Field/Field.hpp>
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
@@ -231,7 +233,7 @@ public:
         argv[1]     = meshName.data();
 
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
-        graph   = SpatialDomains::MeshGraph::Read(session);
+        graph   = SpatialDomains::MeshGraphIO::Read(session);
         if constexpr (std::is_same_v<TExpList, MultiRegions::ContField>)
         {
             fixt_explist =
