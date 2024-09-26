@@ -77,8 +77,7 @@ TEST_ASSMBSCATR(assmbscatr_cuda_tri, Tri, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_cuda_tri_varp, TriVarP, 1.0E-12)
 
-TEST_ASSMBSCATR(assmbscatr_cuda_square_all_elements, SquareAllElements,
-                1.0E-12)
+TEST_ASSMBSCATR(assmbscatr_cuda_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_ASSMBSCATR(assmbscatr_cuda_hex, Hex, 1.0E-12)
 

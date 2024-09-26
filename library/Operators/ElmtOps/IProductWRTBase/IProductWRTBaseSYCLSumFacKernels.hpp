@@ -1550,14 +1550,15 @@ void IProductWRTBaseTetKernel(
     constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_basis0         = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1         = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2         = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    TData *s_w0             = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1             = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2             = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1608,7 +1609,8 @@ void IProductWRTBaseTetKernel(
         TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
         TData *prod              = wsp1 + nq2 * nelmt;
 
-        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
+        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+             p < nm0; ++p)
         {
             for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
@@ -1642,7 +1644,8 @@ void IProductWRTBaseTetKernel(
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
 
-                for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
+                for (unsigned int r = 0u; r < nm2 - p - q;
+                     ++r, ++mode2, ++mode_pqr)
                 {
                     TData tmp = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k)
@@ -1792,18 +1795,19 @@ void IProductWRTBaseTetKernel_QP(
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + nm2;
-    TData *s_wsp1            = s_wsp0 + nqTot;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_prod           = shared;
+    TData *s_wsp0           = s_prod + nm2;
+    TData *s_wsp1           = s_wsp0 + nqTot;
+    TData *s_wsp2           = s_wsp1 + nm0 * nq1 * nq2;
+    TData *s_basis0         = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
+    TData *s_basis1         = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2         = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    TData *s_w0             = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1             = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2             = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -2101,12 +2105,13 @@ void IProductWRTBaseTetKernel_QP_1D(
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + nm2;
-    TData *s_wsp1            = s_wsp0 + nqTot;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    TData *s_prod           = shared;
+    TData *s_wsp0           = s_prod + nm2;
+    TData *s_wsp1           = s_wsp0 + nqTot;
+    TData *s_wsp2           = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
@@ -3075,13 +3080,14 @@ void IProductWRTBasePyrKernel(
     constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0              = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2              = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
+    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -3318,11 +3324,12 @@ void IProductWRTBasePyrKernel_QP(
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + 1u;
-    TData *s_wsp1            = s_wsp0 + nq0 * nq1 * nq2;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_prod   = shared;
+    TData *s_wsp0   = s_prod + 1u;
+    TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
+    TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -3616,11 +3623,12 @@ void IProductWRTBasePyrKernel_QP_1D(
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_prod            = shared;
-    TData *s_wsp0            = s_prod + 1u;
-    TData *s_wsp1            = s_wsp0 + nq0 * nq1 * nq2;
-    TData *s_wsp2            = s_wsp1 + nm0 * nq1 * nq2;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    TData *s_prod   = shared;
+    TData *s_wsp0   = s_prod + 1u;
+    TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
+    TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -3761,8 +3769,8 @@ void IProductWRTBasePyrKernel_QP_1D(
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot;
              idx += item_ct1.get_local_range(2))
         {
-            const unsigned int p     = pindex[idx];
-            const unsigned int q     = qindex[idx];
+            const unsigned int p = pindex[idx];
+            const unsigned int q = qindex[idx];
             const unsigned int mode2 =
                 idx +
                 ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
@@ -3868,57 +3876,49 @@ inline
         nshared += nq0;
 
         SYCLQueue::GetInstance()
-            .submit(
-                [&](sycl::handler &cgh)
-                {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            .submit([&](sycl::handler &cgh) {
+                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                      cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1)
-                        {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND,
-                                                        DEFORMED, SHMEM>(
-                                nm0, nq0, nelmts, basis0, w0, jac, in, out,
-                                item_ct1, shmPtr, scale);
-                        });
-                })
+                cgh.parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          sycl::range<3>(1, 1, blocksize),
+                                      sycl::range<3>(1, 1, blocksize)),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        TData *shmPtr = shared
+                                            .template get_multi_ptr<
+                                                sycl::access::decorated::no>()
+                                            .get();
+                        IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND,
+                                                    DEFORMED, SHMEM>(
+                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
+                            item_ct1, shmPtr, scale);
+                    });
+            })
             .wait();
     }
     else
     {
         SYCLQueue::GetInstance()
-            .submit(
-                [&](sycl::handler &cgh)
-                {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            .submit([&](sycl::handler &cgh) {
+                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                      cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1)
-                        {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseSegKernel<TData, SCALE, APPEND,
-                                                     DEFORMED, SHMEM>(
-                                nm0, nq0, nelmts, basis0, w0, jac, in, out,
-                                item_ct1, shmPtr, scale);
-                        });
-                })
+                cgh.parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          sycl::range<3>(1, 1, blocksize),
+                                      sycl::range<3>(1, 1, blocksize)),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        TData *shmPtr = shared
+                                            .template get_multi_ptr<
+                                                sycl::access::decorated::no>()
+                                            .get();
+                        IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED,
+                                                 SHMEM>(
+                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
+                            item_ct1, shmPtr, scale);
+                    });
+            })
             .wait();
     }
 }
@@ -3956,60 +3956,53 @@ inline
         {
             nshared += nq0 * nq1 + nm0 * nq1;
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize2d,
-                                              blocksize2d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseQuadKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
-                                    basis1, w0, w1, jac, in, out, item_ct1,
-                                    shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize2d,
+                                          blocksize2d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseQuadKernel_QP<TData, SCALE, APPEND,
+                                                         DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
+                                basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
+                                scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseQuadKernel<TData, SCALE, APPEND,
-                                                          DEFORMED, SHMEM>(
-                                    nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
-                                    basis1, w0, w1, jac, wsp, in, out, item_ct1,
-                                    shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseQuadKernel<TData, SCALE, APPEND,
+                                                      DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
+                                basis1, w0, w1, jac, wsp, in, out, item_ct1,
+                                shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }
@@ -4023,60 +4016,53 @@ inline
         {
             nshared += nq0 * nq1 + nm0 * nq1 + 1u;
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize2d,
-                                              blocksize2d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseTriKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                    basis0, basis1, w0, w1, jac, in, out,
-                                    item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize2d,
+                                          blocksize2d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTriKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
+                                basis0, basis1, w0, w1, jac, in, out, item_ct1,
+                                shmPtr, scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseTriKernel<TData, SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                    basis0, basis1, w0, w1, jac, wsp, in, out,
-                                    item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTriKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
+                                basis0, basis1, w0, w1, jac, wsp, in, out,
+                                item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }
@@ -4120,60 +4106,53 @@ inline
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize3d,
-                                              blocksize3d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseHexKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    basis0, basis1, basis2, w0, w1, w2, jac, in,
-                                    out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseHexKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                basis0, basis1, basis2, w0, w1, w2, jac, in,
+                                out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseHexKernel<TData, SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    basis0, basis1, basis2, w0, w1, w2, jac,
-                                    wsp, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseHexKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                basis0, basis1, basis2, w0, w1, w2, jac, wsp,
+                                in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }
@@ -4181,70 +4160,65 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 : 0u;
+            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2
+                  : 0u;
 
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize3d,
-                                              blocksize3d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseTetKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTetKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBaseTetKernel<TData, SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, wsp, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBaseTetKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }
@@ -4261,60 +4235,53 @@ inline
             nshared +=
                 nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nm1;
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize3d,
-                                              blocksize3d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBasePrismKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePrismKernel_QP<TData, SCALE, APPEND,
+                                                          DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBasePrismKernel<TData, SCALE, APPEND,
-                                                           DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, wsp, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePrismKernel<TData, SCALE, APPEND,
+                                                       DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }
@@ -4322,7 +4289,8 @@ inline
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         unsigned int nshared =
             SHMEM ? nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 : 0u;
 
@@ -4330,60 +4298,53 @@ inline
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                  blocksize3d,
-                                              blocksize3d),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBasePyrKernel_QP<
-                                    TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              blocksize3d,
+                                          blocksize3d),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND,
+                                                        DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTBasePyrKernel<TData, SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                                    correct, basis0, basis1, basis2, w0, w1, w2,
-                                    jac, wsp, in, out, item_ct1, shmPtr, scale);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTBasePyrKernel<TData, SCALE, APPEND,
+                                                     DEFORMED, SHMEM>(
+                                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+                                correct, basis0, basis1, basis2, w0, w1, w2,
+                                jac, wsp, in, out, item_ct1, shmPtr, scale);
+                        });
+                })
                 .wait();
         }
     }

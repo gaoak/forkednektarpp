@@ -260,7 +260,7 @@ public:
             testModule.find("KOKKOS") != std::string::npos)
         {
             auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                NektarSpaces::KOKKOS::width);
+                                                 NektarSpaces::KOKKOS::width);
             auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
                                                  NektarSpaces::KOKKOS::width);
             auto f_in =
@@ -288,7 +288,7 @@ public:
         else if (testModule.find("CUDA") != std::string::npos)
         {
             auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                NektarSpaces::CUDA::width);
+                                                 NektarSpaces::CUDA::width);
             auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
                                                  NektarSpaces::CUDA::width);
             auto f_in =
@@ -315,7 +315,7 @@ public:
         else if (testModule.find("SYCL") != std::string::npos)
         {
             auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                NektarSpaces::SYCL::width);
+                                                 NektarSpaces::SYCL::width);
             auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
                                                  NektarSpaces::SYCL::width);
             auto f_in =
@@ -342,7 +342,7 @@ public:
         else if (testModule.find("AVX") != std::string::npos)
         {
             auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                NektarSpaces::AVX::width);
+                                                 NektarSpaces::AVX::width);
             auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
                                                  NektarSpaces::AVX::width);
             auto f_in =
@@ -361,7 +361,7 @@ public:
         else
         {
             auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                NektarSpaces::Serial::width);
+                                                 NektarSpaces::Serial::width);
             auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
                                                  NektarSpaces::Serial::width);
             auto f_in =

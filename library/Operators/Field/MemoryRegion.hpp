@@ -185,9 +185,9 @@ public:
      * @return    - TData*
      */
     template <typename MemSpace, typename MemQualifier>
-    typename const_if<std::is_same<MemQualifier, ReadOnly>::value, TData>::type
-        *
-        GetPtr()
+    typename const_if<std::is_same<MemQualifier, ReadOnly>::value,
+                      TData>::type *
+    GetPtr()
     {
         if (m_storage == nullptr)
         {

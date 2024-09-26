@@ -1533,8 +1533,9 @@ void IProductWRTBaseTetKernel(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -1570,10 +1571,11 @@ void IProductWRTBaseTetKernel(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -1777,8 +1779,9 @@ void IProductWRTBaseTetKernel_QP(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -1818,10 +1821,11 @@ void IProductWRTBaseTetKernel_QP(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -1903,16 +1907,15 @@ void IProductWRTBaseTetKernel_QP(
                         {
                             const unsigned int mode_pq =
                                 (2u * nm1 - p + 1u) * p / 2u + q;
-                            unsigned int mode2 =
-                                (2u * (nm2 - p) - q + 1u) * q;
+                            unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
                             mode2 += nm2 * (nm2 + 1u) * p;
                             mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
                             mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
                             mode2 /= 2u;
                             const unsigned int mode_pqr =
-                            mode2 - ((nm2 > nm1)
-                                    ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                    : 0u);
+                                mode2 - ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) *
+                                                           (nm2 - nm1) / 2u
+                                                     : 0u);
                             const unsigned int index = outoffset + mode_pqr + r;
 
                             TData tmp = 0.0;
@@ -2034,8 +2037,9 @@ void IProductWRTBaseTetKernel_QP_1D(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -2081,9 +2085,9 @@ void IProductWRTBaseTetKernel_QP_1D(
                         mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
                         mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
                         mode_pqr /= 2u;
-                        mode_pqr -= ((nm2 > nm1)
-                                     ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                     : 0u);
+                        mode_pqr -= ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) *
+                                                       (nm2 - nm1) / 2u
+                                                 : 0u);
                         for (unsigned int r = 0; r < nm2 - p - q;
                              r++, mode_pqr++)
                         {
@@ -2106,10 +2110,11 @@ void IProductWRTBaseTetKernel_QP_1D(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -2177,39 +2182,40 @@ void IProductWRTBaseTetKernel_QP_1D(
 
             team.team_barrier();
 
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmTot),
-                                 [&](const unsigned int &idx) {
-                                     const unsigned int p     = pindex2[idx];
-                                     const unsigned int q     = qindex2[idx];
-                                     const unsigned int index = outoffset + idx;
-                                     const unsigned int mode_pq =
-                                         (2u * nm1 - p + 1u) * p / 2u + q;
-                                     const unsigned int mode2 =
-                                         idx +
-                                         ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) {
+                    const unsigned int p     = pindex2[idx];
+                    const unsigned int q     = qindex2[idx];
+                    const unsigned int index = outoffset + idx;
+                    const unsigned int mode_pq =
+                        (2u * nm1 - p + 1u) * p / 2u + q;
+                    const unsigned int mode2 =
+                        idx + ((nm2 > nm1)
+                                   ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                   : 0u);
 
-                                     TData tmp = 0.0;
-                                     for (unsigned int k = 0u; k < nq2; ++k)
-                                     {
-                                         tmp += s_wsp2[mode_pq * nq2 + k] *
-                                                s_basis2[mode2 * nq2 + k] *
-                                                s_w2[k];
-                                     }
+                    TData tmp = 0.0;
+                    for (unsigned int k = 0u; k < nq2; ++k)
+                    {
+                        tmp += s_wsp2[mode_pq * nq2 + k] *
+                               s_basis2[mode2 * nq2 + k] * s_w2[k];
+                    }
 
-                                     if (SCALE)
-                                     {
-                                         tmp *= scale;
-                                     }
+                    if (SCALE)
+                    {
+                        tmp *= scale;
+                    }
 
-                                     if (APPEND)
-                                     {
-                                         out[index] += tmp;
-                                     }
-                                     else
-                                     {
-                                         out[index] = tmp;
-                                     }
-                                 });
+                    if (APPEND)
+                    {
+                        out[index] += tmp;
+                    }
+                    else
+                    {
+                        out[index] = tmp;
+                    }
+                });
 
             // Add correction for collapsed coordinate.
             if (correct)
@@ -2958,7 +2964,8 @@ void IProductWRTBasePyrKernel(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -2994,10 +3001,11 @@ void IProductWRTBasePyrKernel(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -3056,7 +3064,8 @@ void IProductWRTBasePyrKernel(
                             sum_k;
                     }
 
-                    for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - p;
+                         ++r, ++mode2, ++mode_pqr)
                     {
                         TData sum_k = 0.0;
                         for (unsigned int k = 0u; k < nq2; ++k)
@@ -3099,7 +3108,8 @@ void IProductWRTBasePyrKernel(
                             sum_k;
                     }
 
-                    for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
+                    for (unsigned int r = 0u; r < nm2 - q;
+                         ++r, ++mode2, ++mode_pqr)
                     {
                         TData sum_k = 0.0;
                         for (unsigned int k = 0u; k < nq2; ++k)
@@ -3204,7 +3214,8 @@ void IProductWRTBasePyrKernel_QP(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -3245,10 +3256,11 @@ void IProductWRTBasePyrKernel_QP(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -3321,7 +3333,8 @@ void IProductWRTBasePyrKernel_QP(
                 [&](const unsigned int &r, const unsigned int &q,
                     const unsigned int &p) {
                     unsigned int mode2 =
-                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u;
+                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                    : 0u;
                     unsigned int mode_pq = nm1 * (2u * nm2 + 1u - nm1) * p;
                     mode_pq -= (p - 1u) * p / 2u;
                     mode_pq -= (p - 1u) * p * (2u * p - 1u) / 6u;
@@ -3455,7 +3468,8 @@ void IProductWRTBasePyrKernel_QP_1D(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+    const unsigned int nmode2 =
+        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -3534,10 +3548,11 @@ void IProductWRTBasePyrKernel_QP_1D(
                                          s_basis1[idx] = basis1[idx];
                                      });
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                                     [&](const unsigned int &idx) {
-                                         s_basis2[idx] = basis2[idx];
-                                     });
+                Kokkos::parallel_for(
+                    Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                    [&](const unsigned int &idx) {
+                        s_basis2[idx] = basis2[idx];
+                    });
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
@@ -3607,19 +3622,20 @@ void IProductWRTBasePyrKernel_QP_1D(
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nmTot),
                 [&](const unsigned int &idx) {
-                    const unsigned int p     = pindex[idx];
-                    const unsigned int q     = qindex[idx];
+                    const unsigned int p = pindex[idx];
+                    const unsigned int q = qindex[idx];
                     const unsigned int mode2 =
-                        idx +
-                        ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
+                        idx + ((nm2 > nm1)
+                                   ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
+                                   : 0u);
                     const unsigned int index = outoffset + idx;
                     unsigned int cnt_pqk     = nm1 * nq2 * p + nq2 * q;
 
                     TData sum_k = 0.0;
                     for (unsigned int k = 0u; k < nq2; ++k, ++cnt_pqk)
                     {
-                        sum_k +=
-                            s_basis2[mode2 * nq2 + k] * s_w2[k] * s_wsp2[cnt_pqk];
+                        sum_k += s_basis2[mode2 * nq2 + k] * s_w2[k] *
+                                 s_wsp2[cnt_pqk];
                     }
                     if (SCALE)
                     {
@@ -3818,10 +3834,12 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         const unsigned int nmTot =
             LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
         unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 : 0u;
+            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2
+                  : 0u;
 
         if constexpr (MULTILEVEL)
         {
@@ -3896,16 +3914,18 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         const unsigned int nmTot =
             LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+        const unsigned int nmode2 =
+            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
         unsigned int nshared =
             SHMEM ? nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 : 0u;
 
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
-            /*IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
-                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);*/
+            /*IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED,
+               SHMEM>( nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
+               correct, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
+               scale);*/
             unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));

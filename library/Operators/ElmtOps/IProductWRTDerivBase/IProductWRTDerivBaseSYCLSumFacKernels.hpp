@@ -614,8 +614,7 @@ inline
             .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                 sycl::range<3>(1, 1, blocksize),
                                             sycl::range<3>(1, 1, blocksize)),
-                          [=](sycl::nd_item<3> item_ct1)
-                          {
+                          [=](sycl::nd_item<3> item_ct1) {
                               IProductWRTDerivBase1DKernel_QP<TData, DEFORMED>(
                                   nq0, ncoord, nelmts, nsize, dfsize, df, in,
                                   out, item_ct1);
@@ -628,8 +627,7 @@ inline
             .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                 sycl::range<3>(1, 1, blocksize),
                                             sycl::range<3>(1, 1, blocksize)),
-                          [=](sycl::nd_item<3> item_ct1)
-                          {
+                          [=](sycl::nd_item<3> item_ct1) {
                               IProductWRTDerivBase1DKernel<TData, DEFORMED>(
                                   nq0, ncoord, nelmts, nsize, dfsize, df, in,
                                   out, item_ct1);
@@ -668,8 +666,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize2d,
                                                 blocksize2d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase2DKernel_QP<
                                       TData, LibUtilities::Quad, DEFORMED>(
                                       nq0, nq1, ncoord, nelmts, nsize, dfsize,
@@ -680,31 +677,27 @@ inline
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
-                                                              cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
+                                                          cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase2DKernel<
-                                    TData, LibUtilities::Quad, DEFORMED>(
-                                    nq0, nq1, ncoord, nelmts, nsize, dfsize,
-                                    nullptr, nullptr, df, in, out, item_ct1,
-                                    shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase2DKernel<
+                                TData, LibUtilities::Quad, DEFORMED>(
+                                nq0, nq1, ncoord, nelmts, nsize, dfsize,
+                                nullptr, nullptr, df, in, out, item_ct1,
+                                shmPtr);
+                        });
+                })
                 .wait();
         }
     }
@@ -716,8 +709,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize2d,
                                                 blocksize2d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase2DKernel_QP<
                                       TData, LibUtilities::Tri, DEFORMED>(
                                       nq0, nq1, ncoord, nelmts, nsize, dfsize,
@@ -730,30 +722,26 @@ inline
             unsigned int nshared = nq0 + nq1;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase2DKernel<
-                                    TData, LibUtilities::Tri, DEFORMED>(
-                                    nq0, nq1, ncoord, nelmts, nsize, dfsize, Z0,
-                                    Z1, df, in, out, item_ct1, shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase2DKernel<
+                                TData, LibUtilities::Tri, DEFORMED>(
+                                nq0, nq1, ncoord, nelmts, nsize, dfsize, Z0, Z1,
+                                df, in, out, item_ct1, shmPtr);
+                        });
+                })
                 .wait();
         }
     }
@@ -790,8 +778,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize3d,
                                                 blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase3DKernel_QP<
                                       TData, LibUtilities::Hex, DEFORMED>(
                                       nq0, nq1, nq2, ncoord, nelmts, nsize,
@@ -803,31 +790,27 @@ inline
         else
         {
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
-                                                              cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
+                                                          cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase3DKernel<
-                                    TData, LibUtilities::Hex, DEFORMED>(
-                                    nq0, nq1, nq2, ncoord, nelmts, nsize,
-                                    dfsize, nullptr, nullptr, nullptr, df, in,
-                                    out, item_ct1, shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase3DKernel<
+                                TData, LibUtilities::Hex, DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize,
+                                nullptr, nullptr, nullptr, df, in, out,
+                                item_ct1, shmPtr);
+                        });
+                })
                 .wait();
         }
     }
@@ -839,8 +822,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize3d,
                                                 blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase3DKernel_QP<
                                       TData, LibUtilities::Tet, DEFORMED>(
                                       nq0, nq1, nq2, ncoord, nelmts, nsize,
@@ -854,31 +836,26 @@ inline
             unsigned int nshared = nq0 + 2 * nq1 + nq2;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase3DKernel<
-                                    TData, LibUtilities::Tet, DEFORMED>(
-                                    nq0, nq1, nq2, ncoord, nelmts, nsize,
-                                    dfsize, Z0, Z1, Z2, df, in, out, item_ct1,
-                                    shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase3DKernel<
+                                TData, LibUtilities::Tet, DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize,
+                                Z0, Z1, Z2, df, in, out, item_ct1, shmPtr);
+                        });
+                })
                 .wait();
         }
     }
@@ -890,8 +867,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize3d,
                                                 blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase3DKernel_QP<
                                       TData, LibUtilities::Prism, DEFORMED>(
                                       nq0, nq1, nq2, ncoord, nelmts, nsize,
@@ -905,31 +881,26 @@ inline
             unsigned int nshared = nq0 + nq2;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase3DKernel<
-                                    TData, LibUtilities::Prism, DEFORMED>(
-                                    nq0, nq1, nq2, ncoord, nelmts, nsize,
-                                    dfsize, Z0, nullptr, Z2, df, in, out,
-                                    item_ct1, shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase3DKernel<
+                                TData, LibUtilities::Prism, DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize,
+                                Z0, nullptr, Z2, df, in, out, item_ct1, shmPtr);
+                        });
+                })
                 .wait();
         }
     }
@@ -941,8 +912,7 @@ inline
                 .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                                     blocksize3d,
                                                 blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1)
-                              {
+                              [=](sycl::nd_item<3> item_ct1) {
                                   IProductWRTDerivBase3DKernel_QP<
                                       TData, LibUtilities::Pyr, DEFORMED>(
                                       nq0, nq1, nq2, ncoord, nelmts, nsize,
@@ -956,31 +926,26 @@ inline
             unsigned int nshared = nq0 + nq1 + nq2;
 
             SYCLQueue::GetInstance()
-                .submit(
-                    [&](sycl::handler &cgh)
-                    {
-                        sycl::local_accessor<TData, 1> shared(
-                            sycl::range<1>(nshared), cgh);
+                .submit([&](sycl::handler &cgh) {
+                    sycl::local_accessor<TData, 1> shared(
+                        sycl::range<1>(nshared), cgh);
 
-                        cgh.parallel_for(
-                            sycl::nd_range<3>(
-                                sycl::range<3>(1, 1, gridsize) *
-                                    sycl::range<3>(1, 1, blocksize),
-                                sycl::range<3>(1, 1, blocksize)),
-                            [=](sycl::nd_item<3> item_ct1)
-                            {
-                                TData *shmPtr =
-                                    shared
-                                        .template get_multi_ptr<
-                                            sycl::access::decorated::no>()
-                                        .get();
-                                IProductWRTDerivBase3DKernel<
-                                    TData, LibUtilities::Pyr, DEFORMED>(
-                                    nq0, nq1, nq2, ncoord, nelmts, nsize,
-                                    dfsize, Z0, Z1, Z2, df, in, out, item_ct1,
-                                    shmPtr);
-                            });
-                    })
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                              sycl::range<3>(1, 1, blocksize),
+                                          sycl::range<3>(1, 1, blocksize)),
+                        [=](sycl::nd_item<3> item_ct1) {
+                            TData *shmPtr =
+                                shared
+                                    .template get_multi_ptr<
+                                        sycl::access::decorated::no>()
+                                    .get();
+                            IProductWRTDerivBase3DKernel<
+                                TData, LibUtilities::Pyr, DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, dfsize,
+                                Z0, Z1, Z2, df, in, out, item_ct1, shmPtr);
+                        });
+                })
                 .wait();
         }
     }

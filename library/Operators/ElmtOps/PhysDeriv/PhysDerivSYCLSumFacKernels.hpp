@@ -969,45 +969,36 @@ inline
 
     if constexpr (MULTILEVEL)
     {
-        Q.submit(
-             [=](sycl::handler &cgh)
-             {
-                 const sycl::range<3> localSize(1, 1,
-                                                NektarSpaces::SYCL::width);
-                 const sycl::range<3> globalSize(
-                     1, 1, gridsize * NektarSpaces::SYCL::width);
+        Q.submit([=](sycl::handler &cgh) {
+             const sycl::range<3> localSize(1, 1, NektarSpaces::SYCL::width);
+             const sycl::range<3> globalSize(
+                 1, 1, gridsize * NektarSpaces::SYCL::width);
 
-                 cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
-                                  [=](sycl::nd_item<3> item)
-                                  {
-                                      PhysDeriv1DKernel_QP<TData, DEFORMED>(
-                                          nq0, ncoord, nelmts, nsize, dfsize,
-                                          D0, df, in, out, item);
-                                  });
-             })
-            .wait();
+             cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
+                              [=](sycl::nd_item<3> item) {
+                                  PhysDeriv1DKernel_QP<TData, DEFORMED>(
+                                      nq0, ncoord, nelmts, nsize, dfsize, D0,
+                                      df, in, out, item);
+                              });
+         }).wait();
     }
     else
     {
-        Q.submit(
-             [=](sycl::handler &cgh)
-             {
-                 sycl::local_accessor<TData, 1> shared(
-                     sycl::range<1>(nq0 * nq0), cgh);
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nq0 * nq0),
+                                                   cgh);
 
-                 const sycl::range<3> localSize(1, 1, blocksize);
-                 const sycl::range<3> globalSize(1, 1, gridsize * blocksize);
+             const sycl::range<3> localSize(1, 1, blocksize);
+             const sycl::range<3> globalSize(1, 1, gridsize * blocksize);
 
-                 cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
-                                  [=](sycl::nd_item<3> item)
-                                  {
-                                      TData *shmPtr = shared.get_pointer();
-                                      PhysDeriv1DKernel<TData, DEFORMED>(
-                                          nq0, ncoord, nelmts, nsize, dfsize,
-                                          D0, df, in, out, shmPtr, item);
-                                  });
-             })
-            .wait();
+             cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
+                              [=](sycl::nd_item<3> item) {
+                                  TData *shmPtr = shared.get_pointer();
+                                  PhysDeriv1DKernel<TData, DEFORMED>(
+                                      nq0, ncoord, nelmts, nsize, dfsize, D0,
+                                      df, in, out, shmPtr, item);
+                              });
+         }).wait();
     }
 }
 
@@ -1043,66 +1034,54 @@ inline
         {
             nshared += nq0 * nq1;
 
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     // Create local shared memory
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     // Set WorkGroup dimensions
-                     sycl::range<3> globalSize =
-                         sycl::range<3>(1, 1, gridsize) * blocksize2d;
+                 // Set WorkGroup dimensions
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * blocksize2d;
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(globalSize, blocksize2d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv2DKernel_QP<TData, LibUtilities::Quad,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, ncoord, nelmts, nsize, dfsize, D0,
-                                 D1, nullptr, nullptr, df, in, out, shmPtr,
-                                 item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, blocksize2d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv2DKernel_QP<TData, LibUtilities::Quad,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
+                             nullptr, nullptr, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
         else
         {
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     // Create local shared memory
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     // Set WorkGroup dimensions
-                     const sycl::range<3> wgSize(1, 1, blocksize);
-                     const sycl::range<3> globalSize =
-                         sycl::range<3>(1, 1, gridsize) * wgSize;
+                 // Set WorkGroup dimensions
+                 const sycl::range<3> wgSize(1, 1, blocksize);
+                 const sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(globalSize, wgSize),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv2DKernel<TData, LibUtilities::Quad,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, ncoord, nelmts, nsize, dfsize, D0,
-                                 D1, nullptr, nullptr, df, in, out, shmPtr,
-                                 item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, wgSize),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED,
+                                           SHMEM>(
+                             nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
+                             nullptr, nullptr, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -1111,65 +1090,55 @@ inline
         {
             nshared += nq0 * nq1;
 
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     // Create local shared memory
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
-                     // Set WorkGroup dimensions
-                     sycl::range<3> globalSize =
-                         sycl::range<3>(1, 1, gridsize) * blocksize2d;
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
+                 // Set WorkGroup dimensions
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * blocksize2d;
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(globalSize, blocksize2d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv2DKernel_QP<TData, LibUtilities::Tri,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, ncoord, nelmts, nsize, dfsize, D0,
-                                 D1, Z0, Z1, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, blocksize2d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv2DKernel_QP<TData, LibUtilities::Tri,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
+                             Z0, Z1, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
         else
         {
             nshared += nq0 * nq1;
 
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     // Create local shared memory
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 // Create local shared memory
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     // Set WorkGroup dimensions
-                     sycl::range<3> wgSize(1, 1, blocksize);
-                     sycl::range<3> globalSize =
-                         sycl::range<3>(1, 1, gridsize) * wgSize;
+                 // Set WorkGroup dimensions
+                 sycl::range<3> wgSize(1, 1, blocksize);
+                 sycl::range<3> globalSize =
+                     sycl::range<3>(1, 1, gridsize) * wgSize;
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(globalSize, wgSize),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv2DKernel<TData, LibUtilities::Tri,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, ncoord, nelmts, nsize, dfsize, D0,
-                                 D1, Z0, Z1, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(globalSize, wgSize),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED,
+                                           SHMEM>(nq0, nq1, ncoord, nelmts,
+                                                  nsize, dfsize, D0, D1, Z0, Z1,
+                                                  df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
 }
@@ -1207,59 +1176,49 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               blocksize3d,
-                                           blocksize3d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel_QP<TData, LibUtilities::Hex,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, nullptr, nullptr, nullptr, df, in, out,
-                                 shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel_QP<TData, LibUtilities::Hex,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             nullptr, nullptr, nullptr, df, in, out, shmPtr,
+                             item);
+                     });
+             }).wait();
         }
         else
         {
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               sycl::range<3>(1, 1, blocksize),
-                                           sycl::range<3>(1, 1, blocksize)),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel<TData, LibUtilities::Hex,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, nullptr, nullptr, nullptr, df, in, out,
-                                 shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED,
+                                           SHMEM>(nq0, nq1, nq2, nelmts, nsize,
+                                                  dfsize, D0, D1, D2, nullptr,
+                                                  nullptr, nullptr, df, in, out,
+                                                  shmPtr, item);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -1267,58 +1226,48 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               blocksize3d,
-                                           blocksize3d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel_QP<TData, LibUtilities::Tet,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, Z1, Z2, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel_QP<TData, LibUtilities::Tet,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, Z1, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
         else
         {
             nshared += nq0 + 2u * nq1 + nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               sycl::range<3>(1, 1, blocksize),
-                                           sycl::range<3>(1, 1, blocksize)),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel<TData, LibUtilities::Tet,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, Z1, Z2, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED,
+                                           SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, Z1, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -1326,60 +1275,48 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               blocksize3d,
-                                           blocksize3d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel_QP<TData, LibUtilities::Prism,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, nullptr, Z2, df, in, out, shmPtr,
-                                 item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel_QP<TData, LibUtilities::Prism,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, nullptr, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
         else
         {
             nshared += nq0 + nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               sycl::range<3>(1, 1, blocksize),
-                                           sycl::range<3>(1, 1, blocksize)),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel<TData, LibUtilities::Prism,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, nullptr, Z2, df, in, out, shmPtr,
-                                 item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED,
+                                           SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, nullptr, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -1387,58 +1324,48 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               blocksize3d,
-                                           blocksize3d),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel_QP<TData, LibUtilities::Pyr,
-                                                  DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, Z1, Z2, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize3d,
+                                       blocksize3d),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel_QP<TData, LibUtilities::Pyr,
+                                              DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, Z1, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
         else
         {
             nshared += nq0 + nq1 + nq2;
-            Q.submit(
-                 [=](sycl::handler &cgh)
-                 {
-                     sycl::local_accessor<TData, 1> shared(
-                         sycl::range<1>(nshared), cgh);
+            Q.submit([=](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                     cgh.parallel_for(
-                         sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                               sycl::range<3>(1, 1, blocksize),
-                                           sycl::range<3>(1, 1, blocksize)),
-                         [=](sycl::nd_item<3> item)
-                         {
-                             TData *shmPtr =
-                                 shared
-                                     .template get_multi_ptr<
-                                         sycl::access::decorated::no>()
-                                     .get();
-                             PhysDeriv3DKernel<TData, LibUtilities::Pyr,
-                                               DEFORMED, SHMEM>(
-                                 nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1,
-                                 D2, Z0, Z1, Z2, df, in, out, shmPtr, item);
-                         });
-                 })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED,
+                                           SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
+                             Z0, Z1, Z2, df, in, out, shmPtr, item);
+                     });
+             }).wait();
         }
     }
 }

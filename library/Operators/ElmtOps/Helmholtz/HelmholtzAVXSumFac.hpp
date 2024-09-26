@@ -217,7 +217,7 @@ public:
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
             }
-            //#include "Operators/Common/SwitchLevel2Deformed.h"
+            // #include "Operators/Common/SwitchLevel2Deformed.h"
 
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;

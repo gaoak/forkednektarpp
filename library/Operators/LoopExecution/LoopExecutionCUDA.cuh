@@ -66,7 +66,8 @@ __device__ __forceinline__ float atomicMax_block(float *address, float val)
     while (val > __int_as_float(ret))
     {
         int old = ret;
-        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) == old)
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
+            old)
             break;
     }
     return __int_as_float(ret);
@@ -92,7 +93,7 @@ __device__ __forceinline__ double atomicMax_block(double *address, double val)
     {
         unsigned long long old = ret;
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
+                                   __double_as_longlong(val))) == old)
             break;
     }
     return __longlong_as_double(ret);
@@ -116,7 +117,8 @@ __device__ __forceinline__ float atomicMin_block(float *address, float val)
     while (val < __int_as_float(ret))
     {
         int old = ret;
-        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) == old)
+        if ((ret = atomicCAS_block((int *)address, old, __float_as_int(val))) ==
+            old)
             break;
     }
     return __int_as_float(ret);
@@ -142,7 +144,7 @@ __device__ __forceinline__ double atomicMin_block(double *address, double val)
     {
         unsigned long long old = ret;
         if ((ret = atomicCAS_block((unsigned long long *)address, old,
-                             __double_as_longlong(val))) == old)
+                                   __double_as_longlong(val))) == old)
             break;
     }
     return __longlong_as_double(ret);

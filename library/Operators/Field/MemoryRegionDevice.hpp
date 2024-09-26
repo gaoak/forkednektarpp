@@ -106,8 +106,8 @@ public:
      * @brief Constructor methods - no base, copy methods
      *
      */
-    MemoryRegionDevice()                              = delete;
-    MemoryRegionDevice(const MemoryRegionDevice &rhs) = delete;
+    MemoryRegionDevice()                                         = delete;
+    MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
     MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
 
     /**
@@ -263,8 +263,8 @@ public:
     void operator=(MemoryRegionDevice &&rhs)
     {
         MemoryRegionHost<TData>::operator=(std::move(rhs));
-        m_device                         = rhs.m_device;
-        m_device_valid                   = rhs.m_device_valid;
+        m_device       = rhs.m_device;
+        m_device_valid = rhs.m_device_valid;
 
         rhs.m_device       = nullptr;
         rhs.m_device_valid = false;

@@ -295,20 +295,20 @@ public:
     }
 
     //
-    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>>
-        &GetTraceCoeffsToElmtMap() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtMap() const
     {
         return m_traceCoeffsToElmtMap;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>>
-        &GetTraceCoeffsToElmtTrace() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtTrace() const
     {
         return m_traceCoeffsToElmtTrace;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>>
-        &GetTraceCoeffsToElmtSign() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, Array<OneD, int>> &
+    GetTraceCoeffsToElmtSign() const
     {
         return m_traceCoeffsToElmtSign;
     }

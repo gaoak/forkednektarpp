@@ -135,16 +135,14 @@ inline
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit(
-         [=](sycl::handler &cgh)
-         {
-             cgh.parallel_for(
-                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                                   sycl::range<3>(1, 1, blockSize)),
-                 [=](sycl::nd_item<3> item)
-                 { DiffusionCoeff1DKernel(nsize, diffCoeff, deriv0, item); });
-         })
-        .wait();
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(
+             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
+                               sycl::range<3>(1, 1, blockSize)),
+             [=](sycl::nd_item<3> item) {
+                 DiffusionCoeff1DKernel(nsize, diffCoeff, deriv0, item);
+             });
+     }).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -158,25 +156,21 @@ inline
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit(
-         [=](sycl::handler &cgh)
-         {
-             // Create local shared memory
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(4), cgh);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                                   sycl::range<3>(1, 1, blockSize)),
-                 [=](sycl::nd_item<3> item)
-                 {
-                     TData *shmPtr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
-                     DiffusionCoeff2DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                            shmPtr, item);
-                 });
-         })
-        .wait();
+    Q.submit([=](sycl::handler &cgh) {
+         // Create local shared memory
+         sycl::local_accessor<TData, 1> shared(sycl::range<1>(4), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
+                               sycl::range<3>(1, 1, blockSize)),
+             [=](sycl::nd_item<3> item) {
+                 TData *shmPtr =
+                     shared
+                         .template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+                 DiffusionCoeff2DKernel(nsize, diffCoeff, deriv0, deriv1,
+                                        shmPtr, item);
+             });
+     }).wait();
 }
 
 template <typename ExecSpace, typename TData>
@@ -190,25 +184,21 @@ inline
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
-    Q.submit(
-         [=](sycl::handler &cgh)
-         {
-             // Create local shared memory
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(9), cgh);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                                   sycl::range<3>(1, 1, blockSize)),
-                 [=](sycl::nd_item<3> item)
-                 {
-                     TData *shmPtr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
-                     DiffusionCoeff3DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                            deriv2, shmPtr, item);
-                 });
-         })
-        .wait();
+    Q.submit([=](sycl::handler &cgh) {
+         // Create local shared memory
+         sycl::local_accessor<TData, 1> shared(sycl::range<1>(9), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
+                               sycl::range<3>(1, 1, blockSize)),
+             [=](sycl::nd_item<3> item) {
+                 TData *shmPtr =
+                     shared
+                         .template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+                 DiffusionCoeff3DKernel(nsize, diffCoeff, deriv0, deriv1,
+                                        deriv2, shmPtr, item);
+             });
+     }).wait();
 }
 
 } // namespace Nektar::Operators::detail

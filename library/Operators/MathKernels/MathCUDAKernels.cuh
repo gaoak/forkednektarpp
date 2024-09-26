@@ -803,7 +803,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
         {
             const float4 v4 = reinterpret_cast<const float4 *>(x)[tid];
             v               = max(v,
-                    max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
+                                  max(max(abs(v4.x), abs(v4.y)), max(abs(v4.z), abs(v4.w))));
         }
     }
     else if constexpr (vl && std::is_same_v<TData, double>)

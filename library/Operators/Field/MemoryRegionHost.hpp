@@ -67,8 +67,8 @@ public:
      * @brief Constructor methods - no base, copy methods
      *
      */
-    MemoryRegionHost()                            = delete;
-    MemoryRegionHost(const MemoryRegionHost &rhs) = delete;
+    MemoryRegionHost()                                       = delete;
+    MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
     MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
 
     /**
