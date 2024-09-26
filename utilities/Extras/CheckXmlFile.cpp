@@ -36,6 +36,7 @@
 #include <cstdlib>
 
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -63,7 +64,7 @@ int main(int argc, char *argv[])
     // Read in mesh from input file
     string meshfile(argv[argc - 1]);
     SpatialDomains::MeshGraphSharedPtr mesh =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
     //----------------------------------------------
 
     //----------------------------------------------

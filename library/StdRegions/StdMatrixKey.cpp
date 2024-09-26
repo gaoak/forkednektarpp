@@ -224,11 +224,11 @@ bool operator==(const StdMatrixKey &lhs, const StdMatrixKey &rhs)
     {
         return false;
     }
-    else
+
+    if (!std::equal(lhs.m_factors.begin(), lhs.m_factors.end(),
+                    rhs.m_factors.begin()))
     {
-        return lhs.m_factors.size() == rhs.m_factors.size() &&
-               std::equal(lhs.m_factors.begin(), lhs.m_factors.end(),
-                          rhs.m_factors.begin());
+        return false;
     }
 
     if (lhs.m_nodalPointsType != rhs.m_nodalPointsType)

@@ -41,6 +41,7 @@
 #include <MultiRegions/ExpList2DHomogeneous1D.h>
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <MultiRegions/ExpList3DHomogeneous2D.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -71,9 +72,9 @@ int main(int argc, char *argv[])
                                                     vSession2d->GetComm());
 
     SpatialDomains::MeshGraphSharedPtr graphShPt2d =
-        SpatialDomains::MeshGraph::Read(vSession2d);
+        SpatialDomains::MeshGraphIO::Read(vSession2d);
     SpatialDomains::MeshGraphSharedPtr graphShPt3d =
-        SpatialDomains::MeshGraph::Read(vSession3d);
+        SpatialDomains::MeshGraphIO::Read(vSession3d);
     // 2D
     string field2dfile(argv[2]);
     vector<LibUtilities::FieldDefinitionsSharedPtr> field2ddef;

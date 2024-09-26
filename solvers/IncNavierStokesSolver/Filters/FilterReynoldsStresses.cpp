@@ -63,7 +63,7 @@ std::string FilterReynoldsStresses::className =
  */
 FilterReynoldsStresses::FilterReynoldsStresses(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<SolverUtils::EquationSystem> &pEquation,
+    const std::shared_ptr<SolverUtils::EquationSystem> &pEquation,
     const std::map<std::string, std::string> &pParams)
     : FilterFieldConvert(pSession, pEquation, pParams)
 {

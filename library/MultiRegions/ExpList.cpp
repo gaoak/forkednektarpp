@@ -54,8 +54,9 @@
 #include <LocalRegions/SegExp.h>
 #include <LocalRegions/TetExp.h>
 #include <LocalRegions/TriExp.h>
-#include <MultiRegions/AssemblyMap/AssemblyMapCG.h> // for AssemblyMapCG, etc
-#include <MultiRegions/AssemblyMap/AssemblyMapDG.h> // for AssemblyMapCG, etc
+#include <MultiRegions/AssemblyMap/AssemblyMapCG.h>  // for AssemblyMapCG, etc
+#include <MultiRegions/AssemblyMap/AssemblyMapDG.h>  // for AssemblyMapDG, etc
+#include <MultiRegions/AssemblyMap/InterfaceMapDG.h> // for InterfaceMapDG, etc
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/GlobalLinSys.h>
 #include <MultiRegions/GlobalLinSysKey.h> // for GlobalLinSysKey
@@ -110,8 +111,6 @@ ExpList::ExpList(const ExpList &in, const bool DeclareCoeffPhysArrays)
       m_ncoeffs(in.m_ncoeffs), m_npoints(in.m_npoints), m_physState(false),
       m_exp(in.m_exp), m_collections(in.m_collections),
       m_collectionsDoInit(in.m_collectionsDoInit),
-      m_coll_coeff_offset(in.m_coll_coeff_offset),
-      m_coll_phys_offset(in.m_coll_phys_offset),
       m_coeff_offset(in.m_coeff_offset), m_phys_offset(in.m_phys_offset),
       m_blockMat(in.m_blockMat), m_WaveSpace(false),
       m_elmtToExpId(in.m_elmtToExpId)
@@ -261,6 +260,10 @@ ExpList::ExpList(const SpatialDomains::PointGeomSharedPtr &geom)
  * @param  variable      The variable name associated with the expansion
  * @param  ImpType       Detail about the implementation type to use
  *                       in operators
+ *
+ * By default the routine will try and order the expansions in a
+ * manner which is optimal for collection type operations. This can be
+ * disabled by the command line option --no-exp-opt
  */
 ExpList::ExpList(
     const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -292,85 +295,135 @@ ExpList::ExpList(
     LocalRegions::Expansion2DSharedPtr exp2D;
     LocalRegions::Expansion3DSharedPtr exp3D;
 
-    // First loop over boundary conditions to reorder
-    // Dirichlet boundaries
+    map<int, vector<SpatialDomains::ExpansionInfoShPtr>> ExpOrder;
+    LibUtilities::BasisKeyVector PtBvec;
+
+    bool DoOptOnCollection =
+        m_session->DefinesCmdLineArgument("no-exp-opt") ? false : true;
+    int cnt = 0;
     for (i = 0; i < bndCond.size(); ++i)
     {
         if (bndCond[i]->GetBoundaryConditionType() ==
             SpatialDomains::eDirichlet)
         {
+            bool IsNot0D = true; // Cehck for 0D expansion
             for (j = 0; j < bndConstraint[i]->GetExpSize(); ++j)
             {
-                if ((exp0D =
-                         std::dynamic_pointer_cast<LocalRegions::Expansion0D>(
+                SpatialDomains::ExpansionInfoShPtr eInfo =
+                    MemoryManager<SpatialDomains::ExpansionInfo>::
+                        AllocateSharedPtr(
+                            bndConstraint[i]->GetExp(j)->GetGeom(), PtBvec);
+
+                if ((exp1D =
+                         std::dynamic_pointer_cast<LocalRegions::Expansion1D>(
                              bndConstraint[i]->GetExp(j))))
                 {
-                    m_expType = e0D;
-
-                    PointGeom = exp0D->GetGeom()->GetVertex(0);
-                    exp       = MemoryManager<
-                        LocalRegions::PointExp>::AllocateSharedPtr(PointGeom);
-                    tracesDone.insert(PointGeom->GetVid());
-                }
-                else if ((exp1D = std::dynamic_pointer_cast<
-                              LocalRegions::Expansion1D>(
-                              bndConstraint[i]->GetExp(j))))
-                {
-                    m_expType = e1D;
-
                     LibUtilities::BasisKey bkey =
                         exp1D->GetBasis(0)->GetBasisKey();
-                    segGeom = exp1D->GetGeom1D();
-                    exp =
-                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                            bkey, segGeom);
-                    tracesDone.insert(segGeom->GetGlobalID());
+                    eInfo->m_basisKeyVector.push_back(bkey);
                 }
                 else if ((exp2D = std::dynamic_pointer_cast<
                               LocalRegions::Expansion2D>(
                               bndConstraint[i]->GetExp(j))))
                 {
-                    m_expType = e2D;
-
                     LibUtilities::BasisKey bkey0 =
                         exp2D->GetBasis(0)->GetBasisKey();
                     LibUtilities::BasisKey bkey1 =
                         exp2D->GetBasis(1)->GetBasisKey();
-                    FaceGeom = exp2D->GetGeom2D();
 
-                    // if face is a quad
-                    if ((QuadGeom = std::dynamic_pointer_cast<
-                             SpatialDomains::QuadGeom>(FaceGeom)))
+                    eInfo->m_basisKeyVector.push_back(bkey0);
+                    eInfo->m_basisKeyVector.push_back(bkey1);
+                }
+                else // 0D case no optimisation necessary
+                {
+                    IsNot0D = false;
+                }
+
+                if (DoOptOnCollection && IsNot0D)
+                {
+                    int i;
+                    for (i = 0; i < cnt; ++i)
                     {
-                        exp = MemoryManager<
-                            LocalRegions::QuadExp>::AllocateSharedPtr(bkey0,
-                                                                      bkey1,
-                                                                      QuadGeom);
-                        tracesDone.insert(QuadGeom->GetGlobalID());
+                        if ((eInfo->m_basisKeyVector ==
+                             ExpOrder[i][0]->m_basisKeyVector) &&
+                            (eInfo->m_geomShPtr->GetGeomFactors()->GetGtype() ==
+                             ExpOrder[i][0]
+                                 ->m_geomShPtr->GetGeomFactors()
+                                 ->GetGtype()))
+                        {
+                            ExpOrder[i].push_back(eInfo);
+                            break;
+                        }
                     }
-                    // if face is a triangle
-                    else if ((TriGeom = std::dynamic_pointer_cast<
-                                  SpatialDomains::TriGeom>(FaceGeom)))
+
+                    if (i == cnt)
                     {
-                        exp = MemoryManager<
-                            LocalRegions::TriExp>::AllocateSharedPtr(bkey0,
-                                                                     bkey1,
-                                                                     TriGeom);
-                        tracesDone.insert(TriGeom->GetGlobalID());
-                    }
-                    else
-                    {
-                        NEKERROR(ErrorUtil::efatal,
-                                 "dynamic cast to a "
-                                 "proper face geometry failed");
+                        ExpOrder[cnt++].push_back(eInfo);
                     }
                 }
-                // Assign next id
-                exp->SetElmtId(elmtid++);
-
-                // Add the expansion
-                (*m_exp).push_back(exp);
+                else
+                {
+                    ExpOrder[0].push_back(eInfo);
+                }
             }
+        }
+    }
+
+    // decalare expansions in provided order using geom and basis info
+    for (auto &ordIt : ExpOrder)
+    {
+        for (auto &eit : ordIt.second)
+        {
+
+            if ((PointGeom =
+                     std::dynamic_pointer_cast<SpatialDomains::PointGeom>(
+                         eit->m_geomShPtr)))
+            {
+                m_expType = e0D;
+
+                exp = MemoryManager<LocalRegions::PointExp>::AllocateSharedPtr(
+                    PointGeom);
+                tracesDone.insert(PointGeom->GetVid());
+            }
+            else if ((segGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e1D;
+
+                exp = MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
+                    eit->m_basisKeyVector[0], segGeom);
+                tracesDone.insert(segGeom->GetGlobalID());
+            }
+            else if ((TriGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e2D;
+
+                exp = MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
+                    eit->m_basisKeyVector[0], eit->m_basisKeyVector[1],
+                    TriGeom);
+
+                tracesDone.insert(TriGeom->GetGlobalID());
+            }
+            else if ((QuadGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e2D;
+                exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
+                    eit->m_basisKeyVector[0], eit->m_basisKeyVector[1],
+                    QuadGeom);
+
+                tracesDone.insert(QuadGeom->GetGlobalID());
+            }
+
+            // Assign next id
+            exp->SetElmtId(elmtid++);
+
+            // Add the expansion
+            (*m_exp).push_back(exp);
         }
     }
 
@@ -896,35 +949,124 @@ ExpList::ExpList(
 
     if (edgeOrders.size())
     {
-        for (auto &it : edgeOrders)
+        map<int, vector<int>> opt;
+        int cnt = 0;
+
+        if (DoOptOnCollection)
         {
-            exp = MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                it.second.second, it.second.first);
-            exp->SetElmtId(elmtid++);
-            (*m_exp).push_back(exp);
+            for (auto &it : edgeOrders)
+            {
+                int i;
+                for (i = 0; i < cnt; ++i)
+                {
+                    auto it1 = edgeOrders.find(opt[i][0]);
+
+                    if ((it.second.second == it1->second.second) &&
+                        (it.second.first->GetGeomFactors()->GetGtype() ==
+                         it1->second.first->GetGeomFactors()->GetGtype()))
+                    {
+                        opt[i].push_back(it.first);
+                        break;
+                    }
+                }
+
+                if (i == cnt)
+                {
+                    opt[cnt++].push_back(it.first);
+                }
+            }
+        }
+        else
+        {
+            for (auto &it : edgeOrders)
+            {
+                opt[0].push_back(it.first);
+            }
+        }
+
+        for (int i = 0; i < opt.size(); ++i)
+        {
+
+            for (int j = 0; j < opt[i].size(); ++j)
+            {
+                auto it = edgeOrders.find(opt[i][j]);
+
+                exp = MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
+                    it->second.second, it->second.first);
+
+                exp->SetElmtId(elmtid++);
+                (*m_exp).push_back(exp);
+            }
         }
     }
     else
     {
-        for (auto &it : faceOrders)
-        {
-            FaceGeom = it.second.first;
+        map<int, vector<int>> opt;
+        int cnt = 0;
 
-            if ((QuadGeom = std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
-                     FaceGeom)))
+        if (DoOptOnCollection)
+        {
+            for (auto &it : faceOrders)
             {
-                exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
-                    it.second.second.first, it.second.second.second, QuadGeom);
+                int i;
+                for (i = 0; i < cnt; ++i)
+                {
+                    auto it1 = faceOrders.find(opt[i][0]);
+
+                    if ((it.second.second.first == it1->second.second.first) &&
+                        (it.second.second.second ==
+                         it1->second.second.second) &&
+                        (it.second.first->GetGeomFactors()->GetGtype() ==
+                         it1->second.first->GetGeomFactors()->GetGtype()))
+                    {
+                        opt[i].push_back(it.first);
+                        break;
+                    }
+                }
+
+                if (i == cnt)
+                {
+                    opt[cnt++].push_back(it.first);
+                }
             }
-            else if ((TriGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
-                              FaceGeom)))
+        }
+        else
+        {
+            for (auto &it : faceOrders)
             {
-                exp = MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
-                    it.second.second.first, it.second.second.second, TriGeom);
+                opt[0].push_back(it.first);
             }
-            exp->SetElmtId(elmtid++);
-            (*m_exp).push_back(exp);
+        }
+
+        for (int i = 0; i < opt.size(); ++i)
+        {
+
+            for (int j = 0; j < opt[i].size(); ++j)
+            {
+                auto it = faceOrders.find(opt[i][j]);
+
+                FaceGeom = it->second.first;
+
+                if ((QuadGeom =
+                         std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
+                             FaceGeom)))
+                {
+                    exp =
+                        MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
+                            it->second.second.first, it->second.second.second,
+                            QuadGeom);
+                }
+                else if ((TriGeom = std::dynamic_pointer_cast<
+                              SpatialDomains::TriGeom>(FaceGeom)))
+                {
+                    exp =
+                        MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
+                            it->second.second.first, it->second.second.second,
+                            TriGeom);
+                }
+                exp->SetElmtId(elmtid++);
+                (*m_exp).push_back(exp);
+            }
         }
     }
 
@@ -1121,6 +1263,9 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
  * @param  ImpType      Detail about the implementation type to use
  *                      in operators. Default is eNoImpType.
  *
+ * By default the routine will try and order the expansions in a
+ * manner which is optimal for collection type operations. This can be
+ * disabled by the command line option --no-exp-opt
  */
 ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                  const SpatialDomains::CompositeMap &domain,
@@ -1149,38 +1294,30 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     // Retrieve the list of expansions (element exp)
     const SpatialDomains::ExpansionInfoMap &expansions =
         graph->GetExpansionInfo(variable);
+    map<int, vector<SpatialDomains::ExpansionInfoShPtr>> ExpOrder;
+    LibUtilities::BasisKeyVector PtBvec;
 
-    // Retrieve the list of expansions
-    // Process each composite region.
+    bool DoOptOnCollection =
+        m_session->DefinesCmdLineArgument("no-exp-opt") ? false : true;
+    int cnt = 0;
     for (auto &compIt : domain)
     {
+        bool IsNot0D = true; // Cehck for 0D expansion
         // Process each expansion in the region.
         for (j = 0; j < compIt.second->m_geomVec.size(); ++j)
         {
-            if ((PtGeom = std::dynamic_pointer_cast<SpatialDomains::PointGeom>(
+            LibUtilities::BasisKeyVector def;
+            SpatialDomains::ExpansionInfoShPtr eInfo =
+                MemoryManager<SpatialDomains::ExpansionInfo>::AllocateSharedPtr(
+                    compIt.second->m_geomVec[j], PtBvec);
+
+            if ((SegGeom = std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
                      compIt.second->m_geomVec[j])))
             {
-                m_expType = e0D;
-
-                exp = MemoryManager<LocalRegions::PointExp>::AllocateSharedPtr(
-                    PtGeom);
-            }
-            else if ((SegGeom =
-                          std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                              compIt.second->m_geomVec[j])))
-            {
-                m_expType = e1D;
-
-                // Retrieve the basis key from the expansion.
-                LibUtilities::BasisKey bkey = LibUtilities::NullBasisKey;
-
                 if (meshdim == 1)
                 {
-                    // map<int, ExpansionInfoShPtr>
-                    auto expIt = expansions.find(SegGeom->GetGlobalID());
-                    ASSERTL0(expIt != expansions.end(),
-                             "Failed to find basis key");
-                    bkey = expIt->second->m_basisKeyVector[0];
+                    auto expInfo = expansions.find(SegGeom->GetGlobalID());
+                    eInfo        = expInfo->second;
                 }
                 else // get bkey from Tri or Quad
                 {
@@ -1217,31 +1354,14 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                     }
                     // Then, get the trace basis key from the element stdExp,
                     // which may be different from Ba and Bb.
-                    bkey = elmtStdExp->GetTraceBasisKey(edge_id);
-                }
-
-                if (SetToOneSpaceDimension)
-                {
-                    SpatialDomains::SegGeomSharedPtr OneDSegmentGeom =
-                        SegGeom->GenerateOneSpaceDimGeom();
-
-                    exp =
-                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                            bkey, OneDSegmentGeom);
-                }
-                else
-                {
-                    exp =
-                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                            bkey, SegGeom);
+                    eInfo->m_basisKeyVector.push_back(
+                        elmtStdExp->GetTraceBasisKey(edge_id));
                 }
             }
             else if ((TriGeom =
                           std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
                               compIt.second->m_geomVec[j])))
             {
-                m_expType = e2D;
-
                 // First, create the element stdExp that the face belongs to
                 SpatialDomains::GeometryLinkSharedPtr elmts =
                     graph->GetElementsFromFace(TriGeom);
@@ -1250,11 +1370,15 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 // the same type. So we directly fetch the first element.
                 SpatialDomains::GeometrySharedPtr geom = elmts->at(0).first;
                 int face_id                            = elmts->at(0).second;
-                SpatialDomains::ExpansionInfoShPtr expInfo =
-                    graph->GetExpansionInfo(geom, variable);
-                LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
-                LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
-                LibUtilities::BasisKey Bc = expInfo->m_basisKeyVector[2];
+                auto expInfo = expansions.find(geom->GetGlobalID());
+                ASSERTL0(expInfo != expansions.end(),
+                         "Failed to find expansion info");
+                LibUtilities::BasisKey Ba =
+                    expInfo->second->m_basisKeyVector[0];
+                LibUtilities::BasisKey Bb =
+                    expInfo->second->m_basisKeyVector[1];
+                LibUtilities::BasisKey Bc =
+                    expInfo->second->m_basisKeyVector[2];
                 StdRegions::StdExpansionSharedPtr elmtStdExp;
 
                 if (geom->GetShapeType() == LibUtilities::ePrism)
@@ -1291,33 +1415,13 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                     std::swap(TriBa, TriBb);
                 }
 
-                if (graph->GetExpansionInfo()
-                        .begin()
-                        ->second->m_basisKeyVector[0]
-                        .GetBasisType() == LibUtilities::eGLL_Lagrange)
-                {
-                    NEKERROR(ErrorUtil::efatal, "This method needs sorting");
-                    TriNb = LibUtilities::eNodalTriElec;
-
-                    exp = MemoryManager<
-                        LocalRegions::NodalTriExp>::AllocateSharedPtr(TriBa,
-                                                                      TriBb,
-                                                                      TriNb,
-                                                                      TriGeom);
-                }
-                else
-                {
-                    exp =
-                        MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
-                            TriBa, TriBb, TriGeom);
-                }
+                eInfo->m_basisKeyVector.push_back(TriBa);
+                eInfo->m_basisKeyVector.push_back(TriBb);
             }
             else if ((QuadGeom =
                           std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
                               compIt.second->m_geomVec[j])))
             {
-                m_expType = e2D;
-
                 // First, create the element stdExp that the face belongs to
                 SpatialDomains::GeometryLinkSharedPtr elmts =
                     graph->GetElementsFromFace(QuadGeom);
@@ -1326,11 +1430,15 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 // the same type. So we directly fetch the first element.
                 SpatialDomains::GeometrySharedPtr geom = elmts->at(0).first;
                 int face_id                            = elmts->at(0).second;
-                SpatialDomains::ExpansionInfoShPtr expInfo =
-                    graph->GetExpansionInfo(geom, variable);
-                LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
-                LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
-                LibUtilities::BasisKey Bc = expInfo->m_basisKeyVector[2];
+                auto expInfo = expansions.find(geom->GetGlobalID());
+                ASSERTL0(expInfo != expansions.end(),
+                         "Failed to find expansion info");
+                LibUtilities::BasisKey Ba =
+                    expInfo->second->m_basisKeyVector[0];
+                LibUtilities::BasisKey Bb =
+                    expInfo->second->m_basisKeyVector[1];
+                LibUtilities::BasisKey Bc =
+                    expInfo->second->m_basisKeyVector[2];
                 StdRegions::StdExpansionSharedPtr elmtStdExp;
 
                 if (geom->GetShapeType() == LibUtilities::ePrism)
@@ -1367,8 +1475,112 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                     std::swap(QuadBa, QuadBb);
                 }
 
+                eInfo->m_basisKeyVector.push_back(QuadBa);
+                eInfo->m_basisKeyVector.push_back(QuadBb);
+            }
+            else
+            {
+                IsNot0D = false;
+            }
+
+            if (DoOptOnCollection && IsNot0D)
+            {
+                int i;
+                for (i = 0; i < cnt; ++i)
+                {
+                    if ((eInfo->m_basisKeyVector ==
+                         ExpOrder[i][0]->m_basisKeyVector) &&
+                        (eInfo->m_geomShPtr->GetGeomFactors()->GetGtype() ==
+                         ExpOrder[i][0]
+                             ->m_geomShPtr->GetGeomFactors()
+                             ->GetGtype()))
+                    {
+                        ExpOrder[i].push_back(eInfo);
+                        break;
+                    }
+                }
+
+                if (i == cnt)
+                {
+                    ExpOrder[cnt++].push_back(eInfo);
+                }
+            }
+            else
+            {
+                ExpOrder[0].push_back(eInfo);
+            }
+        }
+    }
+
+    // decalare expansions in provided order using geom and basis info
+    for (auto &ordIt : ExpOrder)
+    {
+        for (auto &eit : ordIt.second)
+        {
+            // Process each expansion in the region.
+            if ((PtGeom = std::dynamic_pointer_cast<SpatialDomains::PointGeom>(
+                     eit->m_geomShPtr)))
+            {
+                m_expType = e0D;
+
+                exp = MemoryManager<LocalRegions::PointExp>::AllocateSharedPtr(
+                    PtGeom);
+            }
+            else if ((SegGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e1D;
+
+                if (SetToOneSpaceDimension)
+                {
+                    SpatialDomains::SegGeomSharedPtr OneDSegmentGeom =
+                        SegGeom->GenerateOneSpaceDimGeom();
+
+                    exp =
+                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
+                            eit->m_basisKeyVector[0], OneDSegmentGeom);
+                }
+                else
+                {
+                    exp =
+                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
+                            eit->m_basisKeyVector[0], SegGeom);
+                }
+            }
+            else if ((TriGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::TriGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e2D;
+
+                if (eit->m_basisKeyVector[0].GetBasisType() ==
+                    LibUtilities::eGLL_Lagrange)
+                {
+                    TriNb = LibUtilities::eNodalTriElec;
+
+                    exp = MemoryManager<LocalRegions::NodalTriExp>::
+                        AllocateSharedPtr(eit->m_basisKeyVector[0],
+                                          eit->m_basisKeyVector[1], TriNb,
+                                          TriGeom);
+                }
+                else
+                {
+                    exp =
+                        MemoryManager<LocalRegions::TriExp>::AllocateSharedPtr(
+                            eit->m_basisKeyVector[0], eit->m_basisKeyVector[1],
+                            TriGeom);
+                }
+            }
+            else if ((QuadGeom =
+                          std::dynamic_pointer_cast<SpatialDomains::QuadGeom>(
+                              eit->m_geomShPtr)))
+            {
+                m_expType = e2D;
+
                 exp = MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
-                    QuadBa, QuadBb, QuadGeom);
+                    eit->m_basisKeyVector[0], eit->m_basisKeyVector[1],
+                    QuadGeom);
             }
             else
             {
@@ -1443,6 +1655,20 @@ void ExpList::SetupCoeffPhys(bool DeclareCoeffPhysArrays, bool SetupOffsets)
     }
 }
 
+/**
+ * Initialise an expansion vector (m_exp) given an expansion map
+ * expmap which contains a list of basiskeys and geometries pointers.
+ * This routine is called from a number of ExpList constructors mainly
+ * handling the domain definitions. Boundary condition expansions are
+ * handled with specialised operators.
+ *
+ * @param    expmap        The expansion info map contaiining map of basiskeys
+ *                         and geometry pointers
+ *
+ * By default the routine will try and order the expansions in a
+ * manner which is optimal for collection type operations. This can be
+ * disabled by the command line option --no-exp-opt
+ */
 void ExpList::InitialiseExpVector(
     const SpatialDomains::ExpansionInfoMap &expmap)
 {
@@ -1457,151 +1683,202 @@ void ExpList::InitialiseExpVector(
     int id = 0;
     LocalRegions::ExpansionSharedPtr exp;
 
-    m_expType = eNoType;
-    // Process each expansion in the graph
-    for (auto &expIt : expmap)
+    bool DoOptOnCollection =
+        m_session->DefinesCmdLineArgument("no-exp-opt") ? false : true;
+    map<int, vector<int>> ExpOrder;
+    if (DoOptOnCollection)
     {
-        const SpatialDomains::ExpansionInfoShPtr expInfo = expIt.second;
+        auto expIt = expmap.begin();
+        int cnt    = 0;
 
-        switch (expInfo->m_basisKeyVector.size())
+        ExpOrder[cnt++].push_back(expIt->first);
+        expIt++;
+
+        // sort base on basis key and deformed or regular
+        for (; expIt != expmap.end(); ++expIt)
         {
-            case 1: // Segment Expansions
+            int i;
+            for (i = 0; i < cnt; ++i)
             {
-                ASSERTL1(m_expType == e1D || m_expType == eNoType,
-                         "Cannot mix expansion dimensions in one vector");
-                m_expType = e1D;
+                const SpatialDomains::ExpansionInfoShPtr expInfo =
+                    expmap.find(ExpOrder[i][0])->second;
 
-                if ((SegmentGeom =
-                         std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
-                             expInfo->m_geomShPtr)))
+                if ((expIt->second->m_basisKeyVector ==
+                     expInfo->m_basisKeyVector) &&
+                    (expIt->second->m_geomShPtr->GetGeomFactors()->GetGtype() ==
+                     expInfo->m_geomShPtr->GetGeomFactors()->GetGtype()))
                 {
-                    // Retrieve basis key from expansion
-                    LibUtilities::BasisKey bkey = expInfo->m_basisKeyVector[0];
-
-                    exp =
-                        MemoryManager<LocalRegions::SegExp>::AllocateSharedPtr(
-                            bkey, SegmentGeom);
-                }
-                else
-                {
-                    NEKERROR(ErrorUtil::efatal,
-                             "dynamic cast to a 1D Geom failed");
+                    ExpOrder[i].push_back(expIt->first);
+                    break;
                 }
             }
-            break;
-            case 2:
+
+            if (i == cnt) // new expansion
             {
-                ASSERTL1(m_expType == e2D || m_expType == eNoType,
-                         "Cannot mix expansion dimensions in one vector");
-                m_expType = e2D;
+                ExpOrder[cnt++].push_back(expIt->first);
+            }
+        }
+    }
+    else
+    {
+        for (auto &expIt : expmap) // process in order or global id
+        {
+            ExpOrder[0].push_back(expIt.first);
+        }
+    }
 
-                LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
-                LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
+    m_expType = eNoType;
 
-                if ((TriangleGeom =
-                         std::dynamic_pointer_cast<SpatialDomains ::TriGeom>(
-                             expInfo->m_geomShPtr)))
+    // Process each expansion in the graph
+    for (auto &it : ExpOrder)
+    {
+        for (int c = 0; c < it.second.size(); ++c)
+        {
+            auto expIt = expmap.find(it.second[c]);
+
+            const SpatialDomains::ExpansionInfoShPtr expInfo = expIt->second;
+
+            switch (expInfo->m_basisKeyVector.size())
+            {
+                case 1: // Segment Expansions
                 {
-                    // This is not elegantly implemented needs re-thinking.
-                    if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
-                    {
-                        LibUtilities::BasisKey newBa(LibUtilities::eOrtho_A,
-                                                     Ba.GetNumModes(),
-                                                     Ba.GetPointsKey());
+                    ASSERTL1(m_expType == e1D || m_expType == eNoType,
+                             "Cannot mix expansion dimensions in one vector");
+                    m_expType = e1D;
 
-                        LibUtilities::PointsType TriNb =
-                            LibUtilities::eNodalTriElec;
-                        exp = MemoryManager<LocalRegions::NodalTriExp>::
-                            AllocateSharedPtr(newBa, Bb, TriNb, TriangleGeom);
+                    if ((SegmentGeom =
+                             std::dynamic_pointer_cast<SpatialDomains::SegGeom>(
+                                 expInfo->m_geomShPtr)))
+                    {
+                        // Retrieve basis key from expansion
+                        LibUtilities::BasisKey bkey =
+                            expInfo->m_basisKeyVector[0];
+
+                        exp = MemoryManager<LocalRegions::SegExp>::
+                            AllocateSharedPtr(bkey, SegmentGeom);
                     }
                     else
-                    {
-                        exp = MemoryManager<LocalRegions::TriExp>::
-                            AllocateSharedPtr(Ba, Bb, TriangleGeom);
-                    }
-                }
-                else if ((QuadrilateralGeom = std::dynamic_pointer_cast<
-                              SpatialDomains::QuadGeom>(expInfo->m_geomShPtr)))
-                {
-                    exp =
-                        MemoryManager<LocalRegions::QuadExp>::AllocateSharedPtr(
-                            Ba, Bb, QuadrilateralGeom);
-                }
-                else
-                {
-                    NEKERROR(ErrorUtil::efatal,
-                             "dynamic cast to a 2D Geom failed");
-                }
-            }
-            break;
-            case 3:
-            {
-                ASSERTL1(m_expType == e3D || m_expType == eNoType,
-                         "Cannot mix expansion dimensions in one vector");
-                m_expType = e3D;
-
-                LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
-                LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
-                LibUtilities::BasisKey Bc = expInfo->m_basisKeyVector[2];
-
-                if ((TetGeom =
-                         std::dynamic_pointer_cast<SpatialDomains::TetGeom>(
-                             expInfo->m_geomShPtr)))
-                {
-                    if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange ||
-                        Ba.GetBasisType() == LibUtilities::eGauss_Lagrange)
                     {
                         NEKERROR(ErrorUtil::efatal,
-                                 "LocalRegions::NodalTetExp is not implemented "
-                                 "yet");
+                                 "dynamic cast to a 1D Geom failed");
+                    }
+                }
+                break;
+                case 2:
+                {
+                    ASSERTL1(m_expType == e2D || m_expType == eNoType,
+                             "Cannot mix expansion dimensions in one vector");
+                    m_expType = e2D;
+
+                    LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
+                    LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
+
+                    if ((TriangleGeom = std::dynamic_pointer_cast<
+                             SpatialDomains ::TriGeom>(expInfo->m_geomShPtr)))
+                    {
+                        // This is not elegantly implemented needs re-thinking.
+                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange)
+                        {
+                            LibUtilities::BasisKey newBa(LibUtilities::eOrtho_A,
+                                                         Ba.GetNumModes(),
+                                                         Ba.GetPointsKey());
+
+                            LibUtilities::PointsType TriNb =
+                                LibUtilities::eNodalTriElec;
+                            exp = MemoryManager<LocalRegions::NodalTriExp>::
+                                AllocateSharedPtr(newBa, Bb, TriNb,
+                                                  TriangleGeom);
+                        }
+                        else
+                        {
+                            exp = MemoryManager<LocalRegions::TriExp>::
+                                AllocateSharedPtr(Ba, Bb, TriangleGeom);
+                        }
+                    }
+                    else if ((QuadrilateralGeom = std::dynamic_pointer_cast<
+                                  SpatialDomains::QuadGeom>(
+                                  expInfo->m_geomShPtr)))
+                    {
+                        exp = MemoryManager<LocalRegions::QuadExp>::
+                            AllocateSharedPtr(Ba, Bb, QuadrilateralGeom);
                     }
                     else
                     {
-                        exp = MemoryManager<
-                            LocalRegions::TetExp>::AllocateSharedPtr(Ba, Bb, Bc,
-                                                                     TetGeom);
+                        NEKERROR(ErrorUtil::efatal,
+                                 "dynamic cast to a 2D Geom failed");
                     }
                 }
-                else if ((PrismGeom = std::dynamic_pointer_cast<
-                              SpatialDomains ::PrismGeom>(
-                              expInfo->m_geomShPtr)))
+                break;
+                case 3:
                 {
-                    exp = MemoryManager<
-                        LocalRegions::PrismExp>::AllocateSharedPtr(Ba, Bb, Bc,
-                                                                   PrismGeom);
+                    ASSERTL1(m_expType == e3D || m_expType == eNoType,
+                             "Cannot mix expansion dimensions in one vector");
+                    m_expType = e3D;
+
+                    LibUtilities::BasisKey Ba = expInfo->m_basisKeyVector[0];
+                    LibUtilities::BasisKey Bb = expInfo->m_basisKeyVector[1];
+                    LibUtilities::BasisKey Bc = expInfo->m_basisKeyVector[2];
+
+                    if ((TetGeom =
+                             std::dynamic_pointer_cast<SpatialDomains::TetGeom>(
+                                 expInfo->m_geomShPtr)))
+                    {
+                        if (Ba.GetBasisType() == LibUtilities::eGLL_Lagrange ||
+                            Ba.GetBasisType() == LibUtilities::eGauss_Lagrange)
+                        {
+                            NEKERROR(
+                                ErrorUtil::efatal,
+                                "LocalRegions::NodalTetExp is not implemented "
+                                "yet");
+                        }
+                        else
+                        {
+                            exp = MemoryManager<LocalRegions::TetExp>::
+                                AllocateSharedPtr(Ba, Bb, Bc, TetGeom);
+                        }
+                    }
+                    else if ((PrismGeom = std::dynamic_pointer_cast<
+                                  SpatialDomains ::PrismGeom>(
+                                  expInfo->m_geomShPtr)))
+                    {
+                        exp = MemoryManager<LocalRegions::PrismExp>::
+                            AllocateSharedPtr(Ba, Bb, Bc, PrismGeom);
+                    }
+                    else if ((PyrGeom = std::dynamic_pointer_cast<
+                                  SpatialDomains::PyrGeom>(
+                                  expInfo->m_geomShPtr)))
+                    {
+                        exp = MemoryManager<
+                            LocalRegions::PyrExp>::AllocateSharedPtr(Ba, Bb, Bc,
+                                                                     PyrGeom);
+                    }
+                    else if ((HexGeom = std::dynamic_pointer_cast<
+                                  SpatialDomains::HexGeom>(
+                                  expInfo->m_geomShPtr)))
+                    {
+                        exp = MemoryManager<
+                            LocalRegions::HexExp>::AllocateSharedPtr(Ba, Bb, Bc,
+                                                                     HexGeom);
+                    }
+                    else
+                    {
+                        NEKERROR(ErrorUtil::efatal,
+                                 "dynamic cast to a Geom failed");
+                    }
                 }
-                else if ((PyrGeom = std::dynamic_pointer_cast<
-                              SpatialDomains::PyrGeom>(expInfo->m_geomShPtr)))
-                {
-                    exp =
-                        MemoryManager<LocalRegions::PyrExp>::AllocateSharedPtr(
-                            Ba, Bb, Bc, PyrGeom);
-                }
-                else if ((HexGeom = std::dynamic_pointer_cast<
-                              SpatialDomains::HexGeom>(expInfo->m_geomShPtr)))
-                {
-                    exp =
-                        MemoryManager<LocalRegions::HexExp>::AllocateSharedPtr(
-                            Ba, Bb, Bc, HexGeom);
-                }
-                else
-                {
+                break;
+                default:
                     NEKERROR(ErrorUtil::efatal,
-                             "dynamic cast to a Geom failed");
-                }
+                             "Dimension of basis key is greater than 3");
             }
-            break;
-            default:
-                NEKERROR(ErrorUtil::efatal,
-                         "Dimension of basis key is greater than 3");
+
+            // Assign next id
+            m_elmtToExpId[exp->GetGeom()->GetGlobalID()] = id;
+            exp->SetElmtId(id++);
+
+            // Add the expansion
+            (*m_exp).push_back(exp);
         }
-
-        // Assign next id and fill the global id -> exp id map
-        m_elmtToExpId[exp->GetGeom()->GetGlobalID()] = id;
-        exp->SetElmtId(id++);
-
-        // Add the expansion
-        (*m_exp).push_back(exp);
     }
 }
 
@@ -2422,38 +2699,41 @@ void ExpList::GeneralMatrixOp(const GlobalMatrixKey &gkey,
 {
     int nvarcoeffs = gkey.GetNVarCoeffs();
 
-    if (gkey.GetMatrixType() == StdRegions::eHelmholtz)
+    if (gkey.GetMatrixType() == StdRegions::eHelmholtz ||
+        gkey.GetMatrixType() == StdRegions::eLinearAdvectionDiffusionReaction)
     {
+        // Map operator type based on matrix type
+        Collections::OperatorType opType =
+            (gkey.GetMatrixType() == StdRegions::eHelmholtz)
+                ? Collections::eHelmholtz
+                : Collections::eLinearAdvectionDiffusionReaction;
+
         // initialise if required
-        if (m_collections.size() &&
-            m_collectionsDoInit[Collections::eHelmholtz])
+        if (m_collections.size() && m_collectionsDoInit[opType])
         {
             for (int i = 0; i < m_collections.size(); ++i)
             {
-                m_collections[i].Initialise(Collections::eHelmholtz,
-                                            gkey.GetConstFactors());
+                m_collections[i].Initialise(opType, gkey.GetConstFactors());
             }
-            m_collectionsDoInit[Collections::eHelmholtz] = false;
+            m_collectionsDoInit[opType] = false;
         }
 
         // Update factors and varoeffs
+        int cnt{0};
         for (int i = 0; i < m_collections.size(); ++i)
         {
-            m_collections[i].UpdateFactors(Collections::eHelmholtz,
-                                           gkey.GetConstFactors(),
-                                           m_coll_phys_offset[i]);
+            m_collections[i].UpdateFactors(opType, gkey.GetConstFactors());
 
             // Restrict varcoeffs to collection size and update
             StdRegions::VarCoeffMap varcoeffs;
             if (nvarcoeffs)
             {
                 varcoeffs = StdRegions::RestrictCoeffMap(
-                    gkey.GetVarCoeffs(), m_coll_phys_offset[i],
-                    m_collections[i].GetInputSize(Collections::eHelmholtz,
-                                                  false));
+                    gkey.GetVarCoeffs(), m_phys_offset[cnt],
+                    m_collections[i].GetInputSize(opType, false));
+                cnt += m_collections[i].GetNumElmt(opType);
             }
-            m_collections[i].UpdateVarcoeffs(Collections::eHelmholtz,
-                                             varcoeffs);
+            m_collections[i].UpdateVarcoeffs(opType, varcoeffs);
         }
 
         Array<OneD, NekDouble> tmp;
@@ -2462,14 +2742,11 @@ void ExpList::GeneralMatrixOp(const GlobalMatrixKey &gkey,
         for (int i = 0; i < m_collections.size(); ++i)
         {
             // the input_offset is equal to the output_offset - this is
-            // happenning inside the Helmholtz_Helper class
-            m_collections[i].ApplyOperator(Collections::eHelmholtz,
-                                           inarray + input_offset,
+            // happenning inside the Helmholtz_Helper or LinearADR_Helper class
+            m_collections[i].ApplyOperator(opType, inarray + input_offset,
                                            tmp = outarray + output_offset);
-            input_offset +=
-                m_collections[i].GetInputSize(Collections::eHelmholtz);
-            output_offset +=
-                m_collections[i].GetOutputSize(Collections::eHelmholtz);
+            input_offset += m_collections[i].GetInputSize(opType);
+            output_offset += m_collections[i].GetOutputSize(opType);
         }
     }
     else
@@ -3717,8 +3994,8 @@ void ExpList::v_UnsetGlobalLinSys([[maybe_unused]] GlobalLinSysKey key,
              "UnsetGlobalLinSys not implemented for ExpList.");
 }
 
-LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys>
-    &ExpList::v_GetGlobalLinSysManager(void)
+LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys> &ExpList::
+    v_GetGlobalLinSysManager(void)
 {
     NEKERROR(ErrorUtil::efatal,
              "GetGlobalLinSysManager not implemented for ExpList.");
@@ -4077,21 +4354,29 @@ void ExpList::v_ExtractCoeffsToCoeffs(
     int i;
     int offset = 0;
 
+    map<int, int> GidToEid;
+
+    for (i = 0; i < (*m_exp).size(); ++i)
+    {
+        GidToEid[fromExpList->GetExp(i)->GetGeom()->GetGlobalID()] = i;
+    }
+
     for (i = 0; i < (*m_exp).size(); ++i)
     {
         std::vector<unsigned int> nummodes;
         vector<LibUtilities::BasisType> basisTypes;
-        for (int j = 0; j < fromExpList->GetExp(i)->GetNumBases(); ++j)
+
+        int eid = GidToEid[(*m_exp)[i]->GetGeom()->GetGlobalID()];
+        for (int j = 0; j < fromExpList->GetExp(eid)->GetNumBases(); ++j)
         {
-            nummodes.push_back(fromExpList->GetExp(i)->GetBasisNumModes(j));
-            basisTypes.push_back(fromExpList->GetExp(i)->GetBasisType(j));
+            nummodes.push_back(fromExpList->GetExp(eid)->GetBasisNumModes(j));
+            basisTypes.push_back(fromExpList->GetExp(eid)->GetBasisType(j));
         }
 
+        offset = fromExpList->GetCoeff_Offset(eid);
         (*m_exp)[i]->ExtractDataToCoeffs(&fromCoeffs[offset], nummodes, 0,
                                          &toCoeffs[m_coeff_offset[i]],
                                          basisTypes);
-
-        offset += fromExpList->GetExp(i)->GetNcoeffs();
     }
 }
 
@@ -4184,8 +4469,8 @@ void ExpList::GenerateElementVector(const int ElementID,
     }
 }
 
-const Array<OneD, const std::shared_ptr<ExpList>>
-    &ExpList::v_GetBndCondExpansions(void)
+const Array<OneD, const std::shared_ptr<ExpList>> &ExpList::
+    v_GetBndCondExpansions(void)
 {
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
@@ -4323,6 +4608,14 @@ std::shared_ptr<AssemblyMapDG> &ExpList::v_GetTraceMap()
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
     static std::shared_ptr<AssemblyMapDG> result;
+    return result;
+}
+
+std::shared_ptr<InterfaceMapDG> &ExpList::v_GetInterfaceMap()
+{
+    NEKERROR(ErrorUtil::efatal,
+             "This method is not defined or valid for this class type");
+    static std::shared_ptr<InterfaceMapDG> result;
     return result;
 }
 
@@ -5404,8 +5697,8 @@ void ExpList::v_PeriodicBwdCopy(
 
 /**
  */
-const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-    &ExpList::v_GetBndConditions(void)
+const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &ExpList::
+    v_GetBndConditions(void)
 {
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
@@ -5415,8 +5708,8 @@ const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
 
 /**
  */
-Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-    &ExpList::v_UpdateBndConditions()
+Array<OneD, SpatialDomains::BoundaryConditionShPtr> &ExpList::
+    v_UpdateBndConditions()
 {
     NEKERROR(ErrorUtil::efatal,
              "This method is not defined or valid for this class type");
@@ -5523,8 +5816,6 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
 
     // clear vectors in case previously called
     m_collections.clear();
-    m_coll_coeff_offset.clear();
-    m_coll_phys_offset.clear();
 
     /*-------------------------------------------------------------------------
       Dividing m_exp into sub groups (collections): original exp order is kept.
@@ -5540,10 +5831,6 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
     vector<StdRegions::StdExpansionSharedPtr> collExp;
     LocalRegions::ExpansionSharedPtr exp = (*m_exp)[0];
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(exp);
-    // storing the offset for the modes and quadrature points for the 1st
-    // element in the collection
-    m_coll_coeff_offset.push_back(m_coeff_offset[0]);
-    m_coll_phys_offset.push_back(m_phys_offset[0]);
 
     // add the first element to the collection - initialization
     collExp.push_back(exp);
@@ -5565,6 +5852,9 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
         exp->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
     // collsize is the maximum size among all collections
     int collsize = 0;
+    int mincol   = (*m_exp).size();
+    int maxcol   = -1;
+    int meancol  = 0;
 
     for (int i = 1; i < (*m_exp).size(); i++)
     {
@@ -5603,9 +5893,9 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
 
             Collections::Collection tmp(collExp, impTypes);
             m_collections.push_back(tmp);
-            // store the offsets of the current element
-            m_coll_coeff_offset.push_back(m_coeff_offset[i]);
-            m_coll_phys_offset.push_back(m_phys_offset[i]);
+            mincol = min(mincol, (int)collExp.size());
+            maxcol = max(maxcol, (int)collExp.size());
+            meancol += collExp.size();
 
             // for the new collection calling the optimization routine based on
             // its first element
@@ -5636,6 +5926,16 @@ void ExpList::CreateCollections(Collections::ImplementationType ImpType)
     }
     Collections::Collection tmp(collExp, impTypes);
     m_collections.push_back(tmp);
+    if (verbose)
+    {
+        mincol = min(mincol, (int)collExp.size());
+        maxcol = max(maxcol, (int)collExp.size());
+        meancol += collExp.size();
+        meancol /= m_collections.size();
+        cout << "Collection group: num. = " << m_collections.size()
+             << "; mean len = " << meancol << " (min = " << mincol
+             << ", max = " << maxcol << ")" << endl;
+    }
 
     // clean-up current element list - temporary collection
     collExp.clear();
@@ -5672,8 +5972,8 @@ void ExpList::UnsetGlobalLinSys(GlobalLinSysKey key, bool clearLocalMatrices)
     v_UnsetGlobalLinSys(key, clearLocalMatrices);
 }
 
-LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys>
-    &ExpList::GetGlobalLinSysManager(void)
+LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys> &ExpList::
+    GetGlobalLinSysManager(void)
 {
     return v_GetGlobalLinSysManager();
 }
@@ -5706,8 +6006,9 @@ void ExpList::v_PhysInterp1DScaled([[maybe_unused]] const NekDouble scale,
 
     {
         m_collections[i].UpdateFactors(Collections::ePhysInterp1DScaled,
-                                       factors, m_coll_phys_offset[i]);
+                                       factors);
     }
+
     LIKWID_MARKER_START("v_PhysInterp1DScaled");
     timer.Start();
     Array<OneD, NekDouble> tmp;

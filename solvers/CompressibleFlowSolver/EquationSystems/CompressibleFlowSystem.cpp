@@ -395,7 +395,8 @@ void CompressibleFlowSystem::SetBoundaryConditions(
 
     // This converts our Mu in coefficient space to u in physical space for ALE
     Array<OneD, Array<OneD, NekDouble>> tmpIn(nvariables);
-    if (m_ALESolver)
+
+    if (m_ALESolver && !m_ImplicitALESolver)
     {
         ALEHelper::ALEDoElmtInvMassBwdTrans(physarray, tmpIn);
     }

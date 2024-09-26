@@ -71,8 +71,8 @@ ProcessProjectCAD::~ProcessProjectCAD()
 {
 }
 
-bool ProcessProjectCAD::findAndProject(
-    bgi::rtree<boxI, bgi::quadratic<16>> &rtree, Array<OneD, NekDouble> &in,
+bool ProcessProjectCAD::FindAndProject(
+    bgi::rtree<boxI, bgi::quadratic<16>> &rtree, std::array<NekDouble, 3> &in,
     [[maybe_unused]] int &surf)
 {
     point q(in[0], in[1], in[2]);
@@ -104,8 +104,7 @@ bool ProcessProjectCAD::findAndProject(
         }
     }
 
-    Array<OneD, NekDouble> uv =
-        m_mesh->m_cad->GetSurf(minsurf)->locuv(in, dist);
+    auto uv = m_mesh->m_cad->GetSurf(minsurf)->locuv(in, dist);
 
     in = m_mesh->m_cad->GetSurf(minsurf)->P(uv);
 
@@ -129,7 +128,7 @@ bool ProcessProjectCAD::IsNotValid(vector<ElementSharedPtr> &els)
                 NekDouble c2 = 0.5 * (1 + prismW1[j]);
                 NekDouble d  = 0.5 * (prismU1[j] + prismW1[j]);
 
-                Array<OneD, NekDouble> jac(9, 0.0);
+                std::array<NekDouble, 9> jac;
 
                 jac[0] = -0.5 * b1 * ns[0]->m_x + 0.5 * b1 * ns[1]->m_x +
                          0.5 * b2 * ns[2]->m_x - 0.5 * b2 * ns[3]->m_x;
@@ -170,7 +169,7 @@ bool ProcessProjectCAD::IsNotValid(vector<ElementSharedPtr> &els)
             vector<NodeSharedPtr> ns = els[i]->GetVertexList();
             for (int j = 0; j < 4; j++)
             {
-                Array<OneD, NekDouble> jac(9, 0.0);
+                std::array<NekDouble, 9> jac;
 
                 jac[0] = 0.5 * (ns[pyramidV1[j]]->m_x - ns[pyramidV0[j]]->m_x);
                 jac[1] = 0.5 * (ns[pyramidV1[j]]->m_y - ns[pyramidV0[j]]->m_y);
@@ -195,7 +194,7 @@ bool ProcessProjectCAD::IsNotValid(vector<ElementSharedPtr> &els)
         else if (els[i]->GetShapeType() == LibUtilities::eTetrahedron)
         {
             vector<NodeSharedPtr> ns = els[i]->GetVertexList();
-            Array<OneD, NekDouble> jac(9, 0.0);
+            std::array<NekDouble, 9> jac;
 
             jac[0] = 0.5 * (ns[1]->m_x - ns[0]->m_x);
             jac[1] = 0.5 * (ns[1]->m_y - ns[0]->m_y);
@@ -253,7 +252,7 @@ void ProcessProjectCAD::Process()
     {
         m_log(VERBOSE).Progress(i, m_mesh->m_cad->GetNumSurf(),
                                 "building surface bboxes", i - 1);
-        Array<OneD, NekDouble> bx = m_mesh->m_cad->GetSurf(i)->BoundingBox();
+        auto bx = m_mesh->m_cad->GetSurf(i)->BoundingBox();
         boxes.push_back(make_pair(
             box(point(bx[0], bx[1], bx[2]), point(bx[3], bx[4], bx[5])), i));
     }
@@ -424,12 +423,11 @@ void ProcessProjectCAD::Process()
                     continue;
                 }
 
-                shift = distList[j];
-                Array<OneD, NekDouble> uvt(2);
-                NekDouble dist           = 0;
-                CADSurfSharedPtr s       = m_mesh->m_cad->GetSurf(distId[j]);
-                Array<OneD, NekDouble> l = (*i)->GetLoc();
-                uvt                      = s->locuv(l, dist);
+                shift                     = distList[j];
+                NekDouble dist            = 0;
+                CADSurfSharedPtr s        = m_mesh->m_cad->GetSurf(distId[j]);
+                auto l                    = (*i)->GetLoc();
+                [[maybe_unused]] auto uvt = s->locuv(l, dist);
 
                 NekDouble tmpX = (*i)->m_x;
                 NekDouble tmpY = (*i)->m_y;
@@ -470,10 +468,9 @@ void ProcessProjectCAD::Process()
                 }
 
                 CADSurfSharedPtr s = m_mesh->m_cad->GetSurf(distId[j]);
-                Array<OneD, NekDouble> uv;
-                NekDouble dist             = 0;
-                Array<OneD, NekDouble> loc = (*i)->GetLoc();
-                uv                         = s->locuv(loc, dist);
+                NekDouble dist     = 0;
+                auto loc           = (*i)->GetLoc();
+                auto uv            = s->locuv(loc, dist);
                 (*i)->SetCADSurf(s, uv);
             }
             maxNodeCor = max(maxNodeCor, shift);
@@ -562,8 +559,8 @@ void ProcessProjectCAD::Process()
                     continue;
                 }
 
-                Array<OneD, NekDouble> uvb = (*i)->m_n1->GetCADSurfInfo(cmn[j]);
-                Array<OneD, NekDouble> uve = (*i)->m_n2->GetCADSurfInfo(cmn[j]);
+                auto uvb = (*i)->m_n1->GetCADSurfInfo(cmn[j]);
+                auto uve = (*i)->m_n2->GetCADSurfInfo(cmn[j]);
 
                 // can compare the loction of the projection to the
                 // corresponding position of the straight sided edge
@@ -573,14 +570,14 @@ void ProcessProjectCAD::Process()
 
                 for (int k = 1; k < order + 1 - 1; k++)
                 {
-                    Array<OneD, NekDouble> uv(2);
-                    uv[0] = uvb[0] * (1.0 - gll[k]) / 2.0 +
-                            uve[0] * (1.0 + gll[k]) / 2.0;
-                    uv[1] = uvb[1] * (1.0 - gll[k]) / 2.0 +
-                            uve[1] * (1.0 + gll[k]) / 2.0;
-                    Array<OneD, NekDouble> loc;
-                    loc = m_mesh->m_cad->GetSurf(cmn[j])->P(uv);
-                    Array<OneD, NekDouble> locT(3);
+                    std::array<NekDouble, 2> uv = {
+                        uvb[0] * (1.0 - gll[k]) / 2.0 +
+                            uve[0] * (1.0 + gll[k]) / 2.0,
+                        uvb[1] * (1.0 - gll[k]) / 2.0 +
+                            uve[1] * (1.0 + gll[k]) / 2.0};
+                    auto loc = m_mesh->m_cad->GetSurf(cmn[j])->P(uv);
+
+                    std::array<NekDouble, 3> locT;
                     locT[0] = (*i)->m_n1->m_x * (1.0 - gll[k]) / 2.0 +
                               (*i)->m_n2->m_x * (1.0 + gll[k]) / 2.0;
                     locT[1] = (*i)->m_n1->m_y * (1.0 - gll[k]) / 2.0 +
@@ -620,16 +617,16 @@ void ProcessProjectCAD::Process()
             set<int> sused;
             for (int k = 1; k < order + 1 - 1; k++)
             {
-                Array<OneD, NekDouble> locT(3);
-                locT[0] = (*i)->m_n1->m_x * (1.0 - gll[k]) / 2.0 +
-                          (*i)->m_n2->m_x * (1.0 + gll[k]) / 2.0;
-                locT[1] = (*i)->m_n1->m_y * (1.0 - gll[k]) / 2.0 +
-                          (*i)->m_n2->m_y * (1.0 + gll[k]) / 2.0;
-                locT[2] = (*i)->m_n1->m_z * (1.0 - gll[k]) / 2.0 +
-                          (*i)->m_n2->m_z * (1.0 + gll[k]) / 2.0;
+                std::array<NekDouble, 3> locT = {
+                    (*i)->m_n1->m_x * (1.0 - gll[k]) / 2.0 +
+                        (*i)->m_n2->m_x * (1.0 + gll[k]) / 2.0,
+                    (*i)->m_n1->m_y * (1.0 - gll[k]) / 2.0 +
+                        (*i)->m_n2->m_y * (1.0 + gll[k]) / 2.0,
+                    (*i)->m_n1->m_z * (1.0 - gll[k]) / 2.0 +
+                        (*i)->m_n2->m_z * (1.0 + gll[k]) / 2.0};
 
                 int s;
-                if (!findAndProject(rtree, locT, s))
+                if (!FindAndProject(rtree, locT, s))
                 {
                     (*i)->m_edgeNodes.clear();
                     break;

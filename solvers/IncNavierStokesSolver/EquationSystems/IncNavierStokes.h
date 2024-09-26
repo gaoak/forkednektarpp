@@ -35,7 +35,7 @@
 
 #ifndef NEKTAR_SOLVERS_INCNAVIERSTOKES_H
 #define NEKTAR_SOLVERS_INCNAVIERSTOKES_H
-
+#include <IncNavierStokesSolver/BoundaryConditions/IncBoundaryConditions.h>
 #include <IncNavierStokesSolver/EquationSystems/Extrapolate.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/VmathArray.hpp>
@@ -176,17 +176,16 @@ public:
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, Array<OneD, NekDouble>> &velocity) override;
 
-    void v_SetMovingFrameVelocities(
-        const Array<OneD, NekDouble> &vFrameVels) override;
-    void v_GetMovingFrameVelocities(
-        Array<OneD, NekDouble> &vFrameVels) override;
-    void v_SetMovingFrameDisp(
-        const Array<OneD, NekDouble> &vFrameDisp) override;
-    void v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp) override;
-    void v_SetMovingFrameProjectionMat(
-        const bnu::matrix<NekDouble> &vProjMat) override;
-    void v_GetMovingFrameProjectionMat(
-        bnu::matrix<NekDouble> &vProjMat) override;
+    void v_SetMovingFrameVelocities(const Array<OneD, NekDouble> &vFrameVels,
+                                    const int step) override;
+    bool v_GetMovingFrameVelocities(Array<OneD, NekDouble> &vFrameVels,
+                                    const int step) override;
+    void v_SetMovingFrameDisp(const Array<OneD, NekDouble> &vFrameDisp,
+                              const int step) override;
+    void v_SetMovingFramePivot(
+        const Array<OneD, NekDouble> &vFramePivot) override;
+    bool v_GetMovingFrameDisp(Array<OneD, NekDouble> &vFrameDisp,
+                              const int step) override;
     void v_SetAeroForce(Array<OneD, NekDouble> forces) override;
     void v_GetAeroForce(Array<OneD, NekDouble> forces) override;
 
@@ -196,6 +195,7 @@ protected:
     // pointer to the extrapolation class for sub-stepping and HOPBS
 
     ExtrapolateSharedPtr m_extrapolation;
+    IncBoundaryConditionsSharedPtr m_IncNavierStokesBCs;
 
     /// modal energy file
     std::ofstream m_mdlFile;
@@ -234,8 +234,7 @@ protected:
     /// pressure boundary conditions.
     int m_intSteps;
 
-    // pivot point for moving reference frame
-    // TODO: relocate this variable
+    /// pivot point for moving reference frame
     Array<OneD, NekDouble> m_pivotPoint;
     Array<OneD, NekDouble> m_aeroForces;
 
@@ -269,11 +268,6 @@ protected:
 
     /// Set Up Womersley details
     void SetUpWomersley(const int fldid, const int bndid, std::string womstr);
-
-    /// Set the moving reference frame boundary conditions
-    void SetMovingReferenceFrameBCs(const NekDouble &time);
-    void SetMRFWallBCs(const NekDouble &time);
-    void SetMRFDomainVelBCs(const NekDouble &time);
 
     /// Womersley parameters if required
     std::map<int, std::map<int, WomersleyParamsSharedPtr>> m_womersleyParams;

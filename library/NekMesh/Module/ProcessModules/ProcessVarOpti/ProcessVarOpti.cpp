@@ -100,6 +100,12 @@ ProcessVarOpti::ProcessVarOpti(MeshSharedPtr m) : ProcessModule(m)
         ConfigOption(false, "", "basic analytics module");
     m_config["scalingfile"] =
         ConfigOption(false, "", "Read scaling field from file for r-adaptation");
+    m_config["radaptscale"] =
+        ConfigOption(false, "0", "Maps scaling for curve-based r-adaption");
+    m_config["radaptrad"] =
+        ConfigOption(false, "0", "Radius of influence for curve-based r-adaption");
+    m_config["radaptcurves"] =
+        ConfigOption(false, "", "Array of curves to use for adaption");
     // clang-format on
 }
 
@@ -377,12 +383,23 @@ void ProcessVarOpti::Process()
         m_res->startInv = 0;
         m_res->worstJac = numeric_limits<double>::max();
 
-        bool update = m_config["scalingfile"].beenSet && (ctr % subIter) == 0;
+        bool updateCAD = (m_radaptCAD && (ctr % subIter) == 0);
+        bool updateFile =
+            ((m_config["scalingfile"].beenSet) && (ctr % subIter) == 0);
 
         vector<Thread::ThreadJob *> elJobs(m_dataSet.size());
         for (int i = 0; i < m_dataSet.size(); i++)
         {
-            elJobs[i] = m_dataSet[i]->GetJob(update);
+            if (updateCAD)
+            {
+                elJobs[i] = m_dataSet[i]->GetAdaptJob(
+                    m_adaptCurves, m_config["radaptscale"].as<NekDouble>(),
+                    m_config["radaptrad"].as<NekDouble>());
+            }
+            else
+            {
+                elJobs[i] = m_dataSet[i]->GetJob(updateFile);
+            }
         }
 
         tm->SetNumWorkers(0);
@@ -409,7 +426,7 @@ void ProcessVarOpti::Process()
             break;
         }
 
-        if (update)
+        if (updateFile || updateCAD)
         {
             m_log(VERBOSE) << "    => Mapping updated!" << endl;
         }

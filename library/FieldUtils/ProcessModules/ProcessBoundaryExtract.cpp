@@ -118,13 +118,13 @@ void ProcessBoundaryExtract::v_Process(po::variables_map &vm)
     else
     {
         m_f->m_bndRegionsToWrite = bndRegions;
+    }
 
-        if (m_f->m_exp[0]->GetNumElmts() != 0)
+    if (m_f->m_exp[0]->GetNumElmts() != 0)
+    {
+        for (int i = 0; i < m_f->m_exp.size(); ++i)
         {
-            for (int i = 0; i < m_f->m_exp.size(); ++i)
-            {
-                m_f->m_exp[i]->FillBndCondFromField(m_f->m_exp[i]->GetCoeffs());
-            }
+            m_f->m_exp[i]->FillBndCondFromField(m_f->m_exp[i]->GetCoeffs());
         }
     }
 }

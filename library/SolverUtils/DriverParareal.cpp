@@ -199,6 +199,7 @@ void DriverParareal::v_Execute([[maybe_unused]] std::ostream &out)
             totalTime += timer.Elapsed().count();
 
             // Solution convergence monitoring.
+            CopyToPhysField(m_fineLevel, m_fineSolution);
             SolutionConvergenceMonitoring(m_fineLevel, iter);
             if (m_chunkRank == m_numChunks - 1 &&
                 m_comm->GetSpaceComm()->GetRank() == 0)

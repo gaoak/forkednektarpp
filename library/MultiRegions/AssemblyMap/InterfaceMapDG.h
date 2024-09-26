@@ -268,9 +268,10 @@ private:
     /// Vector of interface exchanges, i.e. every rank-to-rank comm needed
     std::vector<InterfaceExchangeSharedPtr> m_exchange;
 };
+// class
 
 typedef std::shared_ptr<InterfaceMapDG> InterfaceMapDGSharedPtr;
 
 } // namespace Nektar::MultiRegions
 
-#endif
+#endif // MULTIREGIONS_INTERFACE_MAP_DG_H

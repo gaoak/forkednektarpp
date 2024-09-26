@@ -268,28 +268,28 @@ public:
         return m_nTraceCoeffs[1];
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, bool>>
-        &GetLeftRightAdjacentExpFlag() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, bool>> &
+    GetLeftRightAdjacentExpFlag() const
     {
         return m_leftRightAdjacentExpFlag;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>>
-        &GetLeftRightAdjacentExpId() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>> &
+    GetLeftRightAdjacentExpId() const
     {
         return m_leftRightAdjacentExpId;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD,
-                                            const Array<OneD, Array<OneD, int>>>
-        &GetTraceCoeffToLeftRightExpCoeffMap() const
+    MULTI_REGIONS_EXPORT inline const Array<
+        OneD, const Array<OneD, Array<OneD, int>>> &
+    GetTraceCoeffToLeftRightExpCoeffMap() const
     {
         return m_traceCoeffToLeftRightExpCoeffMap;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD,
-                                            const Array<OneD, Array<OneD, int>>>
-        &GetTraceCoeffToLeftRightExpCoeffSign() const
+    MULTI_REGIONS_EXPORT inline const Array<
+        OneD, const Array<OneD, Array<OneD, int>>> &
+    GetTraceCoeffToLeftRightExpCoeffSign() const
     {
         return m_traceCoeffToLeftRightExpCoeffSign;
     }
@@ -319,14 +319,14 @@ public:
         return m_ElemNeighbsNumb;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>>
-        &GetElemNeighbsId() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>> &
+    GetElemNeighbsId() const
     {
         return m_ElemNeighbsId;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>>
-        &GetLocTracephysToTraceIDMap() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const Array<OneD, int>> &
+    GetLocTracephysToTraceIDMap() const
     {
         return m_LocTracephysToTraceIDMap;
     }
@@ -337,8 +337,8 @@ public:
         m_LocTracephysToTraceIDMap = inarray;
     }
 
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const int>
-        &GetLocTraceToFieldMap() const
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const int> &
+    GetLocTraceToFieldMap() const
     {
         return m_locTraceToFieldMap;
     }

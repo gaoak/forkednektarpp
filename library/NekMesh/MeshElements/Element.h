@@ -441,11 +441,12 @@ public:
     /**
      * @brief returns the normal to the element
      */
-    virtual Array<OneD, NekDouble> Normal([[maybe_unused]] bool inward = false)
+    virtual std::array<NekDouble, 3> Normal(
+        [[maybe_unused]] bool inward = false)
     {
         NEKERROR(ErrorUtil::efatal,
                  "This function should be implemented at a shape level.");
-        return Array<OneD, NekDouble>();
+        return {0.0, 0.0, 0.0};
     }
 
     CADObjectSharedPtr m_parentCAD;

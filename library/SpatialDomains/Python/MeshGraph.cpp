@@ -34,24 +34,13 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/MeshGraph.h>
-#include <SpatialDomains/MeshGraphXml.h>
-#include <SpatialDomains/MeshGraphXmlCompressed.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <SpatialDomains/Movement/Movement.h>
 #include <boost/python/suite/indexing/map_indexing_suite.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
-
-/*
- * @brief Lightweight wrapper around MeshGraph::Read to avoid wrapping
- * DomainRange struct.
- */
-MeshGraphSharedPtr MeshGraph_Read(
-    const LibUtilities::SessionReaderSharedPtr &session)
-{
-    return MeshGraph::Read(session);
-}
 
 /*
  * @brief Simple wrapper to build Composite objects from lists of
@@ -67,29 +56,6 @@ CompositeSharedPtr Composite_Init(py::list geometries)
             py::extract<GeometrySharedPtr>(geometries[i]));
     }
     return composite;
-}
-
-/*
- * @brief Wrapper to construct MeshGraphXml object, initialising mesh
- * and spatial dimensions.
- */
-std::shared_ptr<MeshGraph> MeshGraphXml_Init(int meshDim, int spatialDim)
-{
-    auto result = MeshGraphXml::create();
-    result->Empty(meshDim, spatialDim);
-    return result;
-}
-
-/*
- * @brief Wrapper to construct MeshGraphXmlCompressed object, initialising mesh
- * and spatial dimensions.
- */
-std::shared_ptr<MeshGraph> MeshGraphXmlCompressed_Init(int meshDim,
-                                                       int spatialDim)
-{
-    auto result = MeshGraphXmlCompressed::create();
-    result->Empty(meshDim, spatialDim);
-    return result;
 }
 
 /**
@@ -130,16 +96,16 @@ void export_MeshGraph()
         .def(py::map_indexing_suite<std::map<int, CompositeMap>, true>());
 
     py::class_<MeshGraph, std::shared_ptr<MeshGraph>, boost::noncopyable>(
-        "MeshGraph", py::no_init)
+        "MeshGraph", py::init<>())
 
-        .def("Read", MeshGraph_Read)
-        .staticmethod("Read")
-
-        .def("Write", &MeshGraph::WriteGeometry, py::default_call_policies(),
-             (py::arg("outfile"), py::arg("defaultExp") = false,
-              py::arg("metadata") = LibUtilities::NullFieldMetaDataMap))
+        .def("Empty", &MeshGraph::Empty)
 
         .def("GetMeshDimension", &MeshGraph::GetMeshDimension)
+        .def("GetSpaceDimension", &MeshGraph::GetSpaceDimension)
+
+        .def("SetMeshDimension", &MeshGraph::SetMeshDimension)
+        .def("SetSpaceDimension", &MeshGraph::SetSpaceDimension)
+
         .def("GetAllPointGeoms", &MeshGraph::GetAllPointGeoms,
              py::return_internal_reference<>())
         .def("GetAllSegGeoms", &MeshGraph::GetAllSegGeoms,
@@ -177,14 +143,4 @@ void export_MeshGraph()
              &MeshGraph::SetExpansionInfoToNumModes)
         .def("SetExpansionInfosToPointOrder",
              &MeshGraph::SetExpansionInfoToPointOrder);
-
-    py::class_<MeshGraphXml, py::bases<MeshGraph>,
-               std::shared_ptr<MeshGraphXml>, boost::noncopyable>(
-        "MeshGraphXml", py::no_init)
-        .def("__init__", py::make_constructor(&MeshGraphXml_Init));
-
-    py::class_<MeshGraphXmlCompressed, py::bases<MeshGraphXml>,
-               std::shared_ptr<MeshGraphXmlCompressed>, boost::noncopyable>(
-        "MeshGraphXmlCompressed", py::no_init)
-        .def("__init__", py::make_constructor(&MeshGraphXmlCompressed_Init));
 }

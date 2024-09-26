@@ -83,7 +83,7 @@ void NekNonlinSysIter::v_SetSysOperators(const NekSysOperators &in)
     m_linsol->SetSysOperators(in);
 }
 
-bool NekNonlinSysIter::ConvergenceCheck(
+void NekNonlinSysIter::ConvergenceCheck(
     const int nIteration, const Array<OneD, const NekDouble> &Residual)
 {
     m_SysResNorm = Vmath::Dot(Residual.size(), Residual, Residual);
@@ -103,8 +103,8 @@ bool NekNonlinSysIter::ConvergenceCheck(
         m_rhs_magnitude = 1.0;
     }
 
-    return resratio < restol * restol ||
-           m_SysResNorm < tol * tol * m_rhs_magnitude;
+    m_converged = resratio < restol * restol ||
+                  m_SysResNorm < tol * tol * m_rhs_magnitude;
 }
 
 } // namespace Nektar::LibUtilities

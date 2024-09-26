@@ -57,7 +57,7 @@ public:
     LIB_UTILITIES_EXPORT Timer()  = default;
     LIB_UTILITIES_EXPORT ~Timer() = default;
 
-    Timer(const Timer &rhs) = delete;
+    Timer(const Timer &rhs)            = delete;
     Timer &operator=(const Timer &rhs) = delete;
 
     LIB_UTILITIES_EXPORT void Start();

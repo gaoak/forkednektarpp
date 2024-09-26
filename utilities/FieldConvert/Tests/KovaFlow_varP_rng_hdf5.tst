@@ -2,7 +2,7 @@
 <test>
     <description> Process 2D  output with a range restriction and  hdf5 fld  files with variable p</description>
     <executable>FieldConvert</executable>
-    <parameters> -f -r 0,1,0.1,0.9 -e KovaFlow_varP.xml KovaFlow_varP_hdf5.fld KovaFlow_varP.plt</parameters>
+    <parameters> -f -e KovaFlow_varP.xml:xml:range="0,1,0.1,0.9"  KovaFlow_varP_hdf5.fld KovaFlow_varP.plt</parameters>
     <files>
 	<file description="Mesh File">KovaFlow_varP.xml</file>
 	<file description="Field File">KovaFlow_varP_hdf5.fld</file>

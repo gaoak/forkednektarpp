@@ -80,12 +80,17 @@ public:
 
     LIB_UTILITIES_EXPORT void SetNekLinSysTolerance(const NekDouble in)
     {
-        m_NekLinSysTolerance = in;
+        m_NekLinSysTolerance = fmax(1.0E-16, in);
     }
 
     LIB_UTILITIES_EXPORT void SetNekLinSysMaxIterations(const unsigned int in)
     {
         m_NekLinSysMaxIterations = in;
+    }
+
+    LIB_UTILITIES_EXPORT int GetNekLinSysTolerance()
+    {
+        return m_NekLinSysTolerance;
     }
 
     LIB_UTILITIES_EXPORT bool IsLocal()
@@ -97,27 +102,20 @@ protected:
     /// Global to universal unique map
     Array<OneD, int> m_map;
 
-    NekDouble m_prec_factor = 1.0;
-
     NekDouble m_NekLinSysTolerance;
     int m_NekLinSysMaxIterations;
     int m_totalIterations = 0;
-
-    // This is the maximum number of solution vectors that can be stored
-    // For example, in gmres, it is the max number of Krylov space
-    // search directions can be stored
-    // It determines the max storage usage
-    int m_LinSysMaxStorage;
 
     // Boolean to identify if iteration acts on local storage
     bool m_isLocal;
 
     void v_InitObject() override;
 
-    void Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn);
     void SetUniversalUniqueMap();
 
-    bool ConvergenceCheck(const Array<OneD, const NekDouble> &Residual);
+    void Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn);
+
+    void ConvergenceCheck(const Array<OneD, const NekDouble> &Residual);
 
 private:
 };

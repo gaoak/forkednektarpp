@@ -59,6 +59,7 @@ class ExpList;
 class GlobalLinSys;
 class AssemblyMapDG;
 class AssemblyMapCG;
+class InterfaceMapDG;
 class GlobalLinSysKey;
 class GlobalMatrix;
 
@@ -759,8 +760,8 @@ public:
                                 const Array<OneD, const NekDouble> &CircCentre,
                                 Array<OneD, Array<OneD, NekDouble>> &outarray);
     // functions associated with DisContField
-    inline const Array<OneD, const std::shared_ptr<ExpList>>
-        &GetBndCondExpansions();
+    inline const Array<OneD, const std::shared_ptr<ExpList>> &
+    GetBndCondExpansions();
     /// Get the weight value for boundary conditions
     inline const Array<OneD, const NekDouble> &GetBndCondBwdWeight();
     /// Set the weight value for boundary conditions
@@ -780,6 +781,7 @@ public:
      */
     inline std::shared_ptr<ExpList> &GetTrace();
     inline std::shared_ptr<AssemblyMapDG> &GetTraceMap(void);
+    inline std::shared_ptr<InterfaceMapDG> &GetInterfaceMap(void);
     inline const Array<OneD, const int> &GetTraceBndMap(void);
     inline void GetNormals(Array<OneD, Array<OneD, NekDouble>> &normals);
     /// Get the length of elements in boundary normal direction
@@ -830,10 +832,10 @@ public:
     inline void ExtractTracePhys(Array<OneD, NekDouble> &outarray);
     inline void ExtractTracePhys(const Array<OneD, const NekDouble> &inarray,
                                  Array<OneD, NekDouble> &outarray);
-    inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-        &GetBndConditions();
-    inline Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-        &UpdateBndConditions();
+    inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+    GetBndConditions();
+    inline Array<OneD, SpatialDomains::BoundaryConditionShPtr> &
+    UpdateBndConditions();
     inline void EvaluateBoundaryConditions(
         const NekDouble time = 0.0, const std::string varName = "",
         const NekDouble = NekConstants::kNekUnsetDouble,
@@ -986,12 +988,13 @@ public:
 
     MULTI_REGIONS_EXPORT void UnsetGlobalLinSys(GlobalLinSysKey, bool);
 
-    MULTI_REGIONS_EXPORT LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys>
-        &GetGlobalLinSysManager(void);
+    MULTI_REGIONS_EXPORT LibUtilities::NekManager<GlobalLinSysKey,
+                                                  GlobalLinSys> &
+    GetGlobalLinSysManager(void);
 
     /// Get m_coeffs to elemental value map
-    MULTI_REGIONS_EXPORT inline const Array<OneD, const std::pair<int, int>>
-        &GetCoeffsToElmt() const;
+    MULTI_REGIONS_EXPORT inline const Array<OneD, const std::pair<int, int>> &
+    GetCoeffsToElmt() const;
     MULTI_REGIONS_EXPORT void AddTraceJacToElmtJac(
         const Array<OneD, const DNekMatSharedPtr> &FwdMat,
         const Array<OneD, const DNekMatSharedPtr> &BwdMat,
@@ -1026,8 +1029,8 @@ public:
     MULTI_REGIONS_EXPORT std::vector<bool> &GetLeftAdjacentTraces(void);
 
     /// This function returns the map of index inside m_exp to geom id
-    MULTI_REGIONS_EXPORT inline const std::unordered_map<int, int>
-        &GetElmtToExpId(void)
+    MULTI_REGIONS_EXPORT inline const std::unordered_map<int, int> &GetElmtToExpId(
+        void)
     {
         return m_elmtToExpId;
     }
@@ -1120,10 +1123,6 @@ protected:
     /// Vector of bools to act as an initialise on first call flag
     std::vector<bool> m_collectionsDoInit;
     /// Offset of elemental data into the array #m_coeffs
-    std::vector<int> m_coll_coeff_offset;
-    /// Offset of elemental data into the array #m_phys
-    std::vector<int> m_coll_phys_offset;
-    /// Offset of elemental data into the array #m_coeffs
     Array<OneD, int> m_coeff_offset;
     /// Offset of elemental data into the array #m_phys
     Array<OneD, int> m_phys_offset;
@@ -1166,8 +1165,8 @@ protected:
     {
         return (*m_exp).size();
     }
-    virtual const Array<OneD, const std::shared_ptr<ExpList>>
-        &v_GetBndCondExpansions(void);
+    virtual const Array<OneD, const std::shared_ptr<ExpList>> &
+    v_GetBndCondExpansions(void);
     virtual const Array<OneD, const NekDouble> &v_GetBndCondBwdWeight();
     virtual void v_SetBndCondBwdWeight(const int index, const NekDouble value);
     virtual std::shared_ptr<ExpList> &v_UpdateBndCondExpansion(int i);
@@ -1181,6 +1180,7 @@ protected:
                           Array<OneD, NekDouble> &Upwind);
     virtual std::shared_ptr<ExpList> &v_GetTrace();
     virtual std::shared_ptr<AssemblyMapDG> &v_GetTraceMap();
+    virtual std::shared_ptr<InterfaceMapDG> &v_GetInterfaceMap();
     virtual const Array<OneD, const int> &v_GetTraceBndMap();
     virtual const std::shared_ptr<LocTraceToTraceMap> &v_GetLocTraceToTraceMap(
         void) const;
@@ -1430,8 +1430,8 @@ protected:
 
     virtual void v_UnsetGlobalLinSys(GlobalLinSysKey, bool);
 
-    virtual LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys>
-        &v_GetGlobalLinSysManager(void);
+    virtual LibUtilities::NekManager<GlobalLinSysKey, GlobalLinSys> &
+    v_GetGlobalLinSysManager(void);
 
     void ExtractFileBCs(const std::string &fileName,
                         LibUtilities::CommSharedPtr comm,
@@ -1445,11 +1445,11 @@ protected:
         const SpatialDomains::BoundaryConditionCollection &collection,
         unsigned int index, const std::string &variable);
 
-    virtual const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-        &v_GetBndConditions();
+    virtual const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+    v_GetBndConditions();
 
-    virtual Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-        &v_UpdateBndConditions();
+    virtual Array<OneD, SpatialDomains::BoundaryConditionShPtr> &
+    v_UpdateBndConditions();
 
     virtual void v_EvaluateBoundaryConditions(
         const NekDouble time = 0.0, const std::string varName = "",
@@ -2110,14 +2110,14 @@ inline Array<OneD, NekDouble> &ExpList::UpdatePhys()
     return m_phys;
 }
 // functions associated with DisContField
-inline const Array<OneD, const std::shared_ptr<ExpList>>
-    &ExpList::GetBndCondExpansions()
+inline const Array<OneD, const std::shared_ptr<ExpList>> &ExpList::
+    GetBndCondExpansions()
 {
     return v_GetBndCondExpansions();
 }
 /// Get m_coeffs to elemental value map
-MULTI_REGIONS_EXPORT inline const Array<OneD, const std::pair<int, int>>
-    &ExpList::GetCoeffsToElmt() const
+MULTI_REGIONS_EXPORT inline const Array<OneD, const std::pair<int, int>> &ExpList::
+    GetCoeffsToElmt() const
 {
     return m_coeffsToElmt;
 }
@@ -2159,6 +2159,10 @@ inline std::shared_ptr<ExpList> &ExpList::GetTrace()
 inline std::shared_ptr<AssemblyMapDG> &ExpList::GetTraceMap()
 {
     return v_GetTraceMap();
+}
+inline std::shared_ptr<InterfaceMapDG> &ExpList::GetInterfaceMap()
+{
+    return v_GetInterfaceMap();
 }
 inline const Array<OneD, const int> &ExpList::GetTraceBndMap()
 {
@@ -2235,13 +2239,13 @@ inline void ExpList::ExtractTracePhys(
 {
     v_ExtractTracePhys(inarray, outarray);
 }
-inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-    &ExpList::GetBndConditions()
+inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &ExpList::
+    GetBndConditions()
 {
     return v_GetBndConditions();
 }
-inline Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-    &ExpList::UpdateBndConditions()
+inline Array<OneD, SpatialDomains::BoundaryConditionShPtr> &ExpList::
+    UpdateBndConditions()
 {
     return v_UpdateBndConditions();
 }

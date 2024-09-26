@@ -169,11 +169,11 @@ protected:
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetLocalToGlobalMap()
         override;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &v_GetGlobalToUniversalMap() override;
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &v_GetGlobalToUniversalMap()
+        override;
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &v_GetGlobalToUniversalMapUnique() override;
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    v_GetGlobalToUniversalMapUnique() override;
 
     MULTI_REGIONS_EXPORT NekDouble
     v_GetLocalToGlobalSign(const int i) const override;

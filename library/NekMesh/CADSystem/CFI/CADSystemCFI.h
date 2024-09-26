@@ -74,7 +74,7 @@ public:
 
     bool LoadCAD();
 
-    Array<OneD, NekDouble> GetBoundingBox();
+    std::array<NekDouble, 6> GetBoundingBox();
 
     cfi::Model *GetCFIModel()
     {

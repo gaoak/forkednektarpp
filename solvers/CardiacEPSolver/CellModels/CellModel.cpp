@@ -37,7 +37,7 @@
 #include <CardiacEPSolver/CellModels/CellModel.h>
 
 #include <StdRegions/StdNodalTriExp.h>
-//#include <LibUtilities/LinearAlgebra/Blas.hpp>
+// #include <LibUtilities/LinearAlgebra/Blas.hpp>
 
 using namespace std;
 
@@ -399,7 +399,7 @@ void CellModel::LoadCellModel()
     auto iter = fieldMetaDataMap.find("Time");
     if (iter != fieldMetaDataMap.end())
     {
-        m_lastTime = boost::lexical_cast<NekDouble>(iter->second);
+        m_lastTime = std::stod(iter->second);
     }
 
     // Load each cell model variable

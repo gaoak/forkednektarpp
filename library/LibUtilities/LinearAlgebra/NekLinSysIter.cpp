@@ -54,9 +54,8 @@ NekLinSysIter::NekLinSysIter(
     const NekSysKey &pKey)
     : NekSys(pSession, vRowComm, nDimen, pKey)
 {
-    m_NekLinSysTolerance     = pKey.m_NekLinSysTolerance;
+    m_NekLinSysTolerance     = fmax(pKey.m_NekLinSysTolerance, 1.0E-16);
     m_NekLinSysMaxIterations = pKey.m_NekLinSysMaxIterations;
-    m_LinSysMaxStorage       = pKey.m_LinSysMaxStorage;
     m_isLocal                = false;
 }
 
@@ -100,16 +99,14 @@ void NekLinSysIter::Set_Rhs_Magnitude(const Array<OneD, NekDouble> &pIn)
     m_rhs_magnitude = (vExchange > 1.0e-6) ? vExchange : 1.0;
 }
 
-bool NekLinSysIter::ConvergenceCheck(
+void NekLinSysIter::ConvergenceCheck(
     const Array<OneD, const NekDouble> &Residual)
 {
-    int ntotal = Residual.size();
-
-    NekDouble SysResNorm = Vmath::Dot(ntotal, Residual, Residual);
+    NekDouble SysResNorm = Vmath::Dot(Residual.size(), Residual, Residual);
     m_rowComm->AllReduce(SysResNorm, Nektar::LibUtilities::ReduceSum);
 
-    return SysResNorm <
-           m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude;
+    m_converged = SysResNorm <
+                  m_NekLinSysTolerance * m_NekLinSysTolerance * m_rhs_magnitude;
 }
 
 } // namespace Nektar::LibUtilities

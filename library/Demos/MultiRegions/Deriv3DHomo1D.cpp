@@ -39,7 +39,7 @@
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField3DHomogeneous1D.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     //----------------------------------------------
     // Read in mesh from input file
     SpatialDomains::MeshGraphSharedPtr graph2D =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
     //----------------------------------------------
 
     //----------------------------------------------

@@ -32,6 +32,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <SpatialDomains/MeshGraphIO.h>
 #include <set>
 #include <string>
 using namespace std;
@@ -64,7 +65,10 @@ void OutputXml::v_Process(po::variables_map &vm)
     // Extract the output filename and extension
     string filename = m_config["outfile"].as<string>();
 
-    m_f->m_graph->WriteGeometry(filename);
+    auto graphIO =
+        SpatialDomains::GetMeshGraphIOFactory().CreateInstance("Xml");
+    graphIO->SetMeshGraph(m_f->m_graph);
+    graphIO->WriteGeometry(filename);
     cout << "Written file: " << filename << endl;
 }
 } // namespace Nektar::FieldUtils

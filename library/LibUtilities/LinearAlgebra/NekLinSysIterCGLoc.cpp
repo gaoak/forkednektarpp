@@ -55,8 +55,6 @@ NekLinSysIterCGLoc::NekLinSysIterCGLoc(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
-    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-16);
-
     m_isLocal = true;
 }
 
@@ -70,8 +68,7 @@ void NekLinSysIterCGLoc::v_InitObject()
  */
 int NekLinSysIterCGLoc::v_SolveSystem(
     const int nLocal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir,
-    [[maybe_unused]] const NekDouble factor)
+    Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir)
 {
     DoConjugateGradient(nLocal, pInput, pOutput);
 

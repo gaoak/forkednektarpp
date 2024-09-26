@@ -446,7 +446,7 @@ StatLagrangianPoints::StatLagrangianPoints([[maybe_unused]] int rank, int dim,
  */
 FilterLagrangianPoints::FilterLagrangianPoints(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation,
+    const std::shared_ptr<EquationSystem> &pEquation,
     const std::map<std::string, std::string> &pParams)
     : Filter(pSession, pEquation), v_params(pParams)
 {

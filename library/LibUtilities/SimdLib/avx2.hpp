@@ -620,6 +620,21 @@ inline avx2Double4 log(avx2Double4 in)
 #endif
 }
 
+inline void load_unalign_interleave(
+    const double *in, const std::uint32_t dataLen,
+    std::vector<avx2Double4, allocator<avx2Double4>> &out)
+{
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        tmp[0] = in[i];
+        tmp[1] = in[i + dataLen];
+        tmp[2] = in[i + 2 * dataLen];
+        tmp[3] = in[i + 3 * dataLen];
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(
     const double *in, std::uint32_t dataLen,
     std::vector<avx2Double4, allocator<avx2Double4>> &out)
@@ -652,6 +667,21 @@ inline void load_interleave(
     {
         out[i].gather(in, index0);
         index0 = index0 + 1;
+    }
+}
+
+inline void deinterleave_unalign_store(
+    const std::vector<avx2Double4, allocator<avx2Double4>> &in,
+    const std::uint32_t dataLen, double *out)
+{
+    alignas(avx2Double4::alignment) avx2Double4::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        out[i]               = tmp[0];
+        out[i + dataLen]     = tmp[1];
+        out[i + 2 * dataLen] = tmp[2];
+        out[i + 3 * dataLen] = tmp[3];
     }
 }
 
@@ -892,6 +922,25 @@ inline avx2Float8 log(avx2Float8 in)
     return ret;
 }
 
+inline void load_unalign_interleave(
+    const double *in, const std::uint32_t dataLen,
+    std::vector<avx2Float8, allocator<avx2Float8>> &out)
+{
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        tmp[0] = in[i];
+        tmp[1] = in[i + dataLen];
+        tmp[2] = in[i + 2 * dataLen];
+        tmp[3] = in[i + 3 * dataLen];
+        tmp[4] = in[i + 4 * dataLen];
+        tmp[5] = in[i + 5 * dataLen];
+        tmp[6] = in[i + 6 * dataLen];
+        tmp[7] = in[i + 7 * dataLen];
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(const float *in, std::uint32_t dataLen,
                             std::vector<avx2Float8, allocator<avx2Float8>> &out)
 {
@@ -925,6 +974,25 @@ inline void load_interleave(const float *in, std::uint32_t dataLen,
     {
         out[i].gather(in, index0);
         index0 = index0 + 1;
+    }
+}
+
+inline void deinterleave_unalign_store(
+    const std::vector<avx2Float8, allocator<avx2Float8>> &in,
+    const std::uint32_t dataLen, double *out)
+{
+    alignas(avx2Float8::alignment) avx2Float8::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        out[i]               = tmp[0];
+        out[i + dataLen]     = tmp[1];
+        out[i + 2 * dataLen] = tmp[2];
+        out[i + 3 * dataLen] = tmp[3];
+        out[i + 4 * dataLen] = tmp[4];
+        out[i + 5 * dataLen] = tmp[5];
+        out[i + 6 * dataLen] = tmp[6];
+        out[i + 7 * dataLen] = tmp[7];
     }
 }
 

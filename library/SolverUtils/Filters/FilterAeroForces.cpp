@@ -57,7 +57,7 @@ std::string FilterAeroForces::className =
  */
 FilterAeroForces::FilterAeroForces(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
     // OutputFile
@@ -447,7 +447,7 @@ void FilterAeroForces::v_Update(
     {
         return;
     }
-    if ((m_index++) % m_outputFrequency || (time < m_startTime))
+    if ((m_index++) % m_outputFrequency || (time - m_startTime) < -1.0e-07)
     {
         return;
     }
@@ -778,29 +778,21 @@ void FilterAeroForces::CalculateForces(
 
     // update the direction vectors
     // only effective if we use moving reference frame
+    Array<OneD, NekDouble> vFrameDisp(6, 0.);
+    if (fluidEqu->GetMovingFrameDisp(vFrameDisp, 0))
     {
-        bnu::matrix<NekDouble> projMat = bnu::identity_matrix<NekDouble>(3, 3);
-        // get the projection matrix to transform between moving frame and
-        // inertial stationary frame
-        // note: it will be unity in case we are not using the moving frame
-        fluidEqu->GetMovingFrameProjectionMat(projMat);
-        // update the direction vectors
-        // loop over the directions (ex, ey, ez)
-        for (int idir = 0; idir < 3; ++idir)
+        if (vFrameDisp[5] != 0.)
         {
-            bnu::vector<NekDouble> v0 = bnu::zero_vector<NekDouble>(3);
-            bnu::vector<NekDouble> v1 = bnu::zero_vector<NekDouble>(3);
-            // copy the directions
-            for (int j = 0; j < 3; ++j)
+            NekDouble c = cos(vFrameDisp[5]);
+            NekDouble s = sin(vFrameDisp[5]);
+            // note: rotation around z-axis is considered only
+            // loop over the directions (ex, ey)
+            for (int idir = 0; idir < 2; ++idir)
             {
-                v0(j) = m_directions0[idir][j];
-            }
-
-            v1 = bnu::prec_prod(projMat, v0);
-            // update the direction matrix
-            for (int j = 0; j < 3; ++j)
-            {
-                m_directions[idir][j] = v1(j);
+                NekDouble x           = m_directions0[idir][0];
+                NekDouble y           = m_directions0[idir][1];
+                m_directions[idir][0] = x * c + y * s;
+                m_directions[idir][1] = -x * s + y * c;
             }
         }
     }

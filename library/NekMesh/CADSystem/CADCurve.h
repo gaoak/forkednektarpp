@@ -35,8 +35,9 @@
 #ifndef NEKMESH_CADSYSTEM_CADCURVE
 #define NEKMESH_CADSYSTEM_CADCURVE
 
+#include <array>
+
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 
 #include <NekMesh/CADSystem/CADObject.h>
 
@@ -75,7 +76,7 @@ public:
      *
      * @return Array of two entries, min and max parametric coordinate.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> GetBounds() = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 2> GetBounds() = 0;
 
     /**
      * @brief Returns the minimum and maximum parametric coords t of the curve.
@@ -99,7 +100,7 @@ public:
      * @param t Parametric coordinate
      * @return Array of x,y,z
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> P(NekDouble t) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 3> P(NekDouble t) = 0;
 
     /**
      * @brief Gets the location (x,y,z) in an array out of the curve at
@@ -113,7 +114,7 @@ public:
     /**
      * @brief Gets the second derivatives at t
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> D2(NekDouble t) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 9> D2(NekDouble t) = 0;
 
     /**
      * @brief Calculates the radius of curvature of the curve at point t
@@ -136,7 +137,7 @@ public:
      *
      * @return Array with 6 entries of endpoints x1,y1,z1,x2,y2,z2.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> GetMinMax() = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 6> GetMinMax() = 0;
 
     /**
      * @brief set the ids of the surfaces either side of the curve
@@ -185,15 +186,15 @@ public:
      * @brief locates a point in the parametric space. returns the
      * distance to the point and passes t by reference and updates it
      */
-    NEKMESH_EXPORT virtual NekDouble loct(Array<OneD, NekDouble> xyz,
+    NEKMESH_EXPORT virtual NekDouble loct(std::array<NekDouble, 3> xyz,
                                           NekDouble &t) = 0;
 
     /**
      * @brief Locates a point @p xyz in the parametric space. returns the
-     * distance to the point and passes t by reference and updates it.
+     * distance to the point.
      */
     NEKMESH_EXPORT virtual NekDouble GetMinDistance(
-        Array<OneD, NekDouble> &xyz) = 0;
+        std::array<NekDouble, 3> &xyz) = 0;
 
     /**
      * @brief Returns the orientation of the curve with respect to a given
@@ -205,13 +206,13 @@ public:
      * @brief Returns the normal to the curve which is orientate with respect
      * to the surface surf
      */
-    NEKMESH_EXPORT Array<OneD, NekDouble> NormalWRT(NekDouble t, int surf);
+    NEKMESH_EXPORT std::array<NekDouble, 3> NormalWRT(NekDouble t, int surf);
 
     /**
      * @brief Returns the normal to a curve, it will always point in the concave
      * direction
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> N(NekDouble t) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 3> N(NekDouble t) = 0;
 
 protected:
     /// Length of edge

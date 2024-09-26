@@ -37,10 +37,6 @@
 namespace Nektar
 {
 
-template <typename DataType> ConstMatrix<DataType>::~ConstMatrix()
-{
-}
-
 template <typename DataType>
 typename boost::call_traits<DataType>::value_type ConstMatrix<
     DataType>::operator()(unsigned int row, unsigned int column) const
@@ -70,14 +66,7 @@ template <typename DataType> unsigned int ConstMatrix<DataType>::GetRows() const
 template <typename DataType>
 unsigned int ConstMatrix<DataType>::GetTransposedRows(char transpose) const
 {
-    if (transpose == 'N')
-    {
-        return m_size[0];
-    }
-    else
-    {
-        return m_size[1];
-    }
+    return (transpose == 'N') ? m_size[0] : m_size[1];
 }
 
 template <typename DataType>
@@ -89,14 +78,7 @@ unsigned int ConstMatrix<DataType>::GetColumns() const
 template <typename DataType>
 unsigned int ConstMatrix<DataType>::GetTransposedColumns(char transpose) const
 {
-    if (transpose == 'N')
-    {
-        return m_size[1];
-    }
-    else
-    {
-        return m_size[0];
-    }
+    return (transpose == 'N') ? m_size[1] : m_size[0];
 }
 
 template <typename DataType>

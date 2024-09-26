@@ -10,22 +10,22 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="x" tolerance="1e-6">0.408248</value>
-            <value variable="y" tolerance="1e-6">0.408248</value>
-            <value variable="z" tolerance="1e-6">0.369755</value>
-            <value variable="u" tolerance="1e-6">0.129547</value>
-            <value variable="v" tolerance="1e-12">1.98701e-16</value>
-            <value variable="w" tolerance="1e-6">0</value>
-            <value variable="p" tolerance="1e-6">0.816497</value>
+            <value variable="x" tolerance="1e-6">0.577350</value>
+            <value variable="y" tolerance="1e-6">0.577350</value>
+            <value variable="z" tolerance="1e-6">0.522913</value>
+            <value variable="u" tolerance="1e-6">0.183207</value>
+            <value variable="v" tolerance="1e-12">0</value>
+            <value variable="w" tolerance="1e-12">0</value>
+            <value variable="p" tolerance="1e-5">1.15470</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="x" tolerance="1e-6">1</value>
-            <value variable="y" tolerance="1e-6">1</value>
+            <value variable="x" tolerance="1e-5">1</value>
+            <value variable="y" tolerance="1e-5">1</value>
             <value variable="z" tolerance="1e-6">0.875</value>
             <value variable="u" tolerance="1e-6">0.25</value>
-            <value variable="v" tolerance="1e-12">9.70677e-16</value>
-            <value variable="w" tolerance="1e-12">1.26243e-17</value>
-            <value variable="p" tolerance="1e-6">2</value>
+            <value variable="v" tolerance="1e-12">0</value>
+            <value variable="w" tolerance="1e-12">0</value>
+            <value variable="p" tolerance="1e-5">2</value>
         </metric>
     </metrics>
 </test>

@@ -481,9 +481,9 @@ void CADSystemOCE::AddSurf(int i, TopoDS_Shape in)
     m_surfs[i] = newSurf;
 }
 
-Array<OneD, NekDouble> CADSystemOCE::GetBoundingBox()
+std::array<NekDouble, 6> CADSystemOCE::GetBoundingBox()
 {
-    Array<OneD, NekDouble> bound(6);
+    std::array<NekDouble, 6> bound;
     bound[0] = numeric_limits<double>::max(); // xmin
     bound[1] = numeric_limits<double>::min(); // xmax
     bound[2] = numeric_limits<double>::max(); // ymin
@@ -493,8 +493,8 @@ Array<OneD, NekDouble> CADSystemOCE::GetBoundingBox()
 
     for (int i = 1; i <= m_curves.size(); i++)
     {
-        CADCurveSharedPtr c         = GetCurve(i);
-        Array<OneD, NekDouble> ends = c->GetMinMax();
+        CADCurveSharedPtr c = GetCurve(i);
+        auto ends           = c->GetMinMax();
 
         bound[0] = min(bound[0], min(ends[0], ends[3]));
         bound[1] = max(bound[1], max(ends[0], ends[3]));

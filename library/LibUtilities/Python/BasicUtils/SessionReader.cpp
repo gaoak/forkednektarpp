@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "../NekPyConvertors.hpp"
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
@@ -55,31 +56,10 @@ CommSharedPtr MPICOMM = CommSharedPtr();
 
 SessionReaderSharedPtr SessionReader_CreateInstance(py::list &ns)
 {
-    int i, argc = py::len(ns), bufSize = 0;
-    char **argv = new char *[argc + 1], *p;
+    CppCommandLine cpp(ns);
 
-    // Create argc, argv to give to the session reader. Note that this needs to
-    // be a contiguous block in memory, otherwise MPI (specifically OpenMPI)
-    // will likely segfault.
-    for (i = 0; i < argc; ++i)
-    {
-        std::string tmp = py::extract<std::string>(ns[i]);
-        bufSize += tmp.size() + 1;
-    }
-
-    std::vector<char> buf(bufSize);
-    for (i = 0, p = &buf[0]; i < argc; ++i)
-    {
-        std::string tmp = py::extract<std::string>(ns[i]);
-        std::copy(tmp.begin(), tmp.end(), p);
-        p[tmp.size()] = '\0';
-        argv[i]       = p;
-        p += tmp.size() + 1;
-    }
-
-    // Also make sure we set argv[argc] = NULL otherwise OpenMPI will also
-    // segfault.
-    argv[argc] = nullptr;
+    int argc    = cpp.GetArgc();
+    char **argv = cpp.GetArgv();
 
 #ifdef NEKTAR_USE_MPI
     // In the case we're using MPI, it may already have been initialised. So to
@@ -93,7 +73,7 @@ SessionReaderSharedPtr SessionReader_CreateInstance(py::list &ns)
     }
 
     std::vector<std::string> filenames(argc - 1);
-    for (i = 1; i < argc; ++i)
+    for (int i = 1; i < argc; ++i)
     {
         filenames[i - 1] = std::string(argv[i]);
     }
@@ -105,9 +85,6 @@ SessionReaderSharedPtr SessionReader_CreateInstance(py::list &ns)
     // Create session reader.
     SessionReaderSharedPtr sr = SessionReader::CreateInstance(argc, argv);
 #endif
-
-    // Clean up.
-    delete[] argv;
 
     return sr;
 }
@@ -122,6 +99,39 @@ void SessionReader_SetParameterDouble(SessionReaderSharedPtr session,
                                       std::string paramName, double paramValue)
 {
     session->SetParameter(paramName, paramValue);
+}
+
+EquationSharedPtr SessionReader_GetFunction1(SessionReaderSharedPtr session,
+                                             std::string func, int var)
+{
+    return session->GetFunction(func, var);
+}
+
+EquationSharedPtr SessionReader_GetFunction2(SessionReaderSharedPtr session,
+                                             std::string func, std::string var)
+{
+    return session->GetFunction(func, var);
+}
+
+/**
+ * @brief Function to wrap SessionReader::GetParameters
+ *
+ * Returns a Python dict containing (parameter name)-> (parameter value)
+ * entries.
+ */
+py::dict SessionReader_GetParameters(SessionReaderSharedPtr s)
+{
+    return MapToPyDict(s->GetParameters());
+}
+
+/**
+ * @brief Function to wrap SessionReader::GetVariables
+ *
+ * Returns a Python list containing variable names.
+ */
+py::list SessionReader_GetVariables(SessionReaderSharedPtr s)
+{
+    return VectorToPyList(s->GetVariables());
 }
 
 /**
@@ -149,12 +159,22 @@ void export_SessionReader()
         .def("DefinesParameter", &SessionReader::DefinesParameter)
         .def("GetParameter", &SessionReader::GetParameter,
              py::return_value_policy<py::return_by_value>())
+        .def("GetParameters", &SessionReader_GetParameters)
 
         .def("SetParameter", SessionReader_SetParameterInt)
         .def("SetParameter", SessionReader_SetParameterDouble)
 
+        .def("DefinesSolverInfo", &SessionReader::DefinesSolverInfo)
+        .def("GetSolverInfo", &SessionReader::GetSolverInfo,
+             py::return_value_policy<py::copy_const_reference>())
+        .def("SetSolverInfo", &SessionReader::SetSolverInfo)
+
         .def("GetVariable", &SessionReader::GetVariable,
              py::return_value_policy<py::copy_const_reference>())
+        .def("GetVariables", SessionReader_GetVariables)
+
+        .def("GetFunction", SessionReader_GetFunction1)
+        .def("GetFunction", SessionReader_GetFunction2)
 
         .def("GetComm", &SessionReader::GetComm)
 

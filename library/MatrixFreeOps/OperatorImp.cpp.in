@@ -6,6 +6,8 @@
 // shape so to reduce compile time timeout failures due to the large
 // number of template implementations.
 
+// clang-format off
+
 // These defines must be before the operator header file as they are
 // used in the header files.
 #define SHAPE_TYPE_@TYPE@

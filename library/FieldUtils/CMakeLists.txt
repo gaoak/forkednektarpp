@@ -44,6 +44,7 @@ SET(FieldUtilsHeaders
     ProcessModules/ProcessJacobianEnergy.h
     ProcessModules/ProcessL2Criterion.h
     ProcessModules/ProcessMapping.h
+    ProcessModules/ProcessMRF.h
     ProcessModules/ProcessNumModes.h
     ProcessModules/ProcessMean.h
     ProcessModules/ProcessMeanMode.h
@@ -64,6 +65,7 @@ SET(FieldUtilsHeaders
     ProcessModules/ProcessC0Projection.h
     ProcessModules/ProcessQCriterion.h
     ProcessModules/ProcessQualityMetric.h
+    ProcessModules/ProcessVortexInducedVelocity.h
     ProcessModules/ProcessZeroHomogeneousPlane.h
 )
 
@@ -112,6 +114,7 @@ SET(FieldUtilsSources
     ProcessModules/ProcessJacobianEnergy.cpp
     ProcessModules/ProcessL2Criterion.cpp
     ProcessModules/ProcessMapping.cpp
+    ProcessModules/ProcessMRF.cpp
     ProcessModules/ProcessNumModes.cpp
     ProcessModules/ProcessMean.cpp
     ProcessModules/ProcessMeanMode.cpp
@@ -132,6 +135,7 @@ SET(FieldUtilsSources
     ProcessModules/ProcessC0Projection.cpp
     ProcessModules/ProcessQCriterion.cpp
     ProcessModules/ProcessQualityMetric.cpp
+    ProcessModules/ProcessVortexInducedVelocity.cpp
     ProcessModules/ProcessZeroHomogeneousPlane.cpp
 )
 

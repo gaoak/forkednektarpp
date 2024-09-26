@@ -38,7 +38,7 @@
 #include <iomanip>
 #include <iostream>
 
-//#include <sstream>
+// #include <sstream>
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/LinearAlgebra/Lapack.hpp>
 #include <LocalRegions/QuadExp.h>
@@ -46,6 +46,7 @@
 #include <LocalRegions/TriExp.h>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <boost/lexical_cast.hpp>
 #include <tinyxml.h>
 
@@ -190,13 +191,13 @@ int main(int argc, char *argv[])
     LibUtilities::SessionReaderSharedPtr vSession =
         LibUtilities::SessionReader::CreateInstance(2, argv);
     SpatialDomains::MeshGraphSharedPtr graphShPt =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
     //----------------------------------------------
 
     if (argc == 6 && vSession->DefinesSolverInfo("INTERFACE") &&
         vSession->GetSolverInfo("INTERFACE") == "phase")
     {
-        cr   = boost::lexical_cast<NekDouble>(argv[argc - 1]);
+        cr   = std::stod(argv[argc - 1]);
         argc = 5;
     }
 
@@ -219,7 +220,7 @@ int main(int argc, char *argv[])
 
     // store the value of alpha
     string charalp(argv[argc - 1]);
-    // NekDouble alpha = boost::lexical_cast<NekDouble>(charalp);
+    // NekDouble alpha = std::stod(charalp);
     cout << "read alpha=" << charalp << endl;
 
     //---------------------------------------------
@@ -674,7 +675,7 @@ int main(int argc, char *argv[])
 
     /////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    //££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££
+    // ££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££
     //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
     //@todo set Delta0 from session file
     NekDouble Delta0;
@@ -688,7 +689,7 @@ int main(int argc, char *argv[])
     }
 
     //$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-    //££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££
+    // ££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££
     ////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////
     // save the coords of the old vertices
@@ -2284,7 +2285,7 @@ void GenerateAddPointsNewtonIt(NekDouble xi, NekDouble yi, NekDouble &xout,
         U = function->GetExp(elmtid)->PhysEvaluate(coords, function->GetPhys() +
                                                                offset);
         dU        = function->GetExp(elmtid)->PhysEvaluate(coords,
-                                                    derfunction + offset);
+                                                           derfunction + offset);
         coords[1] = coords[1] - (U - cr) / dU;
         cout << cr << "U-cr=" << U - cr << "  tmp result y:" << coords[1]
              << "  dU=" << dU << endl;
@@ -2591,8 +2592,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                         Utmp     = streak->GetExp(elmtid)->PhysEvaluate(
                             coord, streak->GetPhys() + offset);
                         diffarray[e]  = abs((xtmp * xbef + ytmp * ybef) /
-                                               (normtmp * normbef) -
-                                           1);
+                                                (normtmp * normbef) -
+                                            1);
                         diffUarray[e] = abs(Ubef - Utmp);
                         cout << "   normtmp=" << normtmp << endl;
                         cout << "   Utmpcc=" << Utmp << endl;
@@ -2611,8 +2612,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                             Eids_lay[m][g]     = edgestmp[e];
                             Vids_lay[m][g + 1] = V2[edgestmp[e]];
                             diff     = abs((xtmp * xbef + ytmp * ybef) /
-                                           (normtmp * normbef) -
-                                       1);
+                                               (normtmp * normbef) -
+                                           1);
                             normnext = normtmp;
                             ynext    = ytmp;
                             xnext    = xtmp;
@@ -2631,8 +2632,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                         Utmp     = streak->GetExp(elmtid)->PhysEvaluate(
                             coord, streak->GetPhys() + offset);
                         diffarray[e]  = abs((xtmp * xbef + ytmp * ybef) /
-                                               (normtmp * normbef) -
-                                           1);
+                                                (normtmp * normbef) -
+                                            1);
                         diffUarray[e] = abs(Ubef - Utmp);
                         cout << "   normtmp=" << normtmp << endl;
                         cout << "   Utmpcc=" << Utmp << endl;
@@ -2650,8 +2651,8 @@ void MappingEVids([[maybe_unused]] Array<OneD, NekDouble> xoldup,
                             Eids_lay[m][g]     = edgestmp[e];
                             Vids_lay[m][g + 1] = V1[edgestmp[e]];
                             diff     = abs((xtmp * xbef + ytmp * ybef) /
-                                           (normtmp * normbef) -
-                                       1);
+                                               (normtmp * normbef) -
+                                           1);
                             normnext = normtmp;
                             ynext    = ytmp;
                             xnext    = xtmp;

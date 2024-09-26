@@ -102,7 +102,6 @@ template <class T> int ZlibEncode(std::vector<T> &in, std::string &out)
 
         have = CHUNK - strm.avail_out;
         out += buffer.substr(0, have);
-
     } while (strm.avail_out == 0);
 
     // Check all input was processed.
@@ -184,7 +183,6 @@ template <class T> int ZlibDecode(std::string &in, std::vector<T> &out)
 
         have = CHUNK - strm.avail_out;
         output += buffer.substr(0, have);
-
     } while (strm.avail_out == 0);
 
     (void)inflateEnd(&strm);

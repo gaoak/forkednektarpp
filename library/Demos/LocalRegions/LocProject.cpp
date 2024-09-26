@@ -249,9 +249,9 @@ int main(int argc, char *argv[])
     // check basis selection is permitted for chosen shape
     map<ShapeType, vector<vector<BasisType>>> allowableBasis;
     allowableBasis[ePoint]   = {{eOrtho_A, eModified_A, eFourier, eGLL_Lagrange,
-                               eGauss_Lagrange, eLegendre, eChebyshev,
-                               eMonomial, eFourierSingleMode,
-                               eFourierHalfModeRe, eFourierHalfModeIm}};
+                                 eGauss_Lagrange, eLegendre, eChebyshev,
+                                 eMonomial, eFourierSingleMode,
+                                 eFourierHalfModeRe, eFourierHalfModeIm}};
     allowableBasis[eSegment] = {allowableBasis[ePoint][0]};
     allowableBasis[eTriangle] = {
         {eOrtho_A, eModified_A, eGLL_Lagrange, eGauss_Lagrange},
@@ -492,17 +492,17 @@ GeometrySharedPtr CreateGeom(vector<NekDouble> coords, ShapeType shapeType)
     edgeDef[eTriangle]      = {{0, 1}, {1, 2}, {2, 0}};
     edgeDef[eQuadrilateral] = {{0, 1}, {1, 2}, {2, 3}, {3, 0}};
     edgeDef[eHexahedron]    = {{0, 1}, {1, 2}, {3, 2}, {0, 3}, {0, 4}, {1, 5},
-                            {2, 6}, {3, 7}, {4, 5}, {5, 6}, {7, 6}, {4, 7}};
+                               {2, 6}, {3, 7}, {4, 5}, {5, 6}, {7, 6}, {4, 7}};
     edgeDef[ePrism]         = {{0, 1}, {1, 2}, {3, 2}, {0, 3}, {0, 4},
-                       {1, 4}, {2, 5}, {3, 5}, {4, 5}};
+                               {1, 4}, {2, 5}, {3, 5}, {4, 5}};
     edgeDef[ePyramid]       = {{0, 1}, {1, 2}, {3, 2}, {0, 3},
-                         {0, 4}, {1, 4}, {2, 4}, {3, 4}};
+                               {0, 4}, {1, 4}, {2, 4}, {3, 4}};
     edgeDef[eTetrahedron]   = {{0, 1}, {1, 2}, {0, 2}, {0, 3}, {1, 3}, {2, 3}};
 
     faceDef[eTriangle]      = {{0, 1, 2}};
     faceDef[eQuadrilateral] = {{0, 1, 2, 3}};
     faceDef[eHexahedron]    = {{0, 1, 2, 3},  {0, 5, 8, 4},  {1, 6, 9, 5},
-                            {2, 7, 10, 6}, {3, 7, 11, 4}, {8, 9, 10, 11}};
+                               {2, 7, 10, 6}, {3, 7, 11, 4}, {8, 9, 10, 11}};
     faceDef[ePrism]         = {
         {0, 1, 2, 3}, {0, 5, 4}, {1, 6, 8, 5}, {2, 6, 7}, {3, 7, 8, 4}};
     faceDef[ePyramid] = {

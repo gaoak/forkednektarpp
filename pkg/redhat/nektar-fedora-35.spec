@@ -22,6 +22,8 @@ BuildRequires:  make
 BuildRequires:  opencascade-devel
 #BuildRequires:  petsc-devel
 BuildRequires:  python3-devel
+BuildRequires:  python3-pip
+BuildRequires:  python3-setuptools
 BuildRequires:  scotch-devel
 BuildRequires:  tetgen-devel
 BuildRequires:  tinyxml-devel
@@ -108,6 +110,8 @@ Requires:       make
 Requires:       opencascade-devel
 #Requires:       petsc-devel
 Requires:       python3-devel
+Requires:       python3-pip
+Requires:       python3-setuptools
 Requires:       scotch-devel
 Requires:       tetgen-devel
 Requires:       tinyxml-devel
@@ -133,6 +137,8 @@ Requires:       opencascade-devel
 #Requires:       petsc-openmpi-devel
 Requires:       hdf5-openmpi-devel
 Requires:       python3-devel
+Requires:       python3-pip
+Requires:       python3-setuptools
 Requires:       ptscotch-openmpi-devel
 Requires:       tetgen-devel
 Requires:       tinyxml-devel
@@ -158,6 +164,8 @@ Requires:       opencascade-devel
 #Requires:       petsc-mpich-devel
 Requires:       hdf5-mpich-devel
 Requires:       python3-devel
+Requires:       python3-pip
+Requires:       python3-setuptools
 Requires:       ptscotch-mpich-devel
 Requires:       tetgen-devel
 Requires:       tinyxml-devel
@@ -456,9 +464,9 @@ MPI_ON=ON NEKTAR_LIBDIR=lib NEKTAR_INCLUDE_ROOT=%{_prefix}/include/$MPI_COMPILER
 make -C serial install DESTDIR=%{buildroot} INSTALL="install -p" CPPROG="cp -p"
 
 # Install serial NekPy library
-cd serial
+cd serial/python
 %{__python3} setup.py install --root=%{buildroot} --install-purelib=%{python3_sitearch}
-cd ..
+cd ../..
 
 # Make sure module paths are loaded, again.
 . /etc/profile.d/modules.sh;
@@ -467,18 +475,20 @@ cd ..
 %{_openmpi_load}
 cd $MPI_COMPILER
 make install DESTDIR=%{buildroot}
+cd python
 %{__python3} setup.py install --root=%{buildroot} --install-purelib=%{python3_sitearch}/openmpi
 mv %{buildroot}/usr/lib64/openmpi/include %{buildroot}/usr/include/$MPI_COMPILER
-cd ..
+cd ../..
 %{_openmpi_unload}
 
 # Install MPICH version
 %{_mpich_load}
 cd $MPI_COMPILER
 make install DESTDIR=%{buildroot}
+cd python
 %{__python3} setup.py install --root=%{buildroot} --install-purelib=%{python3_sitearch}/mpich
 mv %{buildroot}/usr/lib64/mpich/include %{buildroot}/usr/include/$MPI_COMPILER
-cd ..
+cd ../..
 %{_mpich_unload}
 
 # Clean up temporary Python files

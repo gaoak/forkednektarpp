@@ -47,7 +47,7 @@ public:
     /// Creates an instance of this class
     static FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
+        const std::shared_ptr<EquationSystem> &pEquation,
         const std::map<std::string, std::string> &pParams)
     {
         FilterSharedPtr p = MemoryManager<FilterIntegral>::AllocateSharedPtr(
@@ -61,7 +61,7 @@ public:
     /// Constructs the integral filter and parses filter options, opens file
     SOLVER_UTILS_EXPORT FilterIntegral(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
+        const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
 
     /// Default destructor

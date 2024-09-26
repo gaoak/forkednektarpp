@@ -57,9 +57,9 @@ public:
         std::vector<StdRegions::StdExpansionSharedPtr> pCollExp,
         OperatorImpMap &impTypes);
 
+    /// Update the factor map in operator @param opType by input @param factors
     COLLECTIONS_EXPORT void UpdateFactors(const OperatorType opType,
-                                          StdRegions::FactorMap factors,
-                                          int coll_phys_offset = 0);
+                                          StdRegions::FactorMap factors);
 
     COLLECTIONS_EXPORT void UpdateVarcoeffs(
         const OperatorType opType,
@@ -108,6 +108,12 @@ public:
     inline int GetOutputSize(const OperatorType &op, bool defaultOut = true)
     {
         return m_ops[op]->GetOutputSize(defaultOut);
+    }
+
+    /// Return the number of elements in collection attached to @param op
+    inline int GetNumElmt(const OperatorType &op)
+    {
+        return m_ops[op]->GetNumElmt();
     }
 
 protected:

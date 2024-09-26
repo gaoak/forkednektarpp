@@ -322,7 +322,18 @@ template <typename T> inline scalarT<T> log(scalarT<T> in)
 }
 
 template <typename T>
-inline void load_interleave(const T *in, size_t dataLen,
+inline void load_unalign_interleave(
+    const T *in, const size_t dataLen,
+    std::vector<scalarT<T>, allocator<scalarT<T>>> &out)
+{
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        out[i] = in[i];
+    }
+}
+
+template <typename T>
+inline void load_interleave(const T *in, const size_t dataLen,
                             std::vector<scalarT<T>, allocator<scalarT<T>>> &out)
 {
     for (size_t i = 0; i < dataLen; ++i)
@@ -332,9 +343,20 @@ inline void load_interleave(const T *in, size_t dataLen,
 }
 
 template <typename T>
+inline void deinterleave_unalign_store(
+    const std::vector<scalarT<T>, allocator<scalarT<T>>> &in,
+    const size_t dataLen, T *out)
+{
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        out[i] = in[i]._data;
+    }
+}
+
+template <typename T>
 inline void deinterleave_store(
-    const std::vector<scalarT<T>, allocator<scalarT<T>>> &in, size_t dataLen,
-    T *out)
+    const std::vector<scalarT<T>, allocator<scalarT<T>>> &in,
+    const size_t dataLen, T *out)
 {
     for (size_t i = 0; i < dataLen; ++i)
     {

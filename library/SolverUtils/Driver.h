@@ -65,7 +65,7 @@ class Driver
 {
 public:
     /// Destructor
-    virtual ~Driver();
+    virtual ~Driver() = default;
 
     /// Initialise Object
     SOLVER_UTILS_EXPORT inline void InitObject(std::ostream &out = std::cout);

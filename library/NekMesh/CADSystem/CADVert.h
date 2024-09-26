@@ -75,7 +75,7 @@ public:
     /**
      * @brief Get x,y,z location of the vertex
      */
-    Array<OneD, NekDouble> GetLoc();
+    std::array<NekDouble, 3> GetLoc();
 
     /**
      * @brief returns a node object of the cad vertex
@@ -108,7 +108,7 @@ public:
     /**
      * @brief Calcuate the distance to a vertex from a point l(x,y,z)
      */
-    virtual NekDouble DistanceTo(Array<OneD, NekDouble> l) = 0;
+    virtual NekDouble DistanceTo(std::array<NekDouble, 3> l) = 0;
 
     void AddAdjCurve(CADCurveSharedPtr c)
     {

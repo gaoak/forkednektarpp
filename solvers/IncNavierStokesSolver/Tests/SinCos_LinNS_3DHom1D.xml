@@ -138,10 +138,10 @@
 
         <COMPOSITE>
             <C ID="0"> Q[0,1,2,3]   </C>
-            <C ID="1"> E[0,1]   </C> // Walls
-            <C ID="2"> E[10,11] </C> // Walls
-            <C ID="3"> E[2,7]   </C> // Inflow
-            <C ID="4"> E[4,9]   </C> // Outflow
+            <C ID="1"> E[0,1]   </C> <!-- Walls -->
+            <C ID="2"> E[10,11] </C> <!-- Walls -->
+            <C ID="3"> E[2,7]   </C> <!-- Inflow -->
+            <C ID="4"> E[4,9]   </C> <!-- Outflow -->
         </COMPOSITE>
 
         <DOMAIN> C[0] </DOMAIN>

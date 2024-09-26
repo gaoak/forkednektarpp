@@ -40,7 +40,7 @@
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeOperators.h>
 
 #include <MultiRegions/ContField.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -85,7 +85,7 @@ Diffusion::Diffusion(int argc, char *argv[])
     session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
     // Read the geometry and the expansion information
-    graph = SpatialDomains::MeshGraph::Read(session);
+    graph = SpatialDomains::MeshGraphIO::Read(session);
 
     // Create Field I/O object.
     fld = LibUtilities::FieldIO::CreateDefault(session);

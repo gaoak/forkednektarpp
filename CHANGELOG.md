@@ -1,5 +1,44 @@
 Changelog
 =========
+v5.7.0
+-----
+**Library**
+- Modified MatrixFreeOp library  switch initialisation to use BOOST_PP (!1794)
+- Fix memory-leak with LowEnergyBlock preconditioner for time-updated matrices (!1627)
+- Fix Fourier expansion integration weights are related test (!1803)
+- Introduced the MatrixFree implementation for the PhysInterp1DScaled operator and tidying up MatrixFreeOps (!1812) 
+- Separate MeshGraph input/output functions into a new class (!1778)
+- Added checkpoint file writing start time in the fieldconvert filter (!1789)
+- Fix fieldconvert filter incorrect boundary values (!1789)
+- Fix numerical precision issues with filters OutputStartTime (!1789)
+- Fix AdaptiveSFD for MPI (!1821)
+- Fix IterativeStaticCond when using absolute tolerance (!1850)
+- Fix deadlock by scotch with multi-threading support (!1853)
+- Fixed L2norm for FilterError (!1871)
+- Fix variable p in tetrahedrons (!1881)
+- Fix BwdTrans for Pyr with var P (!1886)
+
+**IncNavierStokesSolver**
+- Fix initial and boundary conditions in the moving reference frame (!1692, !1820)
+- Fix memory-leak for the Mixed_CG_Discontinuous projection when initializing the traceMep (!1806)
+- Add synthetic turbulence generation for the incompressible solver (!1664) 
+- Fix a uninitialized parameter in VCS (!1880)
+
+**ShallowWaterSolver**
+- Implement implicit time-discritization (!1784)
+
+**NekMesh**
+- Added revolve module (!1825)
+
+**FieldConvert**
+- Add vortexinducedvelocity module to compute the vortex-induced velocity (!1824)
+- Add a module to transform coordinates and vectors for the moving reference frame method (!1830)
+
+**Miscellaneous**
+- Use std::stod instead of boost::lexical_cast<NekDouble> (!1819)
+
+**Documentation**
+- Add initial documentation for the IncNavierStokesSolver (!1822)
 
 v5.6.0
 ------
@@ -9,19 +48,57 @@ v5.6.0
 - Fix issue with CMake and zlib versions >= 1.3.0 (!1744)
 - Add 1D demo and test of h-type convergence for a CG projection. (!1738)
 - Add 2D projection demo and tests following 1D added in MR !1738. (!1762)
-- Update NekPy to more modern packaging (!1747)
 - Tidy up tolerance in NekLinSystIter and NekNonlinSysIter solvers (!1722)
 - Enable varcoeffs for Collections (!1701)
 - Fix misplaced " in Nektar++Config.cmake (!1742)
-- Add conditional updating of elemental Mass and Laplacian matrices for LinearADR matrices (!1766)
+- Further tidy-up in linear solver (!1761)
+- Use FwdTrans in UnsteadySystem when using Parareal (!1785)
+- Automate deployment of README.md to dockerhub (!1786)
+- Fix memory leak with Block preconditioner for time-updated matrices (!1737)
+- Support for implicit sliding meshes (!1787)
+- Fix compilation issue with OpenCASCADE 7.8.0 (!1799)
+- Fix MPI communicator for Parallel-in-Time (!1801)
+- Fix warnings issued by MSVC compiler in LibUtilities and StdRegions (!1740)
+- Fix Parareal convergence monitoring (!1802)
+- Avoid copying input/output to/from padded aligned arrays in MatrixFree operators(!1783)
 
+**CompressibleFlowSolver**
+- Complete second Frechet derivative implementation (!1761)
+- Add conditional updating of elemental Mass and Laplacian matrices for LinearADR matrices (!1766)
+- Added routine to order expansion in an optimal manner for MatrixFree/Collection ops (!1770)
+- Fix PFASST I/O and pre-initialize coarse preconditioner for Parareal (!1749)
+- Remove collection offset arrays since no longer required (!1771)
+- Fix summary output (!1779)
+- Update Docker images to use bookworm (!1775)
+- Update `clang-tidy` and `clang-format` to v16 (!1777)
+- Add coverage metric capturing (!1776)
+
+**ShallowWaterSolver**
+- Refractoring to reduce code duplication (!1782)
 
 **NekPy**
 - Add binding to NekPy to check of geometry elements are valid (!1755)
-- Fix PFASST I/O and pre-initialize coarse preconditioner for Parareal (!1749)
+- Update NekPy to more modern packaging (!1747)
+- Add wrapper for selected SolverUtils classes, particularly Filter (!1379)
+- Add VTK support for OutputVtk module (!1379)
+- Add bindings for SolverUtils::EquationSystem and UnsteadySystem (!1752)
+- Return native Python types when getting session variables and parameters (!1380)
 
 **NekMesh**
 - Fix optiKind flags in VarOpti for freenodes that are on more than a single curve / surface (!1597)
+- Fix VarOpti Surface Node Sliding on the CAD in 2D  (!1569)
+- Add feature for r-adaption on user-defined CAD curves (!1349)
+- Add feature for r-adaption on user-defined CAD curves (!1349)
+- Add unit testing infrustructure and initial example (!1753)
+- Added a custom cmake cache file to load defaults for building only NekMesh without the solvers (!1641)
+- Extend peralign module to all types of meshes (!1702)
+
+**IncNavierStokesSolver**
+- Matrix-Free LinearADR operator for VCSImplicit and others (!1627)
+- Make substepping normal velocity evaluation more efficient (!1795)
+
+**FieldConvert**
+- Add range function as an option in Xml Input, align python usage and start depracation of -r option (!1791) 
 
 v5.5.0
 ------
@@ -198,6 +275,8 @@ v5.4.0
 - Remove useless ReadExpressions and SubstituteExpressions function in sessionReader (!1608)
 - Corrected workspace size in triangle BwdTrans (!1610)
 - Reactivate Reactivate Movement_fixed_3D_stacked_cylinders_curved_hdf5_par test except on ARM MacOS (!1536)
+- Updated the PETSc version to v3.19.3 for THIRDPARTY_USE_PETSC, enabled local PETSc version usage (!1618)
+
 - Rename communicator in LinearAlgebra (!1612)
 - Add IProductWRTDerivBase operator for 3DH1D problems (!1483)
 - Full support of mixed-order elements in DG (!1606)
@@ -258,6 +337,7 @@ v5.4.0
 
 **NekMesh**
 - Changed CMake to set NEKTAR_USE_THREAD_SAFETY to ON when MeshGen is set to ON (!1546)
+- Fix VarOpti Tolerances (!1569)
 - Fixed a bug where MeshElement/Tetrahedron did not assign edge IDs in the constructor (!1596)
 - Reduce VarOpti memory usage by removing the storage for GetFunctional in NodeOpti (!1633)
 
@@ -266,6 +346,7 @@ v5.4.0
 
 **CI**
 - Add testing and packaging for Debian bookworm (!1638)
+- Added a NekMesh docker image and added the image to the CI (!1641)
 **NekPy**
 - Add bindings for Movement-related classes (!1600)
 - Add bindings for various helpful methods in the SpatialDomains
@@ -283,19 +364,6 @@ v5.3.0
 - Added float and restore avx512 back-end for SimdLib (!1387)
 - Fix namespace pollution which causes boost 1.74+ errors (!1389)
 - Fix missing copy assignment operator warnings in clang 13+ (!1391)
-- Add an integral filter for the time-evolution of integrals on composites,
-  supports dimension equal to or one lower than the mesh dimension (!1323)
-- Overload PhysEvaluate to give first derivatives using barycentric
-  interpolation (!1323)
-- Non-conformal interface support (!1323)
-
-**FieldConvert**
-- Added conditional to select the eNearestNeighbour method for 3D interpolation (!1335)
-- Fixed the output field names of WSS module of FieldConvert
-- Added float to scalar and avx2 back-end, disable avx512, sse2, sve (!1255)
-- Change MPI initialisation to allow MPI_Init call outside Nektar++ (!1376)
-- Added float and restore avx512 back-end for SimdLib (!1387)
-- Fix namespace pollution which causes boost 1.74+ errors (!1389)
 - Added checkpoint file writing start time in the checkpoint filter (!1401)
 - Fix boost 1.77 compatibility errors (!1420)
 - Replaced depricated "sprintf" with "std::to_string" (!1406)
@@ -410,7 +478,6 @@ v5.3.0
 - Fix CWIPI test to use DirectFull for projection of received data (!1502)
 
 **NekMesh**
-- Multi domain input/output for Nekpp and HDF5 file formats (!1323)
 - Replace VTK pointers with VTK smart-pointers to avoid memory leaking, when
 exporting in .vtu format (!1386)
 - Preserve CAD face labels and save in to session file as a "NAME=" tag on the composites (!1396)

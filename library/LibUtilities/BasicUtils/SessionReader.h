@@ -191,6 +191,7 @@ public:
     /// Returns the value of the specified parameter.
     LIB_UTILITIES_EXPORT const NekDouble &GetParameter(
         const std::string &pName) const;
+    LIB_UTILITIES_EXPORT const ParameterMap &GetParameters();
     /// Load an integer parameter
     LIB_UTILITIES_EXPORT void LoadParameter(const std::string &name,
                                             int &var) const;

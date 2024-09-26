@@ -55,19 +55,16 @@ NekLinSysIterGMRES::NekLinSysIterGMRES(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
-    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-15);
-
     m_NekLinSysLeftPrecon  = pKey.m_NekLinSysLeftPrecon;
     m_NekLinSysRightPrecon = pKey.m_NekLinSysRightPrecon;
 
     m_KrylovMaxHessMatBand = pKey.m_KrylovMaxHessMatBand;
 
     m_maxrestart       = ceil(NekDouble(m_NekLinSysMaxIterations) /
-                        NekDouble(m_LinSysMaxStorage));
-    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, m_LinSysMaxStorage);
+                              NekDouble(pKey.m_LinSysMaxStorage));
+    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, pKey.m_LinSysMaxStorage);
 
-    m_DifferenceFlag0 = pKey.m_DifferenceFlag0;
-    m_DifferenceFlag1 = pKey.m_DifferenceFlag1;
+    m_GMRESCentralDifference = pKey.m_GMRESCentralDifference;
 
     // Allocate array storage of coefficients
     // Hessenburg matrix
@@ -96,8 +93,7 @@ void NekLinSysIterGMRES::v_InitObject()
  */
 int NekLinSysIterGMRES::v_SolveSystem(
     const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const int nDir,
-    [[maybe_unused]] const NekDouble factor)
+    Array<OneD, NekDouble> &pOutput, const int nDir)
 {
     int niterations = DoGMRES(nGlobal, pInput, pOutput, nDir);
 
@@ -163,9 +159,9 @@ int NekLinSysIterGMRES::DoGMRES(const int nGlobal,
     if (m_verbose)
     {
         Array<OneD, NekDouble> r0(nGlobal, 0.0);
-        m_operator.DoNekSysLhsEval(pOutput, r0, m_DifferenceFlag0);
-        Vmath::Svtvp(nNonDir, -1.0, &r0[0] + nDir, 1, &pInput[0] + nDir, 1,
-                     &r0[0] + nDir, 1);
+        m_operator.DoNekSysLhsEval(pOutput, r0, m_GMRESCentralDifference);
+        Vmath::Vsub(nNonDir, &pInput[0] + nDir, 1, &r0[0] + nDir, 1,
+                    &r0[0] + nDir, 1);
         NekDouble vExchange = Vmath::Dot2(nNonDir, &r0[0] + nDir, &r0[0] + nDir,
                                           &m_map[0] + nDir);
         m_rowComm->AllReduce(vExchange, LibUtilities::ReduceSum);
@@ -244,7 +240,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     if (restarted)
     {
         // This is A*x
-        m_operator.DoNekSysLhsEval(pOutput, r0, m_DifferenceFlag0);
+        m_operator.DoNekSysLhsEval(pOutput, r0, m_GMRESCentralDifference);
 
         // The first search direction
         beta = -1.0;
@@ -437,7 +433,7 @@ void NekLinSysIterGMRES::DoArnoldi(const int starttem, const int endtem,
     int nNonDir = nGlobal - nDir;
     LibUtilities::Timer timer;
     timer.Start();
-    m_operator.DoNekSysLhsEval(Vsingle1, w, m_DifferenceFlag1);
+    m_operator.DoNekSysLhsEval(Vsingle1, w, m_GMRESCentralDifference);
     timer.Stop();
     timer.AccumulateRegion("NekSysOperators::DoNekSysLhsEval", 10);
 

@@ -36,7 +36,7 @@
 #include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/SessionReader.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     // Read in mesh from input file
     string meshfile(argv[argc - 2]);
     SpatialDomains::MeshGraphSharedPtr graphShPt =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
     SpatialDomains::CompositeSharedPtr composite;
     composite = graphShPt->GetComposite(300);
     std::map<int, int> jointEdges, jointVerts, newVerts, newEdges;

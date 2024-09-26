@@ -1310,14 +1310,14 @@ int AssemblyMap::GetNumPatches() const
     return m_numPatches;
 }
 
-const Array<OneD, const unsigned int>
-    &AssemblyMap::GetNumLocalBndCoeffsPerPatch()
+const Array<OneD, const unsigned int> &AssemblyMap::
+    GetNumLocalBndCoeffsPerPatch()
 {
     return m_numLocalBndCoeffsPerPatch;
 }
 
-const Array<OneD, const unsigned int>
-    &AssemblyMap::GetNumLocalIntCoeffsPerPatch()
+const Array<OneD, const unsigned int> &AssemblyMap::
+    GetNumLocalIntCoeffsPerPatch()
 {
     return m_numLocalIntCoeffsPerPatch;
 }

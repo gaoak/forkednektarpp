@@ -41,6 +41,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/AssemblyMap/AssemblyMapDG.h>
+#include <MultiRegions/AssemblyMap/InterfaceMapDG.h>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/RiemannSolvers/RiemannSolver.h>
 #include <SolverUtils/SolverUtilsDeclspec.h>
@@ -250,8 +251,8 @@ public:
     }
 
     /// Get trace normal
-    SOLVER_UTILS_EXPORT const Array<OneD, const Array<OneD, NekDouble>>
-        &GetTraceNormal()
+    SOLVER_UTILS_EXPORT const Array<OneD, const Array<OneD, NekDouble>> &
+    GetTraceNormal()
     {
         return v_GetTraceNormal();
     }
@@ -416,8 +417,9 @@ protected:
         return tmp;
     }
 
-    SOLVER_UTILS_EXPORT virtual const Array<OneD, const Array<OneD, NekDouble>>
-        &v_GetTraceNormal();
+    SOLVER_UTILS_EXPORT virtual const Array<OneD,
+                                            const Array<OneD, NekDouble>> &
+    v_GetTraceNormal();
 };
 
 } // namespace Nektar::SolverUtils

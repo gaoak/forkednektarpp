@@ -46,7 +46,7 @@ std::string FilterEnergy::className =
         "Energy", FilterEnergy::create);
 
 FilterEnergy::FilterEnergy(const LibUtilities::SessionReaderSharedPtr &pSession,
-                           const std::weak_ptr<EquationSystem> &pEquation,
+                           const std::shared_ptr<EquationSystem> &pEquation,
                            const ParamMap &pParams)
     : Filter(pSession, pEquation), m_index(-1), m_homogeneous(false), m_planes()
 {

@@ -804,36 +804,36 @@ BOOST_AUTO_TEST_CASE(TestBlockMatrixErrorFrom6_10)
         BOOST_CHECK_EQUAL(expected_result, result);
     }
 
-    //#if 0
-    //            F_int = (F_int - (*m_Btilde)*F_bnd);
-    //#else
-    //            for(i = 0; i < m_Btilde->GetRows(); ++i)
-    //            {
-    //                for(j = 0; j < m_Btilde->GetColumns(); ++j)
-    //                {
-    //                    F_int[i] -= (*m_Btilde)(i,j)*F_bnd[j];
-    //                }
-    //            }
-    //#endif
+    // #if 0
+    //             F_int = (F_int - (*m_Btilde)*F_bnd);
+    // #else
+    //             for(i = 0; i < m_Btilde->GetRows(); ++i)
+    //             {
+    //                 for(j = 0; j < m_Btilde->GetColumns(); ++j)
+    //                 {
+    //                     F_int[i] -= (*m_Btilde)(i,j)*F_bnd[j];
+    //                 }
+    //             }
+    // #endif
     //
-    //            F_int = (F_int + Transpose(*m_D_int)*F_p);
+    //             F_int = (F_int + Transpose(*m_D_int)*F_p);
     //
-    //#if 0
-    //            F_int = (*m_Cinv)*F_int;
-    //#else
-    //            Array<OneD, NekDouble> ftmp(F_int.GetDimension(),0.0);
-    //            for(i = 0; i < m_Cinv->GetRows(); ++i)
-    //            {
-    //                for(j = 0; j < m_Cinv->GetColumns(); ++j)
-    //                {
-    //                    ftmp[i] += (*m_Cinv)(i,j)*F_int[j];
-    //                }
-    //            }
-    //            for(i = 0; i < ftmp.size(); ++i)
-    //            {
-    //                F_int[i] = ftmp[i];
-    //            }
-    //#endif
+    // #if 0
+    //             F_int = (*m_Cinv)*F_int;
+    // #else
+    //             Array<OneD, NekDouble> ftmp(F_int.GetDimension(),0.0);
+    //             for(i = 0; i < m_Cinv->GetRows(); ++i)
+    //             {
+    //                 for(j = 0; j < m_Cinv->GetColumns(); ++j)
+    //                 {
+    //                     ftmp[i] += (*m_Cinv)(i,j)*F_int[j];
+    //                 }
+    //             }
+    //             for(i = 0; i < ftmp.size(); ++i)
+    //             {
+    //                 F_int[i] = ftmp[i];
+    //             }
+    // #endif
 }
 
 } // namespace Nektar::BlockMatrixUnitTests

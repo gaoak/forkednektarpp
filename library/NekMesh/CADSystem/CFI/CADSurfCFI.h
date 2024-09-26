@@ -66,29 +66,30 @@ public:
         m_scal = i;
     }
 
-    Array<OneD, NekDouble> GetBounds();
+    std::array<NekDouble, 4> GetBounds();
 
     void GetBounds(NekDouble &umin, NekDouble &umax, NekDouble &vmin,
                    NekDouble &vmax);
 
-    Array<OneD, NekDouble> N(Array<OneD, NekDouble> uv);
+    std::array<NekDouble, 3> N(std::array<NekDouble, 2> uv);
 
-    Array<OneD, NekDouble> D1(Array<OneD, NekDouble> uv);
+    std::array<NekDouble, 9> D1(std::array<NekDouble, 2> uv);
 
-    Array<OneD, NekDouble> D2(Array<OneD, NekDouble> uv);
+    std::array<NekDouble, 18> D2(std::array<NekDouble, 2> uv);
 
-    Array<OneD, NekDouble> P(Array<OneD, NekDouble> uv);
+    std::array<NekDouble, 3> P(std::array<NekDouble, 2> uv);
 
-    void P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y, NekDouble &z);
+    void P(std::array<NekDouble, 2> uv, NekDouble &x, NekDouble &y,
+           NekDouble &z);
 
-    Array<OneD, NekDouble> locuv(Array<OneD, NekDouble> p, NekDouble &dist);
+    std::array<NekDouble, 2> locuv(std::array<NekDouble 3> p, NekDouble &dist);
 
-    NekDouble Curvature(Array<OneD, NekDouble> uv);
+    NekDouble Curvature(std::array<NekDouble, 2> uv);
 
-    Array<OneD, NekDouble> BoundingBox()
+    std::array<NekDouble, 6> BoundingBox()
     {
         ASSERTL0(false, "Not implemented in CFI");
-        return Array<OneD, NekDouble>();
+        return std::array<NekDouble, 6>();
     }
 
     bool IsPlanar()
@@ -104,7 +105,7 @@ public:
 
 private:
     /// Function which tests the the value of uv used is within the surface
-    void Test([[maybe_unused]] Array<OneD, NekDouble> uv)
+    void Test([[maybe_unused]] std::array<NekDouble, 2> uv)
     {
     }
     /// CFI object for surface.

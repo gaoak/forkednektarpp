@@ -112,70 +112,6 @@ MeshGraph::~MeshGraph()
 {
 }
 
-MeshGraphSharedPtr MeshGraph::Read(
-    const LibUtilities::SessionReaderSharedPtr session,
-    LibUtilities::DomainRangeShPtr rng, bool fillGraph,
-    SpatialDomains::MeshGraphSharedPtr partitionedGraph)
-{
-    LibUtilities::CommSharedPtr comm = session->GetComm();
-    ASSERTL0(comm.get(), "Communication not initialised.");
-
-    // Populate SessionReader. This should be done only on the root process so
-    // that we can partition appropriately without all processes having to read
-    // in the input file.
-    const bool isRoot = comm->TreatAsRankZero();
-    std::string geomType;
-
-    if (isRoot)
-    {
-        // Parse the XML document.
-        session->InitSession();
-
-        // Get geometry type, i.e. XML (compressed/uncompressed) or HDF5.
-        geomType = session->GetGeometryType();
-
-        // Convert to a vector of chars so that we can broadcast.
-        std::vector<char> v(geomType.c_str(),
-                            geomType.c_str() + geomType.length());
-
-        size_t length = v.size();
-        comm->Bcast(length, 0);
-        comm->Bcast(v, 0);
-    }
-    else
-    {
-        size_t length;
-        comm->Bcast(length, 0);
-
-        std::vector<char> v(length);
-        comm->Bcast(v, 0);
-
-        geomType = std::string(v.begin(), v.end());
-    }
-
-    // Every process then creates a mesh. Partitioning logic takes place inside
-    // the PartitionMesh function so that we can support different options for
-    // XML and HDF5.
-    MeshGraphSharedPtr mesh = GetMeshGraphFactory().CreateInstance(geomType);
-
-    // For Parallel-in-Time
-    //    In contrast to XML, a pre-paritioned mesh directory (_xml) is not
-    //    produced when partitionning the mesh for the fine solver when using
-    //    HDF5. In order to guaranting the same partition on all time level,
-    //    the fine mesh partition has to be copied explicitly.
-    if (partitionedGraph && geomType == "HDF5")
-    {
-        mesh->SetPartition(partitionedGraph);
-    }
-
-    mesh->PartitionMesh(session);
-
-    // Finally, read the geometry information.
-    mesh->ReadGeometry(rng, fillGraph);
-
-    return mesh;
-}
-
 void MeshGraph::SetPartition(SpatialDomains::MeshGraphSharedPtr graph)
 {
     m_meshPartitioned = true;
@@ -2802,7 +2738,7 @@ void MeshGraph::ReadRefinementInfo()
                 ASSERTL0(radiusStr, "RADIUS was not defined in REFINEMENT "
                                     "section of input");
 
-                NekDouble radius = boost::lexical_cast<NekDouble>(radiusStr);
+                NekDouble radius = std::stod(radiusStr);
 
                 // Extract Coordinate 1
                 const char *c1Str = refinement->Attribute("COORDINATE1");
@@ -4126,6 +4062,11 @@ CompositeDescriptor MeshGraph::CreateCompositeDescriptor()
     return ret;
 }
 
+void MeshGraph::SetDomainRange(LibUtilities::DomainRangeShPtr rng)
+{
+    m_domainRange = rng;
+}
+
 void MeshGraph::SetDomainRange(NekDouble xmin, NekDouble xmax, NekDouble ymin,
                                NekDouble ymax, NekDouble zmin, NekDouble zmax)
 {
@@ -4162,6 +4103,25 @@ void MeshGraph::SetDomainRange(NekDouble xmin, NekDouble xmax, NekDouble ymin,
         m_domainRange->m_zmin     = zmin;
         m_domainRange->m_zmax     = zmax;
     }
+}
+
+void MeshGraph::Clear()
+{
+    m_vertSet.clear();
+    m_curvedEdges.clear();
+    m_curvedFaces.clear();
+    m_segGeoms.clear();
+    m_triGeoms.clear();
+    m_quadGeoms.clear();
+    m_tetGeoms.clear();
+    m_pyrGeoms.clear();
+    m_prismGeoms.clear();
+    m_hexGeoms.clear();
+    m_meshComposites.clear();
+    m_compositesLabels.clear();
+    m_domain.clear();
+    m_expansionMapShPtrMap.clear();
+    m_faceToElMap.clear();
 }
 
 } // namespace Nektar::SpatialDomains

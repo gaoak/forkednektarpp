@@ -888,6 +888,30 @@ requires two parameters:
 length which determines how long the $z$ extrusion will be and layers, the
 number of elements in the $z$ direction.
 
+\subsection{2D mesh revolution}
+
+This module allows a 2D mesh, quads, triangles or both, to be revolved around
+the $y$ axis to make a simple 3D mesh made of prisms and hexahedra. It is also
+capable of revolving the high-order curvature within the 2D mesh. The module
+requires two parameters:
+
+\begin{lstlisting}[style=BashInputStyle]
+  NekMesh -m revolve:layers=n:angle=a 2D.xml 3D.xml
+\end{lstlisting}
+angle which determines the angle of revolution ($\theta$) around the $y$ axis and 
+layers, the number of elements in the $\theta$ direction.
+
+The angle can also be set to "full" for a full revolution of $2\pi$, although
+this is the default setting:
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m revolve:layers=n:angle=full 2D.xml 3D.xml
+\end{lstlisting}
+
+The angle must be between $0$ and $2\pi$.
+The 2D mesh must not cross or touch the $y$ axis i.e. $x>0$ for all points.
+By default the mesh is revolved through the full $2\pi$.
+
 \subsection{Variational Optimisation}
 \label{sec:varopti}
 This module can correct invalid and improve the quality of elements in
@@ -913,8 +937,7 @@ but the basic usage is:
 where type can be \texttt{hyperelastic}, \texttt{linearelastic},
 \texttt{winslow} or \texttt{roca}.
 
-\subsection{\emph{r}-adaptation}
-
+\subsection{\emph{r}-adaptation: interpolation file}
 This module can deform an existing mesh by using the variational optimiser
 presented above. A file must be provided that contains a list of points
 and a scaling value for each of them. This scaling factor is then used to
@@ -941,6 +964,26 @@ update their target scaling based on their latest location in the domain.
 It is often recommended to run \emph{r}-adaptation on a linear mesh for
 stability and performance reasons. Note also that the mesh must have
 CAD information in order for nodes to slide on curves and surfaces.
+
+\subsection{\emph{r}-adaptation: CAD curves}
+Another option for \emph{r}-adaptation can be defined where instead of providing
+an interpolation file, the user can provide a list of CAD curves towards which
+the scaling takes place. With this option, the \emph{r}-adaption uses a fixed
+scaling factor for all elements which are on or within a specified distance from
+the curve.
+
+The call is similar to the \emph{r}-adaption with interpolation file, with the difference of replacing the file with a list of CAD curve IDs, the scaling factor and an optional distance from the curve:
+\begin{lstlisting}[style=BashInputStyle]
+  NekMesh -m varopti:type:radaptcurves=CurveIDs:radaptscale=scale:radaptrad=rad:subiter=x inital.xml adapted.xml
+\end{lstlisting}
+where \texttt{radaptcurves}, \texttt{radaptscale} and \texttt{radaptscale} are
+additional containing the list of CAD curve IDs (integers separated by commas,
+or with a dash for ranges, i.e. 1-3,6 would select curves with ID 1, 2, 3, and
+6), the scaling factor as a float and the distance from the CAD curves as a
+float, respectively. As with the \emph{r}-adaption with interpolation file,
+\texttt{subiter} is to define the frequency at which individual elements update
+their target scaling based on their current proximity to the selected CAD
+curves.
 
 \subsection{Mesh projection}
 This module can take any linear mesh, providing that it is a close

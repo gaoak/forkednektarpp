@@ -12,7 +12,7 @@ OPTION(NEKTAR_USE_PETSC
 IF (NEKTAR_USE_PETSC)
     SET(PETSC_FIND_QUIETLY ON)
     FIND_PACKAGE(PkgConfig REQUIRED)
-    PKG_SEARCH_MODULE(PETSC PETSc IMPORTED_TARGET)
+    PKG_SEARCH_MODULE(PETSC PETSc IMPORTED_TARGET PATHS ${PKG_CONFIG_PATH})
 
     IF (PETSC_FOUND)
         # Prefer to use absolute paths to avoid separate link directories on
@@ -35,7 +35,7 @@ IF (NEKTAR_USE_PETSC)
     IF (THIRDPARTY_BUILD_PETSC)
         INCLUDE(ExternalProject)
 
-        FIND_PACKAGE(PythonInterp 2 REQUIRED)
+        FIND_PACKAGE(Python3 REQUIRED)
 
         UNSET(PATCH CACHE)
         FIND_PROGRAM(PATCH patch)
@@ -72,12 +72,14 @@ IF (NEKTAR_USE_PETSC)
                 LIST(GET BLAS_LAPACK 0 LAPACK)
                 LIST(GET BLAS_LAPACK 1 BLAS)
                 GET_FILENAME_COMPONENT(BLAS_LAPACK_DIR ${BLAS} PATH)
-                IF( NEKTAR_USE_MKL OR NEKTAR_USE_SYSTEM_BLAS_LAPACK)
+                IF(NEKTAR_USE_SYSTEM_BLAS_LAPACK)
                     SET(PETSC_MUMPS ${PETSC_MUMPS} --with-blas-lib=${BLAS}
                         --with-lapack-lib=${LAPACK})
                     IF(THIRDPARTY_BUILD_BLAS_LAPACK)
                         SET(PETSC_DEPS ${PETSC_DEPS} lapack-3.7.1)
                     ENDIF()
+                ELSEIF(NEKTAR_USE_MKL)
+                    SET(PETSC_MUMPS ${PETSC_MUMPS} --with-blaslapack-dir=${MKLROOT})
                 ELSE()
                     MESSAGE(STATUS "No suitable blas/lapack found, downloading")
                     SET(PETSC_MUMPS ${PETSC_MUMPS} --download-fblaslapack)
@@ -93,17 +95,17 @@ IF (NEKTAR_USE_PETSC)
         ENDIF()
 
         EXTERNALPROJECT_ADD(
-            petsc-3.11.4
+            petsc-3.19.3
             DEPENDS ${PETSC_DEPS}
             PREFIX ${TPSRC}
             STAMP_DIR ${TPBUILD}/stamp
             DOWNLOAD_DIR ${TPSRC}
-            SOURCE_DIR ${TPBUILD}/petsc-3.11.4
-            TMP_DIR ${TPBUILD}/petsc-3.11.4-tmp
+            SOURCE_DIR ${TPBUILD}/petsc-3.19.3
+            TMP_DIR ${TPBUILD}/petsc-3.19.3-tmp
             INSTALL_DIR ${TPDIST}
-            BINARY_DIR ${TPBUILD}/petsc-3.11.4
-            URL https://www.nektar.info/thirdparty/petsc-lite-3.11.4.tar.gz
-            URL_MD5 "33da4b6a430d5d9e13b19871d707af0f"
+            BINARY_DIR ${TPBUILD}/petsc-3.19.3
+            URL https://www.nektar.info/thirdparty/petsc-3.19.3.tar.gz 
+            URL_MD5 "b493f0c19c067994ce7e9b5f4d13216c"
             CONFIGURE_COMMAND
                 OMPI_FC=${CMAKE_Fortran_COMPILER}
                 OMPI_CC=${CMAKE_C_COMPILER}
@@ -122,12 +124,18 @@ IF (NEKTAR_USE_PETSC)
                 --with-ssl=0
                 --prefix=${TPDIST}
                 --with-petsc-arch=c-opt
+                --download-hypre
+                --download-ml
+                --with-debugging=0
+                --with-pkg-config
                 ${PETSC_MUMPS}
                 ${PETSC_NO_MPI}
             BUILD_COMMAND $(MAKE)
             TEST_COMMAND $(MAKE)
-                PETSC_DIR=${TPDIST} PETSC_ARCH=c-opt test)
+                PETSC_DIR=${TPDIST} PETSC_ARCH= check)
 
+        MESSAGE("TPDist: ${TPDIST}")
+        MESSAGE("TPBuild: ${TPBUILD}")
         THIRDPARTY_LIBRARY(PETSC_LIBRARIES SHARED petsc
             DESCRIPTION "PETSc library")
         SET(PETSC_INCLUDE_DIRS ${TPDIST}/include CACHE FILEPATH
@@ -136,10 +144,10 @@ IF (NEKTAR_USE_PETSC)
         SET(PETSC_CONFIG_INCLUDE_DIR ${TPINC})
     ELSE (THIRDPARTY_BUILD_PETSC)
         SET(PETSC_CONFIG_INCLUDE_DIR ${PETSC_INCLUDE_DIRS})
-        ADD_CUSTOM_TARGET(petsc-3.11.4 ALL)
+        ADD_CUSTOM_TARGET(petsc-3.19.3 ALL)
     ENDIF (THIRDPARTY_BUILD_PETSC)
 
-    ADD_DEPENDENCIES(thirdparty petsc-3.11.4)
+    ADD_DEPENDENCIES(thirdparty petsc-3.19.3)
 
     ADD_DEFINITIONS(-DNEKTAR_USING_PETSC)
     INCLUDE_DIRECTORIES(${PETSC_INCLUDE_DIRS})

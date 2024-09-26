@@ -64,7 +64,7 @@ public:
 
     void Initialise(int i, TopoDS_Shape in);
 
-    NekDouble DistanceTo(Array<OneD, NekDouble> l) override
+    NekDouble DistanceTo(std::array<NekDouble, 3> l) override
     {
         gp_Pnt lp(l[0], l[1], l[2]);
         return m_occVert.Distance(lp);

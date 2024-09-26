@@ -2763,7 +2763,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_IterPerExp_UniformP_ConstVarDiff)
 
     Nektar::StdRegions::StdTetExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3);
 
     int nelmts = 10;
 
@@ -2873,7 +2873,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP)
 
     Nektar::StdRegions::StdTetExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3);
 
     int nelmts = 10;
 
@@ -2977,7 +2977,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_Deformed_OverInt)
 
     Nektar::StdRegions::StdTetExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3);
 
     int nelmts = 10;
 
@@ -3178,7 +3178,7 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP_ConstVarDiff)
 
     Nektar::StdRegions::StdTetExpSharedPtr stdExp =
         MemoryManager<Nektar::StdRegions::StdTetExp>::AllocateSharedPtr(
-            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+            basisKeyDir1, basisKeyDir2, basisKeyDir3);
 
     int nelmts = 10;
 
@@ -3236,6 +3236,196 @@ BOOST_AUTO_TEST_CASE(TestTetmHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         coeffsRef[i] = (std::abs(coeffsRef[i]) < 1e-14) ? 0.0 : coeffsRef[i];
         coeffs[i]    = (std::abs(coeffs[i]) < 1e-14) ? 0.0 : coeffs[i];
         BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestTetPhysInterp1D_NoCollections_UniformP)
+{
+
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, -1.0, 1.0));
+
+    SpatialDomains::TetGeomSharedPtr tetGeom = CreateTet(v0, v1, v2, v3);
+
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir1(numQuadPoints,
+                                                           triPointsTypeDir1);
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      triPointsKeyDir1);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir2 =
+        Nektar::LibUtilities::eGaussRadauMAlpha1Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir2(numQuadPoints - 1,
+                                                           triPointsTypeDir2);
+    Nektar::LibUtilities::BasisType basisTypeDir2 =
+        Nektar::LibUtilities::eModified_B;
+    const Nektar::LibUtilities::BasisKey basisKeyDir2(basisTypeDir2, numModes,
+                                                      triPointsKeyDir2);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir3 =
+        Nektar::LibUtilities::eGaussRadauMAlpha2Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir3(numQuadPoints - 1,
+                                                           triPointsTypeDir3);
+    Nektar::LibUtilities::BasisType basisTypeDir3 =
+        Nektar::LibUtilities::eModified_C;
+    const Nektar::LibUtilities::BasisKey basisKeyDir3(basisTypeDir3, numModes,
+                                                      triPointsKeyDir3);
+
+    Nektar::LocalRegions::TetExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
+                                               Collections::eNoCollection);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> phys(nq);
+
+    Exp->GetCoords(xc, yc, zc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3) + pow(zc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> zc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, zc, zc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3) + pow(zc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestTetPhysInterp1D_MatrixFree_UniformP)
+{
+
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, -1.0, 1.0));
+
+    SpatialDomains::TetGeomSharedPtr tetGeom = CreateTet(v0, v1, v2, v3);
+
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir1(numQuadPoints,
+                                                           triPointsTypeDir1);
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      triPointsKeyDir1);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir2 =
+        Nektar::LibUtilities::eGaussRadauMAlpha1Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir2(numQuadPoints - 1,
+                                                           triPointsTypeDir2);
+    Nektar::LibUtilities::BasisType basisTypeDir2 =
+        Nektar::LibUtilities::eModified_B;
+    const Nektar::LibUtilities::BasisKey basisKeyDir2(basisTypeDir2, numModes,
+                                                      triPointsKeyDir2);
+
+    Nektar::LibUtilities::PointsType triPointsTypeDir3 =
+        Nektar::LibUtilities::eGaussRadauMAlpha2Beta0;
+    const Nektar::LibUtilities::PointsKey triPointsKeyDir3(numQuadPoints - 1,
+                                                           triPointsTypeDir3);
+    Nektar::LibUtilities::BasisType basisTypeDir3 =
+        Nektar::LibUtilities::eModified_C;
+    const Nektar::LibUtilities::BasisKey basisKeyDir3(basisTypeDir3, numModes,
+                                                      triPointsKeyDir3);
+
+    Nektar::LocalRegions::TetExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::TetExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir2, basisKeyDir3, tetGeom);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> phys(nq);
+
+    Exp->GetCoords(xc, yc, zc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3) + pow(zc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> zc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, zc, zc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3) + pow(zc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
     }
 }
 } // namespace Nektar::TetCollectionTests

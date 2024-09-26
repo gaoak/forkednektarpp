@@ -238,13 +238,6 @@ void MMFSWE::v_InitObject(bool DeclareFields)
     }
 }
 
-/**
- * @brief Unsteady linear advection equation destructor.
- */
-MMFSWE::~MMFSWE()
-{
-}
-
 void MMFSWE::v_DoSolve()
 {
     ASSERTL0(m_intScheme != nullptr, "No time integration scheme.");

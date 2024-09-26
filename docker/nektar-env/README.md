@@ -1,9 +1,9 @@
 # `nektar-env` image
 
 This image is designed to provide a build environment for Nektar++ based on the
-Debian 10 (buster) build image. It installs all libraries to enable Nektar++ to
-be compiled with most/all third-party dependencies turned on. In particular we
-install the following development libraries:
+Debian 12 (bookworm) build image. It installs all libraries to enable Nektar++
+to be compiled with most/all third-party dependencies turned on. In particular
+we install the following development libraries:
 
 - Boost
 - TinyXML
@@ -18,14 +18,15 @@ install the following development libraries:
 
 ## Building
 
-No particular context is required to build this image. Building using the below
+No particular context is required to build this image -- use the command below,
 or similar.
 
 ```sh
 docker build -t nektarpp/nektar-env -f Dockerfile .
 ```
 
-# Other environment images
+## Other environment images
 
 The other dockerfiles for different operating systems and package lists are used
-to provide environment images for the CI system. See .gitlab-ci.yml for details.
+to provide environment images for the CI system. See `.gitlab-ci.yml` for
+details.

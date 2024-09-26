@@ -39,6 +39,7 @@ using namespace std;
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <LibUtilities/BasicUtils/Timer.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include "InputXml.h"
 using namespace Nektar;
@@ -61,6 +62,7 @@ InputXml::InputXml(FieldSharedPtr f) : InputModule(f)
 {
     m_allowedFiles.insert("xml");
     m_allowedFiles.insert("xml.gz");
+    m_config["range"] = ConfigOption(false, "", "range values");
 }
 
 /**
@@ -75,6 +77,8 @@ InputXml::~InputXml()
  */
 void InputXml::v_Process(po::variables_map &vm)
 {
+    string range = m_config["range"].as<string>();
+
     LibUtilities::Timer timerpart;
     if (m_f->m_verbose)
     {
@@ -112,9 +116,29 @@ void InputXml::v_Process(po::variables_map &vm)
     // define range to process output
     if (vm.count("range"))
     {
+        NEKERROR(ErrorUtil::ewarning,
+                 "The command line option \"range\" (FieldConvert -r xmin,xmax,"
+                 "ymin,ymax) is deprecated. Please use the InputXml "
+                 "option instead, i.e. \n \t"
+                 "FieldConvert myfile.xml:xml:range=\"xmin,xmax,ymin,ymax\" "
+                 "out.vtu");
+    }
+
+    if (vm.count("range") || range.size())
+    {
         vector<NekDouble> values;
-        ASSERTL0(ParseUtils::GenerateVector(vm["range"].as<string>(), values),
-                 "Failed to interpret range string");
+
+        if (range.size())
+        {
+            ASSERTL0(ParseUtils::GenerateVector(range, values),
+                     "Failed to interpret range string");
+        }
+        else
+        {
+            ASSERTL0(
+                ParseUtils::GenerateVector(vm["range"].as<string>(), values),
+                "Failed to interpret range string");
+        }
 
         ASSERTL0(values.size() > 1, "Do not have minimum values of xmin,xmax");
         ASSERTL0(values.size() % 2 == 0,
@@ -253,7 +277,7 @@ void InputXml::v_Process(po::variables_map &vm)
         }
     }
 
-    m_f->m_graph = SpatialDomains::MeshGraph::Read(m_f->m_session, rng);
+    m_f->m_graph = SpatialDomains::MeshGraphIO::Read(m_f->m_session, rng);
 
     if (m_f->m_verbose)
     {

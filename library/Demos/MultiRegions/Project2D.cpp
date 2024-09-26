@@ -36,6 +36,7 @@
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
 #include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <iomanip>
 #include <iostream>
 
@@ -44,17 +45,231 @@ using namespace Nektar;
 
 // Custom MeshGraph class for programatically creating the mesh instead of
 // reading from session.
-class StructuredMeshGraph : public SpatialDomains::MeshGraph
+class CustomMeshGraphIO : public SpatialDomains::MeshGraphIO
 {
 public:
-    StructuredMeshGraph(NekDouble a, NekDouble b, NekDouble c, NekDouble d,
-                        int nx, int ny, int nmodes,
-                        LibUtilities::ShapeType shapeType)
-        : MeshGraph(), m_a(a), m_b(b), m_c(c), m_d(d), m_nx(nx), m_ny(ny),
+    CustomMeshGraphIO(NekDouble a, NekDouble b, NekDouble c, NekDouble d,
+                      int nx, int ny, int nmodes,
+                      LibUtilities::ShapeType shapeType)
+        : MeshGraphIO(), m_a(a), m_b(b), m_c(c), m_d(d), m_nx(nx), m_ny(ny),
           m_nmodes(nmodes), m_shapeType(shapeType)
     {
-        m_meshDimension  = 2;
-        m_spaceDimension = 2;
+        m_meshGraph =
+            MemoryManager<SpatialDomains::MeshGraph>::AllocateSharedPtr();
+    }
+
+    SpatialDomains::MeshGraphSharedPtr CreateGeometry(
+        [[maybe_unused]] LibUtilities::DomainRangeShPtr rng,
+        [[maybe_unused]] bool fillGraph)
+    {
+        int meshDimension  = 2;
+        int spaceDimension = 2;
+        m_meshGraph->SetMeshDimension(meshDimension);
+        m_meshGraph->SetSpaceDimension(spaceDimension);
+
+        // Create a bunch of point geometries
+        auto &vertSet = m_meshGraph->GetAllPointGeoms();
+        for (int i = 0; i < m_nx + 1; ++i)
+        {
+            for (int j = 0; j < m_ny + 1; ++j)
+            {
+                vertSet[MyPntId(i, j)] =
+                    MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
+                        spaceDimension, MyPntId(i, j),
+                        m_a + i * (m_b - m_a) / m_nx,
+                        m_c + j * (m_d - m_c) / m_ny, 0.0);
+            }
+        }
+
+        auto &segGeoms = m_meshGraph->GetAllSegGeoms();
+        // Create a bunch of segment geometries,
+        // first the segments parallel to y
+        for (int i = 0; i < m_nx + 1; ++i)
+        {
+            for (int j = 0; j < m_ny; ++j)
+            {
+                SpatialDomains::PointGeomSharedPtr pts[2] = {
+                    vertSet[MyPntId(i, j)], vertSet[MyPntId(i, j + 1)]};
+                segGeoms[MyYSegId(i, j)] =
+                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+                        MyYSegId(i, j), spaceDimension, pts);
+            }
+        }
+        // then the segments parallel to x
+        for (int i = 0; i < m_nx; ++i)
+        {
+            for (int j = 0; j < m_ny + 1; ++j)
+            {
+                SpatialDomains::PointGeomSharedPtr pts[2] = {
+                    vertSet[MyPntId(i, j)], vertSet[MyPntId(i + 1, j)]};
+                segGeoms[MyXSegId(i, j)] =
+                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
+                        MyXSegId(i, j), spaceDimension, pts);
+            }
+        }
+        // then the diagonal segments if triangular elements
+        if (m_shapeType == LibUtilities::eTriangle)
+        {
+            for (int i = 0; i < m_nx; ++i)
+            {
+                for (int j = 0; j < m_ny; ++j)
+                {
+                    SpatialDomains::PointGeomSharedPtr pts[2] = {
+                        vertSet[MyPntId(i, j)], vertSet[MyPntId(i + 1, j + 1)]};
+                    segGeoms[MyDiagSegId(i, j)] =
+                        MemoryManager<SpatialDomains::SegGeom>::
+                            AllocateSharedPtr(MyDiagSegId(i, j), spaceDimension,
+                                              pts);
+                }
+            }
+        }
+
+        auto &triGeoms  = m_meshGraph->GetAllTriGeoms();
+        auto &quadGeoms = m_meshGraph->GetAllQuadGeoms();
+        switch (m_shapeType)
+        {
+            case LibUtilities::eTriangle:
+            {
+                // Create a bunch of upper and lower triangular geometries,
+                // listing segments anticlockwise.
+                for (int i = 0; i < m_nx; ++i)
+                {
+                    for (int j = 0; j < m_ny; ++j)
+                    {
+                        SpatialDomains::SegGeomSharedPtr u_edges[3] = {
+                            segGeoms[MyYSegId(i, j)],
+                            segGeoms[MyDiagSegId(i, j)],
+                            segGeoms[MyXSegId(i, j + 1)]};
+                        triGeoms[MyUpperTriId(i, j)] =
+                            MemoryManager<SpatialDomains::TriGeom>::
+                                AllocateSharedPtr(MyUpperTriId(i, j), u_edges);
+                        SpatialDomains::SegGeomSharedPtr l_edges[3] = {
+                            segGeoms[MyXSegId(i, j)],
+                            segGeoms[MyYSegId(i + 1, j)],
+                            segGeoms[MyDiagSegId(i, j)]};
+                        triGeoms[MyLowerTriId(i, j)] =
+                            MemoryManager<SpatialDomains::TriGeom>::
+                                AllocateSharedPtr(MyLowerTriId(i, j), l_edges);
+                    }
+                }
+            }
+            break;
+            case LibUtilities::eQuadrilateral:
+            {
+                // Create a bunch of quadrilateral geometries, listing segments
+                // anticlockwise.
+                for (int i = 0; i < m_nx; ++i)
+                {
+                    for (int j = 0; j < m_ny; ++j)
+                    {
+                        SpatialDomains::SegGeomSharedPtr edges[4] = {
+                            segGeoms[MyYSegId(i, j)], segGeoms[MyXSegId(i, j)],
+                            segGeoms[MyYSegId(i + 1, j)],
+                            segGeoms[MyXSegId(i, j + 1)]};
+                        quadGeoms[MyQuadId(i, j)] =
+                            MemoryManager<SpatialDomains::QuadGeom>::
+                                AllocateSharedPtr(MyQuadId(i, j), edges);
+                    }
+                }
+            }
+            break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
+                break;
+        }
+
+        // Set up a composite for the domain, like ReadComposites() followed by
+        // ReadDomain()
+        SpatialDomains::CompositeSharedPtr comp =
+            MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
+        switch (m_shapeType)
+        {
+            case LibUtilities::eTriangle:
+            {
+                for (int i = 0; i < m_nx; ++i)
+                {
+                    for (int j = 0; j < m_ny; ++j)
+                    {
+                        comp->m_geomVec.push_back(triGeoms[MyUpperTriId(i, j)]);
+                    }
+                }
+                for (int i = 0; i < m_nx; ++i)
+                {
+                    for (int j = 0; j < m_ny; ++j)
+                    {
+                        comp->m_geomVec.push_back(triGeoms[MyLowerTriId(i, j)]);
+                    }
+                }
+            }
+            break;
+            case LibUtilities::eQuadrilateral:
+            {
+                for (int i = 0; i < m_nx; ++i)
+                {
+                    for (int j = 0; j < m_ny; ++j)
+                    {
+                        comp->m_geomVec.push_back(quadGeoms[MyQuadId(i, j)]);
+                    }
+                }
+            }
+            break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
+                break;
+        }
+        auto &meshComposites = m_meshGraph->GetComposites();
+        meshComposites[0]    = comp;
+        auto &domain         = m_meshGraph->GetDomain();
+        domain[0]            = meshComposites;
+
+        // Instead of MeshGraph::ReadExpansionInfo() in MeshGraph::FillGraph(),
+        // we set expansion info here:
+        // First initialise expansion info arguments
+        LibUtilities::ShapeType arg_shapeType = m_shapeType;
+        vector<unsigned int> arg_elementIDs;
+        for (unsigned int id = 0; id < comp->m_geomVec.size(); ++id)
+        {
+            arg_elementIDs.push_back(id);
+        };
+        vector<LibUtilities::BasisType> arg_basis = {LibUtilities::eModified_A};
+        switch (m_shapeType)
+        {
+            case LibUtilities::eTriangle:
+            {
+                arg_basis.push_back(LibUtilities::eModified_B);
+            }
+            break;
+            case LibUtilities::eQuadrilateral:
+            {
+                arg_basis.push_back(LibUtilities::eModified_A);
+            }
+            break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
+                break;
+        }
+        bool arg_uniOrder = true;
+        vector<unsigned int> arg_numModes(comp->m_geomVec.size(), m_nmodes);
+        vector<string> arg_fields(1, "u");
+        // Then store them in a fielddefs object and pass it to
+        // SetExpansionInfo()
+        vector<LibUtilities::FieldDefinitionsSharedPtr> fielddefs = {
+            MemoryManager<LibUtilities::FieldDefinitions>::AllocateSharedPtr(
+                arg_shapeType, arg_elementIDs, arg_basis, arg_uniOrder,
+                arg_numModes, arg_fields)};
+        m_meshGraph->SetExpansionInfo(fielddefs);
+
+        // 2D case from MeshGraph::FillGraph()
+        for (auto &x : triGeoms)
+        {
+            x.second->Setup();
+        }
+        for (auto &x : quadGeoms)
+        {
+            x.second->Setup();
+        }
+
+        return m_meshGraph;
     }
 
 protected:
@@ -98,212 +313,13 @@ protected:
         return j + (m_ny * i) + (m_ny * m_nx);
     }
 
-    // Taking inspiration from MeshGraphHDF5::v_ReadGeometry
+    // v_ReadGeometry, v_WriteGeometry and v_PartitionMesh should not be used by
+    // this class
     void v_ReadGeometry([[maybe_unused]] LibUtilities::DomainRangeShPtr rng,
                         [[maybe_unused]] bool fillGraph) override
     {
-        // Create a bunch of point geometries
-        for (int i = 0; i < m_nx + 1; ++i)
-        {
-            for (int j = 0; j < m_ny + 1; ++j)
-            {
-                m_vertSet[MyPntId(i, j)] =
-                    MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
-                        m_spaceDimension, MyPntId(i, j),
-                        m_a + i * (m_b - m_a) / m_nx,
-                        m_c + j * (m_d - m_c) / m_ny, 0.0);
-            }
-        }
-
-        // Create a bunch of segment geometries,
-        // first the segments parallel to y
-        for (int i = 0; i < m_nx + 1; ++i)
-        {
-            for (int j = 0; j < m_ny; ++j)
-            {
-                SpatialDomains::PointGeomSharedPtr pts[2] = {
-                    m_vertSet[MyPntId(i, j)], m_vertSet[MyPntId(i, j + 1)]};
-                m_segGeoms[MyYSegId(i, j)] =
-                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
-                        MyYSegId(i, j), m_spaceDimension, pts);
-            }
-        }
-        // then the segments parallel to x
-        for (int i = 0; i < m_nx; ++i)
-        {
-            for (int j = 0; j < m_ny + 1; ++j)
-            {
-                SpatialDomains::PointGeomSharedPtr pts[2] = {
-                    m_vertSet[MyPntId(i, j)], m_vertSet[MyPntId(i + 1, j)]};
-                m_segGeoms[MyXSegId(i, j)] =
-                    MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
-                        MyXSegId(i, j), m_spaceDimension, pts);
-            }
-        }
-        // then the diagonal segments if triangular elements
-        if (m_shapeType == LibUtilities::eTriangle)
-        {
-            for (int i = 0; i < m_nx; ++i)
-            {
-                for (int j = 0; j < m_ny; ++j)
-                {
-                    SpatialDomains::PointGeomSharedPtr pts[2] = {
-                        m_vertSet[MyPntId(i, j)],
-                        m_vertSet[MyPntId(i + 1, j + 1)]};
-                    m_segGeoms[MyDiagSegId(i, j)] =
-                        MemoryManager<SpatialDomains::SegGeom>::
-                            AllocateSharedPtr(MyDiagSegId(i, j),
-                                              m_spaceDimension, pts);
-                }
-            }
-        }
-
-        switch (m_shapeType)
-        {
-            case LibUtilities::eTriangle:
-            {
-                // Create a bunch of upper and lower triangular geometries,
-                // listing segments anticlockwise.
-                for (int i = 0; i < m_nx; ++i)
-                {
-                    for (int j = 0; j < m_ny; ++j)
-                    {
-                        SpatialDomains::SegGeomSharedPtr u_edges[3] = {
-                            m_segGeoms[MyYSegId(i, j)],
-                            m_segGeoms[MyDiagSegId(i, j)],
-                            m_segGeoms[MyXSegId(i, j + 1)]};
-                        m_triGeoms[MyUpperTriId(i, j)] =
-                            MemoryManager<SpatialDomains::TriGeom>::
-                                AllocateSharedPtr(MyUpperTriId(i, j), u_edges);
-                        SpatialDomains::SegGeomSharedPtr l_edges[3] = {
-                            m_segGeoms[MyXSegId(i, j)],
-                            m_segGeoms[MyYSegId(i + 1, j)],
-                            m_segGeoms[MyDiagSegId(i, j)]};
-                        m_triGeoms[MyLowerTriId(i, j)] =
-                            MemoryManager<SpatialDomains::TriGeom>::
-                                AllocateSharedPtr(MyLowerTriId(i, j), l_edges);
-                    }
-                }
-            }
-            break;
-            case LibUtilities::eQuadrilateral:
-            {
-                // Create a bunch of quadrilateral geometries, listing segments
-                // anticlockwise.
-                for (int i = 0; i < m_nx; ++i)
-                {
-                    for (int j = 0; j < m_ny; ++j)
-                    {
-                        SpatialDomains::SegGeomSharedPtr edges[4] = {
-                            m_segGeoms[MyYSegId(i, j)],
-                            m_segGeoms[MyXSegId(i, j)],
-                            m_segGeoms[MyYSegId(i + 1, j)],
-                            m_segGeoms[MyXSegId(i, j + 1)]};
-                        m_quadGeoms[MyQuadId(i, j)] =
-                            MemoryManager<SpatialDomains::QuadGeom>::
-                                AllocateSharedPtr(MyQuadId(i, j), edges);
-                    }
-                }
-            }
-            break;
-            default:
-                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
-                break;
-        }
-
-        // Set up a composite for the domain, like ReadComposites() followed by
-        // ReadDomain()
-        SpatialDomains::CompositeSharedPtr comp =
-            MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
-        switch (m_shapeType)
-        {
-            case LibUtilities::eTriangle:
-            {
-                for (int i = 0; i < m_nx; ++i)
-                {
-                    for (int j = 0; j < m_ny; ++j)
-                    {
-                        comp->m_geomVec.push_back(
-                            m_triGeoms[MyUpperTriId(i, j)]);
-                    }
-                }
-                for (int i = 0; i < m_nx; ++i)
-                {
-                    for (int j = 0; j < m_ny; ++j)
-                    {
-                        comp->m_geomVec.push_back(
-                            m_triGeoms[MyLowerTriId(i, j)]);
-                    }
-                }
-            }
-            break;
-            case LibUtilities::eQuadrilateral:
-            {
-                for (int i = 0; i < m_nx; ++i)
-                {
-                    for (int j = 0; j < m_ny; ++j)
-                    {
-                        comp->m_geomVec.push_back(m_quadGeoms[MyQuadId(i, j)]);
-                    }
-                }
-            }
-            break;
-            default:
-                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
-                break;
-        }
-        m_meshComposites[0] = comp;
-        m_domain[0]         = m_meshComposites;
-
-        // Instead of MeshGraph::ReadExpansionInfo() in MeshGraph::FillGraph(),
-        // we set expansion info here:
-        // First initialise expansion info arguments
-        LibUtilities::ShapeType arg_shapeType = m_shapeType;
-        vector<unsigned int> arg_elementIDs;
-        for (unsigned int id = 0; id < comp->m_geomVec.size(); ++id)
-        {
-            arg_elementIDs.push_back(id);
-        };
-        vector<LibUtilities::BasisType> arg_basis = {LibUtilities::eModified_A};
-        switch (m_shapeType)
-        {
-            case LibUtilities::eTriangle:
-            {
-                arg_basis.push_back(LibUtilities::eModified_B);
-            }
-            break;
-            case LibUtilities::eQuadrilateral:
-            {
-                arg_basis.push_back(LibUtilities::eModified_A);
-            }
-            break;
-            default:
-                NEKERROR(ErrorUtil::efatal, "Shape type not implemented.");
-                break;
-        }
-        bool arg_uniOrder = true;
-        vector<unsigned int> arg_numModes(comp->m_geomVec.size(), m_nmodes);
-        vector<string> arg_fields(1, "u");
-        // Then store them in a fielddefs object and pass it to
-        // SetExpansionInfo()
-        vector<LibUtilities::FieldDefinitionsSharedPtr> fielddefs = {
-            MemoryManager<LibUtilities::FieldDefinitions>::AllocateSharedPtr(
-                arg_shapeType, arg_elementIDs, arg_basis, arg_uniOrder,
-                arg_numModes, arg_fields)};
-        SetExpansionInfo(fielddefs);
-
-        // 2D case from MeshGraph::FillGraph()
-        for (auto &x : m_triGeoms)
-        {
-            x.second->Setup();
-        }
-        for (auto &x : m_quadGeoms)
-        {
-            x.second->Setup();
-        }
+        NEKERROR(ErrorUtil::efatal, "Not implemented.");
     }
-
-    // v_WriteGeometry and v_PartitionMesh should not be used by this class
     void v_WriteGeometry(
         [[maybe_unused]] const string &outfilename,
         [[maybe_unused]] bool defaultExp = false,
@@ -471,10 +487,11 @@ int main(int argc, char **argv)
     for (int n = 0; n < numRuns; ++n)
     {
         // Generate the mesh.
-        auto graph = MemoryManager<StructuredMeshGraph>::AllocateSharedPtr(
+        auto graphIO = MemoryManager<CustomMeshGraphIO>::AllocateSharedPtr(
             leftBound, rightBound, bottomBound, topBound, numXAreasVec[n],
             numYAreasVec[n], numModes, shapeType);
-        graph->ReadGeometry(LibUtilities::NullDomainRangeShPtr, false);
+        SpatialDomains::MeshGraphSharedPtr graph =
+            graphIO->CreateGeometry(LibUtilities::NullDomainRangeShPtr, false);
 
         if (n == 0)
         {

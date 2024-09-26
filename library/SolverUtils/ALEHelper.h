@@ -79,8 +79,8 @@ public:
         return m_gridVelocity;
     }
 
-    SOLVER_UTILS_EXPORT const Array<OneD, const Array<OneD, NekDouble>>
-        &GetGridVelocityTrace();
+    SOLVER_UTILS_EXPORT const Array<OneD, const Array<OneD, NekDouble>> &
+    GetGridVelocityTrace();
     SOLVER_UTILS_EXPORT void ExtraFldOutputGridVelocity(
         std::vector<Array<OneD, NekDouble>> &fieldcoeffs,
         std::vector<std::string> &variables);
@@ -91,6 +91,7 @@ protected:
     Array<OneD, Array<OneD, NekDouble>> m_gridVelocityTrace;
     std::vector<ALEBaseShPtr> m_ALEs;
     bool m_ALESolver          = false;
+    bool m_ImplicitALESolver  = false;
     NekDouble m_prevStageTime = 0.0;
     int m_spaceDim;
 };

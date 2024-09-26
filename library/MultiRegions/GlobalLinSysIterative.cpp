@@ -73,22 +73,6 @@ GlobalLinSysIterative::GlobalLinSysIterative(
     m_isAbsoluteTolerance = pLocToGloMap->IsAbsoluteTolerance();
     m_linSysIterSolver    = pLocToGloMap->GetLinSysIterSolver();
 
-    LibUtilities::SessionReaderSharedPtr pSession =
-        m_expList.lock()->GetSession();
-    string variable = pLocToGloMap->GetVariable();
-    if (pSession->DefinesGlobalSysSolnInfo(variable,
-                                           "IterativeSolverTolerance"))
-    {
-        m_tolerance = boost::lexical_cast<double>(
-            pSession->GetGlobalSysSolnInfo(variable, "IterativeSolverTolerance")
-                .c_str());
-    }
-    else
-    {
-        pSession->LoadParameter("IterativeSolverTolerance", m_tolerance,
-                                NekConstants::kNekIterativeTol);
-    }
-
     LibUtilities::CommSharedPtr vComm =
         m_expList.lock()->GetComm()->GetRowComm();
     m_root = (vComm->GetRank()) ? false : true;
@@ -146,7 +130,7 @@ void GlobalLinSysIterative::DoProjection(
     Array<OneD, NekDouble> &pOutput, const int nDir, const bool isAconjugate)
 {
     int numIterations = 0;
-    if (0 == m_numPrevSols)
+    if (m_numPrevSols == 0)
     {
         // no previous solutions found
         numIterations = m_linsol->SolveSystem(nGlobal, pInput, pOutput, nDir);
@@ -168,13 +152,14 @@ void GlobalLinSysIterative::DoProjection(
 
         vComm->AllReduce(rhsNorm, Nektar::LibUtilities::ReduceSum);
 
-        if (rhsNorm < m_tolerance * m_tolerance * m_rhs_magnitude)
+        NekDouble tol = m_linsol->GetNekLinSysTolerance();
+        if (rhsNorm < tol * tol * m_rhs_magnitude)
         {
             Vmath::Zero(nNonDir, tmp = pOutput + nDir, 1);
             if (m_verbose && m_root)
             {
                 cout << "No iterations made"
-                     << " using tolerance of " << m_tolerance
+                     << " using tolerance of " << tol
                      << " (error = " << sqrt(rhsNorm / m_rhs_magnitude)
                      << ", rhs_mag = " << sqrt(m_rhs_magnitude) << ")" << endl;
             }

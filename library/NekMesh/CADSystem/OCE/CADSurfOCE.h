@@ -61,28 +61,28 @@ public:
 
     void Initialise(int i, TopoDS_Shape in);
 
-    Array<OneD, NekDouble> GetBounds() override;
+    std::array<NekDouble, 4> GetBounds() override;
     void GetBounds(NekDouble &umin, NekDouble &umax, NekDouble &vmin,
                    NekDouble &vmax) override;
-    Array<OneD, NekDouble> N(Array<OneD, NekDouble> uv) override;
-    Array<OneD, NekDouble> D1(Array<OneD, NekDouble> uv) override;
-    Array<OneD, NekDouble> D2(Array<OneD, NekDouble> uv) override;
-    Array<OneD, NekDouble> P(Array<OneD, NekDouble> uv) override;
-    void P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y,
+    std::array<NekDouble, 3> N(std::array<NekDouble, 2> uv) override;
+    std::array<NekDouble, 9> D1(std::array<NekDouble, 2> uv) override;
+    std::array<NekDouble, 18> D2(std::array<NekDouble, 2> uv) override;
+    std::array<NekDouble, 3> P(std::array<NekDouble, 2> uv) override;
+    void P(std::array<NekDouble, 2> uv, NekDouble &x, NekDouble &y,
            NekDouble &z) override;
-    Array<OneD, NekDouble> locuv(Array<OneD, NekDouble> p,
-                                 NekDouble &dist) override;
-    NekDouble Curvature(Array<OneD, NekDouble> uv) override;
-    Array<OneD, NekDouble> BoundingBox() override;
+    std::array<NekDouble, 2> locuv(std::array<NekDouble, 3> p,
+                                   NekDouble &dist) override;
+    NekDouble Curvature(std::array<NekDouble, 2> uv) override;
+    std::array<NekDouble, 6> BoundingBox() override;
     bool IsPlanar() override;
 
 private:
     /// Function which tests the the value of uv used is within the surface
-    void Test(Array<OneD, NekDouble> uv) override;
+    void Test(std::array<NekDouble, 2> uv) override;
     /// OpenCascade object for surface.
     Handle(Geom_Surface) m_s;
     /// parametric bounds
-    Array<OneD, NekDouble> m_bounds;
+    std::array<NekDouble, 4> m_bounds;
     /// locuv object (stored because it gets faster with stored information)
     ShapeAnalysis_Surface *m_sas;
     /// original shape

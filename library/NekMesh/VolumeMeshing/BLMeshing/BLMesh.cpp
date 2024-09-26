@@ -159,8 +159,8 @@ map<NodeSharedPtr, NodeSharedPtr> BLMesh::GetSymNodes()
             continue;
         }
         CADSurfSharedPtr s = m_mesh->m_cad->GetSurf(bit->second->symsurf);
-        Array<OneD, NekDouble> loc = bit->second->pNode->GetLoc();
-        Array<OneD, NekDouble> uv  = s->locuv(loc);
+        auto loc           = bit->second->pNode->GetLoc();
+        auto uv            = s->locuv(loc);
         bit->second->pNode->SetCADSurf(s, uv);
         ret[bit->first] = bit->second->pNode;
     }
@@ -170,9 +170,9 @@ map<NodeSharedPtr, NodeSharedPtr> BLMesh::GetSymNodes()
 inline bool Infont(NodeSharedPtr n, ElementSharedPtr el)
 {
     vector<NodeSharedPtr> ns1 = el->GetVertexList();
-    Array<OneD, NekDouble> N1 = el->Normal(true);
+    auto N1                   = el->Normal(true);
 
-    Array<OneD, NekDouble> V(3);
+    std::array<NekDouble, 3> V;
     V[0] = n->m_x - ns1[0]->m_x;
     V[1] = n->m_y - ns1[0]->m_y;
     V[2] = n->m_z - ns1[0]->m_z;
@@ -336,31 +336,28 @@ inline bool sign(NekDouble a, NekDouble b)
     return (a * b > 0.0);
 }
 
-inline NekDouble Dot(Array<OneD, NekDouble> a, Array<OneD, NekDouble> b)
+inline NekDouble Dot(std::array<NekDouble, 3> a, std::array<NekDouble, 3> b)
 {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
 NekDouble BLMesh::Proximity(NodeSharedPtr n, ElementSharedPtr el)
 {
-    vector<NodeSharedPtr> ns = el->GetVertexList();
-    Array<OneD, NekDouble> B = ns[0]->GetLoc();
-    Array<OneD, NekDouble> E0(3);
-    E0[0] = ns[1]->m_x - ns[0]->m_x;
-    E0[1] = ns[1]->m_y - ns[0]->m_y;
-    E0[2] = ns[1]->m_z - ns[0]->m_z;
-    Array<OneD, NekDouble> E1(3);
-    E1[0]                    = ns[2]->m_x - ns[0]->m_x;
-    E1[1]                    = ns[2]->m_y - ns[0]->m_y;
-    E1[2]                    = ns[2]->m_z - ns[0]->m_z;
-    Array<OneD, NekDouble> P = n->GetLoc();
+    vector<NodeSharedPtr> ns    = el->GetVertexList();
+    auto B                      = ns[0]->GetLoc();
+    std::array<NekDouble, 3> E0 = {ns[1]->m_x - ns[0]->m_x,
+                                   ns[1]->m_y - ns[0]->m_y,
+                                   ns[1]->m_z - ns[0]->m_z};
+    std::array<NekDouble, 3> E1 = {ns[2]->m_x - ns[0]->m_x,
+                                   ns[2]->m_y - ns[0]->m_y,
+                                   ns[2]->m_z - ns[0]->m_z};
+    auto P                      = n->GetLoc();
 
     NekDouble a = Dot(E0, E0);
     NekDouble b = Dot(E0, E1);
     NekDouble c = Dot(E1, E1);
 
-    Array<OneD, NekDouble> BP(3);
-    Vmath::Vsub(3, B, 1, P, 1, BP, 1);
+    std::array<NekDouble, 3> BP = {B[0] - P[0], B[1] - P[1], B[2] - P[2]};
 
     NekDouble d = Dot(E0, BP);
     NekDouble e = Dot(E1, BP);
@@ -441,7 +438,7 @@ bool BLMesh::TestIntersectionEl(ElementSharedPtr e1, ElementSharedPtr e2)
         return false;
     }
 
-    Array<OneD, NekDouble> N1(3), N2(3);
+    std::array<NekDouble, 3> N1, N2;
     NekDouble d1, d2;
 
     N1[0] = (ns1[1]->m_y - ns1[0]->m_y) * (ns1[2]->m_z - ns1[0]->m_z) -
@@ -463,7 +460,7 @@ bool BLMesh::TestIntersectionEl(ElementSharedPtr e1, ElementSharedPtr e2)
     d2 = -1.0 *
          (N2[0] * ns2[0]->m_x + N2[1] * ns2[0]->m_y + N2[2] * ns2[0]->m_z);
 
-    Array<OneD, NekDouble> dv1(3), dv2(3);
+    std::array<NekDouble, 3> dv1, dv2;
 
     dv1[0] =
         N2[0] * ns1[0]->m_x + N2[1] * ns1[0]->m_y + N2[2] * ns1[0]->m_z + d2;
@@ -488,7 +485,7 @@ bool BLMesh::TestIntersectionEl(ElementSharedPtr e1, ElementSharedPtr e2)
         return false;
     }
 
-    Array<OneD, NekDouble> D(3);
+    std::array<NekDouble, 3> D;
     D[0] = N1[1] * N2[2] - N1[2] * N2[1];
     D[1] = -1.0 * (N1[0] * N2[2] - N1[2] * N2[0]);
     D[2] = N1[0] * N2[1] - N1[0] * N2[1];
@@ -528,7 +525,7 @@ bool BLMesh::TestIntersectionEl(ElementSharedPtr e1, ElementSharedPtr e2)
         m_log(TRACE) << "base not set" << endl;
     }
 
-    Array<OneD, NekDouble> p1(3), p2(3);
+    std::array<NekDouble, 3> p1, p2;
 
     p1[0] = D[0] * ns1[0]->m_x + D[1] * ns1[0]->m_y + D[2] * ns1[0]->m_z;
     p1[1] = D[0] * ns1[1]->m_x + D[1] * ns1[1]->m_y + D[2] * ns1[1]->m_z;
@@ -804,30 +801,30 @@ void BLMesh::BuildElements()
 }
 
 NekDouble BLMesh::Visability(vector<ElementSharedPtr> tris,
-                             Array<OneD, NekDouble> N)
+                             std::array<NekDouble, 3> N)
 {
     NekDouble mn = numeric_limits<double>::max();
 
     for (int i = 0; i < tris.size(); i++)
     {
-        Array<OneD, NekDouble> tmp = tris[i]->Normal(true);
+        auto tmp     = tris[i]->Normal(true);
         NekDouble dt = tmp[0] * N[0] + tmp[1] * N[1] + tmp[2] * N[2];
         mn           = min(mn, dt);
     }
     return mn;
 }
 
-Array<OneD, NekDouble> BLMesh::GetNormal(vector<ElementSharedPtr> tris)
+std::array<NekDouble, 3> BLMesh::GetNormal(vector<ElementSharedPtr> tris)
 {
     // compile list of normals
-    vector<Array<OneD, NekDouble>> N;
+    vector<std::array<NekDouble, 3>> N;
     for (int i = 0; i < tris.size(); i++)
     {
         N.push_back(tris[i]->Normal(true));
     }
 
     vector<NekDouble> w(N.size());
-    Array<OneD, NekDouble> Np(3, 0.0);
+    std::array<NekDouble, 3> Np = {0.0, 0.0, 0.0};
 
     for (int i = 0; i < N.size(); i++)
     {
@@ -840,12 +837,13 @@ Array<OneD, NekDouble> BLMesh::GetNormal(vector<ElementSharedPtr> tris)
         Np[1] += w[i] * N[i][1];
         Np[2] += w[i] * N[i][2];
     }
+
     NekDouble mag = sqrt(Np[0] * Np[0] + Np[1] * Np[1] + Np[2] * Np[2]);
     Np[0] /= mag;
     Np[1] /= mag;
     Np[2] /= mag;
 
-    Array<OneD, NekDouble> Ninital = Np;
+    std::array<NekDouble, 3> Ninital = Np;
 
     NekDouble dot = 0.0;
     int ct        = 0;
@@ -853,10 +851,7 @@ Array<OneD, NekDouble> BLMesh::GetNormal(vector<ElementSharedPtr> tris)
     while (fabs(dot - 1) > 1e-6)
     {
         ct++;
-        Array<OneD, NekDouble> Nplast(3);
-        Nplast[0] = Np[0];
-        Nplast[1] = Np[1];
-        Nplast[2] = Np[2];
+        std::array<NekDouble, 3> Nplast = Np;
 
         NekDouble aSum = 0.0;
         for (int i = 0; i < N.size(); i++)
@@ -887,7 +882,7 @@ Array<OneD, NekDouble> BLMesh::GetNormal(vector<ElementSharedPtr> tris)
             w[i] = w[i] / wSum;
         }
 
-        Array<OneD, NekDouble> NpN(3, 0.0);
+        std::array<NekDouble, 3> NpN = {0.0, 0.0, 0.0};
         for (int i = 0; i < N.size(); i++)
         {
             NpN[0] += w[i] * N[i][0];
@@ -925,7 +920,7 @@ void BLMesh::Setup()
     NekDouble a = m_prog == 1.0
                       ? 1.0 / m_layer
                       : 2.0 * (1.0 - m_prog) / (1.0 - pow(m_prog, m_layer + 1));
-    m_layerT    = Array<OneD, NekDouble>(m_layer);
+    m_layerT.resize(m_layer);
     m_layerT[0] = a * m_prog * m_bl;
     for (int i = 1; i < m_layer; i++)
     {
@@ -1028,7 +1023,7 @@ void BLMesh::Setup()
             failed++;
         }
 
-        Array<OneD, NekDouble> loc = bit->first->GetLoc();
+        auto loc = bit->first->GetLoc();
         for (int k = 0; k < 3; k++)
         {
             loc[k] += bit->second->N[k] * m_layerT[0];
@@ -1050,17 +1045,14 @@ void BLMesh::Setup()
             continue;
         }
 
-        Array<OneD, NekDouble> loc = bit->second->pNode->GetLoc();
-        Array<OneD, NekDouble> uv =
-            m_mesh->m_cad->GetSurf(bit->second->symsurf)->locuv(loc);
+        auto loc = bit->second->pNode->GetLoc();
+        auto uv  = m_mesh->m_cad->GetSurf(bit->second->symsurf)->locuv(loc);
 
-        Array<OneD, NekDouble> nl =
-            m_mesh->m_cad->GetSurf(bit->second->symsurf)->P(uv);
+        auto nl = m_mesh->m_cad->GetSurf(bit->second->symsurf)->P(uv);
 
-        Array<OneD, NekDouble> N(3);
-        N[0] = nl[0] - bit->first->m_x;
-        N[1] = nl[1] - bit->first->m_y;
-        N[2] = nl[2] - bit->first->m_z;
+        std::array<NekDouble, 3> N = {nl[0] - bit->first->m_x,
+                                      nl[1] - bit->first->m_y,
+                                      nl[2] - bit->first->m_z};
 
         NekDouble mag = sqrt(N[0] * N[0] + N[1] * N[1] + N[2] * N[2]);
         N[0] /= mag;
@@ -1100,9 +1092,9 @@ void BLMesh::Setup()
                 continue;
             }
 
-            Array<OneD, NekDouble> sumV(3, 0.0);
-            vector<blInfoSharedPtr> data = m_nToNInfo[bit->first];
-            NekDouble Dtotal             = 0.0;
+            std::array<NekDouble, 3> sumV = {0.0, 0.0, 0.0};
+            vector<blInfoSharedPtr> data  = m_nToNInfo[bit->first];
+            NekDouble Dtotal              = 0.0;
             for (int i = 0; i < data.size(); i++)
             {
                 NekDouble d = bit->first->Distance(data[i]->oNode);
@@ -1120,11 +1112,10 @@ void BLMesh::Setup()
             sumV[1] /= mag;
             sumV[2] /= mag;
 
-            Array<OneD, NekDouble> N(3);
-
-            N[0] = (1.0 - 0.8) * bit->second->N[0] + 0.8 * sumV[0];
-            N[1] = (1.0 - 0.8) * bit->second->N[1] + 0.8 * sumV[1];
-            N[2] = (1.0 - 0.8) * bit->second->N[2] + 0.8 * sumV[2];
+            std::array<NekDouble, 3> N = {
+                (1.0 - 0.8) * bit->second->N[0] + 0.8 * sumV[0],
+                (1.0 - 0.8) * bit->second->N[1] + 0.8 * sumV[1],
+                (1.0 - 0.8) * bit->second->N[2] + 0.8 * sumV[2]};
 
             mag = sqrt(N[0] * N[0] + N[1] * N[1] + N[2] * N[2]);
             N[0] /= mag;

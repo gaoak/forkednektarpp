@@ -59,7 +59,7 @@ inline OctantFace GetReverseFace(OctantFace f)
     return eUp;
 }
 
-Octant::Octant(int i, OctantSharedPtr p, Array<OneD, OctantFace> dir)
+Octant::Octant(int i, OctantSharedPtr p, std::array<OctantFace, 3> dir)
     : m_id(i), m_parent(p)
 {
     // initialise variables to defualt states
@@ -81,9 +81,9 @@ Octant::Octant(int i, OctantSharedPtr p, Array<OneD, OctantFace> dir)
     m_neigbours[eRight]   = vector<OctantSharedPtr>();
 
     // pull information from parent
-    Array<OneD, NekDouble> parentloc = m_parent->GetLoc();
-    m_hd                             = m_parent->DX() / 2.0;
-    m_loc                            = Array<OneD, NekDouble>(3);
+    auto parentloc = m_parent->GetLoc();
+    m_hd           = m_parent->DX() / 2.0;
+
     if (dir[0] == eForward)
     {
         m_loc[0] = parentloc[0] + m_hd;
@@ -118,7 +118,7 @@ Octant::Octant(int i, OctantSharedPtr p, Array<OneD, OctantFace> dir)
     // add it to the conserdation of the delta specification
     for (int i = 0; i < SourcePointList.size(); i++)
     {
-        Array<OneD, NekDouble> cploc = SourcePointList[i]->GetLoc();
+        auto cploc = SourcePointList[i]->GetLoc();
         if (!(cploc[0] > m_loc[0] + m_hd || cploc[0] < m_loc[0] - m_hd ||
               cploc[1] > m_loc[1] + m_hd || cploc[1] < m_loc[1] - m_hd ||
               cploc[2] > m_loc[2] + m_hd || cploc[2] < m_loc[2] - m_hd))
@@ -194,11 +194,7 @@ Octant::Octant(int i, NekDouble x, NekDouble y, NekDouble z, NekDouble dx,
     m_needToDivide   = true;
     m_numValidPoints = 0;
     m_delta          = pair<bool, NekDouble>(false, 0.0);
-
-    m_loc    = Array<OneD, NekDouble>(3);
-    m_loc[0] = x;
-    m_loc[1] = y;
-    m_loc[2] = z;
+    m_loc            = {x, y, z};
 
     m_localSPList = splist;
 
@@ -230,12 +226,12 @@ void Octant::Subdivide(OctantSharedPtr p, int &numoct)
         }
     }
 
-    Array<OneD, OctantSharedPtr> children(8);
+    std::array<OctantSharedPtr, 8> children;
 
     for (int i = 0; i < 8; i++)
     {
         // set up x,y,z ordering of the 8 octants
-        Array<OneD, OctantFace> dir(3);
+        std::array<OctantFace, 3> dir;
         if (i < 4)
         {
             dir[0] = eForward;

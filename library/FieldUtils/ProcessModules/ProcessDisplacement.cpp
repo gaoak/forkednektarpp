@@ -42,6 +42,7 @@ using namespace std;
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LocalRegions/SegExp.h>
 #include <LocalRegions/TriExp.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <StdRegions/StdQuadExp.h>
 #include <StdRegions/StdSegExp.h>
 #include <StdRegions/StdTriExp.h>
@@ -132,7 +133,7 @@ void ProcessDisplacement::v_Process(po::variables_map &vm)
     LibUtilities::SessionReaderSharedPtr bndSession =
         LibUtilities::SessionReader::CreateInstance(0, nullptr, files);
     SpatialDomains::MeshGraphSharedPtr bndGraph =
-        SpatialDomains::MeshGraph::Read(bndSession);
+        SpatialDomains::MeshGraphIO::Read(bndSession);
 
     // Try to find boundary condition expansion.
     int bndCondId = m_config["bnd"].as<int>();

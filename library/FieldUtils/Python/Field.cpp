@@ -39,32 +39,6 @@
 using namespace Nektar;
 using namespace Nektar::FieldUtils;
 
-// Converts Python's sys.argv into C++'s argv.
-char **ConvertCommandLine(py::list &py_argv)
-{
-    int i, argc = py::len(py_argv), bufSize = 0;
-    char **argv = new char *[argc + 1], *p;
-
-    for (i = 0; i < argc; ++i)
-    {
-        std::string tmp = py::extract<std::string>(py_argv[i]);
-        bufSize += tmp.size() + 1;
-    }
-
-    std::vector<char> buf(bufSize);
-    for (i = 0, p = &buf[0]; i < argc; ++i)
-    {
-        std::string tmp = py::extract<std::string>(py_argv[i]);
-        std::copy(tmp.begin(), tmp.end(), p);
-        p[tmp.size()] = '\0';
-        argv[i]       = p;
-        p += tmp.size() + 1;
-    }
-
-    argv[argc] = nullptr;
-    return argv;
-}
-
 // Called at the start of every loop over nparts.
 // Args: FieldSharedPtr "f",
 // Python's sys.argv stored as a Python list called "py_argv",
@@ -74,10 +48,11 @@ void NewPartition(FieldSharedPtr f, py::list &py_argv, int part)
 {
     std::cout << std::endl << "Processing partition: " << part << std::endl;
     f->ClearField();
-    int argc      = py::len(py_argv);
-    char **argv   = ConvertCommandLine(py_argv);
+
+    CppCommandLine cpp(py_argv);
+
     f->m_partComm = std::shared_ptr<FieldConvertComm>(
-        new FieldConvertComm(argc, argv, f->m_nParts, part));
+        new FieldConvertComm(cpp.GetArgc(), cpp.GetArgv(), f->m_nParts, part));
 }
 
 // Wrapper around the Field constructor
@@ -85,35 +60,36 @@ void NewPartition(FieldSharedPtr f, py::list &py_argv, int part)
 // Function: constructs a FieldSharedPtr "f", defines f->m_defComm if
 // nparts specified, and stores a line arguments in f->m_vm.
 // Returns: f
-FieldSharedPtr Field_Init(py::list &py_argv, int nparts = 0,
-                          int output_points = 0, int output_points_hom_z = 0,
-                          bool error = false, bool force_output = false,
-                          std::string domain = "", bool no_equispaced = false,
+FieldSharedPtr Field_Init(py::list &argv, int nparts = 0, int output_points = 0,
+                          int output_points_hom_z = 0, bool error = false,
+                          bool force_output = false, bool no_equispaced = false,
                           int npz = 0, std::string onlyshape = "",
                           int part_only = 0, int part_only_overlapping = 0,
                           bool useSessionVariables = false,
                           bool useSessionExpansion = false,
-                          bool verbose             = false)
+                          bool verbose = false, std::string domain = "")
 {
     // Construct shared pointer to a Field object.
     std::shared_ptr<Field> f = MemoryManager<Field>::AllocateSharedPtr();
 
-    // Get argc and argv from the Python command line.
-    int argc    = py::len(py_argv);
-    char **argv = ConvertCommandLine(py_argv);
-
-    // Define the MPI Communicator.
-    f->m_comm =
-        LibUtilities::GetCommFactory().CreateInstance("Serial", argc, argv);
-
-    if (nparts)
+    if (py::len(argv) > 0)
     {
-        f->m_vm.insert(
-            std::make_pair("nparts", po::variable_value(nparts, false)));
-        if (nparts > 1)
+        // Get argc and argv from the Python command line.
+        CppCommandLine cpp(argv);
+
+        // Define the MPI Communicator.
+        f->m_comm = LibUtilities::GetCommFactory().CreateInstance(
+            "Serial", cpp.GetArgc(), cpp.GetArgv());
+
+        if (nparts)
         {
-            f->m_nParts  = nparts;
-            f->m_defComm = f->m_comm;
+            f->m_vm.insert(
+                std::make_pair("nparts", po::variable_value(nparts, false)));
+            if (nparts > 1)
+            {
+                f->m_nParts  = nparts;
+                f->m_defComm = f->m_comm;
+            }
         }
     }
 
@@ -143,8 +119,11 @@ FieldSharedPtr Field_Init(py::list &py_argv, int nparts = 0,
 
     if (domain.size())
     {
-        f->m_vm.insert(
-            std::make_pair("range", po::variable_value(domain, false)));
+        NEKERROR(ErrorUtil::efatal,
+                 "The doamin option in field is deprecated. Please use "
+                 "the xml option range=\"xmax,xmin,ymax,ymin\", \n\t i.e."
+                 "InputModule.Create(\"xml\",  field, \"myfile.xml\", "
+                 "range=\"-1,1,-1,1\").Run()");
     }
 
     if (no_equispaced)
@@ -213,24 +192,59 @@ void Field_SetPts(FieldSharedPtr f, const int i,
     f->m_fieldPts->SetPts(i, inarray);
 }
 
+inline Array<OneD, MultiRegions::ExpListSharedPtr> PyListToOneDArray(
+    py::list &pyExpList)
+{
+    using NekError = ErrorUtil::NekError;
+    Array<OneD, MultiRegions::ExpListSharedPtr> expLists(py::len(pyExpList));
+
+    for (int i = 0; i < expLists.size(); ++i)
+    {
+        if (!py::extract<MultiRegions::ExpListSharedPtr>(pyExpList[i]).check())
+        {
+            throw NekError("List should contain only ExpList objects.");
+        }
+
+        expLists[i] = py::extract<MultiRegions::ExpListSharedPtr>(pyExpList[i]);
+    }
+
+    return expLists;
+}
+
+void Field_SetupFromExpList(FieldSharedPtr f, py::list &explists)
+{
+    Array<OneD, MultiRegions::ExpListSharedPtr> exp =
+        PyListToOneDArray(explists);
+    f->SetupFromExpList(exp);
+}
+
 void export_Field()
 {
     py::class_<Field, std::shared_ptr<Field>>("Field", py::no_init)
-        .def("GetPts", &Field_GetPts)
-        .def("SetPts", &Field_SetPts)
-        .def("ClearField", &Field::ClearField)
-        .def("NewPartition", &NewPartition)
         .def("__init__",
              py::make_constructor(
                  &Field_Init, py::default_call_policies(),
-                 (py::arg("py_argv"), py::arg("nparts") = 0,
+                 (py::arg("argv") = py::list(), py::arg("nparts") = 0,
                   py::arg("output_points")       = 0,
                   py::arg("output_points_hom_z") = 0, py::arg("error") = false,
-                  py::arg("force_output") = false, py::arg("domain") = "",
+                  py::arg("force_output")  = false,
                   py::arg("no_equispaced") = false, py::arg("npz") = 0,
                   py::arg("onlyshape") = "", py::arg("part_only") = 0,
                   py::arg("part_only_overlapping") = 0,
                   py::arg("use_session_variables") = false,
                   py::arg("use_session_expansion") = false,
-                  py::arg("verbose")               = false)));
+                  py::arg("verbose") = false, py::arg("domain") = "")))
+
+        .def("GetPts", &Field_GetPts)
+        .def("SetPts", &Field_SetPts)
+        .def("ClearField", &Field::ClearField)
+        .def("NewPartition", &NewPartition)
+        .def("ReadFieldDefs", &Field::ReadFieldDefs)
+
+        .def("SetupFromExpList", Field_SetupFromExpList)
+
+        .def_readwrite("graph", &Field::m_graph)
+        .def_readwrite("session", &Field::m_session)
+        .def_readwrite("verbose", &Field::m_verbose)
+        .def_readwrite("comm", &Field::m_comm);
 }

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<NEKTAR>
+    <EXPANSIONS>
+        <E COMPOSITE="C[0,2]" NUMMODES="3" TYPE="MODIFIED" FIELDS="u,v,w" />
+        <E COMPOSITE="C[0,2]" NUMMODES="2" TYPE="MODIFIEDQUADPLUS1" FIELDS="p" />
+    </EXPANSIONS>
+    <CONDITIONS>
+        <SOLVERINFO>
+            <I PROPERTY="SolverType"                 VALUE="VelocityCorrectionScheme"/>
+            <I PROPERTY="EQTYPE"                     VALUE="UnsteadyNavierStokes"    />
+            <I PROPERTY="EvolutionOperator"          VALUE="Nonlinear"               />
+            <I PROPERTY="Projection"                 VALUE="Galerkin"                />
+            <I PROPERTY="GlobalSysSoln"              VALUE="IterativeStaticCond"     />
+            <I PROPERTY="TimeIntegrationMethod"      VALUE="IMEXOrder2"              />
+            <I PROPERTY="SPECTRALHPDEALIASING"       VALUE="True"                    />
+            <I PROPERTY="Driver"                     VALUE="Standard"                />
+            <I PROPERTY="SpectralVanishingViscosity" VALUE="DGKernel"                />
+        </SOLVERINFO>
+
+        <PARAMETERS>
+            <P> TimeStep      = 5e-4 </P>
+            <P> T             = 5    </P>
+            <P> NumSteps      = 2    </P>
+            <P> IO_CheckSteps = 40   </P>
+            <P> IO_InfoSteps  = 10   </P>
+            <P> IO_CFLSteps   = 1    </P>
+            <P> Re            = 1e3  </P>
+            <P> Kinvis        = 1/Re </P>
+        </PARAMETERS>
+
+        <VARIABLES>
+            <V ID="0"> u </V>
+            <V ID="1"> v </V>
+            <V ID="2"> w </V>
+            <V ID="3"> p </V>
+        </VARIABLES>
+
+        <BOUNDARYREGIONS>
+            <B ID="0"> C[7] </B>   <!-- Viscous wall blade        -->
+            <B ID="1"> C[6] </B>   <!-- Inflow                    -->
+            <B ID="2"> C[4] </B>   <!-- Outflow                   -->
+            <B ID="3"> C[8] </B>   <!-- Periodic - A              -->
+            <B ID="4"> C[9] </B>   <!-- Periodic - B              -->
+            <B ID="5"> C[3] </B>   <!-- Periodic - lower          -->
+            <B ID="6"> C[5] </B>   <!-- Periodic - upper          -->
+        </BOUNDARYREGIONS>
+
+        <BOUNDARYCONDITIONS>
+            <REGION REF="0">
+                <D VAR="u" VALUE="0" />
+                <D VAR="v" VALUE="0" />
+                <D VAR="w" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="1">
+                <D VAR="u" VALUE="0.7" />
+                <D VAR="v" VALUE="0.7" />
+                <D VAR="w" VALUE="0.7" />
+                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+            </REGION>
+            <REGION REF="2">
+                <N VAR="u" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+                <N VAR="v" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+                <N VAR="w" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+                <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
+            </REGION>
+            <REGION REF="3">  <!-- Periodic (A) -->
+                <P VAR="u" VALUE="[4]" />
+                <P VAR="v" VALUE="[4]" />
+                <P VAR="w" VALUE="[4]" />
+                <P VAR="p" VALUE="[4]" />
+            </REGION>
+            <REGION REF="4">  <!-- Periodic (B) -->
+                <P VAR="u" VALUE="[3]" />
+                <P VAR="v" VALUE="[3]" />
+                <P VAR="w" VALUE="[3]" />
+                <P VAR="p" VALUE="[3]" />
+            </REGION>
+            <REGION REF="5">  <!-- Periodic (up) -->
+                <P VAR="u" VALUE="[6]" />
+                <P VAR="v" VALUE="[6]" />
+                <P VAR="w" VALUE="[6]" />
+                <P VAR="p" VALUE="[6]" />
+            </REGION>
+            <REGION REF="6">  <!-- Periodic (low) -->
+                <P VAR="u" VALUE="[5]" />
+                <P VAR="v" VALUE="[5]" />
+                <P VAR="w" VALUE="[5]" />
+                <P VAR="p" VALUE="[5]" />
+            </REGION>
+        </BOUNDARYCONDITIONS>
+
+        <FUNCTION NAME="InitialConditions">
+            <E VAR="u" VALUE="0.1" />
+            <E VAR="v" VALUE="0.1" />
+            <E VAR="w" VALUE="0.0" />
+            <E VAR="p" VALUE="0.0" />
+        </FUNCTION>
+    </CONDITIONS>
+    <FILTERS>
+        <FILTER TYPE="ModalEnergy">
+            <PARAM NAME="OutputFile">EnergyFile</PARAM>
+            <PARAM NAME="OutputFrequency">1</PARAM>
+        </FILTER>
+    </FILTERS>
+</NEKTAR>

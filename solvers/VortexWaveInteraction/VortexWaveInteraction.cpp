@@ -36,6 +36,7 @@
 #include <MultiRegions/ExpList.h>
 #include <MultiRegions/GlobalLinSysKey.h>
 #include <SolverUtils/DriverModifiedArnoldi.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <VortexWaveInteraction/VortexWaveInteraction.h>
 
 using namespace std;
@@ -157,7 +158,7 @@ VortexWaveInteraction::VortexWaveInteraction(int argc, char *argv[])
     // Create Incompressible NavierStokesSolver session reader.
     m_sessionRoll = LibUtilities::SessionReader::CreateInstance(
         argc, argv, IncNSFilenames, m_sessionVWI->GetComm());
-    m_graphRoll           = SpatialDomains::MeshGraph::Read(m_sessionRoll);
+    m_graphRoll           = SpatialDomains::MeshGraphIO::Read(m_sessionRoll);
     std::string vEquation = m_sessionRoll->GetSolverInfo("SolverType");
     m_solverRoll          = GetEquationSystemFactory().CreateInstance(
         vEquation, m_sessionRoll, m_graphRoll);
@@ -191,7 +192,7 @@ VortexWaveInteraction::VortexWaveInteraction(int argc, char *argv[])
     // Create AdvDiffusion session reader.
     m_sessionStreak = LibUtilities::SessionReader::CreateInstance(
         argc, argv, AdvDiffFilenames, m_sessionVWI->GetComm());
-    m_graphStreak = SpatialDomains::MeshGraph::Read(m_sessionStreak);
+    m_graphStreak = SpatialDomains::MeshGraphIO::Read(m_sessionStreak);
 
     // Initialise LinNS solver
     std::string LinNSCondFile(argv[argc - 1]);
@@ -203,7 +204,7 @@ VortexWaveInteraction::VortexWaveInteraction(int argc, char *argv[])
     // Create Linearised NS stability session reader.
     m_sessionWave = LibUtilities::SessionReader::CreateInstance(
         argc, argv, LinNSFilenames, m_sessionVWI->GetComm());
-    m_graphWave = SpatialDomains::MeshGraph::Read(m_sessionWave);
+    m_graphWave = SpatialDomains::MeshGraphIO::Read(m_sessionWave);
 
     // Set the initial beta value in stability to be equal to VWI file
     std::string LZstr("LZ");

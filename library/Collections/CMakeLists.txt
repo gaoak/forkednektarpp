@@ -5,6 +5,7 @@ SET(COLLECTIONS_SOURCES
   Operator.cpp
   BwdTrans.cpp
   Helmholtz.cpp
+  LinearAdvectionDiffusionReaction.cpp
   IProductWRTBase.cpp
   IProductWRTDerivBase.cpp
   IProduct.cpp

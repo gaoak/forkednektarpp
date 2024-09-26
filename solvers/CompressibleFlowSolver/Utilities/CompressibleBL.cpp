@@ -57,7 +57,7 @@
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include <SolverUtils/SolverUtilsDeclspec.h>
 
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
 
     // Read in mesh from input file and create an object of class MeshGraph
     SpatialDomains::MeshGraphSharedPtr graphShPt =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
 
     int expdim = graphShPt->GetMeshDimension();
 

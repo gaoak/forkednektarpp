@@ -54,7 +54,7 @@
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 //! STL namespace
 using namespace std;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 
     //! Read in mesh from input file and create an object of class MeshGraph2D
     SpatialDomains::MeshGraphSharedPtr graphShPt;
-    graphShPt = SpatialDomains::MeshGraph::Read(vSession);
+    graphShPt = SpatialDomains::MeshGraphIO::Read(vSession);
 
     //!  Feed our spatial discretisation object
     MultiRegions::ContFieldSharedPtr Domain;

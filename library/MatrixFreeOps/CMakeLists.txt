@@ -6,12 +6,17 @@ SET(MATRIXFREEOPS_SOURCES
     Operator.cpp
 )
 
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/SwitchLimits.h.in
+               ${CMAKE_CURRENT_SOURCE_DIR}/SwitchLimits.h
+               @ONLY)
+
+
 # Boilerplate cpp implementation files for registering an operator
 # with the factory. There are individual files for each operator shape
 # so to reduce compile time timeout failures due to the large number
 # of template impementations.
 
-SET(OPERATORS BwdTrans PhysDeriv Helmholtz IProduct IProductWRTDerivBase PhysInterp1DScaled)
+SET(OPERATORS BwdTrans PhysDeriv Helmholtz LinearAdvectionDiffusionReaction IProduct IProductWRTDerivBase PhysInterp1DScaled)
 SET(SHAPES Seg Tri Quad Hex Tet Prism Pyr )
 SET(DIMENSIONS 1 2 2 3 3 3 3 )
 
@@ -58,6 +63,11 @@ foreach(OPERATOR IN LISTS OPERATORS)
 
         # The Helmholtz operator does not have a segment shape so skip.
         IF( "${OPERATOR}" STREQUAL "Helmholtz" AND "${SHAPE}" STREQUAL "Seg" )
+             continue()
+        ENDIF()
+
+        # The LinearADR operator does not have a segment shape so skip.
+        IF( "${OPERATOR}" STREQUAL "LinearAdvectionDiffusionReaction" AND "${SHAPE}" STREQUAL "Seg" )
              continue()
         ENDIF()
 

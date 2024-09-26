@@ -40,7 +40,7 @@ std::string FilterError::className =
     GetFilterFactory().RegisterCreatorFunction("Error", FilterError::create);
 
 FilterError::FilterError(const LibUtilities::SessionReaderSharedPtr &pSession,
-                         const std::weak_ptr<EquationSystem> &pEquation,
+                         const std::shared_ptr<EquationSystem> &pEquation,
                          const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
@@ -148,14 +148,6 @@ void FilterError::v_Update(
         // Evaluate "ExactSolution" function, or zero array
         Array<OneD, NekDouble> exactsoln(pFields[i]->GetTotPoints(), 0.0);
         equationSys->EvaluateExactSolution(i, exactsoln, time);
-
-        // If homogeneous expansion is used, transform the solution to
-        // Fourier (Wave) space
-        if (m_homogeneous)
-        {
-            pFields[i]->HomogeneousFwdTrans(pFields[i]->GetTotPoints(),
-                                            exactsoln, exactsoln);
-        }
 
         NekDouble vL2Error   = equationSys->L2Error(i, exactsoln);
         NekDouble vLinfError = equationSys->LinfError(i, exactsoln);

@@ -65,9 +65,6 @@ protected:
     /// Global to universal unique map
     Array<OneD, int> m_map;
 
-    /// Tolerance of iterative solver.
-    NekDouble m_tolerance;
-
     /// dot product of rhs to normalise stopping criterion
     NekDouble m_rhs_magnitude;
 

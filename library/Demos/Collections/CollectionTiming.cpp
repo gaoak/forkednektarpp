@@ -42,7 +42,7 @@
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -99,7 +99,7 @@ int main(int argc, char *argv[])
 
     // Read in mesh
     SpatialDomains::MeshGraphSharedPtr graph =
-        SpatialDomains::MeshGraph::Read(session);
+        SpatialDomains::MeshGraphIO::Read(session);
 
     // BwdTrans operator
     for (int imp = 1; imp < 5; ++imp)

@@ -69,26 +69,21 @@ public:
     // gave access and set to the moving frame velocity
     // for Moving reference frame formulation
     SOLVER_UTILS_EXPORT void SetMovingFrameVelocities(
-        const Array<OneD, NekDouble> &vFrameVels);
+        const Array<OneD, NekDouble> &vFrameVels, const int step);
 
-    SOLVER_UTILS_EXPORT void GetMovingFrameVelocities(
-        Array<OneD, NekDouble> &vFrameVels);
-
-    // gave access and set to the projection matrix that transfers
-    // between stationary inertial frame and moving reference frame
-    SOLVER_UTILS_EXPORT void SetMovingFrameProjectionMat(
-        const boost::numeric::ublas::matrix<NekDouble> &vProjMat);
-
-    SOLVER_UTILS_EXPORT void GetMovingFrameProjectionMat(
-        boost::numeric::ublas::matrix<NekDouble> &vProjMat);
+    SOLVER_UTILS_EXPORT bool GetMovingFrameVelocities(
+        Array<OneD, NekDouble> &vFrameVels, const int step);
 
     // gave access and set the displacement and angles between moving frame and
     // stationary one
     SOLVER_UTILS_EXPORT void SetMovingFrameDisp(
-        const Array<OneD, NekDouble> &vFrameDisp);
+        const Array<OneD, NekDouble> &vFrameDisp, const int step);
 
-    SOLVER_UTILS_EXPORT void GetMovingFrameDisp(
-        Array<OneD, NekDouble> &vFrameDisp);
+    SOLVER_UTILS_EXPORT void SetMovingFramePivot(
+        const Array<OneD, NekDouble> &vFramePivot);
+
+    SOLVER_UTILS_EXPORT bool GetMovingFrameDisp(
+        Array<OneD, NekDouble> &vFrameDisp, const int step);
 
     /// Set aerodynamic force and moment
     SOLVER_UTILS_EXPORT void SetAeroForce(Array<OneD, NekDouble> forces);
@@ -108,29 +103,30 @@ protected:
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, NekDouble> &pressure) = 0;
     SOLVER_UTILS_EXPORT virtual void v_SetMovingFrameVelocities(
-        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameVels)
+        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameVels,
+        [[maybe_unused]] const int step)
     {
     }
-    SOLVER_UTILS_EXPORT virtual void v_GetMovingFrameVelocities(
-        [[maybe_unused]] Array<OneD, NekDouble> &vFrameVels)
+    SOLVER_UTILS_EXPORT virtual bool v_GetMovingFrameVelocities(
+        [[maybe_unused]] Array<OneD, NekDouble> &vFrameVels,
+        [[maybe_unused]] const int step)
     {
-    }
-    SOLVER_UTILS_EXPORT virtual void v_SetMovingFrameProjectionMat(
-        [[maybe_unused]] const boost::numeric::ublas::matrix<NekDouble>
-            &vProjMat)
-    {
-    }
-    SOLVER_UTILS_EXPORT virtual void v_GetMovingFrameProjectionMat(
-        [[maybe_unused]] boost::numeric::ublas::matrix<NekDouble> &vProjMat)
-    {
+        return false;
     }
     SOLVER_UTILS_EXPORT virtual void v_SetMovingFrameDisp(
-        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameDisp)
+        [[maybe_unused]] const Array<OneD, NekDouble> &vFrameDisp,
+        [[maybe_unused]] const int step)
     {
     }
-    SOLVER_UTILS_EXPORT virtual void v_GetMovingFrameDisp(
-        [[maybe_unused]] Array<OneD, NekDouble> &vFrameDisp)
+    SOLVER_UTILS_EXPORT virtual void v_SetMovingFramePivot(
+        [[maybe_unused]] const Array<OneD, NekDouble> &vFramePivot)
     {
+    }
+    SOLVER_UTILS_EXPORT virtual bool v_GetMovingFrameDisp(
+        [[maybe_unused]] Array<OneD, NekDouble> &vFrameDisp,
+        [[maybe_unused]] const int step)
+    {
+        return false;
     }
 
     SOLVER_UTILS_EXPORT virtual void v_SetAeroForce(
@@ -186,51 +182,42 @@ inline void FluidInterface::GetPressure(
  *
  */
 inline void FluidInterface::SetMovingFrameVelocities(
-    const Array<OneD, NekDouble> &vFrameVels)
+    const Array<OneD, NekDouble> &vFrameVels, const int step)
 {
-    v_SetMovingFrameVelocities(vFrameVels);
+    v_SetMovingFrameVelocities(vFrameVels, step);
 }
 
 /**
  *
  */
-inline void FluidInterface::GetMovingFrameVelocities(
-    Array<OneD, NekDouble> &vFrameVels)
+inline bool FluidInterface::GetMovingFrameVelocities(
+    Array<OneD, NekDouble> &vFrameVels, const int step)
 {
-    v_GetMovingFrameVelocities(vFrameVels);
-}
-
-/**
- *
- */
-inline void FluidInterface::SetMovingFrameProjectionMat(
-    const boost::numeric::ublas::matrix<NekDouble> &vProjMat)
-{
-    v_SetMovingFrameProjectionMat(vProjMat);
-}
-
-/**
- *
- */
-inline void FluidInterface::GetMovingFrameProjectionMat(
-    boost::numeric::ublas::matrix<NekDouble> &vProjMat)
-{
-    v_GetMovingFrameProjectionMat(vProjMat);
+    return v_GetMovingFrameVelocities(vFrameVels, step);
 }
 
 /**
  *
  */
 inline void FluidInterface::SetMovingFrameDisp(
-    const Array<OneD, NekDouble> &vFrameDisp)
+    const Array<OneD, NekDouble> &vFrameDisp, const int step)
 {
-    v_SetMovingFrameDisp(vFrameDisp);
+    v_SetMovingFrameDisp(vFrameDisp, step);
 }
 
-inline void FluidInterface::GetMovingFrameDisp(
-    Array<OneD, NekDouble> &vFrameDisp)
+/**
+ *
+ */
+inline void FluidInterface::SetMovingFramePivot(
+    const Array<OneD, NekDouble> &vFramePivot)
 {
-    v_GetMovingFrameDisp(vFrameDisp);
+    v_SetMovingFramePivot(vFramePivot);
+}
+
+inline bool FluidInterface::GetMovingFrameDisp(
+    Array<OneD, NekDouble> &vFrameDisp, const int step)
+{
+    return v_GetMovingFrameDisp(vFrameDisp, step);
 }
 
 inline void FluidInterface::SetAeroForce(Array<OneD, NekDouble> forces)

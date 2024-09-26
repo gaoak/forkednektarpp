@@ -34,7 +34,7 @@
 
 #include <iostream>
 #include <string>
-//#include <LibUtilities/BasicUtils/Vmath.hpp>
+// #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <CardiacEPSolver/CellModels/Winslow99.h>
 
 namespace Nektar

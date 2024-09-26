@@ -104,7 +104,7 @@ void LaxFriedrichsSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     NekDouble URoe2 = uRoe * uRoe + vRoe * vRoe + wRoe * wRoe;
     NekDouble HRoe  = (srL * HL + srR * HR) / srLR;
     NekDouble cRoe  = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
-                                      srR, HRoe, URoe2, srLR);
+                                       srR, HRoe, URoe2, srLR);
 
     // Maximum eigenvalue
     NekDouble URoe = fabs(uRoe) + cRoe;

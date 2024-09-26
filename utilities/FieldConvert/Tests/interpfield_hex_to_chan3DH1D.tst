@@ -11,13 +11,13 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="x" tolerance="1e-6">0.408248</value>
-            <value variable="y" tolerance="1e-6">0.408248</value>
-            <value variable="z" tolerance="1e-6">0.369755</value>
-            <value variable="u" tolerance="1e-6">0.662361</value>
-            <value variable="v" tolerance="1e-6">0.662361</value>
-            <value variable="w" tolerance="1e-6">0.62619</value>
-            <value variable="p" tolerance="1e-6">1.12748</value>
+            <value variable="x" tolerance="1e-6">0.577350</value>
+            <value variable="y" tolerance="1e-6">0.577350</value>
+            <value variable="z" tolerance="1e-6">0.522913</value>
+            <value variable="u" tolerance="1e-6">0.936721</value>
+            <value variable="v" tolerance="1e-6">0.936721</value>
+            <value variable="w" tolerance="1e-6">0.885567</value>
+            <value variable="p" tolerance="1e-5">1.59450</value>
         </metric>
         <metric type="Linf" id="2">
             <value variable="x" tolerance="1e-6">1</value>

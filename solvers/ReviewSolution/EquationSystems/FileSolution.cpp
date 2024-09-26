@@ -509,7 +509,7 @@ void FileFieldInterpolator::ImportFldBase(
         auto iter = fieldMetaDataMap.find("Time");
         if (iter != fieldMetaDataMap.end())
         {
-            params["time"] = boost::lexical_cast<NekDouble>(iter->second);
+            params["time"] = std::stod(iter->second);
         }
     }
 }

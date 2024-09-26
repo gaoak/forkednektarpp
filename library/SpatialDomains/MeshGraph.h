@@ -183,17 +183,6 @@ public:
     SPATIAL_DOMAINS_EXPORT MeshGraph();
     SPATIAL_DOMAINS_EXPORT virtual ~MeshGraph();
 
-    SPATIAL_DOMAINS_EXPORT static MeshGraphSharedPtr Read(
-        const LibUtilities::SessionReaderSharedPtr pSession,
-        LibUtilities::DomainRangeShPtr rng = LibUtilities::NullDomainRangeShPtr,
-        bool fillGraph                     = true,
-        SpatialDomains::MeshGraphSharedPtr partitionedGraph = nullptr);
-
-    SPATIAL_DOMAINS_EXPORT void WriteGeometry(
-        const std::string &outfilename, bool defaultExp = false,
-        const LibUtilities::FieldMetaDataMap &metadata =
-            LibUtilities::NullFieldMetaDataMap);
-
     void Empty(int dim, int space)
     {
         m_meshDimension  = dim;
@@ -227,6 +216,16 @@ public:
         return m_spaceDimension;
     }
 
+    void SetMeshDimension(int dim)
+    {
+        m_meshDimension = dim;
+    }
+
+    void SetSpaceDimension(int dim)
+    {
+        m_spaceDimension = dim;
+    }
+
     /* Range definitions for postprorcessing */
     SPATIAL_DOMAINS_EXPORT void SetDomainRange(
         NekDouble xmin, NekDouble xmax,
@@ -234,6 +233,9 @@ public:
         NekDouble ymax = NekConstants::kNekUnsetDouble,
         NekDouble zmin = NekConstants::kNekUnsetDouble,
         NekDouble zmax = NekConstants::kNekUnsetDouble);
+
+    SPATIAL_DOMAINS_EXPORT void SetDomainRange(
+        LibUtilities::DomainRangeShPtr rng);
 
     /// Check if goemetry is in range definition if activated
     SPATIAL_DOMAINS_EXPORT bool CheckRange(Geometry2D &geom);
@@ -405,8 +407,8 @@ public:
     {
         return m_hexGeoms;
     }
-    SPATIAL_DOMAINS_EXPORT std::unordered_map<int, GeometryLinkSharedPtr>
-        &GetAllFaceToElMap()
+    SPATIAL_DOMAINS_EXPORT std::unordered_map<int, GeometryLinkSharedPtr> &
+    GetAllFaceToElMap()
     {
         return m_faceToElMap;
     }
@@ -458,12 +460,6 @@ public:
         m_bndRegOrder = p_bndRegOrder;
     }
 
-    /*an inital read which loads a very light weight data structure*/
-    SPATIAL_DOMAINS_EXPORT void ReadGeometry(LibUtilities::DomainRangeShPtr rng,
-                                             bool fillGraph);
-    SPATIAL_DOMAINS_EXPORT void PartitionMesh(
-        LibUtilities::SessionReaderSharedPtr session);
-
     SPATIAL_DOMAINS_EXPORT std::map<int, MeshEntity> CreateMeshEntities();
     SPATIAL_DOMAINS_EXPORT CompositeDescriptor CreateCompositeDescriptor();
 
@@ -472,17 +468,16 @@ public:
         return m_movement;
     }
 
-protected:
-    SPATIAL_DOMAINS_EXPORT virtual void v_WriteGeometry(
-        const std::string &outfilename, bool defaultExp = false,
-        const LibUtilities::FieldMetaDataMap &metadata =
-            LibUtilities::NullFieldMetaDataMap) = 0;
-    SPATIAL_DOMAINS_EXPORT virtual void v_ReadGeometry(
-        LibUtilities::DomainRangeShPtr rng, bool fillGraph) = 0;
-    SPATIAL_DOMAINS_EXPORT virtual void v_PartitionMesh(
-        LibUtilities::SessionReaderSharedPtr session) = 0;
+    void Clear();
 
     void PopulateFaceToElMap(Geometry3DSharedPtr element, int kNfaces);
+
+    void SetMeshPartitioned(bool meshPartitioned)
+    {
+        m_meshPartitioned = meshPartitioned;
+    }
+
+protected:
     ExpansionInfoMapShPtr SetUpExpansionInfoMap();
     std::string GetCompositeString(CompositeSharedPtr comp);
 
@@ -541,34 +536,6 @@ SPATIAL_DOMAINS_EXPORT MeshGraphFactory &GetMeshGraphFactory();
 /**
  *
  */
-inline void MeshGraph::WriteGeometry(
-    const std::string &outfilename, bool defaultExp,
-    const LibUtilities::FieldMetaDataMap &metadata)
-{
-    v_WriteGeometry(outfilename, defaultExp, metadata);
-}
-
-/**
- *
- */
-inline void MeshGraph::ReadGeometry(LibUtilities::DomainRangeShPtr rng,
-                                    bool fillGraph)
-{
-    v_ReadGeometry(rng, fillGraph);
-}
-
-/**
- *
- */
-inline void MeshGraph::PartitionMesh(
-    LibUtilities::SessionReaderSharedPtr session)
-{
-    v_PartitionMesh(session);
-}
-
-/**
- *
- */
 void MeshGraph::SetExpansionInfo(const std::string variable,
                                  ExpansionInfoMapShPtr &exp)
 {
@@ -584,6 +551,14 @@ void MeshGraph::SetExpansionInfo(const std::string variable,
     {
         m_expansionMapShPtrMap[variable] = exp;
     }
+}
+
+/**
+ *
+ */
+void MeshGraph::SetSession(LibUtilities::SessionReaderSharedPtr pSession)
+{
+    m_session = pSession;
 }
 
 /**

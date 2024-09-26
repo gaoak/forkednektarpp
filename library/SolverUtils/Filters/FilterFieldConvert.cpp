@@ -47,7 +47,7 @@ std::string FilterFieldConvert::className =
 
 FilterFieldConvert::FilterFieldConvert(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
     m_dt = m_session->GetParameter("TimeStep");
@@ -73,6 +73,18 @@ FilterFieldConvert::FilterFieldConvert(
             outname << it->second << ".fld";
             m_outputFile = outname.str();
         }
+    }
+
+    // Time after which we need to write checkfiles
+    it = pParams.find("OutputStartTime");
+    if (it == pParams.end())
+    {
+        m_outputStartTime = 0;
+    }
+    else
+    {
+        LibUtilities::Equation equ(m_session->GetInterpreter(), it->second);
+        m_outputStartTime = equ.Evaluate();
     }
 
     // Restart file
@@ -444,7 +456,8 @@ void FilterFieldConvert::v_Update(
     const NekDouble &time)
 {
     m_index++;
-    if (m_index % m_sampleFrequency > 0)
+    if (m_index % m_sampleFrequency > 0 ||
+        (time - m_outputStartTime) < -1.0e-07)
     {
         return;
     }

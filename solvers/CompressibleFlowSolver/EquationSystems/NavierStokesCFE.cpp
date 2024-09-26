@@ -188,8 +188,19 @@ void NavierStokesCFE::v_DoDiffusion(
         {
             NEKERROR(ErrorUtil::efatal, "m_bndEvaluateTime not setup");
         }
-        m_diffusion->Diffuse(nvariables, m_fields, inarray, outarrayDiff,
-                             m_bndEvaluateTime, pFwd, pBwd);
+
+        // Diffusion term in physical rhs form
+        if (m_ALESolver)
+        {
+            m_diffusion->DiffuseCoeffs(nvariables, m_fields, inarray,
+                                       outarrayDiff, m_bndEvaluateTime, pFwd,
+                                       pBwd);
+        }
+        else
+        {
+            m_diffusion->Diffuse(nvariables, m_fields, inarray, outarrayDiff,
+                                 m_bndEvaluateTime, pFwd, pBwd);
+        }
         for (size_t i = 0; i < nvariables; ++i)
         {
             Vmath::Vadd(npointsOut, outarrayDiff[i], 1, outarray[i], 1,

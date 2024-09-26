@@ -53,21 +53,21 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
     // this piece of code orientates the surface,
     // it used to be face mesh but its easier to have it here
     int np = 20;
-    vector<vector<Array<OneD, NekDouble>>> loopt;
+    vector<vector<std::array<NekDouble, 2>>> loopt;
     for (int i = 0; i < ein.size(); i++)
     {
-        vector<Array<OneD, NekDouble>> loop;
+        vector<std::array<NekDouble, 2>> loop;
         for (int j = 0; j < ein[i]->edges.size(); j++)
         {
-            Array<OneD, NekDouble> bnds = ein[i]->edges[j]->GetBounds();
-            NekDouble dt                = (bnds[1] - bnds[0]) / (np - 1);
+            auto bnds    = ein[i]->edges[j]->GetBounds();
+            NekDouble dt = (bnds[1] - bnds[0]) / (np - 1);
             if (ein[i]->edgeo[j] == CADOrientation::eForwards)
             {
                 for (int k = 0; k < np - 1; k++)
                 {
-                    NekDouble t               = bnds[0] + dt * k;
-                    Array<OneD, NekDouble> l  = ein[i]->edges[j]->P(t);
-                    Array<OneD, NekDouble> uv = surf->locuv(l);
+                    NekDouble t = bnds[0] + dt * k;
+                    auto l      = ein[i]->edges[j]->P(t);
+                    auto uv     = surf->locuv(l);
                     loop.push_back(uv);
                 }
             }
@@ -75,9 +75,9 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
             {
                 for (int k = np - 1; k > 0; k--)
                 {
-                    NekDouble t               = bnds[0] + dt * k;
-                    Array<OneD, NekDouble> l  = ein[i]->edges[j]->P(t);
-                    Array<OneD, NekDouble> uv = surf->locuv(l);
+                    NekDouble t = bnds[0] + dt * k;
+                    auto l      = ein[i]->edges[j]->P(t);
+                    auto uv     = surf->locuv(l);
                     loop.push_back(uv);
                 }
             }
@@ -107,9 +107,7 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
         point_xy cen(0.0, 0.0);
         bg::centroid(polygon, cen);
 
-        ein[i]->center    = Array<OneD, NekDouble>(2);
-        ein[i]->center[0] = cen.x();
-        ein[i]->center[1] = cen.y();
+        ein[i]->center = {cen.x(), cen.y()};
 
         polygons.push_back(polygon);
     }
@@ -130,7 +128,6 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
                 ct += 1;
             }
         }
-
     } while (ct > 0);
 
     // only need center points for inner loops
@@ -140,19 +137,15 @@ void CADSurf::OrientateEdges(CADSurfSharedPtr surf,
 
         if (!bg::within(p, polygons[i]))
         {
-            Array<OneD, NekDouble> n1 = loopt[i][0];
-            Array<OneD, NekDouble> n2 = loopt[i][1];
+            auto n1 = loopt[i][0];
+            auto n2 = loopt[i][1];
 
-            Array<OneD, NekDouble> N(2);
             NekDouble mag = sqrt((n1[0] - n2[0]) * (n1[0] - n2[0]) +
                                  (n1[1] - n2[1]) * (n1[1] - n2[1]));
 
-            N[0] = (n2[1] - n1[1]) / mag;
-            N[1] = -1.0 * (n2[0] - n1[0]) / mag;
-
-            Array<OneD, NekDouble> P(2);
-            P[0] = n1[0] + N[0];
-            P[1] = n1[1] + N[1];
+            std::array<NekDouble, 2> N = {(n2[1] - n1[1]) / mag,
+                                          -1.0 * (n2[0] - n1[0]) / mag};
+            std::array<NekDouble, 2> P = {n1[0] + N[0], n1[1] + N[1]};
 
             ein[i]->center = P;
 

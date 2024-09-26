@@ -40,7 +40,7 @@
 #include <LibUtilities/LinearAlgebra/NekTypeDefs.hpp>
 #include <MultiRegions/ExpList3DHomogeneous1D.h>
 #include <MultiRegions/GlobalLinSys.h>
-//#include <MultiRegions/GlobalLinSysDirectStaticCond.h>
+// #include <MultiRegions/GlobalLinSysDirectStaticCond.h>
 
 namespace Nektar
 {

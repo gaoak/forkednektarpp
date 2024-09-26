@@ -54,8 +54,17 @@ CommMpi::CommMpi(int narg, char *arg[]) : Comm(narg, arg)
 
     if (!init)
     {
-        ASSERTL0(MPI_Init(&narg, &arg) == MPI_SUCCESS,
-                 "Failed to initialise MPI");
+        int thread_support = 0;
+        if (MPI_Init_thread(&narg, &arg, MPI_THREAD_MULTIPLE,
+                            &thread_support) != MPI_SUCCESS)
+        {
+            NEKERROR(
+                ErrorUtil::ewarning,
+                "Initializing MPI using MPI_Init, if scotch version > 6 and is "
+                "compiled with multi-threading, it might cause deadlocks.")
+            ASSERTL0(MPI_Init(&narg, &arg) == MPI_SUCCESS,
+                     "Failed to initialise MPI");
+        }
         // store bool to indicate that Nektar++ is in charge of finalizing MPI.
         m_controls_mpi = true;
     }

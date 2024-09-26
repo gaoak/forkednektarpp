@@ -38,8 +38,9 @@
 
 namespace po = boost::program_options;
 
-NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z, vector<int> order,
-                    vector<BasisType> btype, ShapeType stype, bool diff);
+NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
+                    std::vector<int> order, std::vector<BasisType> btype,
+                    ShapeType stype, bool diff);
 
 // Modification to deal with exact solution for diff. Return 1 if integer < 0.
 static double pow_loc(const double val, const int i)
@@ -161,10 +162,10 @@ int main(int argc, char *argv[])
     }
 
     // Calculate L_inf & L_2 error
-    cout << "L infinity error: \t" << E->Linf(phys, sol) << endl;
+    std::cout << "L infinity error: \t" << E->Linf(phys, sol) << std::endl;
     if (stype != ePoint)
     {
-        cout << "L 2 error: \t \t \t" << E->L2(phys, sol) << endl;
+        std::cout << "L 2 error: \t \t \t" << E->L2(phys, sol) << std::endl;
     }
 
     if (!vm.count("diff") && stype != ePoint)
@@ -178,12 +179,12 @@ int main(int argc, char *argv[])
 
         NekDouble nsol = E->PhysEvaluate(t, phys);
 
-        cout << "Error at x = (";
+        std::cout << "Error at x = (";
         for (int i = 0; i < dimension; ++i)
         {
-            cout << t[i] << ", ";
+            std::cout << t[i] << ", ";
         }
-        cout << "\b\b): " << nsol - sol[0] << endl;
+        std::cout << "\b\b): " << nsol - sol[0] << std::endl;
     }
 
     // Calculate integral of known function to test different quadrature
@@ -231,54 +232,63 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z, vector<int> order,
-                    vector<BasisType> btype, ShapeType stype, bool diff)
+NekDouble Shape_sol(NekDouble x, NekDouble y, NekDouble z,
+                    std::vector<int> order, std::vector<BasisType> btype,
+                    ShapeType stype, bool diff)
 {
-    map<ShapeType, function<int(int, const vector<int> &)>> shapeConstraint2;
-    shapeConstraint2[ePoint]    = [](int, const vector<int> &) { return 1; };
-    shapeConstraint2[eSegment]  = [](int, const vector<int> &) { return 1; };
-    shapeConstraint2[eTriangle] = [](int k, const vector<int> &order) {
+    std::map<ShapeType, std::function<int(int, const std::vector<int> &)>>
+        shapeConstraint2;
+    shapeConstraint2[ePoint] = [](int, const std::vector<int> &) { return 1; };
+    shapeConstraint2[eSegment] = [](int, const std::vector<int> &) {
+        return 1;
+    };
+    shapeConstraint2[eTriangle] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
-    shapeConstraint2[eQuadrilateral] = [](int, const vector<int> &order) {
+    shapeConstraint2[eQuadrilateral] = [](int, const std::vector<int> &order) {
         return order[1];
     };
-    shapeConstraint2[eTetrahedron] = [](int k, const vector<int> &order) {
+    shapeConstraint2[eTetrahedron] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
-    shapeConstraint2[ePyramid] = [](int k, const vector<int> &order) {
+    shapeConstraint2[ePyramid] = [](int k, const std::vector<int> &order) {
         return order[1] - k;
     };
-    shapeConstraint2[ePrism] = [](int, const vector<int> &order) {
+    shapeConstraint2[ePrism] = [](int, const std::vector<int> &order) {
         return order[1];
     };
-    shapeConstraint2[eHexahedron] = [](int, const vector<int> &order) {
+    shapeConstraint2[eHexahedron] = [](int, const std::vector<int> &order) {
         return order[1];
     };
 
-    map<ShapeType, function<int(int, int, const vector<int> &order)>>
+    std::map<ShapeType,
+             std::function<int(int, int, const std::vector<int> &order)>>
         shapeConstraint3;
-    shapeConstraint3[ePoint] = [](int, int, const vector<int> &) { return 1; };
-    shapeConstraint3[eSegment] = [](int, int, const vector<int> &) {
+    shapeConstraint3[ePoint] = [](int, int, const std::vector<int> &) {
         return 1;
     };
-    shapeConstraint3[eTriangle] = [](int, int, const vector<int> &) {
+    shapeConstraint3[eSegment] = [](int, int, const std::vector<int> &) {
         return 1;
     };
-    shapeConstraint3[eQuadrilateral] = [](int, int, const vector<int> &) {
+    shapeConstraint3[eTriangle] = [](int, int, const std::vector<int> &) {
         return 1;
     };
-    shapeConstraint3[eTetrahedron] =
-        [](int k, int l, const vector<int> &order) { return order[2] - k - l; };
-    shapeConstraint3[ePyramid] = [](int k, int l, const vector<int> &order) {
+    shapeConstraint3[eQuadrilateral] = [](int, int, const std::vector<int> &) {
+        return 1;
+    };
+    shapeConstraint3[eTetrahedron] = [](int k, int l,
+                                        const std::vector<int> &order) {
         return order[2] - k - l;
     };
-    shapeConstraint3[ePrism] = [](int k, int, const vector<int> &order) {
+    shapeConstraint3[ePyramid] = [](int k, int l,
+                                    const std::vector<int> &order) {
+        return order[2] - k - l;
+    };
+    shapeConstraint3[ePrism] = [](int k, int, const std::vector<int> &order) {
         return order[2] - k;
     };
-    shapeConstraint3[eHexahedron] = [](int, int, const vector<int> &order) {
-        return order[2];
-    };
+    shapeConstraint3[eHexahedron] =
+        [](int, int, const std::vector<int> &order) { return order[2]; };
 
     NekDouble sol = 0.0;
     if (!diff)

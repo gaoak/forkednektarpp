@@ -59,18 +59,18 @@ public:
     {
     }
 
-    Array<OneD, NekDouble> GetBounds() override;
+    std::array<NekDouble, 2> GetBounds() override;
     void GetBounds(NekDouble &tmin, NekDouble &tmax) override;
     NekDouble Length(NekDouble ti, NekDouble tf) override;
-    Array<OneD, NekDouble> P(NekDouble t) override;
+    std::array<NekDouble, 3> P(NekDouble t) override;
     void P(NekDouble t, NekDouble &x, NekDouble &y, NekDouble &z) override;
-    Array<OneD, NekDouble> D2(NekDouble t) override;
+    std::array<NekDouble, 9> D2(NekDouble t) override;
     NekDouble tAtArcLength(NekDouble s) override;
-    Array<OneD, NekDouble> GetMinMax() override;
-    NekDouble loct(Array<OneD, NekDouble> xyz, NekDouble &t) override;
-    NekDouble GetMinDistance(Array<OneD, NekDouble> &xyz) override;
+    std::array<NekDouble, 6> GetMinMax() override;
+    NekDouble loct(std::array<NekDouble, 3> xyz, NekDouble &t) override;
+    NekDouble GetMinDistance(std::array<NekDouble, 3> &xyz) override;
     NekDouble Curvature(NekDouble t) override;
-    Array<OneD, NekDouble> N(NekDouble t) override;
+    std::array<NekDouble, 3> N(NekDouble t) override;
 
     void Initialise(int i, TopoDS_Shape in);
 
@@ -80,7 +80,7 @@ private:
     /// object used for reverse lookups
     Handle(Geom_Curve) m_c;
     /// store the parametric bounds of the curve
-    Array<OneD, NekDouble> m_b;
+    std::array<NekDouble, 2> m_b;
 };
 } // namespace Nektar::NekMesh
 

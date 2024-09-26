@@ -144,8 +144,12 @@ void RiemannSolver::Solve(const int nDim,
             {
                 for (int j = 0; j < flux[i].size(); ++j)
                 {
-                    flux[i][j] -= 0.5 * (Fwd[i][j] + Bwd[i][j]) *
-                                  (N[0][j] * vgt[0][j] + N[1][j] * vgt[1][j]);
+                    NekDouble tmp = 0;
+                    for (int k = 0; k < nDim; ++k)
+                    {
+                        tmp += N[k][j] * vgt[k][j];
+                    }
+                    flux[i][j] -= 0.5 * (Fwd[i][j] + Bwd[i][j]) * tmp;
                 }
             }
         }

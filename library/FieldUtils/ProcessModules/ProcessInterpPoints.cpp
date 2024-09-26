@@ -44,6 +44,7 @@
 #include <LibUtilities/BasicUtils/Progressbar.hpp>
 #include <LibUtilities/BasicUtils/PtsIO.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include "ProcessInterpPoints.h"
 
@@ -166,7 +167,7 @@ void ProcessInterpPoints::v_Process(po::variables_map &vm)
 
     // setup rng parameters.
     fromField->m_graph =
-        SpatialDomains::MeshGraph::Read(fromField->m_session, rng);
+        SpatialDomains::MeshGraphIO::Read(fromField->m_session, rng);
 
     // Read in local from field partitions
     const SpatialDomains::ExpansionInfoMap &expansions =

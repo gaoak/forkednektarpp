@@ -15,8 +15,6 @@ IF(NEKTAR_USE_MESHGEN)
         TKG2d
         TKG3d
         TKMath
-        TKIGES
-        TKSTL
         TKShHealing
         TKXSBase
         TKBool
@@ -27,21 +25,32 @@ IF(NEKTAR_USE_MESHGEN)
         TKGeomBase
         TKOffset
         TKPrim
-        TKSTEP
-        TKSTEPBase
-        TKSTEPAttr
         TKHLR
         TKFeat
         TKXCAF
         TKLCAF
-        TKXDESTEP
-    )
+        )
 
     # Try to find installed version of OpenCascade
+    SET(FIND_OCC_QUIET ON)
     INCLUDE(FindOCC)
 
+    # Determine which version of OpenCASCADE we're building against. 7.8.0
+    # renames some of the libraries and we therefore need to re-run detection
+    # with the correct packages.
     IF (OCC_FOUND)
+        # We definitiely don't need to build OCE in this case.
         SET(BUILD_OCE OFF)
+
+        IF (OCC_VERSION_STRING VERSION_LESS 7.8.0)
+            LIST(APPEND OCC_LIB_LIST TKIGES TKSTEPBase TKSTEPAttr TKSTEP209 TKSTEP TKXDESTEP TKSTL TKSTEPAttr)
+        ELSE()
+            LIST(APPEND OCC_LIB_LIST TKDESTEP TKDEIGES TKDESTL)
+        ENDIF()
+
+        # Re-run to find additional components for STEP.
+        SET(FIND_OCC_QUIET OFF)
+        INCLUDE(FindOCC)
     ELSE()
         SET(BUILD_OCE ON)
     ENDIF()

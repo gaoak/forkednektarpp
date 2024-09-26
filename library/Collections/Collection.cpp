@@ -52,10 +52,9 @@ Collection::Collection(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
 }
 
 void Collection::UpdateFactors(const OperatorType opType,
-                               StdRegions::FactorMap factors,
-                               int coll_phys_offset)
+                               StdRegions::FactorMap factors)
 {
-    m_ops[opType]->UpdateFactors(factors, coll_phys_offset);
+    m_ops[opType]->UpdateFactors(factors);
 }
 
 void Collection::UpdateVarcoeffs(const OperatorType opType,

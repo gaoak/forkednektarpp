@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
     // perform a PhysEvaluateDeriv at a different set of nodal points
     // (i.e. non-collocated interpolation), all tests use default types
     // initially
-    vector<string> &ptypes = demo.GetPointsType();
+    std::vector<std::string> &ptypes = demo.GetPointsType();
     for (int i = 0; i < dimension; ++i)
     {
         ptypes[i] = "PolyEvenlySpaced";
@@ -167,14 +167,14 @@ int main(int argc, char *argv[])
             break;
     }
 
-    cout << "\nL infinity error: " << scientific
-         << E->Linf(physOut, sol) + E->Linf(physOut0, sol0) +
-                E->Linf(physOut1, sol1) + E->Linf(physOut2, sol2)
-         << endl;
-    cout << "L 2 error         : " << scientific
-         << E->L2(physOut, sol) + E->L2(physOut0, sol0) +
-                E->L2(physOut1, sol1) + E->L2(physOut2, sol2)
-         << endl;
+    std::cout << "\nL infinity error: " << std::scientific
+              << E->Linf(physOut, sol) + E->Linf(physOut0, sol0) +
+                     E->Linf(physOut1, sol1) + E->Linf(physOut2, sol2)
+              << std::endl;
+    std::cout << "L 2 error         : " << std::scientific
+              << E->L2(physOut, sol) + E->L2(physOut0, sol0) +
+                     E->L2(physOut1, sol1) + E->L2(physOut2, sol2)
+              << std::endl;
 
     return 0;
 }

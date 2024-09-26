@@ -94,7 +94,7 @@ public:
     {
         Array<OneD, NekDouble> pOutput(m_matDim, 0.9);
 
-        int ntmpIts = m_nonlinsol->SolveSystem(m_matDim, pOutput, pOutput, 0);
+        int ntmpIts = m_nonlinsol->SolveSystem(m_matDim, pOutput, pOutput);
 
         int ndigits    = 6;
         int nothers    = 10;

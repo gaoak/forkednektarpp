@@ -175,7 +175,9 @@ void AdvectionWeakDG::AdvectCoeffs(
         timer.Stop();
         timer.AccumulateRegion("AdvWeakDG:_AddTraceIntegral", 10);
     }
-    if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag())
+
+    if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag() ||
+        fields[0]->GetGraph()->GetMovement()->GetImplicitALESolverFlag())
     {
         for (int i = 0; i < nConvectiveFields; ++i)
         {

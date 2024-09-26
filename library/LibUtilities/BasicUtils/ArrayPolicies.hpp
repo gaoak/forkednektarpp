@@ -183,7 +183,7 @@ std::shared_ptr<boost::multi_array_ref<DataType, Dim::Value>> CreateStorage(
 {
     typedef boost::multi_array_ref<DataType, Dim::Value> ArrayType;
     size_t size       = std::accumulate(extent.begin(), extent.end(), 1,
-                                  std::multiplies<size_t>());
+                                        std::multiplies<size_t>());
     DataType *storage = MemoryManager<DataType>::RawAllocate(size);
     return MemoryManager<ArrayType>::AllocateSharedPtrD(
         [=]([[maybe_unused]] boost::multi_array_ref<DataType, Dim::Value>

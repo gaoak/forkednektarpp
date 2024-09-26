@@ -7,10 +7,7 @@ post-processing software, primarily Paraview/VisIt (in unstructured VTK
 \inltt{.vtu} format) or Tecplot/VisIt (in ASCII \inltt{.dat} or binary
 \inltt{.plt} formats). FieldConvert also allows the user to manipulate the
 \nekpp output binary files by using some additional modules which can be called
-with the option \inltt{-m} which stands for \inltt{m}odule. Note that another
-flag, \inltt{-r} (which stand for \inltt{r}ange) allows the user to specify a
-sub-range of the domain on which the conversion or manipulation of the \nekpp
-output binary files will be performed.
+with the option \inltt{-m} which stands for \inltt{m}odule.
 
 Almost all of the FieldConvert functionalities can be run in parallel if \nekpp
 is compiled using MPI (see the installation documentation for additional info on
@@ -119,9 +116,10 @@ recommended for full functionality because this is the minimum version which all
 for high-order VTK output. Versions older than this are supported but the high-order
 VTK output will be disabled.
 
-Using the VTK library automatically enables file compression on the output .vtu file
-which can substantially reduce file sizes. This can be turned off with the
-command line option \inltt{uncompress} when using \inltt{FieldConvert}.
+Using the  VTK library automatically  enables file compression  on the
+output .vtu file  which can substantially reduce file  sizes. This can
+be turned  off with  the command  line option  \inltt{uncompress} when
+using \inltt{FieldConvert}.
 
 \begin{lstlisting}[style=BashInputStyle]
 FieldConvert session.xml field.fld output.vtu:vtu:uncompress
@@ -265,37 +263,34 @@ format by issuing the command
 FieldConvert in.fld out.fld:fld:format=Hdf5
 \end{lstlisting}
 %
-\section{Range option \textit{-r}}
-The Fieldconvert range option \inltt{-r} allows the user to specify
-a sub-range of the mesh (computational domain) by using an
-additional flag, \inltt{-r} (which stands for \inltt{r}ange and either
-convert or manipulate the \nekpp output binary files.
-Taking as an example the conversion of the \nekpp binary files
-(.chk or .fld) shown before and wanting to convert just the 2D
-sub-range defined by $-2\leq x \leq 3$, $-1\leq y \leq 2$ the
-additional flag \inltt{-r} can be used as follows:
+\section{Specifying a sub-range of the mesh}
+Fieldconvert allows for a sub-range of the mesh (computational
+domain) by using an xml input option and either convert or manipulate
+the \nekpp output binary files.  Taking as an example the conversion
+of the \nekpp binary files (.chk or .fld) shown before and wanting to
+convert just the 2D sub-range defined by $-2\leq x \leq 3$, $-1\leq y
+\leq 2$ the additional flag \inltt{-r} can be used as follows:
 %
 \begin{itemize}
 \item Paraview or VisIt (.vtu format)
 %
 \begin{lstlisting}[style=BashInputStyle]
-FieldConvert -r -2,3,-1,2 test.xml test.fld test.vtu
+FieldConvert test.xml:xml:range=''-2,3,-1,2''  test.fld test.vtu
 \end{lstlisting}
 %
 \item Tecplot (.dat format)
 %
 \begin{lstlisting}[style=BashInputStyle]
-FieldConvert -r 2,3,-1,2 test.xml test.fld test.dat
+FieldConvert  test.xml:xml:range=''2,3,-1,2'' test.fld test.dat
 \end{lstlisting}
 %
 \end{itemize}
-where \inltt{-r} defines the range option of the FieldConvert
-utility, the two first numbers define the range in $x$ direction
-and the the third and fourth number specify the $y$ range.
-A sub-range of a 3D domain can also be specified.
-For doing so, a third set of numbers has to be provided
-to define the $z$ range.
-%
+where the \inltt{range} information defines the range option of
+\inltt{xml} input module, the two first numbers define the range in
+$x$ direction and the the third and fourth number specify the $y$
+range.  A sub-range of a 3D domain can also be specified.  For doing
+so, a third set of numbers has to be provided to define the $z$ range.
+
 %
 %
 
@@ -376,9 +371,19 @@ for part in range(2):
 OutputModule.Create("info", field, "field_wss_b0.fld", nparts=2).Run()
 \end{lstlisting}
 
-The number of partitions is looped over, with \verb+NewPartition+ called at
-the start of each. When using \verb+OutputModule+, the \verb+info+ module
-must be used in order to obtain the correct result.
+The sub-range can also be specified by using the \inltt{xml} input module options  in the following manner: 
+
+\begin{lstlisting}[style=C++Style, language=Python]
+import sys
+from NekPy.FieldUtils import *
+
+field = Field(sys.argv)
+
+inputxml   = InputModule.Create("xml",   field, , session.xml, range="-1,1,-1,1").Run()
+inputfld   = InputModule.Create("fld",   field, "field.fld").Run()
+processwss = ProcessModule.Create("wss", field,  bnd="2").Run()
+outputfld  = OutputModule.Create("fld",  field, "field_wss.fld").Run()
+\end{lstlisting}
 
 \section{FieldConvert modules \textit{-m}}
 FieldConvert allows the user to manipulate the \nekpp output
@@ -636,7 +641,7 @@ FieldConvert -m dof file.xml file.fld out.stdout
 This module interpolates the output data to a truly equispaced set of
 points (not equispaced along the collapsed coordinate
 system). Therefore a tetrahedron is represented by a tetrahedral
-number of poinst. This produces much smaller output files. The points
+number of points. This produces much smaller output files. The points
 are then connected together by simplices (triangles and tetrahedrons).
 
 \begin{lstlisting}[style=BashInputStyle]
@@ -646,7 +651,7 @@ FieldConvert -m equispacedoutput test.xml test.fld test.dat
 or
 
 \begin{lstlisting}[style=BashInputStyle]
-FieldConvert -m equispacedouttput test.xml test.fld test.vtu
+FieldConvert -m equispacedoutput test.xml test.fld test.vtu
 \end{lstlisting}
 
 
@@ -1605,6 +1610,26 @@ To obtain the spanwise power spectrum of a 3DH1D field in a specific domain, the
 FieldConvert -m powerspectrum:vars=u,v,w:box=0,0.5,0,0.5 chan3DH1D.xml chan3DH1D_0.chk chan3DH1D.plt
 \end{lstlisting}
 The option \inltt{vars=u,v,w} specifies the variables used to calculate the power spectrum. Both the number and variable name can be used. The option \inltt{box=xmin,xmax,ymin,ymax} specifies the domain where the power spectrum is computed.
+
+\subsection{Computing the velocity field induced by vortex filaments}
+To obtain the vortex-induced velocity, the user can run:
+\begin{lstlisting}[style=BashInputStyle]
+FieldConvert -m vortexinducedvelocity:vortex=vortexfilament.dat  Helmholtz.xml Helmholtz.plt
+\end{lstlisting}
+The Lamb-Oseen vortex model is used to avoid the singularity at the vortex center. In the cylindrical coordinate, the vorticity and velocity are
+\[
+\omega_z(r) = \frac{\Gamma}{2\pi\sigma^2}\exp\left(-\frac{r^2}{2\sigma^2}\right)
+\]
+\[
+v_r(r) = \frac{\Gamma}{2\pi r}\left[1 - \exp\left(-\frac{r^2}{2\sigma^2}\right)\right]
+\]
+The option \inltt{vortex} specifies the filename that defines the vortex filaments. The format of one vortex segment is: xstart, ystart, zstart, is half infinity (true is 1); xend, yend, zend, is half infinity; $\sigma$, $\Gamma$. The format to define a uniform flow is: u, v, w.
+One example of \inltt{vortexfilament.dat} that defines two-counter rotating Lamb-Oseen vortices with a uniform background flow  is
+\begin{lstlisting}[style=C++Style]
+0 0.159154943091895 0
+-0.5 0 -1 1; -0.5 0 1 1; 0.1 -1
+0.5 0 -1 1;  0.5 0 1 1; 0.1 1
+\end{lstlisting}
 
 \section{FieldConvert in parallel}
 To run FieldConvert in parallel the user needs to compile

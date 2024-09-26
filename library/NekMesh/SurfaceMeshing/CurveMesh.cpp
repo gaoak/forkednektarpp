@@ -157,7 +157,7 @@ void CurveMesh::Mesh(bool forceThree)
     }
 
     NekDouble t;
-    Array<OneD, NekDouble> loc;
+    std::array<NekDouble, 3> loc;
 
     vector<CADVertSharedPtr> verts = m_cadcurve->GetVertex();
     vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>> s =
@@ -176,7 +176,7 @@ void CurveMesh::Mesh(bool forceThree)
             continue;
         }
 
-        Array<OneD, NekDouble> uv = s[j].first.lock()->locuv(loc);
+        auto uv = s[j].first.lock()->locuv(loc);
         n->SetCADSurf(s[j].first.lock(), uv);
     }
     m_meshpoints.push_back(n);
@@ -190,7 +190,7 @@ void CurveMesh::Mesh(bool forceThree)
         n2->SetCADCurve(m_cadcurve, t);
         for (int j = 0; j < s.size(); j++)
         {
-            Array<OneD, NekDouble> uv = s[j].first.lock()->locuv(loc);
+            auto uv = s[j].first.lock()->locuv(loc);
             n2->SetCADSurf(s[j].first.lock(), uv);
         }
         m_meshpoints.push_back(n2);
@@ -209,7 +209,7 @@ void CurveMesh::Mesh(bool forceThree)
             continue;
         }
 
-        Array<OneD, NekDouble> uv = s[j].first.lock()->locuv(loc);
+        auto uv = s[j].first.lock()->locuv(loc);
         n->SetCADSurf(s[j].first.lock(), uv);
     }
     m_meshpoints.push_back(n);
@@ -355,7 +355,7 @@ void CurveMesh::GetSampleFunction()
         dsti[1]     = i * ds;
         NekDouble t = m_cadcurve->tAtArcLength(dsti[1]);
 
-        Array<OneD, NekDouble> loc = m_cadcurve->P(t);
+        auto loc = m_cadcurve->P(t);
 
         bool found = false;
 
@@ -401,8 +401,7 @@ void CurveMesh::PeriodicOverwrite(CurveMeshSharedPtr from)
     ///////
 
     int tid = from->GetId();
-    Array<OneD, NekDouble> T =
-        m_mesh->m_cad->GetPeriodicTranslationVector(tid, m_id);
+    auto T  = m_mesh->m_cad->GetPeriodicTranslationVector(tid, m_id);
 
     CADCurveSharedPtr c1 = m_mesh->m_cad->GetCurve(tid);
 
@@ -415,14 +414,13 @@ void CurveMesh::PeriodicOverwrite(CurveMeshSharedPtr from)
 
     for (int i = 1; i < nodes.size() - 1; i++)
     {
-        Array<OneD, NekDouble> loc = nodes[i]->GetLoc();
-        NodeSharedPtr nn           = NodeSharedPtr(
+        auto loc         = nodes[i]->GetLoc();
+        NodeSharedPtr nn = NodeSharedPtr(
             new Node(m_mesh->m_numNodes++, loc[0] + T[0], loc[1] + T[1], 0.0));
 
         for (int j = 0; j < surfs.size(); j++)
         {
-            Array<OneD, NekDouble> uv =
-                surfs[j].first.lock()->locuv(nn->GetLoc());
+            auto uv = surfs[j].first.lock()->locuv(nn->GetLoc());
             nn->SetCADSurf(surfs[j].first.lock(), uv);
         }
 

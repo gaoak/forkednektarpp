@@ -41,7 +41,7 @@
             <REGION REF="0">
                 <D VAR="u" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
                 <D VAR="v" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
-                <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
+                <N VAR="p" USERDEFINEDTYPE="MovingFrameWall" VALUE="0" />
             </REGION>
             <REGION REF="1">
                 <D VAR="u" VALUE="0" />
@@ -72,29 +72,21 @@
         </FUNCTION>
 
         <FUNCTION NAME="VelMRF">
-            <E VAR="u" VALUE="0.0" />
-            <E VAR="v" VALUE="0" />
-            <E VAR="Omega_z" VALUE="amp*omega*cos(omega*t)"/>
+            <E VAR="Theta_z" VALUE="amp*sin(omega*(t))"/>
+            <E VAR="Omega_z" VALUE="amp*omega*cos(omega*(t))"/>
+            <E VAR="DOmega_z" VALUE="-amp*omega*omega*sin(omega*(t))"/>
         </FUNCTION>
 
         <FUNCTION NAME="ExtForce">
             <E VAR="u" VALUE="-1" />
-            <E VAR="v" VALUE="0" />
-            <E VAR="Omega_z" VALUE="0"/>
         </FUNCTION>
 
-        <FUNCTION NAME="InitDisp">
-            <E VAR="u" VALUE="0" />
-            <E VAR="v" VALUE="0" />
-            <E VAR="Omega_z" VALUE="0"/>
-        </FUNCTION>
     </CONDITIONS>
 
     <FORCING>
         <FORCE TYPE="MovingReferenceFrame">
             <FRAMEVELOCITY> VelMRF </FRAMEVELOCITY>
             <EXTERNALFORCE>  ExtForce </EXTERNALFORCE>
-            <INITIALDISPLACEMENT>  InitDisp </INITIALDISPLACEMENT>
             <MASS>         1.0, 0., 0,  0,1,0,  0,0,1 </MASS>
             <MOTIONPRESCRIBED>  0, 1 ,1 </MOTIONPRESCRIBED>
             <PIVOTPOINT> 0. ,  0 ,0 </PIVOTPOINT>

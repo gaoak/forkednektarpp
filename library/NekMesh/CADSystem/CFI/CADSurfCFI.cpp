@@ -51,17 +51,11 @@ void CADSurfCFI::Initialise(int i, cfi::Face *in, NekDouble s)
     m_scal       = s;
 }
 
-Array<OneD, NekDouble> CADSurfCFI::GetBounds()
+std::array<NekDouble, 4> CADSurfCFI::GetBounds()
 {
-    Array<OneD, NekDouble> b(4);
-
     cfi::UVBox bx = m_cfiSurface->calcUVBox();
-    b[0]          = bx.uLower;
-    b[1]          = bx.uUpper;
-    b[2]          = bx.vLower;
-    b[3]          = bx.vUpper;
 
-    return b;
+    return {bx.uLower, bx.uUpper, bx.vLower, bx.vUpper};
 }
 
 void CADSurfCFI::GetBounds(NekDouble &umin, NekDouble &umax, NekDouble &vmin,
@@ -74,10 +68,10 @@ void CADSurfCFI::GetBounds(NekDouble &umin, NekDouble &umax, NekDouble &vmin,
     vmax          = bx.vUpper;
 }
 
-Array<OneD, NekDouble> CADSurfCFI::locuv(Array<OneD, NekDouble> p,
-                                         NekDouble &dist)
+std::array<NekDouble, 2> CADSurfCFI::locuv(std::array<NekDouble, 3> p,
+                                           NekDouble &dist)
 {
-    Array<OneD, NekDouble> uv(2);
+    std::array<NekDouble, 2> uv;
     cfi::Position px;
     px.x = p[0] / m_scal;
     px.y = p[1] / m_scal;
@@ -88,7 +82,7 @@ Array<OneD, NekDouble> CADSurfCFI::locuv(Array<OneD, NekDouble> p,
     uv[0] = r.value().u;
     uv[1] = r.value().v;
 
-    Array<OneD, NekDouble> p2 = P(uv);
+    auto p2 = P(uv);
 
     dist =
         sqrt((p[0] - p2[0]) * (p[0] - p2[0]) + (p[1] - p2[1]) * (p[1] - p2[1]) +
@@ -98,7 +92,7 @@ Array<OneD, NekDouble> CADSurfCFI::locuv(Array<OneD, NekDouble> p,
     return uv;
 }
 
-NekDouble CADSurfCFI::Curvature(Array<OneD, NekDouble> uv)
+NekDouble CADSurfCFI::Curvature(std::array<NekDouble, 2> uv)
 {
     cfi::UVPosition uvp(uv[0], uv[1]);
     cfi::MaxMinCurvaturePair mxp = m_cfiSurface->calcCurvAtUV(uvp);
@@ -106,19 +100,15 @@ NekDouble CADSurfCFI::Curvature(Array<OneD, NekDouble> uv)
     return mxp.maxCurv.curvature * m_scal;
 }
 
-Array<OneD, NekDouble> CADSurfCFI::P(Array<OneD, NekDouble> uv)
+std::array<NekDoble, 3> CADSurfCFI::P(std::array<NekDoble, 2> uv)
 {
     cfi::UVPosition uvp(uv[0], uv[1]);
     cfi::Position p = m_cfiSurface->calcXYZAtUV(uvp);
-    Array<OneD, NekDouble> out(3);
-    out[0] = p.x * m_scal;
-    out[1] = p.y * m_scal;
-    out[2] = p.z * m_scal;
 
-    return out;
+    return {p.x * m_scal, p.y * m_scal, p.z * m_scal};
 }
 
-void CADSurfCFI::P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y,
+void CADSurfCFI::P(std::array<NekDoble, 2> uv, NekDouble &x, NekDouble &y,
                    NekDouble &z)
 {
     cfi::UVPosition uvp(uv[0], uv[1]);
@@ -128,25 +118,20 @@ void CADSurfCFI::P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y,
     z               = p.z * m_scal;
 }
 
-Array<OneD, NekDouble> CADSurfCFI::N(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 3> CADSurfCFI::N(std::array<NekDouble, 2> uv)
 {
     cfi::UVPosition uvp(uv[0], uv[1]);
     cfi::Direction d = m_cfiSurface->calcFaceNormalAtUV(uvp);
 
-    Array<OneD, NekDouble> normal(3);
-    normal[0] = d.x;
-    normal[1] = d.y;
-    normal[2] = d.z;
-
-    return normal;
+    return {d.x, d.y, d.z};
 }
 
-Array<OneD, NekDouble> CADSurfCFI::D1(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 9> CADSurfCFI::D1(std::array<NekDouble, 2> uv)
 {
-    Array<OneD, NekDouble> p = P(uv);
+    auto p = P(uv);
     cfi::UVPosition uvp(uv[0], uv[1]);
     vector<cfi::DerivativeList> *l = m_cfiSurface->calcDerivAtUV(uvp);
-    Array<OneD, NekDouble> r(9);
+    std::array<NekDouble, 9> r;
     r[0] = p[0] * m_scal;                    // x
     r[1] = p[1] * m_scal;                    // y
     r[2] = p[2] * m_scal;                    // z
@@ -160,12 +145,12 @@ Array<OneD, NekDouble> CADSurfCFI::D1(Array<OneD, NekDouble> uv)
     return r;
 }
 
-Array<OneD, NekDouble> CADSurfCFI::D2(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 18> CADSurfCFI::D2(std::array<NekDouble, 2> uv)
 {
-    Array<OneD, NekDouble> p = P(uv);
+    auto p = P(uv);
     cfi::UVPosition uvp(uv[0], uv[1]);
     vector<cfi::DerivativeList> *l = m_cfiSurface->calcDerivAtUV(uvp);
-    Array<OneD, NekDouble> r(18);
+    std::array<NekDouble, 18> r;
     r[0]  = p[0] * m_scal;                    // x
     r[1]  = p[1] * m_scal;                    // y
     r[2]  = p[2] * m_scal;                    // z

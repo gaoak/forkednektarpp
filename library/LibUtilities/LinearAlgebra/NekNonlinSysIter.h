@@ -78,12 +78,12 @@ public:
         return m_SourceVec;
     }
 
-    LIB_UTILITIES_EXPORT const NekLinSysIterSharedPtr &GetLinSys()
+    LIB_UTILITIES_EXPORT const NekLinSysIterSharedPtr &GetLinSys() const
     {
         return m_linsol;
     }
 
-    LIB_UTILITIES_EXPORT int GetNtotLinSysIts()
+    LIB_UTILITIES_EXPORT int GetNtotLinSysIts() const
     {
         return m_NtotLinSysIts;
     }
@@ -103,8 +103,7 @@ public:
         m_NonlinIterTolRelativeL2 = in;
     }
 
-    LIB_UTILITIES_EXPORT void SetNekNonlinSysMaxIterations(
-        const unsigned int in)
+    LIB_UTILITIES_EXPORT void SetNekNonlinSysMaxIterations(const int in)
     {
         m_NekNonlinSysMaxIterations = in;
     }
@@ -134,7 +133,7 @@ protected:
 
     void v_SetSysOperators(const NekSysOperators &in) override;
 
-    bool ConvergenceCheck(const int nIteration,
+    void ConvergenceCheck(const int nIteration,
                           const Array<OneD, const NekDouble> &Residual);
 
 private:

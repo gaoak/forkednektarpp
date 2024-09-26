@@ -47,8 +47,6 @@ typedef Nektar::LibUtilities::PtsFieldSharedPtr PtsFieldSharedPtr;
 namespace Nektar::NekMesh
 {
 
-using namespace NekMesh;
-
 struct DerivUtil;
 struct Residual;
 
@@ -64,6 +62,10 @@ public:
            int o);
 
     ElUtilJob *GetJob(bool update = false);
+    ElUtilJob *GetAdaptJob(
+        std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+            &adaptCurves,
+        NekDouble scale, NekDouble rad);
 
     int GetId()
     {
@@ -103,6 +105,20 @@ public:
         UpdateMapping();
     }
 
+    void SetScalingFromInput(NekDouble scale, NekDouble radius,
+                             std::vector<CADCurveSharedPtr> curves)
+    {
+        m_radapt       = true;
+        m_adapt_scale  = scale;
+        m_adapt_radius = radius;
+        m_adaptcurves  = curves;
+    }
+
+    bool PreUpdateMapping(
+        std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+            &adaptCurves,
+        NekDouble scale, NekDouble rad);
+
     void UpdateMapping();
 
 private:
@@ -125,12 +141,28 @@ private:
 
     // Initial maps
     std::vector<std::vector<NekDouble>> m_maps, m_mapsStd;
+    // r-adaption
+    bool m_radapt;
+    std::vector<CADCurveSharedPtr> m_adaptcurves;
+    NekDouble m_adapt_scale;
+    NekDouble m_adapt_radius;
 };
 typedef std::shared_ptr<ElUtil> ElUtilSharedPtr;
 
 class ElUtilJob : public Thread::ThreadJob
 {
 public:
+    ElUtilJob(ElUtil *e,
+              std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+                  &adaptCurves,
+              NekDouble scale, NekDouble rad)
+        : el(e), m_update(false), m_adaptCurves(adaptCurves),
+          m_adaptScale(scale), m_adaptRad(rad)
+    {
+        m_update =
+            el->PreUpdateMapping(m_adaptCurves, m_adaptScale, m_adaptRad);
+    }
+
     ElUtilJob(ElUtil *e, bool update) : el(e), m_update(update)
     {
     }
@@ -148,6 +180,10 @@ public:
 private:
     ElUtil *el;
     bool m_update;
+    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+        m_adaptCurves;
+    NekDouble m_adaptScale;
+    NekDouble m_adaptRad;
 };
 
 } // namespace Nektar::NekMesh

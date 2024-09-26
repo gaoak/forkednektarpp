@@ -150,9 +150,8 @@ NekMatrix<DataType, StandardMatrixTag>::NekMatrix(
 }
 
 template <typename DataType>
-NekMatrix<DataType, StandardMatrixTag>
-    &NekMatrix<DataType, StandardMatrixTag>::operator=(
-        const NekMatrix<DataType, StandardMatrixTag> &rhs)
+NekMatrix<DataType, StandardMatrixTag> &NekMatrix<DataType, StandardMatrixTag>::
+operator=(const NekMatrix<DataType, StandardMatrixTag> &rhs)
 {
     if (this == &rhs)
     {
@@ -160,8 +159,8 @@ NekMatrix<DataType, StandardMatrixTag>
     }
 
     Matrix<DataType>::operator=(rhs);
-    m_numberOfSubDiagonals    = rhs.m_numberOfSubDiagonals;
-    m_numberOfSuperDiagonals  = rhs.m_numberOfSuperDiagonals;
+    m_numberOfSubDiagonals   = rhs.m_numberOfSubDiagonals;
+    m_numberOfSuperDiagonals = rhs.m_numberOfSuperDiagonals;
 
     ResizeDataArrayIfNeeded();
 
@@ -174,8 +173,8 @@ NekMatrix<DataType, StandardMatrixTag>
 
 /// Fill matrix with scalar
 template <typename DataType>
-NekMatrix<DataType, StandardMatrixTag>
-    &NekMatrix<DataType, StandardMatrixTag>::operator=(const DataType &rhs)
+NekMatrix<DataType, StandardMatrixTag> &NekMatrix<
+    DataType, StandardMatrixTag>::operator=(const DataType &rhs)
 {
     unsigned int requiredStorageSize = GetRequiredStorageSize();
 
@@ -268,8 +267,8 @@ typename NekMatrix<DataType, StandardMatrixTag>::ConstGetValueType NekMatrix<
 }
 
 template <typename DataType>
-const Array<OneD, const DataType>
-    &NekMatrix<DataType, StandardMatrixTag>::GetPtr() const
+const Array<OneD, const DataType> &NekMatrix<DataType,
+                                             StandardMatrixTag>::GetPtr() const
 {
     return m_data;
 }
@@ -863,8 +862,8 @@ NekMatrix<DataType, StandardMatrixTag> NekMatrix<
 }
 
 template <typename DataType>
-NekMatrix<DataType, StandardMatrixTag>
-    &NekMatrix<DataType, StandardMatrixTag>::operator*=(const DataType &s)
+NekMatrix<DataType, StandardMatrixTag> &NekMatrix<
+    DataType, StandardMatrixTag>::operator*=(const DataType &s)
 {
     for (unsigned int i = 0; i < this->GetPtr().size(); ++i)
     {

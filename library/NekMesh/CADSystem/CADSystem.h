@@ -35,7 +35,6 @@
 #ifndef NekMesh_CADSYSTEM_CADSYSTEM
 #define NekMesh_CADSYSTEM_CADSYSTEM
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
@@ -147,7 +146,7 @@ public:
      *
      * @return Array with 6 entries: xmin, xmax, ymin, ymax, zmin and zmax.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> GetBoundingBox() = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 6> GetBoundingBox() = 0;
 
     /**
      * @brief Get the number of surfaces.
@@ -217,7 +216,7 @@ public:
     /**
      * @brief Gets void points for tetrahedral meshing.
      */
-    std::vector<Array<OneD, NekDouble>> GetVoidPoints()
+    std::vector<std::array<NekDouble, 3>> GetVoidPoints()
     {
         return m_voidPoints;
     }
@@ -225,7 +224,7 @@ public:
     /**
      * @brief Sets void points for tetrahedral meshing.
      */
-    void SetVoidPoints(const std::vector<Array<OneD, NekDouble>> &voidPts)
+    void SetVoidPoints(const std::vector<std::array<NekDouble, 3>> &voidPts)
     {
         m_voidPoints = voidPts;
     }
@@ -234,7 +233,7 @@ public:
      * @brief Return the vector of translation from one curve to another to
      * allow for periodic mesh generation in 2D.
      */
-    NEKMESH_EXPORT Array<OneD, NekDouble> GetPeriodicTranslationVector(
+    NEKMESH_EXPORT std::array<NekDouble, 3> GetPeriodicTranslationVector(
         int first, int second);
 
     /**
@@ -268,7 +267,7 @@ protected:
     /// strings.
     std::map<std::string, std::string> m_config;
     /// Points contained within volume voids for tetrahedralisation
-    std::vector<Array<OneD, NekDouble>> m_voidPoints;
+    std::vector<std::array<NekDouble, 3>> m_voidPoints;
     /// Logger object.
     Logger m_log;
 

@@ -92,6 +92,17 @@ struct BwdTransTemplate
     void operator()(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output) final
     {
+        const int nm0 = this->m_nm[0];
+        const int nq0 = this->m_nq[0];
+#if defined(SHAPE_DIMENSION_2D)
+        const int nm1 = this->m_nm[1];
+        const int nq1 = this->m_nq[1];
+#elif defined(SHAPE_DIMENSION_3D)
+        const int nm1 = this->m_nm[1];
+        const int nm2 = this->m_nm[2];
+        const int nq1 = this->m_nq[1];
+        const int nq2 = this->m_nq[2];
+#endif
 #include "SwitchNodesPoints.h"
     }
 
@@ -111,8 +122,8 @@ struct BwdTransTemplate
     void operator1D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nq0 = m_basis[0]->GetNumPoints();
+        const auto nm0 = this->m_nm[0];
+        const auto nq0 = this->m_nq[0];
 
         const auto nqTot    = nq0;
         const auto nqBlocks = nqTot * vec_t::width;
@@ -126,20 +137,44 @@ struct BwdTransTemplate
 
         std::vector<vec_t, allocator<vec_t>> tmpIn(m_nmTot), tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nqBlocks * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_bdata[0],
                                          tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
         }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_bdata[0],
+                                         tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
@@ -159,19 +194,40 @@ struct BwdTransTemplate
 
         std::vector<vec_t, allocator<vec_t>> tmpIn(m_nmTot), tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nqBlocks];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_bdata[0],
                                          tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
+        }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn, this->m_bdata[0],
+                                         tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 
@@ -181,11 +237,11 @@ struct BwdTransTemplate
     void operator2D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nm1 = m_basis[1]->GetNumModes();
+        const auto nm0 = this->m_nm[0];
+        const auto nm1 = this->m_nm[1];
 
-        const auto nq0 = m_basis[0]->GetNumPoints();
-        const auto nq1 = m_basis[1]->GetNumPoints();
+        const auto nq0 = this->m_nq[0];
+        const auto nq1 = this->m_nq[1];
 
         const auto nqTot    = nq0 * nq1;
         const auto nqBlocks = nqTot * vec_t::width;
@@ -203,21 +259,46 @@ struct BwdTransTemplate
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(m_nmTot),
             tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nqBlocks * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
                                          this->m_bdata[0], this->m_bdata[1],
                                          wsp0, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
         }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
+                                         this->m_bdata[0], this->m_bdata[1],
+                                         wsp0, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
@@ -241,20 +322,42 @@ struct BwdTransTemplate
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(m_nmTot),
             tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nqBlocks];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
                                          this->m_bdata[0], this->m_bdata[1],
                                          wsp0, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
+        }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, tmpIn,
+                                         this->m_bdata[0], this->m_bdata[1],
+                                         wsp0, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 
@@ -264,13 +367,13 @@ struct BwdTransTemplate
     void operator3D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nm1 = m_basis[1]->GetNumModes();
-        const auto nm2 = m_basis[2]->GetNumModes();
+        const auto nm0 = this->m_nm[0];
+        const auto nm1 = this->m_nm[1];
+        const auto nm2 = this->m_nm[2];
 
-        const auto nq0 = m_basis[0]->GetNumPoints();
-        const auto nq1 = m_basis[1]->GetNumPoints();
-        const auto nq2 = m_basis[2]->GetNumPoints();
+        const auto nq0 = this->m_nq[0];
+        const auto nq1 = this->m_nq[1];
+        const auto nq2 = this->m_nq[2];
 
         const auto nqTot    = nq0 * nq1 * nq2;
         const auto nqBlocks = nqTot * vec_t::width;
@@ -290,21 +393,46 @@ struct BwdTransTemplate
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
             tmpIn(m_nmTot), tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nqBlocks * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans3DKernel<SHAPE_TYPE>(
                 nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
                 this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
         }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans3DKernel<SHAPE_TYPE>(
+                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
+                this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
@@ -329,20 +457,42 @@ struct BwdTransTemplate
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
             tmpIn(m_nmTot), tmpOut(nqTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nqBlocks];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nmBlocks, locField);
+            // load_interleave(locField, m_nmTot, tmpIn);
+            load_unalign_interleave(inptr, m_nmTot, tmpIn);
 
             BwdTrans3DKernel<SHAPE_TYPE>(
                 nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
                 this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nqTot, locField);
+            // std::copy(locField, locField + nqBlocks, outptr);
+            deinterleave_unalign_store(tmpOut, nqTot, outptr);
 
             inptr += nmBlocks;
             outptr += nqBlocks;
+        }
+        // last block
+        {
+            int acturalSize = nmBlocks - this->m_nPads * m_nmTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, m_nmTot, tmpIn);
+
+            BwdTrans3DKernel<SHAPE_TYPE>(
+                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
+                this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nqTot, locField);
+            acturalSize = nqBlocks - this->m_nPads * nqTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 

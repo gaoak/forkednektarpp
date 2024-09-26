@@ -559,6 +559,8 @@ The following parameters are supported:
     Number of timesteps after which output is written, $M$.\\
     \inltt{Modules} & \xmark   &  &
     FieldConvert modules to run, separated by a white space.\\
+    \inltt{OutputStartTime} & \xmark & 0 &
+    Specifies the simulation time at which to start writing checkpoint files.\\
     \bottomrule
   \end{tabularx}
 \end{center}
@@ -568,10 +570,13 @@ As an example, consider:
 \begin{lstlisting}[style=XMLStyle,gobble=2]
   <FILTER TYPE="FieldConvert">
       <PARAM NAME="OutputFile">MyFile.vtu</PARAM>
-      <PARAM NAME="OutputFrequency">100</PARAM>
+      <PARAM NAME="OutputFrequency">100</PARAM>      
+      <PARAM NAME="OutputStartTime"> 50.0 </PARAM>
       <PARAM NAME="Modules"> vorticity isocontour:fieldid=0:fieldvalue=0.1 </PARAM>
   </FILTER>
 \end{lstlisting}
+
+See the Checkpoint fields filter for more details about the \inltt{OutputStartTime} parameter.
 
 This will create a sequence of files named \inltt{MyFile\_*\_fc.vtu} containing isocontours. 
 The result will be output every 100 time steps.
@@ -1024,6 +1029,108 @@ An example is given below:
   </FILTERS>
 \end{lstlisting}
 
+\subsection{Python script}\label{filters:MaxMinFields}
+
+\begin{notebox}
+  This feature is only supported if Python support is enabled with the
+  \inltt{NEKTAR\_BUILD\_PYTHON} flag enabled at configuration time.
+\end{notebox}
+
+The aim of this filter is to permit the execution of a Python script to
+implement more complex programmatic filters, but with the ease-of-use of the
+Python environment. Python filters mimic the action of C++ filters, and thus
+have three separate phases that should be implemented:
+\begin{itemize}
+  \item an initialisation phase, which is called when the filter is constructed;
+  \item an update phase, which is called typically at the end of a timestep;
+  \item a finalise phase, which is called at the end of the simulation.
+\end{itemize}
+
+Given a Python file as input, the filter can operate in one of two ways:
+
+\begin{itemize}
+  \item If only the Python file is supplied, then \nekpp will try to call three
+  Python functions: \inltt{filter\_initialise}, \inltt{filter\_update} and
+  \inltt{filter\_finalise}. Each function is passed a list of the
+  \inltt{ExpList} fields, and the value of the solver time $t$.
+  \item If, in addition to the Python file, a filter name is supplied, then
+  \nekpp assumes that your Python file creates a subclass of the \inltt{Filter}
+  class which has been registered with the \inltt{Filter} factory.
+\end{itemize}
+
+The following parameters are supported:
+
+\begin{center}
+  \begin{tabularx}{0.99\textwidth}{lllX}
+    \toprule
+    \textbf{Option name} & \textbf{Required} & \textbf{Default} &
+    \textbf{Description} \\
+    \midrule
+    \inltt{PythonFile} & \cmark   & - &
+    Name of the Python file to load.\\
+    \inltt{FilterName} & \xmark   & - &
+    Optional name of filter if Python subclass is implemented.\\
+    \bottomrule
+  \end{tabularx}
+\end{center}
+
+An example is given below:
+
+\begin{lstlisting}[style=XMLStyle]
+  <FILTERS>
+    <!-- Python filter with function approach -->
+    <FILTER TYPE="Python">
+      <PARAM NAME="PythonFile"> FilterPython_Function.py </PARAM>
+    </FILTER>
+    <!-- Python filter with class approach -->
+    <FILTER TYPE="Python">
+      <PARAM NAME="PythonFile"> FilterPython_Class.py </PARAM>
+      <PARAM NAME="FilterName"> TestFilter </PARAM>
+    </FILTER>
+  </FILTERS>
+\end{lstlisting}
+
+For the first example, a sample Python script may look something like:
+
+\begin{lstlisting}[style=PythonStyle]
+def filter_initialise(fields, time):
+    pass
+
+def filter_update(fields, time):
+    pass  
+
+def filter_finalise(fields, time):
+    pass
+\end{lstlisting}
+
+For the second example, we might expect something like:
+
+\begin{lstlisting}[style=PythonStyle]
+from NekPy.SolverUtils import Filter
+
+class TestFilter(Filter):
+    def __init__(self, session, eqsys, params):
+        # Call super's constructor.
+        super().__init__(session, eqsys)
+        # Counter which is incremented at each timestep.
+        self.num = 0
+
+    def Initialise(self, fields, time):
+        pass
+
+    def Update(self, fields, time):
+        self.num += 1
+
+    def Finalise(self, fields, time):
+        # Print for testing purposes
+        print(self.num)
+
+    def IsTimeDependent(self):
+        return True
+
+# Register filter with factory.
+Filter.Register("TestFilter", TestFilter)
+\end{lstlisting}
 
 \subsection{Body-fitted velocity fields}\label{filters:BodyFittedVelocity}
 
@@ -1060,12 +1167,11 @@ The following parameters are supported:
     \inltt{SampleFrequency} & \xmark   & 1 &
     Number of timesteps after which the fields are used to compute 
     original/max/min.\\
-    \bottomrule
   \end{tabularx}
 \end{center}
 
 An example is given below:
-
+        
 \begin{lstlisting}[style=XMLStyle]
   <FILTERS>
     <FILTER TYPE="BodyFittedVelocity">

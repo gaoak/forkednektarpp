@@ -104,7 +104,7 @@ void HLLSolver::v_PointSolve(double rhoL, double rhouL, double rhovL,
     NekDouble URoe2 = uRoe * uRoe + vRoe * vRoe + wRoe * wRoe;
     NekDouble HRoe  = (srL * HL + srR * HR) / srLR;
     NekDouble cRoe  = GetRoeSoundSpeed(rhoL, pL, eL, HL, srL, rhoR, pR, eR, HR,
-                                      srR, HRoe, URoe2, srLR);
+                                       srR, HRoe, URoe2, srLR);
 
     // Maximum wave speeds
     NekDouble SL = std::min(uL - cL, uRoe - cRoe);

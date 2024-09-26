@@ -37,7 +37,6 @@
 
 #include <memory>
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <NekMesh/MeshElements/Node.h>
 
@@ -69,7 +68,7 @@ public:
      * @brief assign meshing paramters
      */
     void Assign(std::vector<std::vector<NodeSharedPtr>> &boundingloops,
-                std::vector<Array<OneD, NekDouble>> &centers, int i,
+                std::vector<std::array<NekDouble, 2>> &centers, int i,
                 NekDouble str = 1.0)
     {
         m_boundingloops = boundingloops;
@@ -114,7 +113,7 @@ private:
     /// List of additional nodes
     std::vector<NodeSharedPtr> m_stienerpoints;
     /// Coordinates of the centers of the loops
-    std::vector<Array<OneD, NekDouble>> m_centers;
+    std::vector<std::array<NekDouble, 2>> m_centers;
     /// Map from NekMesh id to triangle id
     std::map<int, NodeSharedPtr> nodemap;
     /// ID of the surface

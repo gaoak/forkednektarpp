@@ -87,11 +87,10 @@ public:
 
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalMap();
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetGlobalToUniversalMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalMap();
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetGlobalToUniversalMapUnique();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    GetGlobalToUniversalMapUnique();
 
     MULTI_REGIONS_EXPORT NekDouble GetLocalToGlobalSign(const int i) const;
 
@@ -136,11 +135,10 @@ public:
     /// Retrieve the global indices of the local boundary modes.
     MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetLocalToGlobalBndMap();
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetGlobalToUniversalBndMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &GetGlobalToUniversalBndMap();
 
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetGlobalToUniversalBndMapUnique();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    GetGlobalToUniversalBndMapUnique();
 
     /// Returns true if using a modal expansion requiring a change of
     /// sign of some modes.
@@ -153,23 +151,23 @@ public:
         const;
     /// Retrieves the local indices corresponding to the
     /// boundary expansion modes.
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetBndCondCoeffsToLocalCoeffsMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    GetBndCondCoeffsToLocalCoeffsMap();
     /// Returns the modal sign associated with a given
     /// boundary expansion mode.
-    MULTI_REGIONS_EXPORT const Array<OneD, NekDouble>
-        &GetBndCondCoeffsToLocalCoeffsSign();
+    MULTI_REGIONS_EXPORT const Array<OneD, NekDouble> &
+    GetBndCondCoeffsToLocalCoeffsSign();
 
     /// Retrieves the local indices corresponding to the
     /// boundary expansion modes to global trace
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetBndCondCoeffsToLocalTraceMap();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    GetBndCondCoeffsToLocalTraceMap();
 
     /// Returns the global index of the boundary trace giving the
     /// index on the boundary expansion
     MULTI_REGIONS_EXPORT int GetBndCondIDToGlobalTraceID(const int i);
-    MULTI_REGIONS_EXPORT const Array<OneD, const int>
-        &GetBndCondIDToGlobalTraceID();
+    MULTI_REGIONS_EXPORT const Array<OneD, const int> &
+    GetBndCondIDToGlobalTraceID();
 
     /// Returns the number of global Dirichlet boundary coefficients.
     MULTI_REGIONS_EXPORT int GetNumGlobalDirBndCoeffs() const;
@@ -282,11 +280,11 @@ public:
     /// Returns the number of patches in this static condensation level.
     MULTI_REGIONS_EXPORT int GetNumPatches() const;
     /// Returns the number of local boundary coefficients in each patch.
-    MULTI_REGIONS_EXPORT const Array<OneD, const unsigned int>
-        &GetNumLocalBndCoeffsPerPatch();
+    MULTI_REGIONS_EXPORT const Array<OneD, const unsigned int> &
+    GetNumLocalBndCoeffsPerPatch();
     /// Returns the number of local interior coefficients in each patch.
-    MULTI_REGIONS_EXPORT const Array<OneD, const unsigned int>
-        &GetNumLocalIntCoeffsPerPatch();
+    MULTI_REGIONS_EXPORT const Array<OneD, const unsigned int> &
+    GetNumLocalIntCoeffsPerPatch();
     /// Returns the local to global mapping for the next level in the
     /// multi-level static condensation.
     MULTI_REGIONS_EXPORT const AssemblyMapSharedPtr

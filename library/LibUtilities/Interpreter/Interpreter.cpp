@@ -737,8 +737,7 @@ public:
         {
             ASSERTL1(num_children == 0,
                      "Illegal children under number node: " + valueStr);
-            return std::make_pair(
-                true, boost::lexical_cast<NekDouble>(valueStr.c_str()));
+            return std::make_pair(true, std::stod(valueStr.c_str()));
         }
         else if (parserID == AnalyticExpression::variableID)
         {
@@ -976,7 +975,6 @@ public:
                             return std::make_pair(true,
                                                   left.second < right.second);
                         }
-                        return std::make_pair(false, 0);
                     case '>':
                         if (*(valueStr.end() - 1) == '=')
                         {
@@ -988,7 +986,6 @@ public:
                             return std::make_pair(true,
                                                   left.second > right.second);
                         }
-                        return std::make_pair(false, 0);
                     default:
                         ASSERTL0(false,
                                  "Invalid operator encountered: " + valueStr);

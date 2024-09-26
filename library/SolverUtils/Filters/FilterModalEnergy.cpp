@@ -36,6 +36,7 @@
 
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <SolverUtils/Filters/FilterModalEnergy.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 
@@ -50,7 +51,7 @@ std::string FilterModalEnergy::className =
  */
 FilterModalEnergy::FilterModalEnergy(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
     // OutputFile
@@ -198,7 +199,7 @@ void FilterModalEnergy::v_Update(
             else
             {
                 SpatialDomains::MeshGraphSharedPtr graphShrPtr =
-                    SpatialDomains::MeshGraph::Read(m_session);
+                    SpatialDomains::MeshGraphIO::Read(m_session);
                 SetUpBaseFields(graphShrPtr);
                 string file = m_session->GetFunctionFilename("BaseFlow", 0);
                 ImportFldBase(file);

@@ -63,7 +63,7 @@ void ProcessScaleInFld::v_Process([[maybe_unused]] po::variables_map &vm)
              "scaleinputfld: Need to specify a scale factor");
 
     string scalestr = m_config["scale"].as<string>();
-    NekDouble scale = boost::lexical_cast<NekDouble>(scalestr);
+    NekDouble scale = std::stod(scalestr);
 
     for (int i = 0; i < m_f->m_data.size(); ++i)
     {

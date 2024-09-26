@@ -450,19 +450,12 @@ void CADSystemCFI::AddSurf(int i, cfi::Face *in)
     m_surfs[i]->SetName(in->getName());
 }
 
-Array<OneD, NekDouble> CADSystemCFI::GetBoundingBox()
+std::array<NekDouble, 6> CADSystemCFI::GetBoundingBox()
 {
     cfi::BoundingBox box = m_model->calcBoundingBox();
 
-    Array<OneD, NekDouble> ret(6);
-    ret[0] = box.xLower;
-    ret[1] = box.xUpper;
-    ret[2] = box.yLower;
-    ret[3] = box.yUpper;
-    ret[4] = box.zLower;
-    ret[5] = box.zUpper;
-
-    return ret;
+    return {box.xLower, box.xUpper, box.yLower,
+            box.yUpper, box.zLower, box.zUpper};
 }
 } // namespace NekMesh
 } // namespace Nektar

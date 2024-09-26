@@ -100,7 +100,7 @@ protected:
     }
     static NekDouble gradTol()
     {
-        return 1e-8;
+        return 1e-20;
     }
     static NekDouble alphaTol()
     {
@@ -247,7 +247,7 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
     {
         case eLinEl:
         {
-            const NekDouble nu = 0.4;
+            const NekDouble nu = 0.49;
             const NekDouble mu = 1.0 / 2.0 / (1.0 + nu);
             const NekDouble K  = 1.0 / 3.0 / (1.0 - 2.0 * nu);
 
@@ -442,7 +442,7 @@ NekDouble NodeOpti::GetFunctional(NekDouble &minJacNew, bool gradient)
 
         case eHypEl:
         {
-            const NekDouble nu = 0.4;
+            const NekDouble nu = 0.49;
             const NekDouble mu = 1.0 / 2.0 / (1.0 + nu);
             const NekDouble K  = 1.0 / 3.0 / (1.0 - 2.0 * nu);
 

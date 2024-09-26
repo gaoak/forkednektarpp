@@ -94,7 +94,7 @@ public:
     {
         Array<OneD, NekDouble> pOutput(m_matDim, 0.0);
 
-        int ntmpIts = m_linsol->SolveSystem(m_matDim, m_SysRhs, pOutput, 0);
+        int ntmpIts = m_linsol->SolveSystem(m_matDim, m_SysRhs, pOutput);
         // The number of sigificant digits
         int ndigits = 6;
         // Extra width to place -, E, and power

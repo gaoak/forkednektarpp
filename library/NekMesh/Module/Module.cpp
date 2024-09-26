@@ -624,6 +624,7 @@ void Module::ReorderPrisms(PerMap &perFaces)
     std::unordered_set<int>::iterator fIt[2], fIt2;
 
     // Loop over prisms until we've found all lines of prisms.
+
     while (prismsDone.size() > 0)
     {
         vector<ElementSharedPtr> line;
@@ -758,12 +759,14 @@ void Module::ReorderPrisms(PerMap &perFaces)
                     if (e1->m_n1 == e2->m_n1 && e1->m_n2 == e2->m_n2)
                     {
                         e2->m_edgeNodes = e1->m_edgeNodes;
+                        e2->m_curveType = e1->m_curveType;
                     }
                     else if (e1->m_n1 == e2->m_n1 && e1->m_n2 == e2->m_n2)
                     {
                         e2->m_edgeNodes = e1->m_edgeNodes;
                         std::reverse(e2->m_edgeNodes.begin(),
                                      e2->m_edgeNodes.end());
+                        e2->m_curveType = e1->m_curveType;
                     }
                 }
             }
@@ -792,33 +795,45 @@ void Module::ReorderPrisms(PerMap &perFaces)
                        << "some prisms; this will be ignored in further module "
                        << "evaluations." << endl;
     }
-
+    int maxCouples = 3;
     // Loop over periodic faces, enumerate vertices.
-    for (pIt = perFaces.begin(); pIt != perFaces.end(); ++pIt)
+    for (int flag = 0; flag < maxCouples; flag++)
     {
-        FaceSharedPtr f2     = pIt->second.first;
-        FaceSharedPtr f1     = perFaces[f2->m_id].first;
-        vector<int> perVerts = pIt->second.second;
-        int nVerts           = perVerts.size();
-
-        // Number periodic vertices first.
-        for (j = 0; j < nVerts; ++j)
+        for (pIt = perFaces.begin(); pIt != perFaces.end(); ++pIt)
         {
-            NodeSharedPtr n1 = f1->m_vertexList[j];
-            NodeSharedPtr n2 = f2->m_vertexList[perVerts[j]];
+            FaceSharedPtr f2     = pIt->second.first;
+            FaceSharedPtr f1     = perFaces[f2->m_id].first;
+            vector<int> perVerts = pIt->second.second;
+            int nVerts           = perVerts.size() - 1;
+            int coupleFlags      = perVerts[perVerts.size() - 1];
 
-            if (n1->m_id == -1 && n2->m_id == -1)
-            {
-                n1->m_id = nodeId++;
-                n2->m_id = nodeId++;
-            }
-            else if (n1->m_id != -1 && n2->m_id != -1)
+            if (coupleFlags != flag)
             {
                 continue;
             }
-            else
+            // Number periodic vertices first.
+            for (j = 0; j < nVerts; ++j)
             {
-                ASSERTL0(false, "Periodic face renumbering error");
+                NodeSharedPtr n1 = f1->m_vertexList[j];
+                NodeSharedPtr n2 = f2->m_vertexList[perVerts[j]];
+
+                if (n1->m_id == -1 && n2->m_id == -1)
+                {
+                    n1->m_id = nodeId++;
+                    n2->m_id = nodeId++;
+                }
+                else if (n1->m_id != -1 && n2->m_id != -1)
+                {
+                    continue;
+                }
+                else
+                {
+                    m_log(WARNING)
+                        << "n1 " << n1->m_id << " " << n1->m_x << " " << n1->m_y
+                        << " " << n1->m_z << " n2=" << n2->m_id << " "
+                        << n2->m_x << " " << n2->m_y << " " << n2->m_z << endl;
+                    ASSERTL0(false, "Periodic face renumbering error");
+                }
             }
         }
     }
@@ -851,7 +866,19 @@ void Module::ReorderPrisms(PerMap &perFaces)
     {
         if ((*it)->m_id == -1)
         {
+            m_log(VERBOSE) << "Vertex that is not connected to Prism or Tet in "
+                              "PerAlign id = nodeId++"
+                           << endl;
             (*it)->m_id = nodeId++;
+        }
+    }
+
+    for (it = m_mesh->m_vertexSet.begin(); it != m_mesh->m_vertexSet.end();
+         ++it)
+    {
+        if ((*it)->m_id == -1)
+        {
+            m_log(FATAL) << "Vetex no ID " << endl;
         }
     }
 
@@ -877,7 +904,7 @@ void Module::PrismLines(int prism, PerMap &perFaces, set<int> &prismsDone,
     line.push_back(m_mesh->m_element[3][prism]);
 
     // Now find prisms connected to this one through a triangular face.
-    for (i = 1; i <= 3; i += 2)
+    for (i = 1; i <= 3; i += 2) // checks only face 1 and face 3
     {
         FaceSharedPtr f = m_mesh->m_element[3][prism]->GetFace(i);
         int nextId;

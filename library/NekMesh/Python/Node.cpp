@@ -56,6 +56,18 @@ template <class T> struct unordered_set_item
     }
 };
 
+// Temporary function to wrap Node::GetLoc since we presently have no wrapper
+// for std::array.
+Array<OneD, NekDouble> Node_GetLoc(std::shared_ptr<Node> &n)
+{
+    Array<OneD, NekDouble> tmp(3);
+    auto loc = n->GetLoc();
+    tmp[0]   = loc[0];
+    tmp[1]   = loc[1];
+    tmp[2]   = loc[2];
+    return tmp;
+}
+
 void export_Node()
 {
     py::class_<Node, std::shared_ptr<Node>, boost::noncopyable>(
@@ -63,7 +75,7 @@ void export_Node()
         .def("GetID", &Node::GetID)
         .def("SetID", &Node::SetID)
         .def("Distance", &Node::Distance)
-        .def("GetLoc", &Node::GetLoc)
+        .def("GetLoc", Node_GetLoc)
         .def("abs2", &Node::abs2)
         .def_readwrite("x", &Node::m_x)
         .def_readwrite("y", &Node::m_y)

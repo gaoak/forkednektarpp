@@ -118,8 +118,8 @@ protected:
     const Array<OneD, const std::shared_ptr<ExpList>> &v_GetBndCondExpansions(
         void) override;
 
-    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-        &v_GetBndConditions() override;
+    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+    v_GetBndConditions() override;
 
     std::shared_ptr<ExpList> &v_UpdateBndCondExpansion(int i) override;
 

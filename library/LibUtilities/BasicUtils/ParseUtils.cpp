@@ -169,6 +169,23 @@ bool ParseUtils::GenerateVariableSet(const std::string &str,
                                      const std::vector<std::string> &variables,
                                      std::set<int> &out)
 {
+    std::vector<int> tempvect;
+    GenerateVariableVector(str, variables, tempvect);
+    out.clear();
+    for (auto i : tempvect)
+    {
+        out.insert(i);
+    }
+    return true;
+}
+
+/**
+ *
+ */
+bool ParseUtils::GenerateVariableVector(
+    const std::string &str, const std::vector<std::string> &variables,
+    std::vector<int> &out)
+{
     out.clear();
     std::vector<std::string> vars;
     ASSERTL0(ParseUtils::GenerateVector(str, vars),
@@ -191,7 +208,7 @@ bool ParseUtils::GenerateVariableSet(const std::string &str,
         }
         else
         {
-            out.insert(v);
+            out.push_back(v);
         }
     }
     return true;

@@ -53,7 +53,7 @@ std::string FilterBodyFittedVelocity::className =
 
 FilterBodyFittedVelocity::FilterBodyFittedVelocity(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : FilterFieldConvert(pSession, pEquation, pParams)
 {
     // Load sampling frequency

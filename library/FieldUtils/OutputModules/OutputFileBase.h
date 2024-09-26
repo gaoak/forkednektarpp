@@ -99,6 +99,8 @@ protected:
     }
 
     bool m_requireEquiSpaced;
+    bool m_prohibitWrite   = false;
+    bool m_equispacedSetup = false;
 
 private:
     bool WriteFile(std::string &filename, po::variables_map &vm);

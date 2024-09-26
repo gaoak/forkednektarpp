@@ -899,8 +899,8 @@ Array<OneD, LocalRegions::ExpansionSharedPtr> &AssemblyMapDG::GetElmtToTrace(
     return m_elmtToTrace[i];
 }
 
-Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>>
-    &AssemblyMapDG::GetElmtToTrace()
+Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>> &AssemblyMapDG::
+    GetElmtToTrace()
 {
     return m_elmtToTrace;
 }

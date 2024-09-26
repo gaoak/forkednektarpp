@@ -128,7 +128,7 @@ public:
 private:
     void ProcessGradient();
     CADCurveSharedPtr curve;
-    Array<OneD, NekDouble> m_bd;
+    std::array<NekDouble, 2> m_bd;
 };
 } // namespace Nektar::NekMesh
 

@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <IncNavierStokesSolver/EquationSystems/SubSteppingExtrapolate.h>
+#include <LibUtilities/BasicUtils/Timer.h>
 #include <MultiRegions/DisContField.h>
 
 namespace Nektar
@@ -84,8 +85,10 @@ void SubSteppingExtrapolate::v_EvaluatePressureBCs(
 void SubSteppingExtrapolate::v_SubSteppingTimeIntegration(
     const LibUtilities::TimeIntegrationSchemeSharedPtr &IntegrationScheme)
 {
+    Nektar::LibUtilities::Timer timer;
     m_intScheme = IntegrationScheme;
 
+    timer.Start();
     size_t order = IntegrationScheme->GetOrder();
 
     // Set to 1 for first step and it will then be increased in
@@ -125,6 +128,14 @@ void SubSteppingExtrapolate::v_SubSteppingTimeIntegration(
         {
             m_previousVelFields[i] = m_previousVelFields[i - 1] + ntotpts;
         }
+        // Vn fields
+        m_previousVnFields    = Array<OneD, Array<OneD, NekDouble>>(ndim);
+        ntotpts               = m_fields[0]->GetTrace()->GetTotPoints();
+        m_previousVnFields[0] = Array<OneD, NekDouble>(ndim * ntotpts);
+        for (size_t i = 1; i < ndim; ++i)
+        {
+            m_previousVnFields[i] = m_previousVnFields[i - 1] + ntotpts;
+        }
     }
     else
     {
@@ -139,6 +150,9 @@ void SubSteppingExtrapolate::v_SubSteppingTimeIntegration(
         &SubSteppingExtrapolate::SubStepAdvection, this);
     m_subStepIntegrationOps.DefineProjection(
         &SubSteppingExtrapolate::SubStepProjection, this);
+    timer.Stop();
+    timer.AccumulateRegion(
+        "SubSteppingExtrapolate:v_SubSteppingTimeIntegration", 10);
 }
 
 /**
@@ -148,10 +162,12 @@ void SubSteppingExtrapolate::SubStepAdvection(
     const Array<OneD, const Array<OneD, NekDouble>> &inarray,
     Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time)
 {
+    Nektar::LibUtilities::Timer timer, timer1;
     size_t i;
     size_t nVariables     = inarray.size();
     size_t nQuadraturePts = inarray[0].size();
 
+    timer.Start();
     /// Get the number of coefficients
     size_t ncoeffs = m_fields[0]->GetNcoeffs();
 
@@ -172,14 +188,20 @@ void SubSteppingExtrapolate::SubStepAdvection(
         Velfields[i] = Velfields[i - 1] + nQuadraturePts;
     }
 
-    SubStepExtrapolateField(fmod(time, m_timestep), Velfields);
+    Array<OneD, NekDouble> Vn(m_fields[0]->GetTrace()->GetTotPoints());
+
+    SubStepExtrapolateField(fmod(time, m_timestep), Velfields, Vn);
 
     for (auto &x : m_forcing)
     {
         x->PreApply(m_fields, Velfields, Velfields, time);
     }
+    timer1.Start();
     m_advObject->Advect(m_velocity.size(), m_fields, Velfields, inarray,
                         outarray, time);
+    timer1.Stop();
+    timer1.AccumulateRegion("SubStepAdvection:Advect", 10);
+
     for (auto &x : m_forcing)
     {
         x->Apply(m_fields, outarray, outarray, time);
@@ -192,7 +214,7 @@ void SubSteppingExtrapolate::SubStepAdvection(
         Vmath::Neg(ncoeffs, WeakAdv[i], 1);
     }
 
-    AddAdvectionPenaltyFlux(Velfields, inarray, WeakAdv);
+    AddAdvectionPenaltyFlux(Vn, inarray, WeakAdv);
 
     /// Operations to compute the RHS
     for (i = 0; i < nVariables; ++i)
@@ -206,6 +228,8 @@ void SubSteppingExtrapolate::SubStepAdvection(
         /// Store in outarray the physical values of the RHS
         m_fields[i]->BwdTrans(WeakAdv[i], outarray[i]);
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:SubStepAdvection", 10);
 }
 
 /**
@@ -216,13 +240,17 @@ void SubSteppingExtrapolate::SubStepProjection(
     Array<OneD, Array<OneD, NekDouble>> &outarray,
     [[maybe_unused]] const NekDouble time)
 {
+    Nektar::LibUtilities::Timer timer;
     ASSERTL1(inarray.size() == outarray.size(),
              "Inarray and outarray of different sizes ");
 
+    timer.Start();
     for (size_t i = 0; i < inarray.size(); ++i)
     {
         Vmath::Vcopy(inarray[i].size(), inarray[i], 1, outarray[i], 1);
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:SubStepProjection", 10);
 }
 
 /**
@@ -232,9 +260,11 @@ void SubSteppingExtrapolate::v_SubStepSetPressureBCs(
     const Array<OneD, const Array<OneD, NekDouble>> &inarray,
     [[maybe_unused]] const NekDouble Aii_Dt, NekDouble kinvis)
 {
+    Nektar::LibUtilities::Timer timer;
     // int nConvectiveFields =m_fields.size()-1;
     Array<OneD, Array<OneD, NekDouble>> nullvelfields;
 
+    timer.Start();
     m_pressureCalls++;
 
     // Calculate viscous BCs at current level and
@@ -252,6 +282,8 @@ void SubSteppingExtrapolate::v_SubStepSetPressureBCs(
 
     // Evaluate High order outflow conditiosn if required.
     CalcOutflowBCs(inarray, kinvis);
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:SubStepSetPressureBCs", 10);
 }
 
 /**
@@ -263,9 +295,11 @@ void SubSteppingExtrapolate::v_SubStepSetPressureBCs(
 void SubSteppingExtrapolate::v_AccelerationBDF(
     Array<OneD, Array<OneD, NekDouble>> &array)
 {
+    Nektar::LibUtilities::Timer timer;
     int nlevels = array.size();
     int nPts    = array[0].size();
 
+    timer.Start();
     if (nPts)
     {
         // Update array
@@ -286,16 +320,25 @@ void SubSteppingExtrapolate::v_AccelerationBDF(
         }
         array[nlevels - 1] = accelerationTerm;
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:v_AccelerationBDF", 10);
 }
 
 /**
- *
+ * Save the current fields in \a m_previousVelFields and cycle out older
+ * previous fields so that it can be extrapolated to the new substeps
+ * of the next time step. Also extract the normal trace of the
+ * velocity field into \a m_previousVnFields along the trace so that this
+ * can also be extrapolated.
  */
 void SubSteppingExtrapolate::v_SubStepSaveFields(const int nstep)
 {
+    Nektar::LibUtilities::Timer timer;
     size_t i, n;
-    size_t nvel = m_velocity.size();
-    size_t npts = m_fields[0]->GetTotPoints();
+    timer.Start();
+    size_t nvel      = m_velocity.size();
+    size_t npts      = m_fields[0]->GetTotPoints();
+    size_t ntracepts = m_fields[0]->GetTrace()->GetTotPoints();
 
     // rotate fields
     size_t nblocks = m_previousVelFields.size() / nvel;
@@ -315,6 +358,13 @@ void SubSteppingExtrapolate::v_SubStepSaveFields(const int nstep)
         m_previousVelFields[n] = save;
     }
 
+    save = m_previousVnFields[nblocks - 1];
+    for (i = nblocks - 1; i > 0; --i)
+    {
+        m_previousVnFields[i] = m_previousVnFields[i - 1];
+    }
+    m_previousVnFields[0] = save;
+
     // Put previous field
     for (i = 0; i < nvel; ++i)
     {
@@ -323,6 +373,19 @@ void SubSteppingExtrapolate::v_SubStepSaveFields(const int nstep)
             m_fields[m_velocity[i]]->UpdatePhys());
         Vmath::Vcopy(npts, m_fields[m_velocity[i]]->GetPhys(), 1,
                      m_previousVelFields[i], 1);
+    }
+
+    Array<OneD, NekDouble> Fwd(ntracepts);
+
+    // calculate Vn
+    m_fields[0]->ExtractTracePhys(m_previousVelFields[0], Fwd);
+    Vmath::Vmul(ntracepts, m_traceNormals[0], 1, Fwd, 1, m_previousVnFields[0],
+                1);
+    for (i = 1; i < m_bnd_dim; ++i)
+    {
+        m_fields[0]->ExtractTracePhys(m_previousVelFields[i], Fwd);
+        Vmath::Vvtvp(ntracepts, m_traceNormals[i], 1, Fwd, 1,
+                     m_previousVnFields[0], 1, m_previousVnFields[0], 1);
     }
 
     if (nstep == 0) // initialise all levels with first field
@@ -335,7 +398,15 @@ void SubSteppingExtrapolate::v_SubStepSaveFields(const int nstep)
                              m_previousVelFields[i * nvel + n], 1);
             }
         }
+
+        for (i = 1; i < nblocks; ++i)
+        {
+            Vmath::Vcopy(ntracepts, m_previousVnFields[0], 1,
+                         m_previousVnFields[i], 1);
+        }
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:v_SubStepSaveFields", 10);
 }
 
 /**
@@ -345,11 +416,13 @@ void SubSteppingExtrapolate::v_SubStepAdvance(int nstep, NekDouble time)
 {
     int n;
     int nsubsteps;
+    Nektar::LibUtilities::Timer timer;
 
     NekDouble dt;
 
     Array<OneD, Array<OneD, NekDouble>> fields;
 
+    timer.Start();
     static int ncalls = 1;
     size_t nint       = std::min(ncalls++, m_intSteps);
 
@@ -398,6 +471,8 @@ void SubSteppingExtrapolate::v_SubStepAdvance(int nstep, NekDouble time)
         // Reset time integrated solution in m_intScheme
         m_intScheme->SetSolutionVector(m, fields);
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:v_SubStepAdvance", 10);
 }
 
 /**
@@ -405,6 +480,8 @@ void SubSteppingExtrapolate::v_SubStepAdvance(int nstep, NekDouble time)
  */
 NekDouble SubSteppingExtrapolate::GetSubstepTimeStep()
 {
+    Nektar::LibUtilities::Timer timer;
+    timer.Start();
     size_t n_element = m_fields[0]->GetExpSize();
 
     const Array<OneD, int> ExpOrder = m_fields[0]->EvalBasisNumModesMaxPerExp();
@@ -430,12 +507,20 @@ NekDouble SubSteppingExtrapolate::GetSubstepTimeStep()
 
     NekDouble TimeStep = Vmath::Vmin(n_element, tstep, 1);
     m_comm->AllReduce(TimeStep, LibUtilities::ReduceMin);
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:GetSubStepTimeStep", 10);
 
     return TimeStep;
 }
 
+/**
+ * Add the advection penalty term \f$ (\hat{u} - u^e)V_n \f$ given the
+ * normal velocity \a Vn at this time level and the \a physfield values
+ * containing the velocity field at this time level
+ */
+
 void SubSteppingExtrapolate::AddAdvectionPenaltyFlux(
-    const Array<OneD, const Array<OneD, NekDouble>> &velfield,
+    const Array<OneD, NekDouble> &Vn,
     const Array<OneD, const Array<OneD, NekDouble>> &physfield,
     Array<OneD, Array<OneD, NekDouble>> &Outarray)
 {
@@ -443,12 +528,11 @@ void SubSteppingExtrapolate::AddAdvectionPenaltyFlux(
              "Physfield and outarray are of different dimensions");
 
     size_t i;
+    Nektar::LibUtilities::Timer timer;
+    timer.Start();
 
     /// Number of trace points
     size_t nTracePts = m_fields[0]->GetTrace()->GetNpoints();
-
-    /// Number of spatial dimensions
-    size_t nDimensions = m_bnd_dim;
 
     /// Forward state array
     Array<OneD, NekDouble> Fwd(3 * nTracePts);
@@ -458,17 +542,6 @@ void SubSteppingExtrapolate::AddAdvectionPenaltyFlux(
 
     /// upwind numerical flux state array
     Array<OneD, NekDouble> numflux = Bwd + nTracePts;
-
-    /// Normal velocity array
-    Array<OneD, NekDouble> Vn(nTracePts, 0.0);
-
-    // Extract velocity field along the trace space and multiply by trace
-    // normals
-    for (i = 0; i < nDimensions; ++i)
-    {
-        m_fields[0]->ExtractTracePhys(velfield[i], Fwd);
-        Vmath::Vvtvp(nTracePts, m_traceNormals[i], 1, Fwd, 1, Vn, 1, Vn, 1);
-    }
 
     for (i = 0; i < physfield.size(); ++i)
     {
@@ -496,19 +569,27 @@ void SubSteppingExtrapolate::AddAdvectionPenaltyFlux(
 
         m_fields[0]->AddFwdBwdTraceIntegral(Fwd, Bwd, Outarray[i]);
     }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:AddAdvectionPenaltyFlux",
+                           10);
 }
 
 /**
  * Extrapolate field using equally time spaced field un,un-1,un-2, (at
- * dt intervals) to time n+t at order Ord
+ * dt intervals) to time for substep n+t at order \a m_intSteps. Also
+ * extrapolate the normal velocity along the trace at the same order
  */
 void SubSteppingExtrapolate::SubStepExtrapolateField(
-    NekDouble toff, Array<OneD, Array<OneD, NekDouble>> &ExtVel)
+    NekDouble toff, Array<OneD, Array<OneD, NekDouble>> &ExtVel,
+    Array<OneD, NekDouble> &ExtVn)
 {
-    size_t npts = m_fields[0]->GetTotPoints();
-    size_t nvel = m_velocity.size();
+    size_t npts      = m_fields[0]->GetTotPoints();
+    size_t ntracepts = m_fields[0]->GetTrace()->GetTotPoints();
+    size_t nvel      = m_velocity.size();
     size_t i, j;
     Array<OneD, NekDouble> l(4);
+    Nektar::LibUtilities::Timer timer;
+    timer.Start();
 
     size_t ord = m_intSteps;
 
@@ -537,6 +618,15 @@ void SubSteppingExtrapolate::SubStepExtrapolateField(
                         ExtVel[i], 1);
         }
     }
+
+    Vmath::Smul(ntracepts, l[0], m_previousVnFields[0], 1, ExtVn, 1);
+    for (j = 1; j <= ord; ++j)
+    {
+        Blas::Daxpy(ntracepts, l[j], m_previousVnFields[j], 1, ExtVn, 1);
+    }
+    timer.Stop();
+    timer.AccumulateRegion("SubSteppingExtrapolate:SubStepExtrapolateFields",
+                           10);
 }
 
 /**

@@ -197,11 +197,11 @@ protected:
         const NekDouble x2_in = NekConstants::kNekUnsetDouble,
         const NekDouble x3_in = NekConstants::kNekUnsetDouble) override;
 
-    const Array<OneD, const MultiRegions::ExpListSharedPtr>
-        &v_GetBndCondExpansions(void) override;
+    const Array<OneD, const MultiRegions::ExpListSharedPtr> &v_GetBndCondExpansions(
+        void) override;
 
-    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-        &v_GetBndConditions() override;
+    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+    v_GetBndConditions() override;
 
     std::shared_ptr<ExpList> &v_UpdateBndCondExpansion(int i) override;
 

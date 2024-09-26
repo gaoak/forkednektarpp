@@ -231,7 +231,7 @@ SET(LinearAlgebraHeaders
 )
 
 SET(LinearAlgebraSources
-./LinearAlgebra/blas.cpp
+./LinearAlgebra/Blas.cpp
 ./LinearAlgebra/BlockMatrix.cpp
 ./LinearAlgebra/MatrixBase.cpp
 ./LinearAlgebra/MatrixFuncs.cpp
@@ -467,7 +467,7 @@ ENDIF()
 IF( NEKTAR_USE_PETSC )
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PRIVATE ${PETSC_LIBRARIES})
     TARGET_LINK_LIBRARIES(LibUtilities LINK_PUBLIC ${CMAKE_DL_LIBS})
-    ADD_DEPENDENCIES(LibUtilities petsc-3.11.4)
+    ADD_DEPENDENCIES(LibUtilities petsc-3.19.3)
 ENDIF( NEKTAR_USE_PETSC )
 
 IF (NEKTAR_BUILD_PYTHON)

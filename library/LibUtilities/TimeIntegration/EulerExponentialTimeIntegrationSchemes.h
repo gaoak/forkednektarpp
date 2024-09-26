@@ -458,8 +458,6 @@ private:
             return (phi_function(order - 1, z) - 1.0 / factorial(order - 1)) /
                    z;
         }
-
-        return 0;
     }
 
 }; // end class EulerExponentialTimeIntegrator

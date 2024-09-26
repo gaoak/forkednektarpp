@@ -63,7 +63,7 @@ void ForcingNoise::v_InitObject(
 
     string noiseValue = noiseElmt->GetText();
 
-    m_noise = boost::lexical_cast<NekDouble>(noiseValue);
+    m_noise = std::stod(noiseValue);
 
     // Load optional parameters
     const TiXmlElement *freqElmt = pForce->FirstChildElement("UPDATEFREQ");

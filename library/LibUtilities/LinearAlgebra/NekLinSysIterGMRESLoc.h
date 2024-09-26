@@ -82,18 +82,23 @@ protected:
     // if use truncted Gmres(m)
     int m_KrylovMaxHessMatBand;
 
-    bool m_NekLinSysLeftPrecon  = false;
-    bool m_NekLinSysRightPrecon = true;
+    // This is the maximum number of solution vectors that can be stored
+    // For example, in gmres, it is the max number of Krylov space
+    // search directions can be stored
+    // It determines the max storage usage
+    int m_LinSysMaxStorage;
 
-    bool m_DifferenceFlag0 = false;
-    bool m_DifferenceFlag1 = false;
+    NekDouble m_prec_factor = 1.0;
+
+    bool m_NekLinSysLeftPrecon    = false;
+    bool m_NekLinSysRightPrecon   = true;
+    bool m_GMRESCentralDifference = false;
 
     void v_InitObject() override;
 
     int v_SolveSystem(const int nLocal,
                       const Array<OneD, const NekDouble> &pInput,
-                      Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble factor) override;
+                      Array<OneD, NekDouble> &pOutput, const int nDir) override;
 
 private:
     /// Actual iterative solve-GMRES

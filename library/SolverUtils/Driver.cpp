@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <SolverUtils/Driver.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 
@@ -74,14 +75,6 @@ DriverFactory &GetDriverFactory()
 Driver::Driver(const LibUtilities::SessionReaderSharedPtr pSession,
                const SpatialDomains::MeshGraphSharedPtr pGraph)
     : m_comm(pSession->GetComm()), m_session(pSession), m_graph(pGraph)
-{
-}
-
-/**
- *
- */
-Driver::~Driver()
-
 {
 }
 
@@ -157,32 +150,41 @@ void Driver::v_InitObject(ostream &out)
                 break;
             case eAdaptiveSFD:
             {
-                // Coupling SFD method and Arnoldi algorithm
-                // For having 2 equation systems defined into 2 different
-                // session files (with the mesh into a file named 'session'.gz)
-                string LinNSCondFile;
-                vector<string> LinNSFilename;
+                // use-opt-file
+                bool useOptFile =
+                    m_session->DefinesCmdLineArgument("use-opt-file");
+                std::string optfilename =
+                    useOptFile ? m_session->GetFilenames()[0] : "";
 
-                // assume that the conditions file is the last
-                // filename on intiialisation and so copy all other
-                // files to new session. This will include the mesh
-                // file and possibly the optimsaiton file
-                for (int i = 0; i < m_session->GetFilenames().size() - 1; ++i)
-                {
-                    LinNSFilename.push_back(m_session->GetFilenames()[i]);
-                }
-
-                LinNSCondFile = m_session->GetSessionName();
-                LinNSCondFile += "_LinNS.xml";
-                LinNSFilename.push_back(LinNSCondFile);
-
-                char *argv[]  = {const_cast<char *>("IncNavierStokesSolver"),
+                char *argv[] = {const_cast<char *>("IncNavierStokesSolver"),
+                                const_cast<char *>("--use-opt-file"),
+                                const_cast<char *>(optfilename.c_str()),
                                 nullptr};
-                session_LinNS = LibUtilities::SessionReader::CreateInstance(
-                    1, argv, LinNSFilename, m_comm);
 
+                size_t argc = useOptFile ? 3 : 1;
+
+                std::vector<std::string> LinNSFilename;
+                if (m_comm->GetSize() == 1)
+                {
+                    // Use .xml.gz file for serial case
+                    LinNSFilename.push_back(m_session->GetSessionName() +
+                                            ".xml.gz");
+                }
+                else
+                {
+                    // Use previous partition for parallel case
+                    LinNSFilename.push_back(m_session->GetSessionName() +
+                                            "_xml");
+                }
+                LinNSFilename.push_back(m_session->GetSessionName() +
+                                        "_LinNS.xml");
+
+                session_LinNS = LibUtilities::SessionReader::CreateInstance(
+                    argc, argv, LinNSFilename, m_comm);
+
+                // Set graph for LinNs solver.
                 SpatialDomains::MeshGraphSharedPtr graph_linns =
-                    SpatialDomains::MeshGraph::Read(session_LinNS);
+                    SpatialDomains::MeshGraphIO::Read(session_LinNS);
 
                 // For running stability analysis
                 session_LinNS->SetTag("AdvectiveType", "Linearised");

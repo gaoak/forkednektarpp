@@ -259,8 +259,8 @@ public:
         v_AddRobinTraceContribution(traceid, primCoeffs, incoeffs, coeffs);
     }
 
-    LOCAL_REGIONS_EXPORT const Array<OneD, const NekDouble>
-        &GetElmtBndNormDirElmtLen(const int nbnd) const;
+    LOCAL_REGIONS_EXPORT const Array<OneD, const NekDouble> &
+    GetElmtBndNormDirElmtLen(const int nbnd) const;
 
     LOCAL_REGIONS_EXPORT void StdDerivBaseOnTraceMat(
         Array<OneD, DNekMatSharedPtr> &DerivMat);

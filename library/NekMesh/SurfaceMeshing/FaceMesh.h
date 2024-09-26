@@ -120,7 +120,7 @@ private:
     /**
      * @brief adds a new stiener point to the triangulation for meshing
      */
-    void AddNewPoint(Array<OneD, NekDouble> uv);
+    void AddNewPoint(std::array<NekDouble, 2> uv);
 
     /**
      * @brief adds a quad layer around any interior loops

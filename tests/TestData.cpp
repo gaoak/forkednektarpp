@@ -153,13 +153,31 @@ Command TestData::ParseCommand(TiXmlElement *elmt) const
 
     cmd.m_pythonTest = false;
 
+    std::string commandType = "none";
+    if (elmt->Attribute("type"))
+    {
+        commandType = elmt->Attribute("type");
+
+        if (commandType == "none")
+        {
+            cmd.m_commandType = eNone;
+        }
+        else if (commandType == "parallel")
+        {
+            cmd.m_commandType = eParallel;
+        }
+        else if (commandType == "sequential")
+        {
+            cmd.m_commandType = eSequential;
+        }
+    }
+
     // Parse executable tag. Do not enforce a check because this might be
     // overridden on the command line.
     if (elmt->FirstChildElement("executable"))
     {
         tmp              = elmt->FirstChildElement("executable");
         cmd.m_executable = fs::path(tmp->GetText());
-
         // Test to see if this test requires Python
         std::string needsPython;
         tmp->QueryStringAttribute("python", &needsPython);
@@ -234,6 +252,12 @@ void TestData::Parse(TiXmlDocument *pDoc)
         {
             m_commands.push_back(ParseCommand(tmp));
             tmp = tmp->NextSiblingElement("segment");
+        }
+
+        for (int i = 1; i < m_commands.size(); ++i)
+        {
+            ASSERTL0(m_commands[i].m_commandType == m_commands[0].m_commandType,
+                     "All segment commands should be of the same type.");
         }
     }
 

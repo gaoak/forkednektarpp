@@ -617,6 +617,25 @@ inline avx512Double8 log(avx512Double8 in)
 #endif
 }
 
+inline void load_unalign_interleave(
+    const double *in, const std::uint32_t dataLen,
+    std::vector<avx512Double8, allocator<avx512Double8>> &out)
+{
+    alignas(avx512Double8::alignment) avx512Double8::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        tmp[0] = in[i];
+        tmp[1] = in[i + dataLen];
+        tmp[2] = in[i + 2 * dataLen];
+        tmp[3] = in[i + 3 * dataLen];
+        tmp[4] = in[i + 4 * dataLen];
+        tmp[5] = in[i + 5 * dataLen];
+        tmp[6] = in[i + 6 * dataLen];
+        tmp[7] = in[i + 7 * dataLen];
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(
     const double *in, std::uint32_t dataLen,
     std::vector<avx512Double8, allocator<avx512Double8>> &out)
@@ -653,6 +672,25 @@ inline void load_interleave(
     {
         out[i].gather(in, index0);
         index0 = index0 + 1;
+    }
+}
+
+inline void deinterleave_unalign_store(
+    const std::vector<avx512Double8, allocator<avx512Double8>> &in,
+    const std::uint32_t dataLen, double *out)
+{
+    alignas(avx512Double8::alignment) avx512Double8::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        out[i]               = tmp[0];
+        out[i + dataLen]     = tmp[1];
+        out[i + 2 * dataLen] = tmp[2];
+        out[i + 3 * dataLen] = tmp[3];
+        out[i + 4 * dataLen] = tmp[4];
+        out[i + 5 * dataLen] = tmp[5];
+        out[i + 6 * dataLen] = tmp[6];
+        out[i + 7 * dataLen] = tmp[7];
     }
 }
 
@@ -896,6 +934,33 @@ inline avx512Float16 log(avx512Float16 in)
 #endif
 }
 
+inline void load_unalign_interleave(
+    const double *in, const std::uint32_t dataLen,
+    std::vector<avx512Float16, allocator<avx512Float16>> &out)
+{
+    alignas(avx512Float16::alignment) avx512Float16::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        tmp[0]  = in[i];
+        tmp[1]  = in[i + dataLen];
+        tmp[2]  = in[i + 2 * dataLen];
+        tmp[3]  = in[i + 3 * dataLen];
+        tmp[4]  = in[i + 4 * dataLen];
+        tmp[5]  = in[i + 5 * dataLen];
+        tmp[6]  = in[i + 6 * dataLen];
+        tmp[7]  = in[i + 7 * dataLen];
+        tmp[8]  = in[i + 8 * dataLen];
+        tmp[9]  = in[i + 9 * dataLen];
+        tmp[10] = in[i + 10 * dataLen];
+        tmp[11] = in[i + 11 * dataLen];
+        tmp[12] = in[i + 12 * dataLen];
+        tmp[13] = in[i + 13 * dataLen];
+        tmp[14] = in[i + 14 * dataLen];
+        tmp[15] = in[i + 15 * dataLen];
+        out[i].load(tmp);
+    }
+}
+
 inline void load_interleave(
     const float *in, std::uint32_t dataLen,
     std::vector<avx512Float16, allocator<avx512Float16>> &out)
@@ -903,8 +968,22 @@ inline void load_interleave(
 
     alignas(avx512Float16::alignment)
         avx512Float16::scalarIndexType tmp[avx512Float16::width] = {
-            0,           dataLen,     2 * dataLen, 3 * dataLen,
-            4 * dataLen, 5 * dataLen, 6 * dataLen, 7 * dataLen};
+            0,
+            dataLen,
+            2 * dataLen,
+            3 * dataLen,
+            4 * dataLen,
+            5 * dataLen,
+            6 * dataLen,
+            7 * dataLen,
+            8 * dataLen,
+            9 * dataLen,
+            10 * dataLen,
+            11 * dataLen,
+            12 * dataLen,
+            13 * dataLen,
+            14 * dataLen,
+            15 * dataLen};
 
     using index_t = avx512Int16<avx512Float16::scalarIndexType>;
     index_t index0(tmp);
@@ -935,6 +1014,33 @@ inline void load_interleave(
     }
 }
 
+inline void deinterleave_unalign_store(
+    const std::vector<avx512Float16, allocator<avx512Float16>> &in,
+    const std::uint32_t dataLen, double *out)
+{
+    alignas(avx512Float16::alignment) avx512Float16::scalarArray tmp;
+    for (size_t i = 0; i < dataLen; ++i)
+    {
+        in[i].store(tmp);
+        out[i]                = tmp[0];
+        out[i + dataLen]      = tmp[1];
+        out[i + 2 * dataLen]  = tmp[2];
+        out[i + 3 * dataLen]  = tmp[3];
+        out[i + 4 * dataLen]  = tmp[4];
+        out[i + 5 * dataLen]  = tmp[5];
+        out[i + 6 * dataLen]  = tmp[6];
+        out[i + 7 * dataLen]  = tmp[7];
+        out[i + 8 * dataLen]  = tmp[8];
+        out[i + 9 * dataLen]  = tmp[9];
+        out[i + 10 * dataLen] = tmp[10];
+        out[i + 11 * dataLen] = tmp[11];
+        out[i + 12 * dataLen] = tmp[12];
+        out[i + 13 * dataLen] = tmp[13];
+        out[i + 14 * dataLen] = tmp[14];
+        out[i + 15 * dataLen] = tmp[15];
+    }
+}
+
 inline void deinterleave_store(
     const std::vector<avx512Float16, allocator<avx512Float16>> &in,
     std::uint32_t dataLen, float *out)
@@ -943,8 +1049,22 @@ inline void deinterleave_store(
 
     alignas(avx512Float16::alignment)
         avx512Float16::scalarIndexType tmp[avx512Float16::width] = {
-            0,           dataLen,     2 * dataLen, 3 * dataLen,
-            4 * dataLen, 5 * dataLen, 6 * dataLen, 7 * dataLen};
+            0,
+            dataLen,
+            2 * dataLen,
+            3 * dataLen,
+            4 * dataLen,
+            5 * dataLen,
+            6 * dataLen,
+            7 * dataLen,
+            8 * dataLen,
+            9 * dataLen,
+            10 * dataLen,
+            11 * dataLen,
+            12 * dataLen,
+            13 * dataLen,
+            14 * dataLen,
+            15 * dataLen};
     using index_t = avx512Int16<avx512Float16::scalarIndexType>;
 
     index_t index0(tmp);

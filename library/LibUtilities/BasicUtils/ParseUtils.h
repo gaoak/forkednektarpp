@@ -125,6 +125,10 @@ public:
     LIB_UTILITIES_EXPORT static bool GenerateVariableSet(
         const std::string &str, const std::vector<std::string> &variables,
         std::set<int> &out);
+
+    LIB_UTILITIES_EXPORT static bool GenerateVariableVector(
+        const std::string &str, const std::vector<std::string> &variables,
+        std::vector<int> &out);
 };
 
 } // namespace Nektar

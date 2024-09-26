@@ -70,12 +70,11 @@ public:
     /// boundary conditions are imposed.
     MULTI_REGIONS_EXPORT int GetNumDirichletBndPhys();
 
-    MULTI_REGIONS_EXPORT Array<OneD, LocalRegions::ExpansionSharedPtr>
-        &GetElmtToTrace(const int i);
+    MULTI_REGIONS_EXPORT Array<OneD, LocalRegions::ExpansionSharedPtr> &
+    GetElmtToTrace(const int i);
 
     MULTI_REGIONS_EXPORT
-    Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>>
-        &GetElmtToTrace();
+    Array<OneD, Array<OneD, LocalRegions::ExpansionSharedPtr>> &GetElmtToTrace();
 
     /**
      * Changes toAlign quadrature point order, where the realignment is

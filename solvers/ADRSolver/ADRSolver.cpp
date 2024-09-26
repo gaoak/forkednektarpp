@@ -36,6 +36,7 @@
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/Timer.h>
 #include <SolverUtils/Driver.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
         LIKWID_MARKER_REGISTER("IProductWRTDerivBase_coll");
 
         // Create MeshGraph
-        graph = SpatialDomains::MeshGraph::Read(session);
+        graph = SpatialDomains::MeshGraphIO::Read(session);
 
         // Create driver
         session->LoadSolverInfo("Driver", vDriverModule, "Standard");
@@ -79,8 +80,8 @@ int main(int argc, char *argv[])
         {
             int iolevel;
             session->LoadParameter("IO_Timer_Level", iolevel, 1);
-            LibUtilities::Timer::PrintElapsedRegions(session->GetComm(),
-                                                     std::cout, iolevel);
+            LibUtilities::Timer::PrintElapsedRegions(
+                session->GetComm()->GetSpaceComm(), std::cout, iolevel);
         }
 
         LIKWID_MARKER_CLOSE;

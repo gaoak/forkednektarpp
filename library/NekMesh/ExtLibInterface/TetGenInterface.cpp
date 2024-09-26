@@ -43,7 +43,7 @@ namespace Nektar::NekMesh
 {
 
 void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
-                                  vector<Array<OneD, int>> tri)
+                                  vector<std::array<int, 3>> tri)
 {
     surface.initialize();
     output.initialize();
@@ -59,7 +59,7 @@ void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
     map<int, NodeSharedPtr>::iterator it;
     for (it = tgidton.begin(); it != tgidton.end(); it++)
     {
-        Array<OneD, NekDouble> loc = it->second->GetLoc();
+        auto loc = it->second->GetLoc();
 
         surface.pointlist[it->first * 3 + 0] = loc[0];
         surface.pointlist[it->first * 3 + 1] = loc[1];
@@ -111,15 +111,13 @@ void TetGenInterface::InitialMesh(map<int, NodeSharedPtr> tgidton,
 }
 
 void TetGenInterface::GetNewPoints(int num,
-                                   vector<Array<OneD, NekDouble>> &newp)
+                                   vector<std::array<NekDouble, 3>> &newp)
 {
     for (int i = num; i < output.numberofpoints; i++)
     {
-        Array<OneD, NekDouble> loc(3);
-        loc[0] = output.pointlist[i * 3 + 0];
-        loc[1] = output.pointlist[i * 3 + 1];
-        loc[2] = output.pointlist[i * 3 + 2];
-        newp.push_back(loc);
+        newp.push_back({output.pointlist[i * 3 + 0],
+                        output.pointlist[i * 3 + 1],
+                        output.pointlist[i * 3 + 2]});
     }
 }
 
@@ -143,18 +141,16 @@ void TetGenInterface::RefineMesh(std::map<int, NekDouble> delta)
     tetrahedralize(cstr, &input, &output);
 }
 
-vector<Array<OneD, int>> TetGenInterface::Extract()
+vector<std::array<int, 4>> TetGenInterface::Extract()
 {
-    vector<Array<OneD, int>> tets;
+    vector<std::array<int, 4>> tets(output.numberoftetrahedra);
 
     for (int i = 0; i < output.numberoftetrahedra; i++)
     {
-        Array<OneD, int> tet(4);
-        tet[0] = output.tetrahedronlist[i * 4 + 0];
-        tet[1] = output.tetrahedronlist[i * 4 + 1];
-        tet[2] = output.tetrahedronlist[i * 4 + 2];
-        tet[3] = output.tetrahedronlist[i * 4 + 3];
-        tets.push_back(tet);
+        tets[i] = {output.tetrahedronlist[i * 4 + 0],
+                   output.tetrahedronlist[i * 4 + 1],
+                   output.tetrahedronlist[i * 4 + 2],
+                   output.tetrahedronlist[i * 4 + 3]};
     }
 
     return tets;

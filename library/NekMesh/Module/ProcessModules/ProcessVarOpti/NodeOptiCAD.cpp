@@ -153,15 +153,15 @@ void NodeOpti2D3D::Optimise()
         ProcessGradient();
 
         // needs to optimise
-        Array<OneD, NekDouble> uvc = m_node->GetCADSurfInfo(surf->GetId());
-        NekDouble xc               = m_node->m_x;
-        NekDouble yc               = m_node->m_y;
-        NekDouble zc               = m_node->m_z;
-        Array<OneD, NekDouble> uvt(2);
-        vector<NekDouble> bd(4);
+        auto uvc     = m_node->GetCADSurfInfo(surf->GetId());
+        NekDouble xc = m_node->m_x;
+        NekDouble yc = m_node->m_y;
+        NekDouble zc = m_node->m_z;
+        std::array<NekDouble, 2> uvt;
+        std::array<NekDouble, 4> bd;
         surf->GetBounds(bd[0], bd[1], bd[2], bd[3]);
 
-        vector<NekDouble> sk(2);
+        std::array<NekDouble, 2> sk;
         NekDouble val;
 
         // Calculate minimum eigenvalue
@@ -233,7 +233,7 @@ void NodeOpti2D3D::Optimise()
                          m_res->val);
         mtx.unlock();
 
-        Array<OneD, NekDouble> uva = m_node->GetCADSurfInfo(surf->GetId());
+        auto uva = m_node->GetCADSurfInfo(surf->GetId());
         if (uva[0] < bd[0] || uva[0] > bd[1] || uva[1] < bd[2] ||
             uva[1] > bd[3])
         {
@@ -267,9 +267,9 @@ void NodeOpti1D2D::Optimise()
         NekDouble yc = m_node->m_y;
         NekDouble zc = m_node->m_z;
         NekDouble nt;
-        Array<OneD, NekDouble> p;
 
-        Array<OneD, NekDouble> sk(1);
+        std::array<NekDouble, 3> p;
+        std::array<NekDouble, 1> sk;
 
         if (m_grad[1] < 1e-6)
         {
@@ -351,7 +351,7 @@ void NodeOpti1D3D::ProcessGradient()
     m_grad                 = vector<NekDouble>(2, 0.0);
 
     // Grab first and second order CAD derivatives
-    Array<OneD, NekDouble> d2 = curve->D2(tc);
+    auto d2 = curve->D2(tc);
 
     // Multiply gradient by derivative of CAD
     m_grad[0] = grad[0] * d2[3] + grad[1] * d2[4] + grad[2] * d2[5];
@@ -366,12 +366,12 @@ void NodeOpti1D3D::ProcessGradient()
 
 void NodeOpti2D3D::ProcessGradient()
 {
-    Array<OneD, NekDouble> uvc = m_node->GetCADSurfInfo(surf->GetId());
+    auto uvc = m_node->GetCADSurfInfo(surf->GetId());
 
     vector<NekDouble> grad = m_grad;
     m_grad                 = vector<NekDouble>(5, 0.0);
 
-    Array<OneD, NekDouble> d2 = surf->D2(uvc);
+    auto d2 = surf->D2(uvc);
     // r[0]   x
     // r[1]   y
     // r[2]   z
@@ -430,7 +430,7 @@ void NodeOpti1D2D::ProcessGradient()
     m_grad                 = vector<NekDouble>(2, 0.0);
 
     // Grab first and second order CAD derivatives
-    Array<OneD, NekDouble> d2 = curve->D2(tc);
+    auto d2 = curve->D2(tc);
 
     // Multiply gradient by derivative of CAD
     m_grad[0] = grad[0] * d2[3] + grad[1] * d2[4];

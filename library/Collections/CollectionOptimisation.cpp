@@ -448,10 +448,21 @@ OperatorImpMap CollectionOptimisation::SetWithTimings(
     Array<OneD, NekDouble> outarray2(maxsize);
     Array<OneD, NekDouble> outarray3(maxsize);
 
+    // Advection velocities required for optimisation of linearADR operator
+    StdRegions::VarCoeffMap varcoeffs;
+    StdRegions::VarCoeffType varcoefftypes[] = {StdRegions::eVarCoeffVelX,
+                                                StdRegions::eVarCoeffVelY,
+                                                StdRegions::eVarCoeffVelZ};
+    for (int i = 0; i < pExp->GetShapeDimension(); i++)
+    {
+        varcoeffs[varcoefftypes[i]] = Array<OneD, NekDouble>(maxsize, 1.0);
+    }
+
     for (int imp = 1; imp < SIZE_ImplementationType; ++imp)
     {
         ImplementationType impType = (ImplementationType)imp;
         OperatorImpMap impTypes;
+        std::vector<OperatorType> opTypes;
         for (int i = 0; i < SIZE_OperatorType; ++i)
         {
             OperatorType opType = (OperatorType)i;
@@ -461,13 +472,19 @@ OperatorImpMap CollectionOptimisation::SetWithTimings(
             if (GetOperatorFactory().ModuleExists(opKey))
             {
                 impTypes[opType] = impType;
+                opTypes.push_back(opType);
             }
         }
 
         Collection collLoc(pCollExp, impTypes);
-        for (int i = 0; i < SIZE_OperatorType; ++i)
+        for (auto opType : opTypes)
         {
-            collLoc.Initialise((OperatorType)i, factors);
+            collLoc.Initialise(opType, factors);
+            // Add varcoeffs only for ADR operator
+            if (opType == eLinearAdvectionDiffusionReaction)
+            {
+                collLoc.UpdateVarcoeffs(opType, varcoeffs);
+            }
         }
         coll.push_back(collLoc);
     }

@@ -67,28 +67,24 @@ void NekNonlinSysIterNewton::v_InitObject()
  **/
 int NekNonlinSysIterNewton::v_SolveSystem(
     const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, const int nDir,
-    [[maybe_unused]] const NekDouble factor)
+    Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir)
 {
-    ASSERTL0(nDir == 0, "nDir != 0 not tested");
     ASSERTL0(nGlobal == m_SysDimen, "nGlobal != m_SysDimen");
-
-    int ntotal = nGlobal - nDir;
 
     m_SourceVec     = pInput;
     m_Solution      = pOutput;
     m_NtotLinSysIts = 0;
     m_converged     = false;
 
-    Vmath::Vcopy(ntotal, pInput, 1, m_Solution, 1);
+    Vmath::Vcopy(nGlobal, pInput, 1, m_Solution, 1);
 
     NekDouble resnormOld = 0.0;
     int NttlNonlinIte    = 0;
     for (; NttlNonlinIte < m_NekNonlinSysMaxIterations; ++NttlNonlinIte)
     {
-        m_operator.DoNekSysResEval(m_Solution, m_Residual);
+        m_operator.DoNekSysResEval(m_Solution, m_Residual, true);
 
-        m_converged = ConvergenceCheck(NttlNonlinIte, m_Residual);
+        ConvergenceCheck(NttlNonlinIte, m_Residual);
         if (m_converged)
         {
             break;
@@ -100,10 +96,10 @@ int NekNonlinSysIterNewton::v_SolveSystem(
         m_linsol->SetRhsMagnitude(m_SysResNorm);
         m_linsol->SetNekLinSysTolerance(LinSysRelativeIteTol);
         int ntmpLinSysIts =
-            m_linsol->SolveSystem(ntotal, m_Residual, m_DeltSltn, 0);
+            m_linsol->SolveSystem(nGlobal, m_Residual, m_DeltSltn, 0);
         m_NtotLinSysIts += ntmpLinSysIts;
 
-        Vmath::Vsub(ntotal, m_Solution, 1, m_DeltSltn, 1, m_Solution, 1);
+        Vmath::Vsub(nGlobal, m_Solution, 1, m_DeltSltn, 1, m_Solution, 1);
     }
 
     if ((!m_converged || m_verbose) && m_root && m_FlagWarnings)
@@ -115,7 +111,8 @@ int NekNonlinSysIterNewton::v_SolveSystem(
         cout << right << scientific << setw(nwidthcolm)
              << setprecision(nwidthcolm - 6)
              << "     * Newton-Its converged (RES=" << sqrt(m_SysResNorm)
-             << " Res/(DtRHS): " << sqrt(m_SysResNorm / m_SysResNorm0)
+             << " Res/Res0= " << sqrt(m_SysResNorm / m_SysResNorm0)
+             << " Res/DtRHS= " << sqrt(m_SysResNorm / m_rhs_magnitude)
              << " with " << setw(3) << NttlNonlinIte << " Non-Its)" << endl;
     }
 
@@ -132,8 +129,10 @@ NekDouble NekNonlinSysIterNewton::CalcInexactNewtonForcing(
     }
     else
     {
+        static const NekDouble forcingGamma = 1.0;
+        static const NekDouble forcingAlpha = 0.5 * (1.0 + sqrt(5.0));
         NekDouble tmpForc =
-            m_forcingGamma * pow((resnorm / resnormOld), m_forcingAlpha);
+            forcingGamma * pow((resnorm / resnormOld), forcingAlpha);
         return max(min(m_NekLinSysTolerance, tmpForc), 1.0E-6);
     }
 }

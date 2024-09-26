@@ -1,6 +1,6 @@
 from NekPy.LibUtilities import SessionReader, ReduceOperator
 from NekPy.StdRegions import ConstFactorMap, ConstFactorType, VarCoeffMap, VarCoeffType
-from NekPy.SpatialDomains import MeshGraph
+from NekPy.SpatialDomains import MeshGraph, MeshGraphIO
 from NekPy.MultiRegions import ContField
 
 import numpy as np
@@ -12,7 +12,7 @@ if len(sys.argv) < 2:
 
 # Load up session and create ContField2D
 session = SessionReader.CreateInstance(sys.argv)
-graph = MeshGraph.Read(session)
+graph = MeshGraphIO.Read(session)
 
 # Grab the communicator from the SessionReader.
 comm = session.GetComm()

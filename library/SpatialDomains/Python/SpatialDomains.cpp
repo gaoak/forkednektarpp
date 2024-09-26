@@ -37,6 +37,7 @@
 void export_Geometry();
 void export_Curve();
 void export_MeshGraph();
+void export_MeshGraphIO();
 void export_GeomElements();
 void export_Zones();
 void export_Interfaces();
@@ -49,6 +50,7 @@ BOOST_PYTHON_MODULE(_SpatialDomains)
     export_Geometry();
     export_Curve();
     export_MeshGraph();
+    export_MeshGraphIO();
     export_GeomElements();
     export_Zones();
     export_Interfaces();

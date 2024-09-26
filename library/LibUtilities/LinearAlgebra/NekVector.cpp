@@ -1112,8 +1112,8 @@ template <typename DataType> DataType L2Norm(const NekVector<DataType> &v)
     for (typename VectorType::const_iterator iter = v.begin(); iter != v.end();
          ++iter)
     {
-        DataType v = fabs(*iter);
-        result += v * v;
+        DataType w = fabs(*iter);
+        result += w * w;
     }
     return sqrt(result);
 }

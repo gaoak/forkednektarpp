@@ -1,5 +1,5 @@
 from NekPy.LibUtilities import SessionReader
-from NekPy.SpatialDomains import MeshGraph
+from NekPy.SpatialDomains import MeshGraph, MeshGraphIO
 from NekPy.MultiRegions import ExpList
 import ctypes
 import gc
@@ -9,7 +9,7 @@ def main():
     session_name = ["memory-test-python-to-c-address.py", "newsquare_2x2.xml"]
 
     session = SessionReader.CreateInstance(session_name)
-    graph = MeshGraph.Read(session)
+    graph = MeshGraphIO.Read(session)
     exp = ExpList(session, graph)
 
     coords = exp.GetCoords()

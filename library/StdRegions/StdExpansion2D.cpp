@@ -43,9 +43,10 @@
 namespace Nektar::StdRegions
 {
 
-StdExpansion2D::StdExpansion2D(int numcoeffs, const LibUtilities::BasisKey &Ba,
-                               const LibUtilities::BasisKey &Bb)
-    : StdExpansion(numcoeffs, 2, Ba, Bb)
+StdExpansion2D::StdExpansion2D(
+    [[maybe_unused]] int numcoeffs,
+    [[maybe_unused]] const LibUtilities::BasisKey &Ba,
+    [[maybe_unused]] const LibUtilities::BasisKey &Bb)
 {
 }
 

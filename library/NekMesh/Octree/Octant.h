@@ -35,9 +35,10 @@
 #ifndef NEKTAR_MESHUTILS_OCTREE_OCTANT_H
 #define NEKTAR_MESHUTILS_OCTREE_OCTANT_H
 
+#include <cmath>
+
 #include <NekMesh/Octree/SourcePoint.hpp>
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
 namespace Nektar::NekMesh
@@ -83,7 +84,7 @@ public:
     /**
      * @brief Defualt constructor
      */
-    Octant(int i, OctantSharedPtr p, Array<OneD, OctantFace> dir);
+    Octant(int i, OctantSharedPtr p, std::array<OctantFace, 3> dir);
 
     /**
      * @brief constructor for master octant
@@ -124,7 +125,7 @@ public:
     /**
      * @brief Get the location of the center of the octant
      */
-    Array<OneD, NekDouble> GetLoc()
+    std::array<NekDouble, 3> GetLoc()
     {
         return m_loc;
     }
@@ -210,7 +211,7 @@ public:
     /**
      * @brief Set the children of this octant
      */
-    void SetChildren(Array<OneD, OctantSharedPtr> c)
+    void SetChildren(std::array<OctantSharedPtr, 8> c)
     {
         m_children = c;
     }
@@ -284,7 +285,7 @@ public:
      */
     NekDouble Distance(OctantSharedPtr o)
     {
-        Array<OneD, NekDouble> loc = o->GetLoc();
+        auto loc = o->GetLoc();
         return sqrt((loc[0] - m_loc[0]) * (loc[0] - m_loc[0]) +
                     (loc[1] - m_loc[1]) * (loc[1] - m_loc[1]) +
                     (loc[2] - m_loc[2]) * (loc[2] - m_loc[2]));
@@ -335,9 +336,9 @@ private:
     /// parent id
     OctantSharedPtr m_parent;
     /// list of child ids
-    Array<OneD, OctantSharedPtr> m_children;
+    std::array<OctantSharedPtr, 8> m_children;
     /// x,y,z location of the octant
-    Array<OneD, NekDouble> m_loc;
+    std::array<NekDouble, 3> m_loc;
     /// half dimension of the octant
     NekDouble m_hd;
     /// curvature sampling point list

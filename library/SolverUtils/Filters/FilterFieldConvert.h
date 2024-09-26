@@ -51,7 +51,7 @@ public:
     /// Creates an instance of this class
     static FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
+        const std::shared_ptr<EquationSystem> &pEquation,
         const std::map<std::string, std::string> &pParams)
     {
         FilterSharedPtr p =
@@ -65,7 +65,7 @@ public:
 
     SOLVER_UTILS_EXPORT FilterFieldConvert(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
+        const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
     SOLVER_UTILS_EXPORT ~FilterFieldConvert() override;
 
@@ -127,6 +127,8 @@ protected:
     NekDouble m_phaseSamplePhase;
     NekDouble m_phaseTolerance;
     NekDouble m_dt;
+    // Time when we start writing checkfiles
+    NekDouble m_outputStartTime;
 
     std::vector<ModuleSharedPtr> m_modules;
     LibUtilities::FieldMetaDataMap m_fieldMetaData;

@@ -1,5 +1,5 @@
 from NekPy.LibUtilities import SessionReader
-from NekPy.SpatialDomains import MeshGraph
+from NekPy.SpatialDomains import MeshGraphIO
 from NekPy.MultiRegions import ExpList
 import sys
 
@@ -9,7 +9,7 @@ if len(sys.argv) < 3:
 
 # Load up session and create ExpList
 session = SessionReader.CreateInstance(sys.argv[:-1])
-graph = MeshGraph.Read(session)
+graph = MeshGraphIO.Read(session)
 exp = ExpList(session, graph)
 
 print("Loaded %s with %d elements" % (session.GetSessionName(), exp.GetExpSize()))

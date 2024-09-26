@@ -32,7 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
+
 #include <LocalRegions/MatrixKey.h>
 #include <MultiRegions/ExpList.h>
 
@@ -191,6 +193,17 @@ const Array<OneD, const NekDouble> ExpList_GetPhys(ExpListSharedPtr exp)
     return exp->GetPhys();
 }
 
+void ExpList_SetCoeffsArray(ExpListSharedPtr exp,
+                            Array<OneD, NekDouble> inarray)
+{
+    exp->SetCoeffsArray(inarray);
+}
+
+const Array<OneD, const NekDouble> ExpList_GetCoeffs(ExpListSharedPtr exp)
+{
+    return exp->GetCoeffs();
+}
+
 NekDouble ExpList_Integral(ExpListSharedPtr exp)
 {
     return exp->Integral();
@@ -301,12 +314,20 @@ void export_ExpList()
         .def("SetPhysArray", &ExpList_SetPhysArray)
         .def("SetPhys", &ExpList_SetPhys)
         .def("GetPhys", &ExpList_GetPhys)
+        .def("SetCoeffsArray", &ExpList_SetCoeffsArray)
+        .def("GetCoeffs", &ExpList_GetCoeffs)
         .def("SetPhysState", &ExpList::SetPhysState)
         .def("GetPhysState", &ExpList::GetPhysState)
         .def("Integral", &ExpList_Integral)
         .def("GetPhysAddress", &ExpList_GetPhysAddress)
 
+        .add_property("phys", &ExpList_GetPhys, &ExpList_SetPhys)
+        .add_property("coeffs", &ExpList_GetCoeffs, &ExpList_SetCoeffsArray)
+
         // Misc functions
         .def("WriteVTK", &ExpList_WriteVTK)
         .def("ResetManagers", &ExpList_ResetManagers);
+
+    // Export Array<OneD, ExpListSharedPtr>
+    export_SharedArray<std::shared_ptr<ExpList>>();
 }

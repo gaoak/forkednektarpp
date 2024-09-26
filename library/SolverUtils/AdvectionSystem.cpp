@@ -151,7 +151,7 @@ NekDouble AdvectionSystem::GetCFLEstimate(int &elmtid)
 
     NekDouble CFL, CFL_loc;
     CFL = CFL_loc = cfl[elmtid];
-    m_comm->AllReduce(CFL, LibUtilities::ReduceMax);
+    m_comm->GetSpaceComm()->AllReduce(CFL, LibUtilities::ReduceMax);
 
     // unshuffle elmt id if data is not stored in consecutive order.
     elmtid = m_fields[0]->GetExp(elmtid)->GetGeom()->GetGlobalID();
@@ -160,7 +160,7 @@ NekDouble AdvectionSystem::GetCFLEstimate(int &elmtid)
         elmtid = -1;
     }
 
-    m_comm->AllReduce(elmtid, LibUtilities::ReduceMax);
+    m_comm->GetSpaceComm()->AllReduce(elmtid, LibUtilities::ReduceMax);
 
     // express element id with respect to plane
     if (m_HomogeneousType == eHomogeneous1D)

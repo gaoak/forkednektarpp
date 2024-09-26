@@ -49,8 +49,8 @@
         </BOUNDARYREGIONS>
         <BOUNDARYCONDITIONS>
             <REGION REF="0">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="1">
@@ -59,13 +59,13 @@
                 <D VAR="p" USERDEFINEDTYPE="HOutflow" VALUE="0" />
             </REGION>
             <REGION REF="2">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
             <REGION REF="3">
-                <D VAR="u" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfx" />
-                <D VAR="v" USERDEFINEDTYPE="MovingFrameDomainVel" VALUE="Uinfy" />
+                <D VAR="u" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfx" />
+                <D VAR="v" USERDEFINEDTYPE="MovingFrameFar" VALUE="Uinfy" />
                 <N VAR="p" USERDEFINEDTYPE="H" VALUE="0" />
             </REGION>
 

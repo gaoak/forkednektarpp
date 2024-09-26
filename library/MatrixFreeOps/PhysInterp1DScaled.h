@@ -65,23 +65,6 @@ struct PhysInterp1DScaledTemplate
         : PhysInterp1DScaled(basis, nElmt),
           Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]>(basis, nElmt)
     {
-        constexpr auto DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
-
-        if (DIM == 1)
-        {
-            m_nmTot = LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE,
-                                                            this->m_nm[0]);
-        }
-        else if (DIM == 2)
-        {
-            m_nmTot = LibUtilities::GetNumberOfCoefficients(
-                SHAPE_TYPE, this->m_nm[0], this->m_nm[1]);
-        }
-        else if (DIM == 3)
-        {
-            m_nmTot = LibUtilities::GetNumberOfCoefficients(
-                SHAPE_TYPE, this->m_nm[0], this->m_nm[1], this->m_nm[2]);
-        }
     }
 
     static std::shared_ptr<Operator> Create(
@@ -94,6 +77,28 @@ struct PhysInterp1DScaledTemplate
     void operator()(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output) final
     {
+        // Following the same variable naming as in SwitchNodesPoints.h
+        // Both input and output number of points of the kernels are in the
+        // physical space
+        // nm0 is replaced by nq_in0
+        // nq0 is replaced by nq_out0
+        const auto nm0 = this->m_nq[0];
+        const auto nq0 = this->m_enhancednq[0];
+#if defined(SHAPE_DIMENSION_2D)
+        // nm1 is replaced by nq_in1
+        // nq1 is replaced by nq_out1
+        // Following the same variable naming as in SwitchNodesPoints.h
+        const auto nm1 = this->m_nq[1];
+        const auto nq1 = this->m_enhancednq[1];
+#elif defined(SHAPE_DIMENSION_3D)
+        // nm2 is replaced by nq_in2
+        // nq2 is replaced by nq_out2
+        // Following the same variable naming as in SwitchNodesPoints.h
+        const auto nm1 = this->m_nq[1];
+        const auto nm2 = this->m_nq[2];
+        const auto nq1 = this->m_enhancednq[1];
+        const auto nq2 = this->m_enhancednq[2];
+#endif
 #include "SwitchNodesPoints.h"
     }
 
@@ -113,67 +118,112 @@ struct PhysInterp1DScaledTemplate
     void operator1D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nq0 = m_basis[0]->GetNumPoints();
+        const auto nq_in0  = this->m_nq[0];
+        const auto nq_out0 = this->m_enhancednq[0];
 
-        const auto nqTot    = nq0;
-        const auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks = m_nmTot * vec_t::width;
+        const auto nb_out = nq_out0 * vec_t::width;
+        const auto nb_in  = nq_in0 * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
 
         // Workspace for kernels - also checks preconditions
-        PhysInterp1DScaled1DWorkspace<SHAPE_TYPE>(nm0, nq0);
+        PhysInterp1DScaled1DWorkspace<SHAPE_TYPE>(nq_in0, nq_out0);
 
-        std::vector<vec_t, allocator<vec_t>> tmpIn(m_nmTot), tmpOut(nqTot);
+        std::vector<vec_t, allocator<vec_t>> tmpIn(nq_in0), tmpOut(nq_out0);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nb_out * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, nq_in0, tmpIn);
+            load_unalign_interleave(inptr, nq_in0, tmpIn);
 
-            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn,
-                                                   this->m_bdata[0], tmpOut);
+            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nq_in0, nq_out0, tmpIn,
+                                                   this->m_I[0], tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nq_out0, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nq_out0, outptr);
 
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            inptr += nb_in;
+            outptr += nb_out;
         }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nq_in0;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nq_in0, tmpIn);
+
+            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nq_in0, nq_out0, tmpIn,
+                                                   this->m_I[0], tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nq_out0, locField);
+            acturalSize = nb_out - this->m_nPads * nq_out0;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
-    template <int nm0, int nq0>
+    template <int nq_in0, int nq_out0>
     void operator1D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        constexpr auto nqTot    = nq0;
-        constexpr auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks     = m_nmTot * vec_t::width;
+        constexpr auto nOutTot = nq_out0;
+        constexpr auto nInTot  = nq_in0;
+        constexpr auto nb_out  = nOutTot * vec_t::width;
+        const auto nb_in       = nInTot * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
 
         // Workspace for kernels - also checks preconditions
-        PhysInterp1DScaled1DWorkspace<SHAPE_TYPE>(nm0, nq0);
+        PhysInterp1DScaled1DWorkspace<SHAPE_TYPE>(nq_in0, nq_out0);
 
-        std::vector<vec_t, allocator<vec_t>> tmpIn(m_nmTot), tmpOut(nqTot);
+        std::vector<vec_t, allocator<vec_t>> tmpIn(nInTot), tmpOut(nOutTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nb_out];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, m_nInTot, tmpIn);
+            load_unalign_interleave(inptr, nInTot, tmpIn);
 
-            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nm0, nq0, tmpIn,
-                                                   this->m_bdata[0], tmpOut);
+            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nq_in0, nq_out0, tmpIn,
+                                                   this->m_I[0], tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nOutTot, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nOutTot, outptr);
 
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            inptr += nb_in;
+            outptr += nb_out;
+        }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nInTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nInTot, tmpIn);
+
+            PhysInterp1DScaled1DKernel<SHAPE_TYPE>(nq_in0, nq_out0, tmpIn,
+                                                   this->m_I[0], tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nOutTot, locField);
+            acturalSize = nb_out - this->m_nPads * nOutTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 
@@ -183,80 +233,126 @@ struct PhysInterp1DScaledTemplate
     void operator2D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nm1 = m_basis[1]->GetNumModes();
+        const auto nq_in0 = this->m_nq[0];
+        const auto nq_in1 = this->m_nq[1];
 
-        const auto nq0 = m_basis[0]->GetNumPoints();
-        const auto nq1 = m_basis[1]->GetNumPoints();
+        const auto nq_out0 = this->m_enhancednq[0];
+        const auto nq_out1 = this->m_enhancednq[1];
 
-        const auto nqTot    = nq0 * nq1;
-        const auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks = m_nmTot * vec_t::width;
+        const auto nInTot  = nq_in0 * nq_in1;
+        const auto nOutTot = nq_out0 * nq_out1;
+        const auto nb_out  = nOutTot * vec_t::width;
+        const auto nb_in   = nInTot * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
-        const bool correct =
-            (m_basis[0]->GetBasisType() == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0;
-        PhysInterp1DScaled2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
+        PhysInterp1DScaled2DWorkspace<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                  nq_out1, wsp0Size);
 
-        std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(m_nmTot),
-            tmpOut(nqTot);
+        std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nInTot),
+            tmpOut(nOutTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nb_out * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, m_nInTot, tmpIn);
+            load_unalign_interleave(inptr, nInTot, tmpIn);
 
-            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_bdata[0],
-                this->m_bdata[1], wsp0, tmpOut);
+            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                   nq_out1, tmpIn, this->m_I[0],
+                                                   this->m_I[1], wsp0, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nOutTot, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nOutTot, outptr);
 
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            inptr += nb_in;
+            outptr += nb_out;
         }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nInTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nInTot, tmpIn);
+
+            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                   nq_out1, tmpIn, this->m_I[0],
+                                                   this->m_I[1], wsp0, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nOutTot, locField);
+            acturalSize = nb_out - this->m_nPads * nOutTot;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
-    template <int nm0, int nm1, int nq0, int nq1>
+    template <int nq_in0, int nq_in1, int nq_out0, int nq_out1>
     void operator2D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        constexpr auto nqTot    = nq0 * nq1;
-        constexpr auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks     = m_nmTot * vec_t::width;
+        constexpr auto nInTot  = nq_in0 * nq_in1;
+        constexpr auto nOutTot = nq_out0 * nq_out1;
+        constexpr auto nb_out  = nOutTot * vec_t::width;
+        const auto nb_in       = nInTot * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
-        const bool correct =
-            (m_basis[0]->GetBasisType() == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0;
-        PhysInterp1DScaled2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
+        PhysInterp1DScaled2DWorkspace<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                  nq_out1, wsp0Size);
 
-        std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(m_nmTot),
-            tmpOut(nqTot);
+        std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nInTot),
+            tmpOut(nOutTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nb_out];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, m_nInTot, tmpIn);
+            load_unalign_interleave(inptr, nInTot, tmpIn);
 
-            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, this->m_bdata[0],
-                this->m_bdata[1], wsp0, tmpOut);
+            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                   nq_out1, tmpIn, this->m_I[0],
+                                                   this->m_I[1], wsp0, tmpOut);
+            // de-interleave and store data
+            // deinterleave_store(tmpOut, nOutTot, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nOutTot, outptr);
+
+            inptr += nb_in;
+            outptr += nb_out;
+        }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nInTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nInTot, tmpIn);
+
+            PhysInterp1DScaled2DKernel<SHAPE_TYPE>(nq_in0, nq_in1, nq_out0,
+                                                   nq_out1, tmpIn, this->m_I[0],
+                                                   this->m_I[1], wsp0, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
-
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            deinterleave_store(tmpOut, nOutTot, locField);
+            acturalSize = nb_out - this->m_nPads * nOutTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 
@@ -266,92 +362,138 @@ struct PhysInterp1DScaledTemplate
     void operator3D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        const auto nm0 = m_basis[0]->GetNumModes();
-        const auto nm1 = m_basis[1]->GetNumModes();
-        const auto nm2 = m_basis[2]->GetNumModes();
+        const auto nq_in0 = this->m_nq[0];
+        const auto nq_in1 = this->m_nq[1];
+        const auto nq_in2 = this->m_nq[2];
 
-        const auto nq0 = m_basis[0]->GetNumPoints();
-        const auto nq1 = m_basis[1]->GetNumPoints();
-        const auto nq2 = m_basis[2]->GetNumPoints();
+        const auto nq_out0 = this->m_enhancednq[0];
+        const auto nq_out1 = this->m_enhancednq[1];
+        const auto nq_out2 = this->m_enhancednq[2];
 
-        const auto nqTot    = nq0 * nq1 * nq2;
-        const auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks = m_nmTot * vec_t::width;
+        const auto nInTot  = nq_in0 * nq_in1 * nq_in2;
+        const auto nOutTot = nq_out0 * nq_out1 * nq_out2;
+        const auto nb_out  = nOutTot * vec_t::width;
+        const auto nb_in   = nInTot * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
 
-        const bool correct =
-            (m_basis[0]->GetBasisType() == LibUtilities::eModified_A);
-
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0, wsp1Size = 0;
-        PhysInterp1DScaled3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+        PhysInterp1DScaled3DWorkspace<SHAPE_TYPE>(nq_in0, nq_in1, nq_in2,
+                                                  nq_out0, nq_out1, nq_out2,
                                                   wsp0Size, wsp1Size);
 
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
-            tmpIn(m_nmTot), tmpOut(nqTot);
+            tmpIn(nInTot), tmpOut(nOutTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        NekDouble *locField = static_cast<NekDouble *>(::operator new[](
+            nb_out * sizeof(NekDouble), std::align_val_t(vec_t::alignment)));
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, m_nInTot, tmpIn);
+            load_unalign_interleave(inptr, nInTot, tmpIn);
 
             PhysInterp1DScaled3DKernel<SHAPE_TYPE>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
-                this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
+                nq_in0, nq_in1, nq_in2, nq_out0, nq_out1, nq_out2, tmpIn,
+                this->m_I[0], this->m_I[1], this->m_I[2], wsp0, wsp1, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nOutTot, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nOutTot, outptr);
 
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            inptr += nb_in;
+            outptr += nb_out;
         }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nInTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nInTot, tmpIn);
+
+            PhysInterp1DScaled3DKernel<SHAPE_TYPE>(
+                nq_in0, nq_in1, nq_in2, nq_out0, nq_out1, nq_out2, tmpIn,
+                this->m_I[0], this->m_I[1], this->m_I[2], wsp0, wsp1, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nOutTot, locField);
+            acturalSize = nb_out - this->m_nPads * nOutTot;
+            std::copy(locField, locField + acturalSize, outptr);
+        }
+        // free aligned memory
+        ::operator delete[](locField, std::align_val_t(vec_t::alignment));
     }
 
     // Size based template version.
-    template <int nm0, int nm1, int nm2, int nq0, int nq1, int nq2>
+    template <int nq_in0, int nq_in1, int nq_in2, int nq_out0, int nq_out1,
+              int nq_out2>
     void operator3D(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output)
     {
-        constexpr auto nqTot    = nq0 * nq1 * nq2;
-        constexpr auto nqBlocks = nqTot * vec_t::width;
-        const auto nmBlocks     = m_nmTot * vec_t::width;
+        constexpr auto nInTot  = nq_in0 * nq_in1 * nq_in2;
+        constexpr auto nOutTot = nq_out0 * nq_out1 * nq_out2;
+        constexpr auto nb_out  = nOutTot * vec_t::width;
+        const auto nb_in       = nInTot * vec_t::width;
 
         auto *inptr  = &input[0];
         auto *outptr = &output[0];
-        const bool correct =
-            (m_basis[0]->GetBasisType() == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0, wsp1Size = 0;
-        PhysInterp1DScaled3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+        PhysInterp1DScaled3DWorkspace<SHAPE_TYPE>(nq_in0, nq_in1, nq_in2,
+                                                  nq_out0, nq_out1, nq_out2,
                                                   wsp0Size, wsp1Size);
 
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
-            tmpIn(m_nmTot), tmpOut(nqTot);
+            tmpIn(nInTot), tmpOut(nOutTot);
 
-        for (int e = 0; e < this->m_nBlocks; ++e)
+        // temporary aligned storage for local fields
+        alignas(vec_t::alignment) NekDouble locField[nb_out];
+
+        for (int e = 0; e < this->m_nBlocks - 1; ++e)
         {
-            // Load and transpose data
-            load_interleave(inptr, m_nmTot, tmpIn);
+            // Load data to aligned storage and interleave it
+            // std::copy(inptr, inptr + nb_in, locField);
+            // load_interleave(locField, m_nInTot, tmpIn);
+            load_unalign_interleave(inptr, nInTot, tmpIn);
 
             PhysInterp1DScaled3DKernel<SHAPE_TYPE>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, this->m_bdata[0],
-                this->m_bdata[1], this->m_bdata[2], wsp0, wsp1, tmpOut);
+                nq_in0, nq_in1, nq_in2, nq_out0, nq_out1, nq_out2, tmpIn,
+                this->m_I[0], this->m_I[1], this->m_I[2], wsp0, wsp1, tmpOut);
 
             // de-interleave and store data
-            deinterleave_store(tmpOut, nqTot, outptr);
+            // deinterleave_store(tmpOut, nOutTot, locField);
+            // std::copy(locField, locField + nb_out, outptr);
+            deinterleave_unalign_store(tmpOut, nOutTot, outptr);
 
-            inptr += nmBlocks;
-            outptr += nqBlocks;
+            inptr += nb_in;
+            outptr += nb_out;
+        }
+        // last block
+        {
+            int acturalSize = nb_in - this->m_nPads * nInTot;
+            std::copy(inptr, inptr + acturalSize, locField);
+            load_interleave(locField, nInTot, tmpIn);
+
+            PhysInterp1DScaled3DKernel<SHAPE_TYPE>(
+                nq_in0, nq_in1, nq_in2, nq_out0, nq_out1, nq_out2, tmpIn,
+                this->m_I[0], this->m_I[1], this->m_I[2], wsp0, wsp1, tmpOut);
+
+            // de-interleave and store data
+            deinterleave_store(tmpOut, nOutTot, locField);
+            acturalSize = nb_out - this->m_nPads * nOutTot;
+            std::copy(locField, locField + acturalSize, outptr);
         }
     }
 
 #endif // SHAPE_DIMENSION
 
 private:
-    int m_nmTot;
 };
 
 } // namespace Nektar::MatrixFree

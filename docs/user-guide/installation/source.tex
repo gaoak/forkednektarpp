@@ -697,7 +697,21 @@ can be selected using the following options:
 
     \item \inlsh{NEKTAR\_USE\_PETSC}
 
-    Build \nekpp with support for the PETSc package for solving linear systems.
+    Build \nekpp with support for the PETSc package for solving linear systems. 
+    The user has the option to use either their own PETSc installations, or use 
+    the packaged PETSc version 3.19.3. To use your own PETSc install, specify 
+    the variables \inlsh{PETSC\_DIR} and \inlsh{PETSC\_ARCH} in your bash session 
+    or \inlsh{.bashrc} before the \nekpp compilation step using the following commands:
+
+    \begin{lstlisting}[style=BashInputStyle]
+    export PETSC_DIR=/path/to/petsc
+    export PETSC_ARCH=name-of-petsc_arch
+    \end{lstlisting}
+    and then set the \inlsh{LD\_LIBRARY\_PATH} and \inlsh{PKG\_CONFIG\_PATH}
+    \begin{lstlisting}[style=BashInputStyle]
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PETSC_DIR/$PETSC_ARCH/lib/
+    export PKG_CONFIG_PATH=$PETSC_DIR/$PETSC_ARCH/lib/pkgconfig/:$PKG_CONFIG_PATH
+    \end{lstlisting}
 
     \item \inlsh{NEKTAR\_USE\_PYTHON3} (Requires \inlsh{NEKTAR\_BUILD\_PYTHON})
 
@@ -777,7 +791,7 @@ automatically built during the \nekpp build process. Below are the choices of X:
 
     \item \inlsh{PETSC}
 
-    A package for the parallel solution of linear algebra systems.
+    A package for the parallel solution of linear algebra systems. If this is switched on, then a packaged PETSc version 3.19.3 will be installed within the \nekpp installation.
 
     \item \inlsh{SCOTCH}
 

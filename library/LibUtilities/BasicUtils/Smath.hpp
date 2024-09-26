@@ -41,7 +41,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <math.h>
-using namespace std;
+
 using namespace Nektar;
 
 namespace Smath

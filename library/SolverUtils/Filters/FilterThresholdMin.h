@@ -48,7 +48,8 @@ public:
     /// Creates an instance of this class
     static FilterSharedPtr create(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+        const std::shared_ptr<EquationSystem> &pEquation,
+        const ParamMap &pParams)
     {
         FilterSharedPtr p =
             MemoryManager<FilterThresholdMin>::AllocateSharedPtr(
@@ -61,7 +62,7 @@ public:
 
     SOLVER_UTILS_EXPORT FilterThresholdMin(
         const LibUtilities::SessionReaderSharedPtr &pSession,
-        const std::weak_ptr<EquationSystem> &pEquation,
+        const std::shared_ptr<EquationSystem> &pEquation,
         const ParamMap &pParams);
     SOLVER_UTILS_EXPORT ~FilterThresholdMin() override;
 

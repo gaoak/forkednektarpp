@@ -48,7 +48,7 @@ namespace Nektar::FieldUtils
 
 // Disable the base VTK factory if using the VTK library, this is so we can
 // register the same extension for both.
-#if !NEKTAR_USING_VTK
+#ifndef NEKTAR_USING_VTK
 ModuleKey OutputVtkBase::m_className =
     GetModuleFactory().RegisterCreatorFunction(ModuleKey(eOutputModule, "vtu"),
                                                OutputVtkBase::create,
@@ -429,6 +429,8 @@ std::string OutputVtkBase::PrepareOutput(po::variables_map &vm)
 {
     // Extract the output filename and extension
     string filename = m_config["outfile"].as<string>();
+
+    ASSERTL0(filename != "", "Legacy VTK output requires a filename.");
 
     fs::path specPath    = GetPath(filename, vm);
     fs::path fulloutname = GetFullOutName(filename, vm);

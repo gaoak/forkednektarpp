@@ -53,7 +53,7 @@ namespace Nektar
 template <typename DataType> class ConstMatrix
 {
 public:
-    LIB_UTILITIES_EXPORT virtual ~ConstMatrix();
+    LIB_UTILITIES_EXPORT virtual ~ConstMatrix() = default;
 
 public:
     LIB_UTILITIES_EXPORT typename boost::call_traits<DataType>::value_type

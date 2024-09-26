@@ -38,7 +38,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-//#include <SpatialDomains/SpatialData.h>
+// #include <SpatialDomains/SpatialData.h>
 #include <MultiRegions/ExpList.h>
 #include <SolverUtils/Core/Misc.h>
 #include <StdRegions/StdNodalTetExp.h>

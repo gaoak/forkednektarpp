@@ -77,7 +77,7 @@ extern "C"
                          double *workl, const int &lworkl, int &info);
 }
 
-//#ifdef NEKTAR_USING_ARPACK
+// #ifdef NEKTAR_USING_ARPACK
 
 /// Top level reverse communication interface to solve real double-precision
 /// symmetric problems
@@ -141,6 +141,6 @@ static inline void Dneupd(const int &rvec, const char *howmny,
      info);
 }
 
-//#endif //NEKTAR_USING_ARPACK
+// #endif //NEKTAR_USING_ARPACK
 } // namespace Arpack
 #endif // NEKTAR_LIB_UTILITIES_LINEAR_ALGEBRA_ARPACK_HPP

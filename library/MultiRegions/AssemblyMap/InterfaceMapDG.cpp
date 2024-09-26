@@ -32,8 +32,8 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "InterfaceMapDG.h"
 #include <LibUtilities/BasicUtils/Timer.h>
+#include <MultiRegions/AssemblyMap/InterfaceMapDG.h>
 
 namespace Nektar::MultiRegions
 {
@@ -703,16 +703,41 @@ void InterfaceTrace::DomainCheck(Array<OneD, NekDouble> &gloCoord,
     auto box    = movement->GetDomainBox();
     auto length = movement->GetDomainLength();
 
+    NekDouble ExactMove    = 0.0;
+    NekDouble ExactOppMove = 0.0;
+    int tmp                = 0;
+
     // update coordinates by add or minus domian length
-    for (int i = 0; i < disp.size(); i++)
+    for (int i = 0; i < disp.size(); ++i)
     {
-        if (oppdisp[i] - disp[i] < 0 && gloCoord[i] > box[i + 3] + oppdisp[i])
+        // map coordinate back to the original mesh
+        ExactMove    = std::fmod(disp[i], length[i]);
+        ExactOppMove = std::fmod(oppdisp[i], length[i]);
+        tmp          = oppdisp[i] / length[i];
+        gloCoord[i]  = gloCoord[i] - disp[i] + ExactMove;
+
+        // update coordinates for perioidic interface
+        if (oppdisp[i] - disp[i] < 0)
         {
-            gloCoord[i] = gloCoord[i] - length[i];
+            if (gloCoord[i] > box[i + 3] + ExactOppMove)
+            {
+                gloCoord[i] = gloCoord[i] - length[i] + tmp * length[i];
+            }
+            else
+            {
+                gloCoord[i] = gloCoord[i] + tmp * length[i];
+            }
         }
-        if (oppdisp[i] - disp[i] > 0 && gloCoord[i] < box[i] + oppdisp[i])
+        else
         {
-            gloCoord[i] = gloCoord[i] + length[i];
+            if (gloCoord[i] < box[i] + ExactOppMove)
+            {
+                gloCoord[i] = gloCoord[i] + length[i] + tmp * length[i];
+            }
+            else
+            {
+                gloCoord[i] = gloCoord[i] + tmp * length[i];
+            }
         }
     }
 }

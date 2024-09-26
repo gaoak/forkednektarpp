@@ -62,15 +62,13 @@ using LibUtilities::eTriangle;
 class PhysInterp1DScaled_Helper : virtual public Operator
 {
 public:
-    void UpdateFactors(StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors(StdRegions::FactorMap factors) override
     {
         if (factors == m_factors)
         {
             return;
         }
         m_factors = factors;
-
         // Set scaling factor for the PhysInterp1DScaled function
         [[maybe_unused]] auto x = factors.find(StdRegions::eFactorConst);
         ASSERTL1(
@@ -78,6 +76,15 @@ public:
             "Constant factor not defined: " +
                 std::string(
                     StdRegions::ConstFactorTypeMap[StdRegions::eFactorConst]));
+
+        NekDouble scale = m_factors[StdRegions::eFactorConst];
+
+        int shape_dimension = m_stdExp->GetShapeDimension();
+        m_outputSize        = m_numElmt; // initializing m_outputSize
+        for (int i = 0; i < shape_dimension; ++i)
+        {
+            m_outputSize *= (int)(m_stdExp->GetNumPoints(i) * scale);
+        }
     }
 
 protected:
@@ -93,7 +100,6 @@ protected:
         {
             scale = 1.5;
         }
-
         // expect input to be number of elements by the number of quad points
         m_inputSize = m_numElmt * m_stdExp->GetTotPoints();
         // expect input to be number of elements by the number of quad points
@@ -104,94 +110,22 @@ protected:
             m_outputSize *= (int)(m_stdExp->GetNumPoints(i) * scale);
         }
     }
+
     StdRegions::FactorMap
         m_factors; // map for storing the scaling factor of the operator
 };
 
 /**
- * @brief PhysInterp1DScaled operator using standard matrix approach. Currently,
- * it is an identical copy of the BwdTrans operator.
+ * @brief PhysInterp1DScaled operator using matrix free implementation.
  */
-
-class PhysInterp1DScaled_StdMat final : virtual public Operator,
-                                        PhysInterp1DScaled_Helper
-{
-public:
-    OPERATOR_CREATE(PhysInterp1DScaled_StdMat)
-    ~PhysInterp1DScaled_StdMat() final
-    {
-    }
-
-    void operator()(const Array<OneD, const NekDouble> &input,
-                    Array<OneD, NekDouble> &output,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output1,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output2,
-                    [[maybe_unused]] Array<OneD, NekDouble> &wsp) override
-    {
-        Blas::Dgemm('N', 'N', m_mat->GetRows(), m_numElmt, m_mat->GetColumns(),
-                    1.0, m_mat->GetRawPtr(), m_mat->GetRows(), input.get(),
-                    m_stdExp->GetNcoeffs(), 0.0, output.get(),
-                    m_stdExp->GetTotPoints());
-    }
-
-    void operator()([[maybe_unused]] int dir,
-                    [[maybe_unused]] const Array<OneD, const NekDouble> &input,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output,
-                    [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
-    void UpdateFactors(StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        if (factors == m_factors)
-        {
-            return;
-        }
-
-        m_factors = factors;
-
-        // Set scaling factor for the PhysInterp1DScaled function
-        [[maybe_unused]] auto x = factors.find(StdRegions::eFactorConst);
-        ASSERTL1(
-            x != factors.end(),
-            "Constant factor not defined: " +
-                std::string(
-                    StdRegions::ConstFactorTypeMap[StdRegions::eFactorConst]));
-    }
-
-protected:
-    DNekMatSharedPtr m_mat;
-    StdRegions::FactorMap m_factors; // Initially, PhysInterp1DScaled was taking
-                                     // as input a single scaling factor
-    // This single scaling factor will be expressed into a matrix where each
-    // element has the same value so that matrix - vector multiplication
-    // optimization by BLAS is implemented
-
-private:
-    PhysInterp1DScaled_StdMat(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
-        CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
-        : Operator(pCollExp, pGeomData, factors), PhysInterp1DScaled_Helper()
-    {
-    }
-};
-
-/**
- * @brief PhysInterp1DScaled operator using matrix free operators.
- */
-
 class PhysInterp1DScaled_MatrixFree final : virtual public Operator,
-                                            MatrixFreeOneInOneOut,
+                                            MatrixFreeBase,
                                             PhysInterp1DScaled_Helper
 {
 public:
     OPERATOR_CREATE(PhysInterp1DScaled_MatrixFree)
 
-    ~PhysInterp1DScaled_MatrixFree() final
-    {
-    }
+    ~PhysInterp1DScaled_MatrixFree() final = default;
 
     void operator()(const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output0,
@@ -199,19 +133,7 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &output2,
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
-        if (m_isPadded)
-        {
-            // copy into padded vector
-            Vmath::Vcopy(m_nIn, input, 1, m_input, 1);
-            // call op
-            (*m_oper)(m_input, m_output);
-            // copy out of padded vector
-            Vmath::Vcopy(m_nOut, m_output, 1, output0, 1);
-        }
-        else
-        {
-            (*m_oper)(input, output0);
-        }
+        (*m_oper)(input, output0);
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -220,13 +142,37 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal,
-                 "BwdTrans_MatrixFree: Not valid for this operator.");
+                 "PhysInterp1DScaled_MatrixFree: Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors) override
     {
-        ASSERTL0(false, "Not valid for this operator.");
+
+        // Set lambda for this call
+        auto x = factors.find(StdRegions::eFactorConst);
+        ASSERTL1(
+            x != factors.end(),
+            "Constant factor not defined: " +
+                std::string(
+                    StdRegions::ConstFactorTypeMap[StdRegions::eFactorConst]));
+        // Update the factors member inside PhysInterp1DScaled_MatrixFree
+        // class
+        m_factors = factors;
+
+        const auto dim = m_stdExp->GetShapeDimension();
+
+        // Definition of basis vector
+        std::vector<LibUtilities::BasisSharedPtr> basis(dim);
+        for (unsigned int i = 0; i < dim; ++i)
+        {
+            basis[i] = m_stdExp->GetBasis(i);
+        }
+
+        // Update the scaling factor inside MatrixFreeOps using the SetLamda
+        // routine
+        m_oper->SetScalingFactor(x->second);
+        m_oper->SetUpInterp1D(basis, m_factors[StdRegions::eFactorConst]);
+        m_nOut = m_nElmtPad * m_outputSize / m_numElmt;
     }
 
 private:
@@ -236,15 +182,16 @@ private:
         vector<StdRegions::StdExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeOneInOneOut(pCollExp[0]->GetStdExp()->GetNcoeffs(),
-                                pCollExp[0]->GetStdExp()->GetTotPoints(),
-                                pCollExp.size()),
+          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
+                         pCollExp[0]->GetStdExp()->GetTotPoints(),
+                         pCollExp.size()),
           PhysInterp1DScaled_Helper()
     {
-        // Basis vector.
         const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+
+        // Definition of basis vector
         std::vector<LibUtilities::BasisSharedPtr> basis(dim);
-        for (auto i = 0; i < dim; ++i)
+        for (unsigned int i = 0; i < dim; ++i)
         {
             basis[i] = pCollExp[0]->GetBasis(i);
         }
@@ -256,72 +203,74 @@ private:
         std::string op_string = "PhysInterp1DScaled";
         op_string += MatrixFree::GetOpstring(shapeType, false);
         auto oper = MatrixFree::GetOperatorFactory().CreateInstance(
-            op_string, basis, m_nElmtPad);
+            op_string, basis, pCollExp.size());
 
         m_oper =
             std::dynamic_pointer_cast<MatrixFree::PhysInterp1DScaled>(oper);
         ASSERTL0(m_oper, "Failed to cast pointer.");
+
+        NekDouble scale; // declaration of the scaling factor to be used for the
+                         // output size
+        if (factors[StdRegions::eFactorConst] != 0)
+        {
+            m_factors = factors;
+            scale     = m_factors[StdRegions::eFactorConst];
+        }
+        else
+        {
+            scale                               = 1.5;
+            m_factors[StdRegions::eFactorConst] = 1.5;
+        }
+        // Update the scaling factor inside MatrixFreeOps using the SetLamda
+        // routine
+        m_oper->SetScalingFactor(scale);
+        m_oper->SetUpInterp1D(basis, scale);
+        m_nOut = m_nElmtPad * m_outputSize / m_numElmt;
     }
 };
 
-/**
- * @brief PhysInterp1DScaled operator using default StdRegions operator
- */
-
-class PhysInterp1DScaled_IterPerExp final : virtual public Operator,
-                                            PhysInterp1DScaled_Helper
-{
-public:
-    OPERATOR_CREATE(PhysInterp1DScaled_IterPerExp)
-
-    ~PhysInterp1DScaled_IterPerExp() final
-    {
-    }
-
-    void operator()(const Array<OneD, const NekDouble> &input,
-                    Array<OneD, NekDouble> &output,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output1,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output2,
-                    [[maybe_unused]] Array<OneD, NekDouble> &wsp) override
-    {
-        const int nCoeffs = m_stdExp->GetNcoeffs();
-        const int nPhys   = m_stdExp->GetTotPoints();
-        Array<OneD, NekDouble> tmp;
-
-        for (int i = 0; i < m_numElmt; ++i)
-        {
-            m_stdExp->BwdTrans(input + i * nCoeffs, tmp = output + i * nPhys);
-        }
-    }
-
-    void operator()([[maybe_unused]] int dir,
-                    [[maybe_unused]] const Array<OneD, const NekDouble> &input,
-                    [[maybe_unused]] Array<OneD, NekDouble> &output,
-                    [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        m_factors = factors;
-    }
-
-protected:
-    StdRegions::FactorMap m_factors; // Initially, PhysInterp1DScaled was taking
-                                     // as input a single scaling factor
-    // This single scaling factor will be expressed into a matrix where each
-    // element has the same value so that matrix - vector multiplication
-    // optimization by BLAS is implemented
-
-private:
-    PhysInterp1DScaled_IterPerExp(
-        vector<StdRegions::StdExpansionSharedPtr> pCollExp,
-        CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
-        : Operator(pCollExp, pGeomData, factors), PhysInterp1DScaled_Helper()
-    {
-    }
+/// Factory initialisation for the PhysInterp1DScaled_MatrixFree operators
+OperatorKey PhysInterp1DScaled_MatrixFree::m_typeArr[] = {
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eSegment, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Seg"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eTriangle, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Tri"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eTriangle, ePhysInterp1DScaled, eMatrixFree, true),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_NodalTri"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eQuadrilateral, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Quad"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eTetrahedron, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Tet"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eTetrahedron, ePhysInterp1DScaled, eMatrixFree, true),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_NodalTet"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(ePyramid, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Pyr"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(ePrism, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_Prism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(ePrism, ePhysInterp1DScaled, eMatrixFree, true),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_MatrixFree_NodalPrism"),
+    GetOperatorFactory().RegisterCreatorFunction(
+        OperatorKey(eHexahedron, ePhysInterp1DScaled, eMatrixFree, false),
+        PhysInterp1DScaled_MatrixFree::create,
+        "PhysInterp1DScaled_NoCollection_Hex"),
 };
 
 /**
@@ -356,17 +305,18 @@ public:
                 // same for each element inside a single collection
                 int pt0  = m_expList[0]->GetNumPoints(0);
                 int npt0 = (int)pt0 * scale;
+                // current points key - use first entry
+                LibUtilities::PointsKey PointsKey0(
+                    pt0, m_expList[0]->GetPointsType(0));
+                // get new points key
+                LibUtilities::PointsKey newPointsKey0(
+                    npt0, m_expList[0]->GetPointsType(0));
+                // Interpolate points;
+                I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
+                    newPointsKey0);
+
                 for (int i = 0; i < m_numElmt; ++i)
                 {
-                    // current points key
-                    LibUtilities::PointsKey PointsKey0(
-                        pt0, m_expList[i]->GetPointsType(0));
-                    // get new points key
-                    LibUtilities::PointsKey newPointsKey0(
-                        npt0, m_expList[i]->GetPointsType(0));
-                    // Interpolate points;
-                    I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
-                        newPointsKey0);
 
                     Blas::Dgemv('N', npt0, pt0, 1.0, I0->GetPtr().get(), npt0,
                                 &input[cnt], 1, 0.0, &output[cnt1], 1);
@@ -387,25 +337,25 @@ public:
                 // workspace declaration
                 Array<OneD, NekDouble> wsp(npt1 * pt0); // fnp0*tnp1
 
+                // current points key - using first entry
+                LibUtilities::PointsKey PointsKey0(
+                    pt0, m_expList[0]->GetPointsType(0));
+                LibUtilities::PointsKey PointsKey1(
+                    pt1, m_expList[0]->GetPointsType(1));
+                // get new points key
+                LibUtilities::PointsKey newPointsKey0(
+                    npt0, m_expList[0]->GetPointsType(0));
+                LibUtilities::PointsKey newPointsKey1(
+                    npt1, m_expList[0]->GetPointsType(1));
+
+                // Interpolate points;
+                I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
+                    newPointsKey0);
+                I1 = LibUtilities::PointsManager()[PointsKey1]->GetI(
+                    newPointsKey1);
+
                 for (int i = 0; i < m_numElmt; ++i)
                 {
-                    // current points key
-                    LibUtilities::PointsKey PointsKey0(
-                        pt0, m_expList[i]->GetPointsType(0));
-                    LibUtilities::PointsKey PointsKey1(
-                        pt1, m_expList[i]->GetPointsType(1));
-                    // get new points key
-                    LibUtilities::PointsKey newPointsKey0(
-                        npt0, m_expList[i]->GetPointsType(0));
-                    LibUtilities::PointsKey newPointsKey1(
-                        npt1, m_expList[i]->GetPointsType(1));
-
-                    // Interpolate points;
-                    I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
-                        newPointsKey0);
-                    I1 = LibUtilities::PointsManager()[PointsKey1]->GetI(
-                        newPointsKey1);
-
                     Blas::Dgemm('N', 'T', pt0, npt1, pt1, 1.0, &input[cnt], pt0,
                                 I1->GetPtr().get(), npt1, 0.0, wsp.get(), pt0);
 
@@ -431,30 +381,30 @@ public:
                 Array<OneD, NekDouble> wsp1(npt0 * npt1 * pt2);
                 Array<OneD, NekDouble> wsp2(npt0 * pt1 * pt2);
 
+                // current points key
+                LibUtilities::PointsKey PointsKey0(
+                    pt0, m_expList[0]->GetPointsType(0));
+                LibUtilities::PointsKey PointsKey1(
+                    pt1, m_expList[0]->GetPointsType(1));
+                LibUtilities::PointsKey PointsKey2(
+                    pt2, m_expList[0]->GetPointsType(2));
+                // get new points key
+                LibUtilities::PointsKey newPointsKey0(
+                    npt0, m_expList[0]->GetPointsType(0));
+                LibUtilities::PointsKey newPointsKey1(
+                    npt1, m_expList[0]->GetPointsType(1));
+                LibUtilities::PointsKey newPointsKey2(
+                    npt2, m_expList[0]->GetPointsType(2));
+
+                I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
+                    newPointsKey0);
+                I1 = LibUtilities::PointsManager()[PointsKey1]->GetI(
+                    newPointsKey1);
+                I2 = LibUtilities::PointsManager()[PointsKey2]->GetI(
+                    newPointsKey2);
+
                 for (int i = 0; i < m_numElmt; ++i)
                 {
-                    // current points key
-                    LibUtilities::PointsKey PointsKey0(
-                        pt0, m_expList[i]->GetPointsType(0));
-                    LibUtilities::PointsKey PointsKey1(
-                        pt1, m_expList[i]->GetPointsType(1));
-                    LibUtilities::PointsKey PointsKey2(
-                        pt2, m_expList[i]->GetPointsType(2));
-                    // get new points key
-                    LibUtilities::PointsKey newPointsKey0(
-                        npt0, m_expList[i]->GetPointsType(0));
-                    LibUtilities::PointsKey newPointsKey1(
-                        npt1, m_expList[i]->GetPointsType(1));
-                    LibUtilities::PointsKey newPointsKey2(
-                        npt2, m_expList[i]->GetPointsType(2));
-
-                    I0 = LibUtilities::PointsManager()[PointsKey0]->GetI(
-                        newPointsKey0);
-                    I1 = LibUtilities::PointsManager()[PointsKey1]->GetI(
-                        newPointsKey1);
-                    I2 = LibUtilities::PointsManager()[PointsKey2]->GetI(
-                        newPointsKey2);
-
                     // Interpolate points
                     Blas::Dgemm('N', 'N', npt0, pt1 * pt2, pt0, 1.0,
                                 I0->GetPtr().get(), npt0, &input[cnt], pt0, 0.0,
@@ -493,20 +443,11 @@ public:
         ASSERTL0(false, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
+    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors) override
     {
-        PhysInterp1DScaled_Helper::UpdateFactors(factors, coll_phys_offset);
+        PhysInterp1DScaled_Helper::UpdateFactors(factors);
         m_factors = factors;
     }
-
-protected:
-    vector<StdRegions::StdExpansionSharedPtr> m_expList;
-    StdRegions::FactorMap m_factors; // Initially, PhysInterp1DScaled was taking
-                                     // as input a single scaling factor
-    // This single scaling factor will be expressed into a matrix where each
-    // element has the same value so that matrix - vector multiplication
-    // optimization by BLAS is implemented
 
 private:
     PhysInterp1DScaled_NoCollection(
@@ -517,6 +458,9 @@ private:
         m_expList = pCollExp;
         m_factors = factors;
     }
+
+    StdRegions::FactorMap m_factors;
+    vector<StdRegions::StdExpansionSharedPtr> m_expList;
 };
 
 /// Factory initialisation for the PhysInterp1DScaled_NoCollection operators

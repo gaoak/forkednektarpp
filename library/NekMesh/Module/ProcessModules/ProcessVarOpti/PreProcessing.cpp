@@ -37,6 +37,8 @@
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LibUtilities/Foundations/NodalUtil.h>
 
+#include <LibUtilities/BasicUtils/ParseUtils.h>
+
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
@@ -205,6 +207,14 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::GetColouredNodes(
             for (auto &edge : m_mesh->m_edgeSet)
             {
                 if (edge->m_elLink.size() == 2)
+                {
+                    continue;
+                }
+
+                // Keep the nodes with 1 CAD Curve to the optimizable(movable)
+                // set
+                if (edge->m_n1->GetCADCurves().size() == 1 &&
+                    edge->m_n2->GetCADCurves().size() == 1)
                 {
                     continue;
                 }
@@ -508,6 +518,41 @@ vector<vector<NodeSharedPtr>> ProcessVarOpti::CreateColoursets(
 void ProcessVarOpti::GetElementMap(
     int o, map<LibUtilities::ShapeType, DerivUtilSharedPtr> derMap)
 {
+    // Build the bounding boxes around each CAD curve when r-adaption on CAD
+    // curves is set.
+    m_radaptCAD = (m_config["radaptcurves"].beenSet);
+    if (m_radaptCAD)
+    {
+        NekDouble radaptrad = (m_config["radaptrad"].as<NekDouble>() > 0.0)
+                                  ? m_config["radaptrad"].as<NekDouble>() * 1.5
+                                  : 0.0;
+        std::vector<unsigned int> curveIds;
+        Node curve_min;
+        Node curve_max;
+        ParseUtils::GenerateSeqVector(
+            m_config["radaptcurves"].as<std::string>().c_str(), curveIds);
+        for (auto Id : curveIds)
+        {
+            auto locs     = m_mesh->m_cad->GetCurve(Id)->GetMinMax();
+            curve_min.m_x = (locs[0] <= locs[3]) ? locs[0] - radaptrad
+                                                 : locs[3] - radaptrad;
+            curve_max.m_x =
+                (locs[0] > locs[3]) ? locs[0] + radaptrad : locs[3] + radaptrad;
+            curve_min.m_y = (locs[1] <= locs[4]) ? locs[1] - radaptrad
+                                                 : locs[4] - radaptrad;
+            curve_max.m_y =
+                (locs[1] > locs[4]) ? locs[1] + radaptrad : locs[4] + radaptrad;
+            curve_min.m_z = (locs[2] <= locs[5]) ? locs[2] - radaptrad
+                                                 : locs[5] - radaptrad;
+            curve_max.m_z =
+                (locs[2] > locs[5]) ? locs[2] + radaptrad : locs[5] + radaptrad;
+
+            m_adaptCurves.push_back(
+                std::make_pair(m_mesh->m_cad->GetCurve(Id),
+                               std::make_pair(curve_min, curve_max)));
+        }
+    }
+
     for (int i = 0; i < m_mesh->m_element[m_mesh->m_expDim].size(); i++)
     {
         ElementSharedPtr el = m_mesh->m_element[m_mesh->m_expDim][i];
@@ -516,6 +561,17 @@ void ProcessVarOpti::GetElementMap(
         ElUtilSharedPtr d = std::shared_ptr<ElUtil>(new ElUtil(
             el, derMap[el->GetShapeType()], m_res, m_mesh->m_nummode, o));
         m_dataSet.push_back(d);
+
+        if (m_radaptCAD) // Initial r-adaption on CAD curve step.
+        {
+            bool update = m_dataSet.back()->PreUpdateMapping(
+                m_adaptCurves, m_config["radaptscale"].as<NekDouble>(),
+                m_config["radaptrad"].as<NekDouble>());
+            if (update)
+            {
+                m_dataSet.back()->UpdateMapping();
+            }
+        }
     }
 
     if (m_config["scalingfile"].beenSet)
@@ -720,9 +776,9 @@ LibUtilities::Interpolator ProcessVarOpti::GetScalingFieldFromFile(string file)
         }
 
         vector<NekDouble> tmpD;
-        tmpD.push_back(boost::lexical_cast<NekDouble>(tmp[0])); // x
-        tmpD.push_back(boost::lexical_cast<NekDouble>(tmp[1])); // y
-        tmpD.push_back(boost::lexical_cast<NekDouble>(tmp[3])); // scaling
+        tmpD.push_back(std::stod(tmp[0])); // x
+        tmpD.push_back(std::stod(tmp[1])); // y
+        tmpD.push_back(std::stod(tmp[3])); // scaling
 
         data.push_back(tmpD);
     }

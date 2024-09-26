@@ -80,8 +80,6 @@ void PreconditionerLowEnergy::v_InitObject()
     std::shared_ptr<MultiRegions::ExpList> expList =
         ((m_linsys.lock())->GetLocMat()).lock();
 
-    m_comm = expList->GetComm();
-
     LocalRegions::ExpansionSharedPtr locExpansion;
 
     locExpansion = expList->GetExp(0);
@@ -120,6 +118,8 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
         ((m_linsys.lock())->GetLocMat()).lock();
     LocalRegions::Expansion3DSharedPtr locExpansion;
     GlobalLinSysKey linSysKey = (m_linsys.lock())->GetKey();
+
+    LibUtilities::CommSharedPtr vComm = expList->GetComm()->GetSpaceComm();
 
     int i, j, k;
     int nVerts, nEdges, nFaces;
@@ -287,7 +287,7 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
 
     // For parallel runs need to check have minimum of edges and faces over
     // partition boundaries
-    if (m_comm->GetSize() > 1)
+    if (vComm->GetSize() > 1)
     {
         int EdgeSizeLen = EdgeSize.size();
         int FaceSizeLen = FaceSize.size();
@@ -306,7 +306,7 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
         }
         maxid++;
 
-        m_comm->AllReduce(maxid, ReduceMax);
+        vComm->AllReduce(maxid, ReduceMax);
 
         for (it = FaceSize.begin(); it != FaceSize.end(); ++it, ++cnt)
         {
@@ -315,8 +315,9 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
         }
 
         // Exchange vertex data over different processes
-        Gs::gs_data *tmp = Gs::Init(FacetMap, m_comm, verbose);
+        Gs::gs_data *tmp = Gs::Init(FacetMap, vComm, verbose);
         Gs::Gather(FacetLen, Gs::gs_min, tmp);
+        Gs::Free(tmp);
 
         cnt = 0;
         for (it = EdgeSize.begin(); it != EdgeSize.end(); ++it, ++cnt)
@@ -486,8 +487,8 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
         }
     }
 
-    m_comm->AllReduce(maxEdgeDof, ReduceMax);
-    m_comm->AllReduce(maxFaceDof, ReduceMax);
+    vComm->AllReduce(maxEdgeDof, ReduceMax);
+    vComm->AllReduce(maxFaceDof, ReduceMax);
 
     // Allocate arrays for block to universal map (number of expansions * p^2)
     Array<OneD, long> BlockToUniversalMap(ntotalentries, -1);
@@ -517,7 +518,7 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
     }
     uniEdgeOffset++;
 
-    m_comm->AllReduce(uniEdgeOffset, ReduceMax);
+    vComm->AllReduce(uniEdgeOffset, ReduceMax);
     uniEdgeOffset = uniEdgeOffset * maxEdgeDof * maxEdgeDof;
 
     for (n = 0; n < n_exp; ++n)
@@ -839,8 +840,9 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
     }
 
     // Exchange vertex data over different processes
-    Gs::gs_data *tmp = Gs::Init(VertBlockToUniversalMap, m_comm, verbose);
+    Gs::gs_data *tmp = Gs::Init(VertBlockToUniversalMap, vComm, verbose);
     Gs::Gather(vertArray, Gs::gs_add, tmp);
+    Gs::Free(tmp);
 
     Array<OneD, NekDouble> GlobalBlock(ntotalentries, 0.0);
     if (ntotalentries)
@@ -851,8 +853,9 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
     }
 
     // Exchange edge & face data over different processes
-    Gs::gs_data *tmp1 = Gs::Init(BlockToUniversalMap, m_comm, verbose);
+    Gs::gs_data *tmp1 = Gs::Init(BlockToUniversalMap, vComm, verbose);
     Gs::Gather(GlobalBlock, Gs::gs_add, tmp1);
+    Gs::Free(tmp1);
 
     // Populate vertex block
     for (int i = 0; i < nNonDirVerts; ++i)
@@ -872,7 +875,7 @@ void PreconditionerLowEnergy::v_BuildPreconditioner()
     {
         nmodes = n_blks[1 + loc];
         gmat   = MemoryManager<DNekMat>::AllocateSharedPtr(nmodes, nmodes, zero,
-                                                         storage);
+                                                           storage);
 
         for (v = 0; v < nmodes; ++v)
         {
@@ -1626,6 +1629,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         ((m_linsys.lock())->GetLocMat()).lock();
     GlobalLinSysKey linSysKey = (m_linsys.lock())->GetKey();
 
+    LibUtilities::CommSharedPtr vComm = expList->GetComm()->GetSpaceComm();
+
     LocalRegions::ExpansionSharedPtr locExp;
 
     // face maps for pyramid and hybrid meshes - not need to return.
@@ -1646,8 +1651,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         Shapes[locExp->DetShapeType()] = 1;
     }
 
-    m_comm->AllReduce(nummodesmax, ReduceMax);
-    m_comm->AllReduce(Shapes, ReduceMax);
+    vComm->AllReduce(nummodesmax, ReduceMax);
+    vComm->AllReduce(Shapes, ReduceMax);
 
     if (Shapes[ePyramid] || Shapes[ePrism]) // if Pyramids or Prisms used then
                                             // need Tet and Hex expansion
@@ -1704,6 +1709,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::MatrixKey HexR(PreconR, eHexahedron, *HexExp,
                                      linSysKey.GetConstFactors());
         maxRmat[eHexahedron] = HexExp->GetLocMatrix(HexR);
+        HexExp->DropLocMatrix(HexR); // Need to delete reference from manager
     }
 
     if (Shapes[eTetrahedron])
@@ -1734,6 +1740,7 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
         LocalRegions::MatrixKey TetR(PreconR, eTetrahedron, *TetExp,
                                      linSysKey.GetConstFactors());
         maxRmat[eTetrahedron] = TetExp->GetLocMatrix(TetR);
+        TetExp->DropLocMatrix(TetR); // Need to delete reference from manager
 
         if ((Shapes[ePyramid]) || (Shapes[eHexahedron]))
         {
@@ -1812,6 +1819,8 @@ void PreconditionerLowEnergy::SetUpReferenceElements(
             LocalRegions::MatrixKey PrismR(PreconR, ePrism, *PrismExp,
                                            linSysKey.GetConstFactors());
             maxRmat[ePrism] = PrismExp->GetLocMatrix(PrismR);
+            PrismExp->DropLocMatrix(
+                PrismR); // Need to delete reference from manager
 
             if (Shapes[eTetrahedron]) // reset triangular faces from Tet
             {
@@ -2075,9 +2084,9 @@ void PreconditionerLowEnergy::ReSetPrismMaxRMat(
 
         // Reset vertex to edge mapping from tet.
         const int VETetVert[][2]   = {{0, 0}, {1, 1}, {1, 1},
-                                    {0, 0}, {3, 3}, {3, 3}};
+                                      {0, 0}, {3, 3}, {3, 3}};
         const int VETetEdge[][2]   = {{0, 3}, {0, 4}, {0, 4},
-                                    {0, 3}, {3, 4}, {4, 3}};
+                                      {0, 3}, {3, 4}, {4, 3}};
         const int VEPrismEdge[][2] = {{0, 4}, {0, 5}, {2, 6},
                                       {2, 7}, {4, 5}, {6, 7}};
 
@@ -2116,9 +2125,9 @@ void PreconditionerLowEnergy::ReSetPrismMaxRMat(
         // followed by the hex edge to use for each prism edge
         // in the vert-edge map (VEEdge)
         const int VEHexVert[][3]   = {{0, 0, 0}, {1, 1, 1}, {2, 2, 2},
-                                    {3, 3, 3}, {4, 5, 5}, {6, 7, 7}};
+                                      {3, 3, 3}, {4, 5, 5}, {6, 7, 7}};
         const int VEHexEdge[][3]   = {{0, 3, 4}, {0, 1, 5}, {1, 2, 6},
-                                    {2, 3, 7}, {4, 5, 9}, {6, 7, 11}};
+                                      {2, 3, 7}, {4, 5, 9}, {6, 7, 11}};
         const int VEPrismEdge[][3] = {{0, 3, 4}, {0, 1, 5}, {1, 2, 6},
                                       {2, 3, 7}, {4, 5, 8}, {6, 7, 8}};
 

@@ -575,8 +575,8 @@ void DriverSteadyState::ReadEVfile(int &KrylovSubspaceDim, NekDouble &growthEV,
         ASSERTL0(tokens.size() >= 5,
                  "Unexpected formatting of .evl file while reading line:\n" +
                      line);
-        growthEV    = boost::lexical_cast<NekDouble>(tokens[4]);
-        frequencyEV = boost::lexical_cast<NekDouble>(tokens[5]);
+        growthEV    = std::stod(tokens[4]);
+        frequencyEV = std::stod(tokens[5]);
     }
     else
     {

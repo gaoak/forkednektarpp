@@ -92,8 +92,8 @@ void Bidomain::v_InitObject(bool DeclareField)
                                                 StdRegions::eVarCoeffD11,
                                                 StdRegions::eVarCoeffD22};
     std::string varName[3]                   = {"AnisotropicConductivityX",
-                              "AnisotropicConductivityY",
-                              "AnisotropicConductivityZ"};
+                                                "AnisotropicConductivityY",
+                                                "AnisotropicConductivityZ"};
 
     if (m_session->DefinesFunction("IntracellularConductivity") &&
         m_session->DefinesFunction("ExtracellularConductivity"))

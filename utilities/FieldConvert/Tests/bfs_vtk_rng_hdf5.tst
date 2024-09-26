@@ -2,7 +2,7 @@
 <test>
     <description> Process 2D vtk output with a range restriction, with hdf5 input files</description>
     <executable>FieldConvert</executable>
-    <parameters> -f -r -1,1,-1,1 -e bfs_tg_hdf5.xml bfs_tg_hdf5.fld bfs_tg_hdf5_rng.vtu</parameters>
+    <parameters> -f  -e bfs_tg_hdf5.xml:xml:range="-1,1,-1,1" bfs_tg_hdf5.fld bfs_tg_hdf5_rng.vtu</parameters>
     <files>
 	<file description="Mesh File">bfs_tg_hdf5.xml</file>
 	<file description="Mesh File">bfs_tg_hdf5.nekg</file>

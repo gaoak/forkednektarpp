@@ -36,6 +36,7 @@
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 #include <MultiRegions/ContField.h>
 #include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <iomanip>
 #include <iostream>
 
@@ -44,45 +45,43 @@ using namespace Nektar;
 
 // Custom MeshGraph class for programatically creating the mesh instead of
 // reading from session.
-class StructuredMeshGraph : public SpatialDomains::MeshGraph
+class CustomMeshGraphIO : public SpatialDomains::MeshGraphIO
 {
 public:
-    StructuredMeshGraph(NekDouble a, NekDouble b, int nx, int nmodesx)
-        : MeshGraph(), m_a(a), m_b(b), m_nx(nx), m_nmodesx(nmodesx)
+    CustomMeshGraphIO(NekDouble a, NekDouble b, int nx, int nmodesx)
+        : MeshGraphIO(), m_a(a), m_b(b), m_nx(nx), m_nmodesx(nmodesx)
     {
-        m_meshDimension  = 1;
-        m_spaceDimension = 1;
+        m_meshGraph =
+            MemoryManager<SpatialDomains::MeshGraph>::AllocateSharedPtr();
     }
 
-protected:
-    /// storage for endpoints
-    NekDouble m_a, m_b;
-    /// number of elements in x direction
-    int m_nx;
-    /// number of modes in x direction
-    int m_nmodesx;
-
-    // Taking inspiration from MeshGraphHDF5::v_ReadGeometry
-    void v_ReadGeometry([[maybe_unused]] LibUtilities::DomainRangeShPtr rng,
-                        [[maybe_unused]] bool fillGraph) override
+    SpatialDomains::MeshGraphSharedPtr CreateGeometry(
+        [[maybe_unused]] LibUtilities::DomainRangeShPtr rng,
+        [[maybe_unused]] bool fillGraph)
     {
+        int meshDimension  = 1;
+        int spaceDimension = 1;
+        m_meshGraph->SetMeshDimension(meshDimension);
+        m_meshGraph->SetSpaceDimension(spaceDimension);
+
         // Create a bunch of point geometries
+        auto &vertSet = m_meshGraph->GetAllPointGeoms();
         for (int i = 0; i < m_nx + 1; ++i)
         {
-            m_vertSet[i] =
+            vertSet[i] =
                 MemoryManager<SpatialDomains::PointGeom>::AllocateSharedPtr(
-                    m_spaceDimension, i, m_a + i * (m_b - m_a) / m_nx, 0.0,
-                    0.0);
+                    spaceDimension, i, m_a + i * (m_b - m_a) / m_nx, 0.0, 0.0);
         }
 
+        auto &segGeoms = m_meshGraph->GetAllSegGeoms();
         // Create a bunch of segment geometries
         for (int i = 0; i < m_nx; ++i)
         {
-            SpatialDomains::PointGeomSharedPtr pts[2] = {m_vertSet[i],
-                                                         m_vertSet[i + 1]};
-            m_segGeoms[i] =
+            SpatialDomains::PointGeomSharedPtr pts[2] = {vertSet[i],
+                                                         vertSet[i + 1]};
+            segGeoms[i] =
                 MemoryManager<SpatialDomains::SegGeom>::AllocateSharedPtr(
-                    i, m_spaceDimension, pts);
+                    i, spaceDimension, pts);
         }
 
         // Set up a composite for the domain, like ReadComposites() followed by
@@ -91,10 +90,12 @@ protected:
             MemoryManager<SpatialDomains::Composite>::AllocateSharedPtr();
         for (int i = 0; i < m_nx; ++i)
         {
-            comp->m_geomVec.push_back(m_segGeoms[i]);
+            comp->m_geomVec.push_back(segGeoms[i]);
         }
-        m_meshComposites[0] = comp;
-        m_domain[0]         = m_meshComposites;
+        auto &meshComposites = m_meshGraph->GetComposites();
+        meshComposites[0]    = comp;
+        auto &domain         = m_meshGraph->GetDomain();
+        domain[0]            = meshComposites;
 
         // Instead of MeshGraph::ReadExpansionInfo() in MeshGraph::FillGraph(),
         // we set expansion info here:
@@ -118,16 +119,32 @@ protected:
             MemoryManager<LibUtilities::FieldDefinitions>::AllocateSharedPtr(
                 arg_shapeType, arg_elementIDs, arg_basis, arg_uniOrder,
                 arg_numModes, arg_fields));
-        SetExpansionInfo(fielddefs);
+        m_meshGraph->SetExpansionInfo(fielddefs);
 
         // 1D case from MeshGraph::FillGraph()
-        for (auto &x : m_segGeoms)
+        for (auto &x : segGeoms)
         {
             x.second->Setup();
         }
+
+        return m_meshGraph;
     }
 
-    // v_WriteGeometry and v_PartitionMesh should not be used by this class
+protected:
+    /// storage for endpoints
+    NekDouble m_a, m_b;
+    /// number of elements in x direction
+    int m_nx;
+    /// number of modes in x direction
+    int m_nmodesx;
+
+    // v_ReadGeometry, v_WriteGeometry and v_PartitionMesh should not be used by
+    // this class
+    void v_ReadGeometry([[maybe_unused]] LibUtilities::DomainRangeShPtr rng,
+                        [[maybe_unused]] bool fillGraph) override
+    {
+        NEKERROR(ErrorUtil::efatal, "Not implemented.");
+    }
     void v_WriteGeometry(
         [[maybe_unused]] const string &outfilename,
         [[maybe_unused]] bool defaultExp = false,
@@ -259,9 +276,10 @@ int main(int argc, char **argv)
     for (int i = 0; i < numRuns; ++i)
     {
         // Generate the mesh.
-        auto graph = MemoryManager<StructuredMeshGraph>::AllocateSharedPtr(
+        auto graphIO = MemoryManager<CustomMeshGraphIO>::AllocateSharedPtr(
             leftBound, rightBound, numSegmentsVec[i], numModes);
-        graph->ReadGeometry(LibUtilities::NullDomainRangeShPtr, false);
+        SpatialDomains::MeshGraphSharedPtr graph =
+            graphIO->CreateGeometry(LibUtilities::NullDomainRangeShPtr, false);
 
         if (i == 0)
         {

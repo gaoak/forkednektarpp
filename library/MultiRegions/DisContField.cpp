@@ -141,7 +141,7 @@ DisContField::DisContField(const LibUtilities::SessionReaderSharedPtr &pSession,
             if ((ProjectStr == "MixedCGDG") ||
                 (ProjectStr == "Mixed_CG_Discontinuous"))
             {
-                SetUpDG();
+                SetUpDG(variable);
             }
             else
             {
@@ -719,7 +719,7 @@ DisContField::DisContField(const DisContField &In,
                     if ((ProjectStr == "MixedCGDG") ||
                         (ProjectStr == "Mixed_CG_Discontinuous"))
                     {
-                        SetUpDG();
+                        SetUpDG(variable);
                     }
                     else
                     {
@@ -1655,8 +1655,7 @@ void DisContField::FindPeriodicTraces(
                         {
                             try
                             {
-                                RotInfo.m_tol =
-                                    boost::lexical_cast<NekDouble>(tmpstr[3]);
+                                RotInfo.m_tol = std::stod(tmpstr[3]);
                             }
                             catch (...)
                             {
@@ -2818,6 +2817,11 @@ AssemblyMapDGSharedPtr &DisContField::v_GetTraceMap(void)
     return m_traceMap;
 }
 
+InterfaceMapDGSharedPtr &DisContField::v_GetInterfaceMap(void)
+{
+    return m_interfaceMap;
+}
+
 const LocTraceToTraceMapSharedPtr &DisContField::v_GetLocTraceToTraceMap(
     void) const
 {
@@ -2832,14 +2836,14 @@ std::vector<bool> &DisContField::v_GetLeftAdjacentTraces(void)
     return m_leftAdjacentTraces;
 }
 
-const Array<OneD, const MultiRegions::ExpListSharedPtr>
-    &DisContField::v_GetBndCondExpansions()
+const Array<OneD, const MultiRegions::ExpListSharedPtr> &DisContField::
+    v_GetBndCondExpansions()
 {
     return m_bndCondExpansions;
 }
 
-const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-    &DisContField::v_GetBndConditions()
+const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &DisContField::
+    v_GetBndConditions()
 {
     return m_bndConditions;
 }
@@ -2849,8 +2853,8 @@ MultiRegions::ExpListSharedPtr &DisContField::v_UpdateBndCondExpansion(int i)
     return m_bndCondExpansions[i];
 }
 
-Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-    &DisContField::v_UpdateBndConditions()
+Array<OneD, SpatialDomains::BoundaryConditionShPtr> &DisContField::
+    v_UpdateBndConditions()
 {
     return m_bndConditions;
 }

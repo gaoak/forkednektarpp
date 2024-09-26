@@ -443,21 +443,21 @@ std::array<NekDouble, 6> Geometry::GetBoundingBox()
     {
         marginFactor = 0.1;
         const int nq = GetXmap()->GetTotPoints();
-        Array<OneD, Array<OneD, NekDouble>> x(3);
+        Array<OneD, Array<OneD, NekDouble>> xvec(3);
         for (int j = 0; j < 3; ++j)
         {
-            x[j] = Array<OneD, NekDouble>(nq, 0.0);
+            xvec[j] = Array<OneD, NekDouble>(nq, 0.0);
         }
         for (int j = 0; j < GetCoordim(); ++j)
         {
-            GetXmap()->BwdTrans(m_coeffs[j], x[j]);
+            GetXmap()->BwdTrans(m_coeffs[j], xvec[j]);
         }
         for (int j = 0; j < 3; ++j)
         {
             for (int i = 0; i < nq; ++i)
             {
-                min[j] = (x[j][i] < min[j] ? x[j][i] : min[j]);
-                max[j] = (x[j][i] > max[j] ? x[j][i] : max[j]);
+                min[j] = (xvec[j][i] < min[j] ? xvec[j][i] : min[j]);
+                max[j] = (xvec[j][i] > max[j] ? xvec[j][i] : max[j]);
             }
         }
     }

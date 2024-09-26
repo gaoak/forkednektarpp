@@ -175,8 +175,8 @@ void CsvIO::v_ImportPtsFieldData(const std::string inFile,
                 {
                     if (cnt == loc_coord[j])
                     {
-                        NekDouble CoordVal = boost::lexical_cast<NekDouble>(
-                            boost::trim_copy(std::string(it)));
+                        NekDouble CoordVal =
+                            std::stod(boost::trim_copy(std::string(it)));
                         switch (j)
                         {
                             case 0:
@@ -217,10 +217,10 @@ void CsvIO::v_ImportPtsFieldData(const std::string inFile,
             {
                 try
                 {
-                    ptsSerial.push_back(boost::lexical_cast<NekDouble>(
-                        boost::trim_copy(std::string(it))));
+                    ptsSerial.push_back(
+                        std::stod(boost::trim_copy(std::string(it))));
                 }
-                catch (const boost::bad_lexical_cast &)
+                catch (...)
                 {
                     NEKERROR(ErrorUtil::efatal,
                              "could not convert line: " + line);

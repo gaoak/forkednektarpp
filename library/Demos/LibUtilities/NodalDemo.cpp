@@ -261,9 +261,9 @@ int main(int argc, char *argv[])
             tmp[i] = Array<OneD, NekDouble>(1);
             try
             {
-                tmp[i][0] = boost::lexical_cast<NekDouble>(point[i]);
+                tmp[i][0] = std::stod(point[i]);
             }
-            catch (boost::bad_lexical_cast &)
+            catch (...)
             {
                 cerr << "Could not convert " << point[i] << " to a coordinate"
                      << endl;

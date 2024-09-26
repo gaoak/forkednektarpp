@@ -348,7 +348,7 @@ Code formatting is reasonably boring, so Nektar++ comes with a `.clang-format`
 file to allow for automatic code formatting.
 
 Installing it is straightforward on most package managers. Nektar++'s
-source code is formatted using **clang-format 11**.
+source code is formatted using **clang-format 16**.
 
 There are a number of instructions on how to use `clang-format` inside a number
 of text editors on the

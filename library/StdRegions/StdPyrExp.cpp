@@ -2025,16 +2025,16 @@ void StdPyrExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
             mkey.GetConstFactor(eFactorSVVPowerKerDiffCoeff) *
             mkey.GetConstFactor(eFactorSVVDiffCoeff);
 
-        for (int i = 0; i < nmodes_a; ++i)
+        for (i = 0; i < nmodes_a; ++i)
         {
-            for (int j = 0; j < nmodes_b; ++j)
+            for (j = 0; j < nmodes_b; ++j)
             {
                 int maxij      = max(i, j);
                 NekDouble fac1 = std::max(
                     pow((1.0 * i) / (nmodes_a - 1), cutoff * nmodes_a),
                     pow((1.0 * j) / (nmodes_b - 1), cutoff * nmodes_b));
 
-                for (int k = 0; k < nmodes_c - maxij; ++k)
+                for (k = 0; k < nmodes_c - maxij; ++k)
                 {
                     NekDouble fac =
                         std::max(fac1, pow((1.0 * k) / (nmodes_c - 1),
@@ -2059,13 +2059,13 @@ void StdPyrExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
         max_abc = max(max_abc, 0);
         max_abc = min(max_abc, kSVVDGFiltermodesmax - kSVVDGFiltermodesmin);
 
-        for (int i = 0; i < nmodes_a; ++i)
+        for (i = 0; i < nmodes_a; ++i)
         {
-            for (int j = 0; j < nmodes_b; ++j)
+            for (j = 0; j < nmodes_b; ++j)
             {
                 int maxij = max(i, j);
 
-                for (int k = 0; k < nmodes_c - maxij; ++k)
+                for (k = 0; k < nmodes_c - maxij; ++k)
                 {
                     int maxijk = max(maxij, k);
                     maxijk     = min(maxijk, kSVVDGFiltermodesmax - 1);

@@ -54,12 +54,20 @@ struct DependentFile
     std::string m_filename;
 };
 
+enum CommandType
+{
+    eNone,
+    eSequential,
+    eParallel
+};
+
 struct Command
 {
     fs::path m_executable;
     std::string m_parameters;
     unsigned int m_processes;
     bool m_pythonTest;
+    CommandType m_commandType;
 };
 
 /**

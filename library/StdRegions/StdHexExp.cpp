@@ -1477,15 +1477,15 @@ void StdHexExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
         {
             if (modified)
             {
-                for (int i = 3; i < Q; i += 2)
+                for (i = 3; i < Q; i += 2)
                 {
-                    for (int j = 0; j < P; j++)
+                    for (j = 0; j < P; j++)
                     {
                         signarray[arrayindx[i * P + j]] *= -1;
                     }
                 }
 
-                for (int i = 0; i < P; i++)
+                for (i = 0; i < P; i++)
                 {
                     swap(maparray[i], maparray[i + P]);
                     swap(signarray[i], signarray[i + P]);
@@ -1493,9 +1493,9 @@ void StdHexExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
             }
             else
             {
-                for (int i = 0; i < P; i++)
+                for (i = 0; i < P; i++)
                 {
-                    for (int j = 0; j < Q / 2; j++)
+                    for (j = 0; j < Q / 2; j++)
                     {
                         swap(maparray[i + j * P],
                              maparray[i + P * Q - P - j * P]);
@@ -1509,15 +1509,15 @@ void StdHexExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
         {
             if (modified)
             {
-                for (int i = 0; i < Q; i++)
+                for (i = 0; i < Q; i++)
                 {
-                    for (int j = 3; j < P; j += 2)
+                    for (j = 3; j < P; j += 2)
                     {
                         signarray[arrayindx[i * P + j]] *= -1;
                     }
                 }
 
-                for (int i = 0; i < Q; i++)
+                for (i = 0; i < Q; i++)
                 {
                     swap(maparray[i], maparray[i + Q]);
                     swap(signarray[i], signarray[i + Q]);
@@ -1525,9 +1525,9 @@ void StdHexExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
             }
             else
             {
-                for (int i = 0; i < P; i++)
+                for (i = 0; i < P; i++)
                 {
-                    for (int j = 0; j < Q / 2; j++)
+                    for (j = 0; j < Q / 2; j++)
                     {
                         swap(maparray[i * Q + j], maparray[i * Q + Q - 1 - j]);
                         swap(signarray[i * Q + j],

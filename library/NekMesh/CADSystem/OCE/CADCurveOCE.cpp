@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <NekMesh/CADSystem/OCE/CADCurveOCE.h>
+#include <array>
 
 using namespace std;
 
@@ -50,9 +51,7 @@ void CADCurveOCE::Initialise(int i, TopoDS_Shape in)
     BRepGProp::LinearProperties(m_occEdge, System);
     m_length = System.Mass() / 1000.0;
 
-    m_b = Array<OneD, NekDouble>(2);
-    m_c = BRep_Tool::Curve(TopoDS::Edge(in), m_b[0], m_b[1]);
-
+    m_c  = BRep_Tool::Curve(TopoDS::Edge(in), m_b[0], m_b[1]);
     m_id = i;
 }
 
@@ -72,7 +71,7 @@ NekDouble CADCurveOCE::Length(NekDouble ti, NekDouble tf)
     return System.Mass() / 1000.0;
 }
 
-NekDouble CADCurveOCE::GetMinDistance(Array<OneD, NekDouble> &xyz)
+NekDouble CADCurveOCE::GetMinDistance(std::array<NekDouble, 3> &xyz)
 {
     gp_Pnt loc(xyz[0] * 1000.0, xyz[1] * 1000.0, xyz[2] * 1000.0);
     GeomAPI_ProjectPointOnCurve proj(loc, m_c, m_b[0], m_b[1]);
@@ -88,7 +87,7 @@ NekDouble CADCurveOCE::GetMinDistance(Array<OneD, NekDouble> &xyz)
     }
 }
 
-NekDouble CADCurveOCE::loct(Array<OneD, NekDouble> xyz, NekDouble &t)
+NekDouble CADCurveOCE::loct(std::array<NekDouble, 3> xyz, NekDouble &t)
 {
     t = 0.0;
     gp_Pnt loc(xyz[0] * 1000.0, xyz[1] * 1000.0, xyz[2] * 1000.0);
@@ -98,48 +97,32 @@ NekDouble CADCurveOCE::loct(Array<OneD, NekDouble> xyz, NekDouble &t)
     return p.Distance(loc) / 1000.0;
 }
 
-Array<OneD, NekDouble> CADCurveOCE::P(NekDouble t)
+std::array<NekDouble, 3> CADCurveOCE::P(NekDouble t)
 {
-    Array<OneD, NekDouble> location(3);
     gp_Pnt loc = m_c->Value(t);
-
-    location[0] = loc.X() / 1000.0;
-    location[1] = loc.Y() / 1000.0;
-    location[2] = loc.Z() / 1000.0;
-
-    return location;
+    return {loc.X() / 1000.0, loc.Y() / 1000.0, loc.Z() / 1000.0};
 }
 
 void CADCurveOCE::P(NekDouble t, NekDouble &x, NekDouble &y, NekDouble &z)
 {
     gp_Pnt loc = m_c->Value(t);
-
-    x = loc.X() / 1000.0;
-    y = loc.Y() / 1000.0;
-    z = loc.Z() / 1000.0;
+    x          = loc.X() / 1000.0;
+    y          = loc.Y() / 1000.0;
+    z          = loc.Z() / 1000.0;
 }
 
-Array<OneD, NekDouble> CADCurveOCE::D2(NekDouble t)
+std::array<NekDouble, 9> CADCurveOCE::D2(NekDouble t)
 {
-    Array<OneD, NekDouble> out(9);
     gp_Pnt loc;
     gp_Vec d1, d2;
     m_c->D2(t, loc, d1, d2);
 
-    out[0] = loc.X() / 1000.0;
-    out[1] = loc.Y() / 1000.0;
-    out[2] = loc.Z() / 1000.0;
-    out[3] = d1.X() / 1000.0;
-    out[4] = d1.Y() / 1000.0;
-    out[5] = d1.Z() / 1000.0;
-    out[6] = d2.X() / 1000.0;
-    out[7] = d2.Y() / 1000.0;
-    out[8] = d2.Z() / 1000.0;
-
-    return out;
+    return {loc.X() / 1000.0, loc.Y() / 1000.0, loc.Z() / 1000.0,
+            d1.X() / 1000.0,  d1.Y() / 1000.0,  d1.Z() / 1000.0,
+            d2.X() / 1000.0,  d2.Y() / 1000.0,  d2.Z() / 1000.0};
 }
 
-Array<OneD, NekDouble> CADCurveOCE::N(NekDouble t)
+std::array<NekDouble, 3> CADCurveOCE::N(NekDouble t)
 {
     GeomLProp_CLProps d(m_c, 2, Precision::Confusion());
     d.SetParameter(t + 1e-8);
@@ -148,18 +131,13 @@ Array<OneD, NekDouble> CADCurveOCE::N(NekDouble t)
     if (d2.Magnitude() < 1e-8)
     {
         // no normal, stright line
-        return Array<OneD, NekDouble>(3, 0.0);
+        return {0.0, 0.0, 0.0};
     }
 
     gp_Dir n;
     d.Normal(n);
 
-    Array<OneD, NekDouble> N(3);
-    N[0] = n.X();
-    N[1] = n.Y();
-    N[2] = n.Z();
-
-    return N;
+    return {n.X(), n.Y(), n.Z()};
 }
 
 NekDouble CADCurveOCE::Curvature(NekDouble t)
@@ -170,7 +148,7 @@ NekDouble CADCurveOCE::Curvature(NekDouble t)
     return d.Curvature() * 1000.0;
 }
 
-Array<OneD, NekDouble> CADCurveOCE::GetBounds()
+std::array<NekDouble, 2> CADCurveOCE::GetBounds()
 {
     return m_b;
 }
@@ -181,21 +159,14 @@ void CADCurveOCE::GetBounds(NekDouble &tmin, NekDouble &tmax)
     tmax = m_b[1];
 }
 
-Array<OneD, NekDouble> CADCurveOCE::GetMinMax()
+std::array<NekDouble, 6> CADCurveOCE::GetMinMax()
 {
-    Array<OneD, NekDouble> locs(6);
-
     gp_Pnt start =
         BRep_Tool::Pnt(TopExp::FirstVertex(m_occEdge, Standard_True));
     gp_Pnt end = BRep_Tool::Pnt(TopExp::LastVertex(m_occEdge, Standard_True));
 
-    locs[0] = start.X() / 1000.0;
-    locs[1] = start.Y() / 1000.0;
-    locs[2] = start.Z() / 1000.0;
-    locs[3] = end.X() / 1000.0;
-    locs[4] = end.Y() / 1000.0;
-    locs[5] = end.Z() / 1000.0;
-
-    return locs;
+    return {start.X() / 1000.0, start.Y() / 1000.0, start.Z() / 1000.0,
+            end.X() / 1000.0,   end.Y() / 1000.0,   end.Z() / 1000.0};
 }
+
 } // namespace Nektar::NekMesh

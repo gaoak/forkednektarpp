@@ -1,1 +1,1 @@
-SUBDIRS(LibUtilities StdRegions MultiRegions NekMesh FieldUtils SpatialDomains)
+SUBDIRS(LibUtilities StdRegions MultiRegions NekMesh FieldUtils SpatialDomains SolverUtils)

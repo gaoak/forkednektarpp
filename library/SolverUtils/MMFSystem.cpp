@@ -806,7 +806,7 @@ void MMFSystem::CartesianToSpherical(const NekDouble x0j, const NekDouble x1j,
                   x1j * x1j / (m_Yscale * m_Yscale) +
                   x2j * x2j / (m_Zscale * m_Zscale));
     radxy  = sqrt(x0j * x0j / (m_Xscale * m_Xscale) +
-                 x1j * x1j / (m_Yscale * m_Yscale));
+                  x1j * x1j / (m_Yscale * m_Yscale));
 
     if (radxy > Tol)
     {

@@ -63,7 +63,7 @@ void FourierPoints::v_CalculateWeights()
     size_t npts = m_pointsKey.GetNumPoints();
     for (size_t i = 0; i < npts; ++i)
     {
-        m_weights[i] = 1.0 / (NekDouble)npts;
+        m_weights[i] = 2.0 / (NekDouble)npts;
     }
 }
 

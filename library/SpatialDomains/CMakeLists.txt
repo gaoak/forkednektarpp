@@ -8,8 +8,9 @@ Geometry3D.cpp
 Geometry.cpp
 HexGeom.cpp
 MeshGraph.cpp
-MeshGraphXml.cpp
-MeshGraphXmlCompressed.cpp
+MeshGraphIO.cpp
+MeshGraphIOXml.cpp
+MeshGraphIOXmlCompressed.cpp
 MeshPartition.cpp
 PrismGeom.cpp
 PyrGeom.cpp
@@ -39,8 +40,9 @@ Geometry.h
 HexGeom.h
 MeshEntities.hpp
 MeshGraph.h
-MeshGraphXml.h
-MeshGraphXmlCompressed.h
+MeshGraphIO.h
+MeshGraphIOXml.h
+MeshGraphIOXmlCompressed.h
 MeshPartition.h
 PrismGeom.h
 PyrGeom.h
@@ -62,8 +64,8 @@ Movement/Movement.h
 )
 
 IF(NEKTAR_USE_HDF5)
-    SET(SPATIAL_DOMAINS_HEADERS ${SPATIAL_DOMAINS_HEADERS} MeshGraphHDF5.h)
-    SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES} MeshGraphHDF5.cpp)
+    SET(SPATIAL_DOMAINS_HEADERS ${SPATIAL_DOMAINS_HEADERS} MeshGraphIOHDF5.h)
+    SET(SPATIAL_DOMAINS_SOURCES ${SPATIAL_DOMAINS_SOURCES} MeshGraphIOHDF5.cpp)
 ENDIF()
 
 IF(NEKTAR_USE_SCOTCH)

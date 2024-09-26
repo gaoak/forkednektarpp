@@ -199,6 +199,12 @@ void DiffusionIP::v_DiffuseCoeffs(
     const Array<OneD, Array<OneD, NekDouble>> &pFwd,
     const Array<OneD, Array<OneD, NekDouble>> &pBwd)
 {
+    if (fields[0]->GetGraph()->GetMovement()->GetMoveFlag()) // i.e. if
+                                                             // m_ALESolver
+    {
+        fields[0]->GetTrace()->GetNormals(m_traceNormals);
+    }
+
     LibUtilities::Timer timer;
     timer.Start();
 
@@ -306,12 +312,22 @@ void DiffusionIP::v_DiffuseCoeffs(
                                 elmtFlux, outarray, vFwd, vBwd);
 
     timer.Start();
-    for (int i = 0; i < nonZeroIndex.size(); ++i)
-    {
-        int j = nonZeroIndex[i];
 
-        fields[j]->MultiplyByElmtInvMass(outarray[j], outarray[j]);
+    if (!fields[0]->GetGraph()->GetMovement()->GetMoveFlag() ||
+        fields[0]
+            ->GetGraph()
+            ->GetMovement()
+            ->GetImplicitALESolverFlag()) // i.e. if
+                                          // m_ALESolver
+    {
+        for (int i = 0; i < nonZeroIndex.size(); ++i)
+        {
+            int j = nonZeroIndex[i];
+
+            fields[j]->MultiplyByElmtInvMass(outarray[j], outarray[j]);
+        }
     }
+
     timer.Stop();
     timer.AccumulateRegion("DiffIP:Diffusion Coeff", 10);
 }
@@ -686,6 +702,8 @@ void DiffusionIP::CalcTraceNumFlux(
 
     const MultiRegions::AssemblyMapDGSharedPtr TraceMap =
         fields[0]->GetTraceMap();
+    const MultiRegions::InterfaceMapDGSharedPtr InterfaceMap =
+        fields[0]->GetInterfaceMap();
 
     LibUtilities::Timer timer;
     timer.Start();
@@ -739,6 +757,8 @@ void DiffusionIP::CalcTraceNumFlux(
             timer.Start();
             TraceMap->GetAssemblyCommDG()->PerformExchange(
                 m_wspNumDerivFwd[nd][i], m_wspNumDerivBwd[nd][i]);
+            InterfaceMap->ExchangeTrace(m_wspNumDerivFwd[nd][i],
+                                        m_wspNumDerivBwd[nd][i]);
             timer.Stop();
             timer.AccumulateRegion("DiffIP:_PerformExchange", 10);
 

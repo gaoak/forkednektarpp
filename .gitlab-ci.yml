@@ -22,7 +22,6 @@ stages:
   - quality-checks
   - package-env
   - package-build
-  - package-build-dev
   - package-test
   - package-deploy-dev
   - package-deploy
@@ -99,14 +98,19 @@ include:
       -e "BUILD_CC=$BUILD_CC"
       -e "BUILD_CXX=$BUILD_CXX"
       -e "BUILD_FC=$BUILD_FC"
+      -e "DISABLE_MCA=$DISABLE_MCA"
+      -e "DO_COVERAGE=$DO_COVERAGE"
       -e "NUM_CPUS=$NUM_CPUS"
       -e "CCACHE_DIR=$CCACHE_DIR"
+      -e "LD_PRELOAD=$LD_PRELOAD"
+      -e "PYTHON_EXECUTABLE=$PYTHON_EXECUTABLE"
       $ENV_IMAGE
       bash -x .gitlab-ci/build-and-test.sh |
       tee log/${OS_VERSION}_${BUILD_TYPE}.log || true
     - exit_code=$(docker wait $CONTAINER_NAME)
     - >
         echo "Container exit code: $exit_code"
+    - if [[ $DO_COVERAGE != "" ]]; then docker cp ${CONTAINER_NAME}:/home/nektar/nektar/coverage coverage; fi
     - if [ $exit_code -ne 0 ];
       then
         export FAIL_IMAGE=$CI_REGISTRY_IMAGE:pipeline_${CI_PIPELINE_ID}_${OS_VERSION}_${BUILD_TYPE};
@@ -118,7 +122,7 @@ include:
     - docker rm $CONTAINER_NAME
     - exit $exit_code;
   artifacts:
-    expire_in: 1 month
+    expire_in: 14 days
     paths:
       - log/
   timeout: 3h
@@ -144,16 +148,16 @@ include:
 
 .clang-format-template: &clang-format-template
   <<: *execution-conditions
-  image: debian:11-slim
+  image: debian:12-slim
   stage: quality-checks
   variables:
-    CL_F_VER: 11
+    CL_F_VER: 16
     TARGETS: library solvers templates tests utilities
   before_script:
     - apt-get update && apt-get install -y clang-format-$CL_F_VER git-core
   script:
     - cd "$CI_PROJECT_DIR"
-    - find $TARGETS -iname "*.cpp" -o -iname "*.h" -o -iname "*.hpp" -o -iname "*.cu" -o -iname "*.cuh" | 
+    - find $TARGETS -iname "*.cpp" -o -iname "*.cpp.in" -o -iname "*.h" -o -iname "*.hpp" -o -iname "*.cu" -o -iname "*.cuh" | 
       xargs clang-format-$CL_F_VER --dry-run -Werror
   allow_failure: true
   timeout: 15m
@@ -163,8 +167,8 @@ include:
   stage: quality-checks
   variables:
     NUM_CPUS: 8
-    CL_T_VER: 14
-    CL_F_VER: 11
+    CL_T_VER: 16
+    CL_F_VER: 16
     TARGETS: library solvers templates tests utilities
   before_script:
     - git config --global --add safe.directory "$CI_PROJECT_DIR"
@@ -178,7 +182,7 @@ include:
   allow_failure: true
   timeout: 1h
   artifacts:
-    expire_in: 1 month
+    expire_in: 14 days
     when: on_failure
     paths:
       - clang-tidy.diff
@@ -349,8 +353,11 @@ debian-buster-full-build-and-test:
   <<: *build-and-test-template
   needs: ["debian-buster-full-build-env"]
   variables:
+    DISABLE_MCA: 1
     GIT_SUBMODULE_STRATEGY: recursive
-
+    OS_DISTRO: debian
+    PYTHON_EXECUTABLE: /usr/bin/python3
+    REMOVE_UCX: 0
 
 # COMPILER WARNINGS
 debian-bookworm-default-warnings:
@@ -411,6 +418,12 @@ debian-bullseye-clang-format:
   <<: *clang-format-template
   needs: []
 
+## CLANG-TIDY
+debian-bullseye-clang-tidy:
+  <<: *clang-tidy-template
+  image: $CI_REGISTRY_IMAGE:env-debian-bullseye-full
+  needs: ["debian-bullseye-full-build-env"]
+
 debian-bullseye-header-format:
   <<: *header-format-template
   needs: []
@@ -445,7 +458,6 @@ user-guide-build:
     - cmake -Bbuild -DCMAKE_BUILD_TYPE:STRING=Release -DNEKTAR_BUILD_LIBRARY:BOOL=OFF -DNEKTAR_BUILD_SOLVERS:BOOL=OFF -DNEKTAR_BUILD_UTILITIES:BOOL=OFF -DNEKTAR_BUILD_TESTS:BOOL=OFF -DNEKTAR_BUILD_DOC:BOOL=ON .
     - make -C build -j 4 user-guide-pdf user-guide-html developer-guide-pdf developer-guide-html
   artifacts:
-    expire_in: 1 month
     paths:
       - build/docs/user-guide/user-guide.pdf
       - build/docs/user-guide/html
@@ -458,7 +470,6 @@ doxygen-build:
     - cmake -Bbuild -DCMAKE_BUILD_TYPE:STRING=Release -DNEKTAR_BUILD_LIBRARY:BOOL=OFF -DNEKTAR_BUILD_SOLVERS:BOOL=OFF -DNEKTAR_BUILD_UTILITIES:BOOL=OFF -DNEKTAR_BUILD_TESTS:BOOL=OFF -DNEKTAR_BUILD_DOC:BOOL=ON .
     - make -C build doc
   artifacts:
-    expire_in: 1 month
     paths:
       - build/docs/doxygen/html/
 
@@ -470,7 +481,6 @@ tutorials-build:
     - cmake -Bbuild -DCMAKE_BUILD_TYPE:STRING=Release .
     - make -C build -j 2 tutorials-pdf tutorials-html
   artifacts:
-    expire_in: 1 month
     paths:
       - build/docs/tutorial/
 
@@ -594,6 +604,21 @@ ubuntu-jammy-full-icpx-build-and-test:
   tags:
     - gpu
 
+ubuntu-jammy-full-avx512-coverage:
+  <<: *build-and-test-template
+  needs: ["ubuntu-jammy-full-build-env"]
+  coverage: /^\s*lines\.+:\s*(\d+\.\d+\%)/
+  variables:
+    BUILD_SIMD: avx512
+    DO_COVERAGE: 1
+  tags:
+    - avx512
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-*.xml
+
 ubuntu-focal-default-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-focal-default-build-env"]
@@ -611,6 +636,10 @@ ubuntu-bionic-default-build-and-test:
 ubuntu-bionic-full-build-and-test:
   <<: *build-and-test-template
   needs: ["ubuntu-bionic-full-build-env"]
+  variables:
+    OS_DISTRO: ubuntu
+    PYTHON_EXECUTABLE: /usr/bin/python3
+    LD_PRELOAD: libmpi.so # required for python-vtk test
 
 
 # COMPILER WARNINGS
@@ -657,12 +686,6 @@ ubuntu-bionic-default-warnings:
 ubuntu-bionic-full-warnings:
   <<: *compiler-warning-template
   needs: ["ubuntu-bionic-full-build-and-test"]
-
-## CLANG-TIDY
-ubuntu-jammy-clang-tidy:
-  <<: *clang-tidy-template
-  image: $CI_REGISTRY_IMAGE:env-ubuntu-jammy-full
-  needs: ["ubuntu-jammy-full-build-env"]
 
 ## UNCOMPILED FILES
 ubuntu-jammy-uncompiled-files:
@@ -872,9 +895,9 @@ win10-mpi-default-build-and-test:
   artifacts:
   timeout: 4h
 
-# ##################################################
-# #################  DOCKERHUB  ####################
-# ##################################################
+##################################################
+#################  DOCKERHUB  ####################
+##################################################
 
 # Docker Hub build template. We build images and push them into the gitlab
 # container registry first; this way, we can test the images before they are
@@ -919,12 +942,12 @@ win10-mpi-default-build-and-test:
 # runners can be difficult if they are tagged multiple times, so we also perform
 # a quick rmi to make sure we only keep the images from the registry.
 .dockerhub-deploy-template: &dockerhub_deploy_template
-  <<: *execution-conditions
   image: docker:stable
   stage: package-deploy
   only:
-    - master@nektar/nektar
-    - tags@nektar/nektar
+    refs:
+      - master@nektar/nektar
+      - tags@nektar/nektar
   script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - CI_IMAGE=$CI_REGISTRY_IMAGE/${image_name}:$CI_COMMIT_SHORT_SHA
@@ -938,6 +961,26 @@ win10-mpi-default-build-and-test:
     - docker push $DH_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $DH_IMAGE:latest
     - docker rmi $DH_IMAGE:$CI_COMMIT_SHORT_SHA $DH_IMAGE:latest
+
+# Docker pushrm template: used to automatically deploy the README.md files to
+# the Dockerhub description of each image.
+.dockerhub-pushrm-template:
+  image:
+    name: chko/docker-pushrm
+    entrypoint: ["/bin/sh", "-c", "/docker-pushrm"]
+  stage: package-deploy
+  only:
+    refs:
+      - master@nektar/nektar
+      - tags@nektar/nektar
+  variables:
+    DOCKER_USER: $DOCKERIO_REGISTRY_USER
+    DOCKER_PASS: $DOCKERIO_REGISTRY_PASSWORD
+    PUSHRM_SHORT: ${short_description}
+    PUSHRM_FILE: $CI_PROJECT_DIR/docker/${image_name}/README.md
+    PUSHRM_TARGET: docker.io/nektarpp/${image_name}
+    PUSHRM_DEBUG: 1
+  script: "/bin/true"
 
 # nektarpp/nektar-env image
 dockerhub-build-env:
@@ -959,7 +1002,17 @@ dockerhub-build-nektar:
     args: --build-arg ENV_IMAGE=$CI_REGISTRY_IMAGE/nektar-env:$CI_COMMIT_SHORT_SHA
     GIT_SUBMODULE_STRATEGY: normal
 
-# nektarpp/nektar image
+# nektarpp/nekmesh image
+dockerhub-build-nekmesh:
+  <<: *dockerhub_build_template
+  stage: package-build
+  needs: [ "dockerhub-build-env" ]
+  variables:
+    image_name: nekmesh
+    dockerfile: docker/nekmesh/Dockerfile
+    args: --build-arg ENV_IMAGE=$CI_REGISTRY_IMAGE/nektar-env:$CI_COMMIT_SHORT_SHA
+
+# nektarpp/nektar-workbook image
 dockerhub-build-workbook:
   <<: *dockerhub_build_template
   stage: package-build
@@ -971,7 +1024,7 @@ dockerhub-build-workbook:
 # nektarpp/nektar-dev image
 dockerhub-build-dev:
   <<: *dockerhub_build_template
-  stage: package-build-dev
+  stage: package-build
   needs: [ "dockerhub-build-nektar" ]
   variables:
     image_name: nektar-dev
@@ -994,6 +1047,16 @@ dockerhub-test-nektar-dev:
     - cd $CI_PROJECT_DIR/templates/executable
     - ./test.sh /usr/local/lib64/nektar++/cmake 3 /usr/bin/cmake
 
+# For NekMesh, test that a simple conversion works
+dockerhub-test-nekmesh:
+  <<: *execution-conditions
+  needs: [ "dockerhub-build-nekmesh" ]
+  image: ${CI_REGISTRY_IMAGE}/nekmesh:$CI_COMMIT_SHORT_SHA
+  stage: package-test
+  script:
+    - cd $CI_PROJECT_DIR/utilities/NekMesh/Tests/MeshGen/STEP
+    - NekMesh -v -m jac:list 3d_bl_cyl.mcf 3d_bl_cyl-out.xml
+
 dockerhub-test-workbook:
   <<: *dockerhub_test_template
   needs: [ "dockerhub-build-workbook" ]
@@ -1006,18 +1069,57 @@ dockerhub-deploy-nektar:
   needs: [ "dockerhub-test-nektar" ]
   variables:
     image_name: nektar
+dockerhub-pushrm-nektar:
+  extends: .dockerhub-pushrm-template
+  needs: [ "dockerhub-deploy-nektar" ]
+  variables:
+    image_name: nektar
+    short_description: Full Nektar++ installation using Debian 12 image.
+
 dockerhub-deploy-nektar-env:
   <<: *dockerhub_deploy_template
   needs: [ "dockerhub-build-env" ]
   variables:
     image_name: nektar-env
+dockerhub-pushrm-nektar-env:
+  extends: .dockerhub-pushrm-template
+  needs: [ "dockerhub-deploy-nektar-env" ]
+  variables:
+    image_name: nektar-env
+    short_description: Nektar++ build environment image.
+
 dockerhub-deploy-nektar-dev:
   <<: *dockerhub_deploy_template
   needs: [ "dockerhub-test-nektar-dev" ]
   variables:
     image_name: nektar-dev
+dockerhub-pushrm-nektar-dev:
+  extends: .dockerhub-pushrm-template
+  needs: [ "dockerhub-deploy-nektar-dev" ]
+  variables:
+    image_name: nektar-dev
+    short_description: Development environment for Nektar++.
+
 dockerhub-deploy-nektar-workbook:
   <<: *dockerhub_deploy_template
   needs: [ "dockerhub-build-workbook" ]
   variables:
     image_name: nektar-workbook
+dockerhub-pushrm-nektar-workbook:
+  extends: .dockerhub-pushrm-template
+  needs: [ "dockerhub-deploy-nektar-workbook" ]
+  variables:
+    image_name: nektar-workbook
+    short_description: Nektar++ Jupyter workbook image based on scipy-workbook.
+
+dockerhub-deploy-nekmesh:
+  <<: *dockerhub_deploy_template
+  needs: [ "dockerhub-build-nekmesh" ]
+  variables:
+    image_name: nekmesh
+dockerhub-pushrm-nekmesh:
+  extends: .dockerhub-pushrm-template
+  needs: [ "dockerhub-deploy-nekmesh" ]
+  variables:
+    image_name: nekmesh
+    short_description: Image for the high-order mesh generator NekMesh.

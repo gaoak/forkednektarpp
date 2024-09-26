@@ -46,7 +46,7 @@
 
 #include <iostream>
 #include <string>
-//#inc lude <LibUtilities/BasicUtils/Vmath.hpp>
+// #inc lude <LibUtilities/BasicUtils/Vmath.hpp>
 #include <CardiacEPSolver/CellModels/LuoRudy91.h>
 
 namespace Nektar

@@ -37,6 +37,11 @@
 #include <boost/program_options.hpp>
 #include <boost/python/raw_function.hpp>
 
+#ifdef NEKTAR_USING_VTK
+#include <FieldUtils/OutputModules/OutputVtk.h>
+#include <FieldUtils/Python/VtkWrapper.hpp>
+#endif
+
 using namespace Nektar;
 using namespace Nektar::FieldUtils;
 
@@ -151,6 +156,30 @@ template <> struct ModuleTypeProxy<OutputModule>
 const ModuleType ModuleTypeProxy<InputModule>::value;
 const ModuleType ModuleTypeProxy<ProcessModule>::value;
 const ModuleType ModuleTypeProxy<OutputModule>::value;
+
+#ifdef NEKTAR_USING_VTK
+vtkUnstructuredGrid *Module_GetVtkGrid(std::shared_ptr<Module> mod)
+{
+    std::shared_ptr<OutputVtk> vtkModule =
+        std::dynamic_pointer_cast<OutputVtk>(mod);
+
+    using NekError = ErrorUtil::NekError;
+
+    if (!vtkModule)
+    {
+        throw NekError("This module is not the OutputVtk module, cannot get"
+                       "VTK data.");
+    }
+
+    return vtkModule->GetVtkGrid();
+}
+#else
+void Module_GetVtkGrid(std::shared_ptr<Module> mod)
+{
+    using NekError = ErrorUtil::NekError;
+    throw NekError("Nektar++ has not been compiled with VTK support.");
+}
+#endif
 
 /**
  * @brief Lightweight wrapper for Module factory creation function.
@@ -410,6 +439,10 @@ void export_Module()
     // Export ModuleType enum.
     NEKPY_WRAP_ENUM_STRING(ModuleType, ModuleTypeMap);
 
+#ifdef NEKTAR_USING_VTK
+    VTK_PYTHON_CONVERSION(vtkUnstructuredGrid);
+#endif
+
     // Define ModuleWrap to be implicitly convertible to a Module, since it
     // seems that doesn't sometimes get picked up.
     py::implicitly_convertible<std::shared_ptr<ModuleWrap<Module>>,
@@ -445,6 +478,8 @@ void export_Module()
         .def("AddConfigOption", ModuleWrap_AddConfigOption<Module>,
              (py::arg("key"), py::arg("defValue"), py::arg("desc"),
               py::arg("isBool") = false))
+        .def("GetVtkGrid", Module_GetVtkGrid,
+             py::return_value_policy<py::return_by_value>())
 
         // Allow direct access to field object through a property.
         .def_readwrite("field", &ModuleWrap<Module>::m_f)

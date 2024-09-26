@@ -57,19 +57,16 @@ NekLinSysIterGMRESLoc::NekLinSysIterGMRESLoc(
     const NekSysKey &pKey)
     : NekLinSysIter(pSession, vRowComm, nDimen, pKey)
 {
-    m_NekLinSysTolerance = max(m_NekLinSysTolerance, 1.0E-15);
-
     m_NekLinSysLeftPrecon  = pKey.m_NekLinSysLeftPrecon;
     m_NekLinSysRightPrecon = pKey.m_NekLinSysRightPrecon;
 
     m_KrylovMaxHessMatBand = pKey.m_KrylovMaxHessMatBand;
 
     m_maxrestart       = ceil(NekDouble(m_NekLinSysMaxIterations) /
-                        NekDouble(m_LinSysMaxStorage));
-    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, m_LinSysMaxStorage);
+                              NekDouble(pKey.m_LinSysMaxStorage));
+    m_LinSysMaxStorage = min(m_NekLinSysMaxIterations, pKey.m_LinSysMaxStorage);
 
-    m_DifferenceFlag0 = pKey.m_DifferenceFlag0;
-    m_DifferenceFlag1 = pKey.m_DifferenceFlag1;
+    m_GMRESCentralDifference = pKey.m_GMRESCentralDifference;
 
     m_isLocal = true;
 
@@ -100,8 +97,7 @@ void NekLinSysIterGMRESLoc::v_InitObject()
  */
 int NekLinSysIterGMRESLoc::v_SolveSystem(
     const int nLocal, const Array<OneD, const NekDouble> &pInput,
-    Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir,
-    [[maybe_unused]] const NekDouble factor)
+    Array<OneD, NekDouble> &pOutput, [[maybe_unused]] const int nDir)
 {
     int niterations = DoGMRES(nLocal, pInput, pOutput);
 
@@ -161,12 +157,12 @@ int NekLinSysIterGMRESLoc::DoGMRES(const int nLocal,
         Array<OneD, NekDouble> wk(nLocal);
 
         // calculate difference in residual of solution
-        m_operator.DoNekSysLhsEval(pOutput, r0, m_DifferenceFlag0);
+        m_operator.DoNekSysLhsEval(pOutput, r0, m_GMRESCentralDifference);
 
         // Note this is finding the difference between the whole
         // residual not jsut the non-Dirichlet values.
         // Probably OK since just an monitoring output?
-        Vmath::Svtvp(nLocal, -1.0, r0, 1, pInput, 1, r0, 1);
+        Vmath::Vsub(nLocal, pInput, 1, r0, 1, r0, 1);
 
         m_operator.DoAssembleLoc(r0, wk, true);
         NekDouble vExchange = Vmath::Dot(nLocal, wk, r0);
@@ -243,7 +239,7 @@ NekDouble NekLinSysIterGMRESLoc::DoGmresRestart(
     if (restarted)
     {
         // This is A*x
-        m_operator.DoNekSysLhsEval(pOutput, r0, m_DifferenceFlag0);
+        m_operator.DoNekSysLhsEval(pOutput, r0, m_GMRESCentralDifference);
 
         // The first search direction
         beta = -1.0;
@@ -418,7 +414,7 @@ void NekLinSysIterGMRESLoc::DoArnoldi(const int starttem, const int endtem,
     NekDouble alpha, beta, vExchange = 0.0;
     LibUtilities::Timer timer;
     timer.Start();
-    m_operator.DoNekSysLhsEval(V1, w, m_DifferenceFlag1);
+    m_operator.DoNekSysLhsEval(V1, w, m_GMRESCentralDifference);
     timer.Stop();
     timer.AccumulateRegion("NekSysOperators::DoNekSysLhsEval", 10);
 

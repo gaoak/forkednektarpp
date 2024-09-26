@@ -201,9 +201,9 @@ void LinearElasticSystem::v_InitObject(bool DeclareFields)
     m_BinvD = MemoryManager<DNekScalBlkMat>::AllocateSharedPtr(sizeBnd, sizeInt,
                                                                blkmatStorage);
     m_C     = MemoryManager<DNekScalBlkMat>::AllocateSharedPtr(sizeInt, sizeBnd,
-                                                           blkmatStorage);
+                                                               blkmatStorage);
     m_Dinv  = MemoryManager<DNekScalBlkMat>::AllocateSharedPtr(sizeInt, sizeInt,
-                                                              blkmatStorage);
+                                                               blkmatStorage);
 }
 
 /**

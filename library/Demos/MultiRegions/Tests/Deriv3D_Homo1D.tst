@@ -9,14 +9,14 @@
 
     <metrics>
         <metric type="L2" id="1">
-            <value variable="dudx" tolerance="1e-7">4.52931e-15</value>
-            <value variable="dvdy" tolerance="1e-7">0.00406798</value>
-            <value variable="dwdz" tolerance="1e-7">2.86856e-16</value>
+            <value variable="dudx" tolerance="1e-12">0</value>
+            <value variable="dvdy" tolerance="1e-08">0.00575299</value>
+            <value variable="dwdz" tolerance="1e-12">0</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="dudx" tolerance="1e-7">3.55271e-15</value>
-            <value variable="dvdy" tolerance="1e-7">0.00464427</value>
-            <value variable="dwdz" tolerance="1e-7">2.22045e-16</value>
+            <value variable="dudx" tolerance="1e-12">0</value>
+            <value variable="dvdy" tolerance="1e-08">0.00464427</value>
+            <value variable="dwdz" tolerance="1e-12">0</value>
         </metric>
     </metrics>
 </test>

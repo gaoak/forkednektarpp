@@ -44,11 +44,12 @@
  * and errors are appended to @p master.err. These files are sent to all of the
  * metrics for analysis. If the test fails, the output and error files are
  * dumped to the terminal for debugging purposes.
- * 
+ *
  * @see Metric
  * @see Metric#Test:
  */
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -71,6 +72,22 @@ using namespace Nektar;
 // Define some namespace aliases
 namespace po = boost::program_options;
 
+#ifdef _WIN32
+// Define a setenv function for Windows
+int setenv(const char *name, const char *value, int overwrite)
+{
+    int errcode = 0;
+    if (!overwrite)
+    {
+        size_t envsize = 0;
+        errcode        = getenv_s(&envsize, NULL, 0, name);
+        if (errcode || envsize)
+            return errcode;
+    }
+    return _putenv_s(name, value);
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     int status = 0;
@@ -78,14 +95,12 @@ int main(int argc, char *argv[])
 
     // Set up command line options.
     po::options_description desc("Available options");
-    desc.add_options()
-        ("help,h",                  "Produce this help message.")
-        ("verbose,v",               "Turn on verbosity.")
-        ("generate-metric,g",       po::value<vector<int>>(),
-                                    "Generate a single metric.")
-        ("generate-all-metrics,a",  "Generate all metrics.")
-        ("executable,e",            po::value<string>(),
-                                    "Use specified executable.");
+    desc.add_options()("help,h", "Produce this help message.")(
+        "verbose,v", "Turn on verbosity.")("generate-metric,g",
+                                           po::value<vector<int>>(),
+                                           "Generate a single metric.")(
+        "generate-all-metrics,a", "Generate all metrics.")(
+        "executable,e", po::value<string>(), "Use specified executable.");
 
     po::options_description hidden("Hidden options");
     hidden.add_options()("input-file", po::value<string>(), "Input filename");
@@ -333,23 +348,22 @@ int main(int argc, char *argv[])
 
             // If we're Python, copy script too.
 
+            // Set PYTHONPATH environment variable in case Python is run inside
+            // any of our tests.  For non-Python tests this will do nothing.
+            setenv("PYTHONPATH", "@NEKPY_BASE_DIR@", true);
+
             // Construct test command to run. Output from stdout and stderr are
             // directed to the files output.out and output.err, respectively.
 
-            bool pythonAdded = false, mpiAdded = false;
+            bool mpiAdded = false;
             for (unsigned int j = 0; j < file.GetNumCommands(); ++j)
             {
                 Command cmd = file.GetCommand(j);
-                if (cmd.m_pythonTest && !pythonAdded)
-                {
-                    // Prepend Python to very start of command.
-                    command = "PYTHONPATH=\"@NEKPY_BASE_DIR@\" " + command;
-                    pythonAdded = true;
-                }
 
 #ifdef NEKTAR_TEST_FORCEMPIEXEC
 #else
-                if (cmd.m_processes > 1 || file.GetNumCommands() > 1)
+                if (cmd.m_processes > 1 || (file.GetNumCommands() > 1 &&
+                                            cmd.m_commandType == eParallel))
 #endif
                 {
                     if (mpiAdded)
@@ -385,13 +399,26 @@ int main(int argc, char *argv[])
 
                 // If running with multiple commands simultaneously, separate
                 // with colon.
-                if (j > 0)
+                if (j > 0 && cmd.m_commandType == eParallel)
                 {
                     command += " : ";
                 }
+                else if (j > 0 && cmd.m_commandType == eSequential)
+                {
+                    command += " && ";
+                    if (cmd.m_processes > 1)
+                    {
+                        command += "\"@MPIEXEC@\" ";
+                        if (std::string("@NEKTAR_TEST_USE_HOSTFILE@") == "ON")
+                        {
+                            command += "-hostfile hostfile ";
+                        }
+                    }
+                }
 
                 // Add -n where appropriate.
-                if (file.GetNumCommands() > 1 || cmd.m_processes > 1)
+                if (cmd.m_processes > 1 || (file.GetNumCommands() > 1 &&
+                                            cmd.m_commandType == eParallel))
                 {
                     command += "@MPIEXEC_NUMPROC_FLAG@ ";
                     command += std::to_string(cmd.m_processes) + " ";
@@ -412,7 +439,8 @@ int main(int argc, char *argv[])
                     command += "@PYTHON_EXECUTABLE@ ";
                 }
 
-                command += LibUtilities::PortablePath(execPath);
+                std::string pathString = LibUtilities::PortablePath(execPath);
+                command += pathString;
                 if (HaveOptFile)
                 {
                     command += " --use-opt-file test.opt ";

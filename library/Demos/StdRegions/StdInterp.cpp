@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     // Create a new element but with the evenly-spaced points type, so that we
     // perform a PhysEvaluate at a different set of nodal points
     // (i.e. non-collocated interpolation).
-    vector<string> &ptypes = demo.GetPointsType();
+    std::vector<std::string> &ptypes = demo.GetPointsType();
     for (int i = 0; i < dimension; ++i)
     {
         ptypes[i] = "PolyEvenlySpaced";
@@ -94,9 +94,10 @@ int main(int argc, char *argv[])
 
     sol = EvalPoly(coordsF);
 
-    cout << "L infinity error : " << scientific << E->Linf(physOut, sol)
-         << endl;
-    cout << "L 2 error        : " << scientific << E->L2(physOut, sol) << endl;
+    std::cout << "L infinity error : " << std::scientific
+              << E->Linf(physOut, sol) << std::endl;
+    std::cout << "L 2 error        : " << std::scientific << E->L2(physOut, sol)
+              << std::endl;
 
     return 0;
 }

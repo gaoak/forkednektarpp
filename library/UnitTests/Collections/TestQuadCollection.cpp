@@ -3287,4 +3287,157 @@ BOOST_AUTO_TEST_CASE(TestQuadHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
     }
 }
+
+BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_NoCollection_UniformP)
+{
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
+
+    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 6;
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, 4,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::QuadExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, quadGeom);
+
+    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eNoCollection);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq);
+    Array<OneD, NekDouble> phys(nq), tmp;
+
+    Exp->GetCoords(xc, yc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestQuadPhysInterp1D_MatrixFree_UniformP)
+{
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(2u, 0u, -1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(2u, 1u, 1.0, -1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(2u, 2u, 1.0, 1.0, 0.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(2u, 3u, -1.0, 1.0, 0.0));
+
+    SpatialDomains::QuadGeomSharedPtr quadGeom = CreateQuad(v0, v1, v2, v3);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 6;
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, 4,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::QuadExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::QuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, quadGeom);
+
+    Nektar::StdRegions::StdQuadExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdQuadExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 2,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq);
+    Array<OneD, NekDouble> phys(nq), tmp;
+
+    Exp->GetCoords(xc, yc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
 } // namespace Nektar::QuadCollectionTests

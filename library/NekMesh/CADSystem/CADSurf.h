@@ -36,9 +36,9 @@
 #define NekMesh_CADSYSTEM_CADSURF
 
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
-
 #include <NekMesh/CADSystem/CADObject.h>
+
+#include <array>
 
 namespace Nektar::NekMesh
 {
@@ -56,7 +56,7 @@ struct EdgeLoop
 {
     std::vector<CADCurveSharedPtr> edges;
     std::vector<CADOrientation::Orientation> edgeo;
-    Array<OneD, NekDouble> center;
+    std::array<NekDouble, 2> center;
     NekDouble area;
 };
 
@@ -111,7 +111,7 @@ public:
      *
      * @return Array of 4 entries with parametric umin,umax,vmin,vmax.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> GetBounds() = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 4> GetBounds() = 0;
 
     /**
      * @brief Get the limits of the parametric space for the surface.
@@ -125,8 +125,8 @@ public:
      * @param uv Array of u and v parametric coords.
      * @return Array of xyz components of normal vector.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> N(
-        Array<OneD, NekDouble> uv) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 3> N(
+        std::array<NekDouble, 2> uv) = 0;
 
     /**
      * @brief Get the set of first derivatives at parametric point u,v
@@ -134,8 +134,8 @@ public:
      * @param uv Array of u and v parametric coords.
      * @return Array of xyz copmonents of first derivatives.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> D1(
-        Array<OneD, NekDouble> uv) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 9> D1(
+        std::array<NekDouble, 2> uv) = 0;
 
     /**
      * @brief Get the set of second derivatives at parametric point u,v
@@ -143,8 +143,8 @@ public:
      * @param uv array of u and v parametric coords
      * @return array of xyz copmonents of second derivatives
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> D2(
-        Array<OneD, NekDouble> uv) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 18> D2(
+        std::array<NekDouble, 2> uv) = 0;
 
     /**
      * @brief Get the x,y,z at parametric point u,v.
@@ -152,15 +152,15 @@ public:
      * @param uv Array of u and v parametric coords.
      * @return Array of x,y,z location.
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> P(
-        Array<OneD, NekDouble> uv) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 3> P(
+        std::array<NekDouble, 2> uv) = 0;
 
     /**
      * @brief Get the x,y,z at parametric point u,v.
      *
      * @param uv Array of u and v parametric coords.
      */
-    NEKMESH_EXPORT virtual void P(Array<OneD, NekDouble> uv, NekDouble &x,
+    NEKMESH_EXPORT virtual void P(std::array<NekDouble, 2> uv, NekDouble &x,
                                   NekDouble &y, NekDouble &z) = 0;
 
     /**
@@ -170,8 +170,8 @@ public:
      * @param p Array of xyz location
      * @return The parametric location of xyz on this surface
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> locuv(
-        Array<OneD, NekDouble> p, NekDouble &dist) = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 2> locuv(
+        std::array<NekDouble, 3> p, NekDouble &dist) = 0;
 
     /**
      * @brief overload function of locuv ommiting the dist parameter
@@ -179,10 +179,10 @@ public:
      * it will produce a warning. To do large distance projection use the other
      * locuv method
      */
-    Array<OneD, NekDouble> locuv(Array<OneD, NekDouble> p)
+    std::array<NekDouble, 2> locuv(std::array<NekDouble, 3> p)
     {
         NekDouble dist;
-        Array<OneD, NekDouble> uv = locuv(p, dist);
+        auto uv = locuv(p, dist);
         WARNINGL1(dist < 1e-3, "large locuv distance: " + std::to_string(dist));
         return uv;
     }
@@ -190,12 +190,12 @@ public:
     /**
      * @brief Returns the bounding box of the surface
      */
-    NEKMESH_EXPORT virtual Array<OneD, NekDouble> BoundingBox() = 0;
+    NEKMESH_EXPORT virtual std::array<NekDouble, 6> BoundingBox() = 0;
 
     /**
      * @brief returns curvature at point uv
      */
-    NEKMESH_EXPORT virtual NekDouble Curvature(Array<OneD, NekDouble> uv) = 0;
+    NEKMESH_EXPORT virtual NekDouble Curvature(std::array<NekDouble, 2> uv) = 0;
 
     /**
      * @brief Is the surface defined by a planar surface (i.e not nurbs and is
@@ -216,7 +216,7 @@ protected:
     std::vector<EdgeLoopSharedPtr> m_edges;
 
     /// Function which tests the the value of uv used is within the surface
-    virtual void Test(Array<OneD, NekDouble> uv) = 0;
+    virtual void Test(std::array<NekDouble, 2> uv) = 0;
 };
 
 typedef std::shared_ptr<CADSurf> CADSurfSharedPtr;

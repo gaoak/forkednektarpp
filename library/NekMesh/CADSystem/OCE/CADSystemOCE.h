@@ -61,7 +61,7 @@ public:
 
     bool LoadCAD() override;
 
-    Array<OneD, NekDouble> GetBoundingBox() override;
+    std::array<NekDouble, 6> GetBoundingBox() override;
 
     TopoDS_Shape GetShape()
     {

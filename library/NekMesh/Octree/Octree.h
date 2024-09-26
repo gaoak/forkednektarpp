@@ -74,7 +74,7 @@ struct CurveSource
      *
      * @return True if @p p is within the specified distance and false if not.
      */
-    bool WithinRange(Array<OneD, NekDouble> p)
+    bool WithinRange(std::array<NekDouble, 3> p)
     {
         return curve->GetMinDistance(p) <= R;
     }
@@ -89,17 +89,17 @@ struct LineSource
 {
     /// Array containing \f$ (x,y,z) \f$ Cartesian coordinates of the first line
     /// segment endpoint.
-    Array<OneD, NekDouble> x1;
+    std::array<NekDouble, 3> x1;
     /// Array containing \f$ (x,y,z) \f$ Cartesian coordinates of the second
     /// line segment endpoint.
-    Array<OneD, NekDouble> x2;
+    std::array<NekDouble, 3> x2;
     /// The distance from the line where a fixed element edge length is to be
     /// applied.
     NekDouble R;
     /// The fixed element edge length.
     NekDouble delta;
 
-    LineSource(Array<OneD, NekDouble> p1, Array<OneD, NekDouble> p2,
+    LineSource(std::array<NekDouble, 3> p1, std::array<NekDouble, 3> p2,
                NekDouble r, NekDouble d)
         : x1(p1), x2(p2), R(r), delta(d)
     {
@@ -113,9 +113,9 @@ struct LineSource
      *           tested.
      * @return True if @p p is within the specified distance and false if not.
      */
-    bool WithinRange(Array<OneD, NekDouble> p)
+    bool WithinRange(std::array<NekDouble, 3> p)
     {
-        Array<OneD, NekDouble> Le(3), Re(3), s(3);
+        std::array<NekDouble, 3> Le, Re, s;
         for (int i = 0; i < 3; i++)
         {
             Le[i] = p[i] - x1[i];
@@ -134,7 +134,7 @@ struct LineSource
         }
 
         // Do an orthogonal projection of p onto the line segment
-        Array<OneD, NekDouble> dev(3);
+        std::array<NekDouble, 3> dev;
         // (p-x1) \times (p-x2)
         dev[0] = Le[1] * Re[2] - Re[1] * Le[2];
         dev[1] = Le[2] * Re[0] - Re[2] * Le[0];
@@ -197,7 +197,7 @@ public:
      * @param loc array of x,y,z
      * @return mesh spacing parameter
      */
-    NekDouble Query(Array<OneD, NekDouble> loc);
+    NekDouble Query(std::array<NekDouble, 3> loc);
 
     /**
      * @brief returns the miminum spacing in the octree (for meshing purposes)
@@ -302,7 +302,7 @@ private:
     /// curavture sensivity paramter
     NekDouble m_eps;
     /// x,y,z location of the center of the octree
-    Array<OneD, NekDouble> m_centroid;
+    std::array<NekDouble, 3> m_centroid;
     /// physical size of the octree
     NekDouble m_dim;
     /// list of source points

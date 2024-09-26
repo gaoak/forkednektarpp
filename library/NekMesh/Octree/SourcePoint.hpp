@@ -35,7 +35,8 @@
 #ifndef NEKMESH_OCTREE_SOURCEPOINT_H
 #define NEKMESH_OCTREE_SOURCEPOINT_H
 
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <array>
+
 #include <LibUtilities/Memory/NekMemoryManager.hpp>
 
 namespace Nektar::NekMesh
@@ -58,7 +59,7 @@ class SPBase
 public:
     friend class MemoryManager<SPBase>;
 
-    SPBase(Array<OneD, NekDouble> l)
+    SPBase(std::array<NekDouble, 3> l)
     {
         m_loc = l;
     }
@@ -72,7 +73,7 @@ public:
         return m_type;
     }
 
-    Array<OneD, NekDouble> GetLoc()
+    std::array<NekDouble, 3> GetLoc()
     {
         return m_loc;
     }
@@ -92,7 +93,7 @@ public:
     }
 
     virtual void GetCAD([[maybe_unused]] int &surf,
-                        [[maybe_unused]] Array<OneD, NekDouble> &uv)
+                        [[maybe_unused]] std::array<NekDouble, 2> &uv)
     {
     }
 
@@ -143,7 +144,7 @@ protected:
     /// type
     SPType m_type;
     /// x,y,z location
-    Array<OneD, NekDouble> m_loc;
+    std::array<NekDouble, 3> m_loc;
 };
 
 typedef std::shared_ptr<SPBase> SPBaseSharedPtr;
@@ -159,7 +160,7 @@ public:
     /**
      * @brief constructor for a valid point (has radius of curvature)
      */
-    CPoint(int i, Array<OneD, NekDouble> uv, Array<OneD, NekDouble> l,
+    CPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l,
            NekDouble d)
         : SPBase(l), sid(i), m_uv(uv), m_delta(d)
     {
@@ -167,7 +168,7 @@ public:
     }
 
     // Overloaded constructor with refined delta value
-    CPoint(int i, Array<OneD, NekDouble> uv, Array<OneD, NekDouble> l,
+    CPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l,
            NekDouble d, NekDouble rd)
         : SPBase(l), sid(i), m_uv(uv), m_delta(d), m_rdelta(rd)
     {
@@ -195,7 +196,7 @@ public:
     /**
      * @brief gets the corresponding cad information for the point
      */
-    void GetCAD(int &surf, Array<OneD, NekDouble> &uv) override
+    void GetCAD(int &surf, std::array<NekDouble, 2> &uv) override
     {
         surf = sid;
         uv   = m_uv;
@@ -215,7 +216,7 @@ private:
     /// surf id
     int sid;
     /// uv coord on surf
-    Array<OneD, NekDouble> m_uv;
+    std::array<NekDouble, 2> m_uv;
     NekDouble m_ti;
     /// delta parameter
     NekDouble m_delta;
@@ -235,7 +236,7 @@ public:
     /**
      * @brief constructor for a boundary point without delta
      */
-    BPoint(int i, Array<OneD, NekDouble> uv, Array<OneD, NekDouble> l)
+    BPoint(int i, std::array<NekDouble, 2> uv, std::array<NekDouble, 3> l)
         : SPBase(l), sid(i), m_uv(uv)
     {
         m_type = ePBoundary;
@@ -246,7 +247,7 @@ public:
     /**
      * @brief gets the corresponding cad information for the point
      */
-    void GetCAD(int &surf, Array<OneD, NekDouble> &uv) override
+    void GetCAD(int &surf, std::array<NekDouble, 2> &uv) override
     {
         surf = sid;
         uv   = m_uv;
@@ -280,7 +281,7 @@ private:
     /// surf id
     int sid;
     /// uv coord on surf
-    Array<OneD, NekDouble> m_uv;
+    std::array<NekDouble, 2> m_uv;
     NekDouble m_ti;
 };
 typedef std::shared_ptr<BPoint> BPointSharedPtr;
@@ -296,7 +297,7 @@ public:
     /**
      * @brief constructor for a boundary point without delta
      */
-    SrcPoint(Array<OneD, NekDouble> l, NekDouble d) : SPBase(l), m_rdelta(d)
+    SrcPoint(std::array<NekDouble, 3> l, NekDouble d) : SPBase(l), m_rdelta(d)
     {
         m_type = eSrcPoint;
     }
@@ -328,7 +329,7 @@ public:
     }
 
     void GetCAD([[maybe_unused]] int &surf,
-                [[maybe_unused]] Array<OneD, NekDouble> &uv) override
+                [[maybe_unused]] std::array<NekDouble, 2> &uv) override
     {
         NEKERROR(ErrorUtil::efatal, "Cannot retrieve CAD from this type")
     }

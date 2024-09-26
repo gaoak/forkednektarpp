@@ -1785,7 +1785,6 @@
                 <D VAR="hu"    USERDEFINEDTYPE="Wall" VALUE="0" />
                 <D VAR="hv"    USERDEFINEDTYPE="Wall" VALUE="0" />
                 <D VAR="z"     USERDEFINEDTYPE="Wall" VALUE="0" />
-                <!--<N VAR="z"     VALUE="0" />-->
             </REGION>
         </BOUNDARYCONDITIONS>
 

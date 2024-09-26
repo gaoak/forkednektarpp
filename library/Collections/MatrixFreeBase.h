@@ -50,6 +50,17 @@ public:
                    const unsigned int nCollSize)
         : m_nIn(nIn * nCollSize), m_nOut(nOut * nCollSize)
     {
+        // Padding if needed
+        using vec_t           = tinysimd::simd<NekDouble>;
+        const auto nElmtNoPad = nCollSize;
+        m_nElmtPad            = nElmtNoPad;
+
+        if (nElmtNoPad % vec_t::width != 0)
+        {
+            m_isPadded = true;
+            m_nElmtPad =
+                nElmtNoPad + vec_t::width - (nElmtNoPad % vec_t::width);
+        }
     }
 
 protected:
@@ -57,127 +68,11 @@ protected:
     bool m_isPadded{false};
     ///  size after padding
     unsigned int m_nElmtPad;
+    /// actural size of input array
     unsigned int m_nIn;
+    /// actural size of output array
     unsigned int m_nOut;
 };
 
-class MatrixFreeOneInOneOut : protected MatrixFreeBase
-{
-public:
-    /// Constructor
-    MatrixFreeOneInOneOut(const unsigned int nIn, const unsigned int nOut,
-                          const unsigned int nCollSize)
-        : MatrixFreeBase(nIn, nOut, nCollSize)
-    {
-        // Padding if needed
-        using vec_t           = tinysimd::simd<NekDouble>;
-        const auto nElmtNoPad = nCollSize;
-        m_nElmtPad            = nElmtNoPad;
-
-        if (nElmtNoPad % vec_t::width != 0)
-        {
-            m_isPadded = true;
-            m_nElmtPad =
-                nElmtNoPad + vec_t::width - (nElmtNoPad % vec_t::width);
-            m_input  = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-            m_output = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-        }
-    }
-
-protected:
-    /// padded input/output vectors
-    Array<OneD, NekDouble> m_input, m_output;
-};
-
-class MatrixFreeMultiInOneOut : protected MatrixFreeBase
-{
-public:
-    /// Constructor
-    MatrixFreeMultiInOneOut(const unsigned int coordim, const unsigned int nIn,
-                            const unsigned int nOut,
-                            const unsigned int nCollSize)
-        : MatrixFreeBase(nIn, nOut, nCollSize)
-    {
-        m_coordim = coordim;
-
-        // Padding if needed
-        using vec_t           = tinysimd::simd<NekDouble>;
-        const auto nElmtNoPad = nCollSize;
-        m_nElmtPad            = nElmtNoPad;
-
-        if (nElmtNoPad % vec_t::width != 0)
-        {
-            m_isPadded = true;
-            m_nElmtPad =
-                nElmtNoPad + vec_t::width - (nElmtNoPad % vec_t::width);
-
-            m_input    = Array<OneD, Array<OneD, NekDouble>>(m_coordim);
-            m_input[0] = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-            if (m_coordim == 2)
-            {
-                m_input[1] = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-            }
-            else if (m_coordim == 3)
-            {
-                m_input[1] = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-                m_input[2] = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-            }
-            m_output = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-        }
-    }
-
-protected:
-    /// coordinates dimension
-    unsigned short m_coordim;
-    /// padded input/output vectors
-    Array<OneD, Array<OneD, NekDouble>> m_input;
-    Array<OneD, NekDouble> m_output;
-};
-
-class MatrixFreeOneInMultiOut : protected MatrixFreeBase
-{
-public:
-    /// Constructor
-    MatrixFreeOneInMultiOut(const unsigned int coordim, const unsigned int nIn,
-                            const unsigned int nOut,
-                            const unsigned int nCollSize)
-        : MatrixFreeBase(nIn, nOut, nCollSize)
-    {
-        m_coordim = coordim;
-
-        // Padding if needed
-        using vec_t           = tinysimd::simd<NekDouble>;
-        const auto nElmtNoPad = nCollSize;
-        m_nElmtPad            = nElmtNoPad;
-
-        if (nElmtNoPad % vec_t::width != 0)
-        {
-            m_isPadded = true;
-            m_nElmtPad =
-                nElmtNoPad + vec_t::width - (nElmtNoPad % vec_t::width);
-
-            m_input = Array<OneD, NekDouble>{nIn * m_nElmtPad, 0.0};
-
-            m_output    = Array<OneD, Array<OneD, NekDouble>>(m_coordim);
-            m_output[0] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            if (m_coordim == 2)
-            {
-                m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            }
-            else if (m_coordim == 3)
-            {
-                m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-                m_output[2] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            }
-        }
-    }
-
-protected:
-    /// coordinates dimension
-    unsigned short m_coordim;
-    /// padded input/output vectors
-    Array<OneD, NekDouble> m_input;
-    Array<OneD, Array<OneD, NekDouble>> m_output;
-};
 } // namespace Nektar::Collections
 #endif // NEKTAR_LIBRARY_COLLECTIONS_MATRIXFREEBASE_H

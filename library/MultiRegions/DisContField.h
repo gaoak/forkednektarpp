@@ -228,6 +228,7 @@ protected:
     ExpListSharedPtr &v_GetTrace() override;
 
     AssemblyMapDGSharedPtr &v_GetTraceMap(void) override;
+    InterfaceMapDGSharedPtr &v_GetInterfaceMap(void) override;
 
     const LocTraceToTraceMapSharedPtr &v_GetLocTraceToTraceMap(
         void) const override;
@@ -261,11 +262,11 @@ protected:
 
     std::map<int, RobinBCInfoSharedPtr> v_GetRobinBCInfo() override;
 
-    const Array<OneD, const MultiRegions::ExpListSharedPtr>
-        &v_GetBndCondExpansions() override;
+    const Array<OneD, const MultiRegions::ExpListSharedPtr> &
+    v_GetBndCondExpansions() override;
 
-    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-        &v_GetBndConditions() override;
+    const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+    v_GetBndConditions() override;
 
     MultiRegions::ExpListSharedPtr &v_UpdateBndCondExpansion(int i) override;
 

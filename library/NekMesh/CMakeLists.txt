@@ -30,6 +30,7 @@ SET(NEKMESH_SOURCES
     Module/ProcessModules/ProcessOptiExtract.cpp
     Module/ProcessModules/ProcessInsertSurface.cpp
     Module/ProcessModules/ProcessExtrude.cpp
+    Module/ProcessModules/ProcessRevolve.cpp
     Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.cpp
     Module/ProcessModules/ProcessVarOpti/PreProcessing.cpp
     Module/ProcessModules/ProcessVarOpti/NodeOpti.cpp
@@ -89,6 +90,7 @@ SET(NEKMESH_HEADERS
     Module/ProcessModules/ProcessOptiExtract.h
     Module/ProcessModules/ProcessInsertSurface.h
     Module/ProcessModules/ProcessExtrude.h
+    Module/ProcessModules/ProcessRevolve.h
     Module/ProcessModules/ProcessVarOpti/ProcessVarOpti.h
     Module/ProcessModules/ProcessVarOpti/NodeOpti.h
     Module/ProcessModules/ProcessVarOpti/ElUtil.h

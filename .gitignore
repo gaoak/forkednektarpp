@@ -27,3 +27,5 @@ a.out
 .ccls-cache/
 .cache
 *.opt
+# Any python cache directories
+__pycache__

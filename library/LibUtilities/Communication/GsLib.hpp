@@ -258,6 +258,19 @@ static inline void Finalise([[maybe_unused]] gs_data *pGsh)
 }
 
 /**
+ * @brief Deallocates GSLib mapping data without finalising MPI.
+ */
+static inline void Free([[maybe_unused]] gs_data *pGsh)
+{
+#ifdef NEKTAR_USE_MPI
+    if (pGsh)
+    {
+        nektar_gs_free(pGsh);
+    }
+#endif
+}
+
+/**
  * @brief Performs a gather-scatter operation of the provided values.
  *
  * The

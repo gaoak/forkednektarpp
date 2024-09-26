@@ -54,6 +54,7 @@ ElUtil::ElUtil(ElementSharedPtr e, DerivUtilSharedPtr d, ResidualSharedPtr r,
     m_mode      = n;
     m_order     = o;
     m_dim       = m_el->GetDim();
+    m_radapt    = false;
     vector<NodeSharedPtr> ns;
     m_el->GetCurvedNodes(ns);
     nodes.resize(ns.size());
@@ -747,6 +748,49 @@ void ElUtil::InitialMinJac()
     m_minJac = mn;
 }
 
+bool ElUtil::PreUpdateMapping(
+    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+        &adaptCurves,
+    NekDouble scale, NekDouble rad)
+{
+    ASSERTL0(m_dim > 1, "Adaption for mesh dim < 2 not implemented.");
+
+    std::vector<CADCurveSharedPtr> radaptCurves;
+
+    auto el_boundingBox = m_el->GetBoundingBox();
+    auto el_bb_min      = el_boundingBox.first.GetLoc();
+    auto el_bb_max      = el_boundingBox.second.GetLoc();
+
+    for (auto &curve : adaptCurves)
+    {
+        auto curve_bb_min = curve.second.first.GetLoc();
+        auto curve_bb_max = curve.second.second.GetLoc();
+
+        bool x_outside = (el_bb_max[0] <= curve_bb_min[0]) ||
+                         (el_bb_min[0] >= curve_bb_max[0]);
+        bool y_outside = (el_bb_max[1] <= curve_bb_min[1]) ||
+                         (el_bb_min[1] >= curve_bb_max[1]);
+        bool z_outside = (m_dim > 2) ? ((el_bb_max[2] <= curve_bb_min[2]) ||
+                                        (el_bb_min[2] >= curve_bb_max[2]))
+                                     : false;
+
+        if (!(x_outside || y_outside || z_outside))
+        {
+            radaptCurves.push_back(curve.first);
+        }
+    }
+
+    if (!radaptCurves.empty())
+    {
+        SetScalingFromInput(scale, rad, radaptCurves);
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 void ElUtil::UpdateMapping()
 {
     NekDouble scaling = 1.0;
@@ -797,12 +841,55 @@ void ElUtil::UpdateMapping()
         scaling = m_interpField->GetPointVal(m_dim, 0);
     }
 
+    // r-adaption scale manually set
+    else if (m_radapt)
+    {
+        if (m_adapt_radius) // Using elements with a node within a radius from
+                            // the curve
+        {
+            [&] {
+                for (auto &vert : m_el->GetVertexList())
+                {
+                    std::array<NekDouble, 3> x;
+                    x[0] = vert->m_x;
+                    x[1] = vert->m_y;
+                    x[2] = vert->m_z;
+                    for (auto &curve : m_adaptcurves)
+                    {
+                        if (curve->GetMinDistance(x) < m_adapt_radius)
+                        {
+                            scaling = m_adapt_scale;
+                            return; // return lambda function to break loop
+                        }
+                    }
+                }
+            }();
+        }
+        else // Using only elements with a node on the curve
+        {
+            [&] {
+                for (auto &vert : m_el->GetVertexList())
+                {
+                    for (auto &curve : vert->GetCADCurves())
+                    {
+                        std::vector<CADCurveSharedPtr>::iterator it = std::find(
+                            m_adaptcurves.begin(), m_adaptcurves.end(), curve);
+                        if (it != m_adaptcurves.end())
+                        {
+                            scaling = m_adapt_scale;
+                            return; // return lambda function to break loop
+                        }
+                    }
+                }
+            }();
+        }
+    }
+
     if (scaling == 1.0)
     {
         maps    = m_maps;
         mapsStd = m_mapsStd;
     }
-
     else
     {
         ASSERTL0(m_dim > 1, "Scaling for mesh dim < 2 not implemented.");
@@ -832,4 +919,13 @@ ElUtilJob *ElUtil::GetJob(bool update)
 {
     return new ElUtilJob(this, update);
 }
+
+ElUtilJob *ElUtil::GetAdaptJob(
+    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+        &adaptCurves,
+    NekDouble scale, NekDouble rad)
+{
+    return new ElUtilJob(this, adaptCurves, scale, rad);
+}
+
 } // namespace Nektar::NekMesh

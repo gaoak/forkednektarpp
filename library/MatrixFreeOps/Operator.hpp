@@ -43,6 +43,7 @@
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Foundations/Basis.h>
+#include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 namespace Nektar::MatrixFree
@@ -82,6 +83,18 @@ public:
         return false;
     }
 
+    MATRIXFREE_EXPORT virtual void SetUpBdata(
+        [[maybe_unused]] std::vector<LibUtilities::BasisSharedPtr> &basis) = 0;
+    MATRIXFREE_EXPORT virtual void SetUpDBdata(
+        [[maybe_unused]] std::vector<LibUtilities::BasisSharedPtr> &basis) = 0;
+    MATRIXFREE_EXPORT virtual void SetUpInterp1D(
+        [[maybe_unused]] std::vector<LibUtilities::BasisSharedPtr> &basis,
+        [[maybe_unused]] NekDouble factor) = 0;
+    MATRIXFREE_EXPORT virtual void SetUpZW(
+        [[maybe_unused]] std::vector<LibUtilities::BasisSharedPtr> &basis) = 0;
+    MATRIXFREE_EXPORT virtual void SetUpD(
+        [[maybe_unused]] std::vector<LibUtilities::BasisSharedPtr> &basis) = 0;
+
     MATRIXFREE_EXPORT virtual void SetDF(
         const std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
             &df) = 0;
@@ -119,6 +132,12 @@ public:
                        int nElmt)
         : m_basis(basis), m_nElmt(nElmt)
     {
+        // Since the class is constructed before the
+        // PhysInterp1DScaled_MatrixFree class inside collections, we are
+        // initializing the m_scalingFactor member with the default value of 1.5
+        // and upon construction of the aforemmentioned class, it will be
+        // updated to the correct value.
+        m_scalingFactor = 1.5;
     }
 
     ~PhysInterp1DScaled() override = default;
@@ -127,9 +146,19 @@ public:
         const Array<OneD, const NekDouble> &input,
         Array<OneD, NekDouble> &output) = 0; // Abstract Method
 
+    // Function to initialize the scaling factor that is used to increase the
+    // number of quadrature points in each direction of the flow
+    NEK_FORCE_INLINE void SetScalingFactor(NekDouble scalingFactor)
+    {
+        m_scalingFactor = scalingFactor;
+    }
+
 protected:
     std::vector<LibUtilities::BasisSharedPtr> m_basis;
     int m_nElmt;
+
+    // Scaling factor to enhance the polynomial space
+    NekDouble m_scalingFactor;
 };
 
 // Base class for product operator.
@@ -335,44 +364,231 @@ protected:
     Array<OneD, NekDouble> m_varD22;
 };
 
+// Base class for the LinearAdvectionDiffusionReaction base operator.
+class LinearAdvectionDiffusionReaction : virtual public Operator
+{
+public:
+    LinearAdvectionDiffusionReaction(
+        std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
+        : m_basis(basis), m_nElmt(nElmt), m_lambda(1.0),
+          m_isConstVarDiff(false), m_isVarDiff(false)
+    {
+        int n          = m_basis.size();
+        m_constVarDiff = Array<OneD, NekDouble>(n * (n + 1) / 2);
+        int tp         = 1;
+        for (int bn = 0; bn < n; ++bn)
+        {
+            tp *= m_basis[bn]->GetNumPoints();
+        }
+
+        switch (n)
+        {
+            case 2:
+                m_varD00 = Array<OneD, NekDouble>(tp);
+                m_varD01 = Array<OneD, NekDouble>(tp);
+                m_varD11 = Array<OneD, NekDouble>(tp);
+                break;
+            case 3:
+                m_varD00 = Array<OneD, NekDouble>(tp);
+                m_varD01 = Array<OneD, NekDouble>(tp);
+                m_varD11 = Array<OneD, NekDouble>(tp);
+                m_varD02 = Array<OneD, NekDouble>(tp);
+                m_varD12 = Array<OneD, NekDouble>(tp);
+                m_varD22 = Array<OneD, NekDouble>(tp);
+                break;
+            default:
+                break;
+        }
+    }
+
+    ~LinearAdvectionDiffusionReaction() override = default;
+
+    bool NeedsDF() final
+    {
+        return true;
+    }
+
+    bool NeedsJac() final
+    {
+        return true;
+    }
+
+    MATRIXFREE_EXPORT virtual void operator()(
+        const Array<OneD, const NekDouble> &input,
+        Array<OneD, NekDouble> &output) = 0;
+
+    NEK_FORCE_INLINE void SetLambda(NekDouble lambda)
+    {
+        m_lambda = lambda;
+    }
+
+    NEK_FORCE_INLINE void SetConstVarDiffusion(Array<OneD, NekDouble> diff)
+    {
+        m_isConstVarDiff = true;
+
+        int n = m_basis.size();
+
+        for (int i = 0; i < n * (n + 1) / 2; ++i)
+        {
+            m_constVarDiff[i] = diff[i];
+        }
+    }
+
+    NEK_FORCE_INLINE void SetVarDiffusion(
+        [[maybe_unused]] Array<OneD, NekDouble> diff)
+    {
+        m_isVarDiff      = true;
+        m_isConstVarDiff = false;
+
+        int n  = m_basis.size();
+        int tp = 1;
+
+        for (int bn = 0; bn < n; ++bn)
+        {
+            tp *= m_basis[bn]->GetNumPoints();
+        }
+
+        // fixed values for testing!
+        for (int i = 0; i < tp; ++i)
+        {
+            switch (n)
+            {
+                case 2:
+                    m_varD00[i] = diff[0];
+                    m_varD01[i] = diff[1];
+                    m_varD11[i] = diff[2];
+                    break;
+                case 3:
+                    m_varD00[i] = diff[0];
+                    m_varD01[i] = diff[1];
+                    m_varD11[i] = diff[2];
+                    m_varD02[i] = diff[3];
+                    m_varD12[i] = diff[4];
+                    m_varD22[i] = diff[5];
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    NEK_FORCE_INLINE void SetAdvectionVelocities(
+        const std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
+            &advVel)
+    {
+        m_advVel = advVel;
+    }
+
+protected:
+    std::vector<LibUtilities::BasisSharedPtr> m_basis;
+    int m_nElmt;
+    NekDouble m_lambda;
+    bool m_isConstVarDiff;
+    Array<OneD, NekDouble> m_constVarDiff;
+    bool m_isVarDiff;
+    Array<OneD, NekDouble> m_varD00;
+    Array<OneD, NekDouble> m_varD01;
+    Array<OneD, NekDouble> m_varD11;
+    Array<OneD, NekDouble> m_varD02;
+    Array<OneD, NekDouble> m_varD12;
+    Array<OneD, NekDouble> m_varD22;
+    std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> m_advVel;
+};
+
 template <int DIM, bool DEFORMED = false> class Helper : virtual public Operator
 {
 protected:
     Helper(std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
         : Operator()
     {
-        // Sanity check: no padding yet!
-        ASSERTL1(nElmt % vec_t::width == 0,
-                 "Number of elements not divisible by vector "
-                 "width, padding not yet implemented.");
-
-        // Calculate number of 'blocks', i.e. meta-elements
-        m_nBlocks = nElmt / vec_t::width;
-
-        // Depending on element dimension, set up basis information, quadrature,
-        // etc, inside vectorised environment.
+        if (nElmt % vec_t::width == 0) // No padding or already padded
+        {
+            // Calculate number of 'blocks', i.e. meta-elements
+            m_nBlocks = nElmt / vec_t::width;
+            m_nPads   = 0;
+        }
+        else // Need padding internally
+        {
+            // Calculate number of 'blocks', i.e. meta-elements
+            m_nBlocks = nElmt / vec_t::width + 1;
+            m_nPads   = vec_t::width - (nElmt % vec_t::width);
+        }
         for (int i = 0; i < DIM; ++i)
         {
-            const Array<OneD, const NekDouble> bdata  = basis[i]->GetBdata();
-            const Array<OneD, const NekDouble> dbdata = basis[i]->GetDbdata();
-            const Array<OneD, const NekDouble> w      = basis[i]->GetW();
-
             m_nm[i] = basis[i]->GetNumModes();
             m_nq[i] = basis[i]->GetNumPoints();
+        }
+    }
+
+    // Depending on element dimension, set up basis information,
+    // inside vectorised environment.
+    void SetUpBdata(std::vector<LibUtilities::BasisSharedPtr> &basis) final
+    {
+        for (int i = 0; i < DIM; ++i)
+        {
+            const Array<OneD, const NekDouble> bdata = basis[i]->GetBdata();
 
             m_bdata[i].resize(bdata.size());
             for (auto j = 0; j < bdata.size(); ++j)
             {
                 m_bdata[i][j] = bdata[j];
             }
+        }
+    }
+
+    // Depending on element dimension, set up derivative of basis
+    // information, inside vectorised environment.
+    void SetUpDBdata(std::vector<LibUtilities::BasisSharedPtr> &basis) final
+    {
+        for (int i = 0; i < DIM; ++i)
+        {
+            const Array<OneD, const NekDouble> dbdata = basis[i]->GetDbdata();
 
             m_dbdata[i].resize(dbdata.size());
             for (auto j = 0; j < dbdata.size(); ++j)
             {
                 m_dbdata[i][j] = dbdata[j];
             }
+        }
+    }
 
-            NekDouble fac = 1.0;
+    // Depending on element dimension, set up 1D interpolation matrix in
+    // basis data inside vectorised environment.
+    void SetUpInterp1D(std::vector<LibUtilities::BasisSharedPtr> &basis,
+                       NekDouble factor) final
+    {
+        // Is this updated at each time-step?
+        // Depending on element dimension, set up interpolation matrices,
+        // inside vectorised environment.
+        for (int i = 0; i < DIM; ++i)
+        {
+            m_enhancednq[i] = (int)basis[i]->GetNumPoints() * factor;
+
+            LibUtilities::PointsKey PointsKeyIn(m_nq[i],
+                                                basis[i]->GetPointsType());
+            LibUtilities::PointsKey PointsKeyOut((int)m_nq[i] * factor,
+                                                 basis[i]->GetPointsType());
+            auto I = LibUtilities::PointsManager()[PointsKeyIn]
+                         ->GetI(PointsKeyOut)
+                         ->GetPtr();
+
+            m_I[i].resize(I.size());
+            for (int j = 0; j < I.size(); ++j)
+            {
+                m_I[i][j] = I[j];
+            }
+        }
+    }
+
+    void SetUpZW(std::vector<LibUtilities::BasisSharedPtr> &basis) final
+    {
+
+        // Depending on element dimension, set up quadrature,
+        // inside vectorised environment.
+        for (int i = 0; i < DIM; ++i)
+        {
+            const Array<OneD, const NekDouble> w = basis[i]->GetW();
+            NekDouble fac                        = 1.0;
             if (basis[i]->GetPointsType() ==
                 LibUtilities::eGaussRadauMAlpha1Beta0)
             {
@@ -390,18 +606,27 @@ protected:
                 m_w[i][j] = fac * w[j];
             }
 
-            auto D = basis[i]->GetD()->GetPtr();
-            m_D[i].resize(D.size());
-            for (int j = 0; j < D.size(); ++j)
-            {
-                m_D[i][j] = D[j];
-            }
-
             auto Z = basis[i]->GetZ();
             m_Z[i].resize(Z.size());
             for (int j = 0; j < Z.size(); ++j)
             {
                 m_Z[i][j] = Z[j];
+            }
+        }
+    }
+
+    void SetUpD(std::vector<LibUtilities::BasisSharedPtr> &basis) final
+    {
+
+        // Depending on element dimension, set up quadrature,
+        // inside vectorised environment.
+        for (int i = 0; i < DIM; ++i)
+        {
+            auto D = basis[i]->GetD()->GetPtr();
+            m_D[i].resize(D.size());
+            for (int j = 0; j < D.size(); ++j)
+            {
+                m_D[i][j] = D[j];
             }
         }
     }
@@ -421,7 +646,8 @@ protected:
     }
 
     int m_nBlocks;
-    std::array<int, DIM> m_nm, m_nq;
+    int m_nPads;
+    std::array<int, DIM> m_nm, m_nq, m_enhancednq;
     std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, DIM> m_bdata;
     std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, DIM> m_dbdata;
     std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, DIM>
@@ -430,12 +656,13 @@ protected:
         m_Z; // Zeroes
     std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, DIM>
         m_w; // Weights
+    std::array<std::vector<vec_t, tinysimd::allocator<vec_t>>, DIM>
+        m_I; // Interpolation Matrices
     std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>>
         m_df; // Chain rule function deriviatives for each element (00, 10,
               // 20, 30...)
     std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> m_jac;
 };
-
 } // namespace Nektar::MatrixFree
 
 #endif

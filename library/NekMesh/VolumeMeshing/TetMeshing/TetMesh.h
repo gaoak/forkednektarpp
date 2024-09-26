@@ -75,7 +75,7 @@ private:
     int m_numtet;
     int m_id;
     /// conncetivity of the tets from the interface
-    std::vector<Array<OneD, int>> m_tetconnect;
+    std::vector<std::array<int, 4>> m_tetconnect;
     /// Logger
     Logger m_log;
     /// Interface object/wrapper to tetgen.

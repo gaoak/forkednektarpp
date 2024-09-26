@@ -63,9 +63,9 @@ OutputTecplot::OutputTecplot(FieldSharedPtr f)
 {
     m_requireEquiSpaced = true;
     m_config["double"]  = ConfigOption(true, "0",
-                                      "Write double-precision format data:"
-                                      "more accurate but more disk space"
-                                      " required");
+                                       "Write double-precision format data:"
+                                        "more accurate but more disk space"
+                                        " required");
 }
 
 OutputTecplot::~OutputTecplot()

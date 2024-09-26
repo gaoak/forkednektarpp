@@ -45,9 +45,12 @@ using namespace std;
 namespace Nektar::NekMesh
 {
 
+// Number of samples to use.
+constexpr int nSamp = 40;
+
 void Octree::Process()
 {
-    Array<OneD, NekDouble> boundingBox = m_mesh->m_cad->GetBoundingBox();
+    auto boundingBox = m_mesh->m_cad->GetBoundingBox();
 
     // build curvature samples
     CompileSourcePointList();
@@ -60,10 +63,9 @@ void Octree::Process()
 
     m_dim = max(m_dim, (boundingBox[5] - boundingBox[4]) / 2.0);
 
-    m_centroid    = Array<OneD, NekDouble>(3);
-    m_centroid[0] = (boundingBox[1] + boundingBox[0]) / 2.0;
-    m_centroid[1] = (boundingBox[3] + boundingBox[2]) / 2.0;
-    m_centroid[2] = (boundingBox[5] + boundingBox[4]) / 2.0;
+    m_centroid = {(boundingBox[1] + boundingBox[0]) / 2.0,
+                  (boundingBox[3] + boundingBox[2]) / 2.0,
+                  (boundingBox[5] + boundingBox[4]) / 2.0};
 
     m_masteroct = MemoryManager<Octant>::AllocateSharedPtr(
         0, m_centroid[0], m_centroid[1], m_centroid[2], m_dim, m_SPList);
@@ -87,7 +89,7 @@ void Octree::Process()
                    << " elements." << endl;
 }
 
-NekDouble Octree::Query(Array<OneD, NekDouble> loc)
+NekDouble Octree::Query(std::array<NekDouble, 3> loc)
 {
     // starting at master octant 0 move through succsesive m_octants which
     // contain the point loc until a leaf is found
@@ -118,7 +120,7 @@ NekDouble Octree::Query(Array<OneD, NekDouble> loc)
 
     while (!found)
     {
-        Array<OneD, NekDouble> octloc = n->GetLoc();
+        auto octloc = n->GetLoc();
 
         if (!(loc[0] < octloc[0]) && // forward
             !(loc[1] < octloc[1]) && // forward
@@ -617,7 +619,8 @@ void Octree::PropagateDomain()
 
                         SPBaseSharedPtr sp = closest->GetABoundPoint();
 
-                        Array<OneD, NekDouble> octloc, sploc, vec(3), uv, N;
+                        std::array<NekDouble, 3> octloc, sploc, vec, N;
+                        std::array<NekDouble, 2> uv;
                         int surf;
                         sp->GetCAD(surf, uv);
                         N = m_mesh->m_cad->GetSurf(surf)->N(uv);
@@ -647,7 +650,6 @@ void Octree::PropagateDomain()
                 known.clear();
             }
         }
-
     } while (ct > 0);
 
     for (int i = 0; i < m_octants.size(); i++)
@@ -704,7 +706,6 @@ void Octree::SmoothAllOctants()
                 ct += 1;
             }
         }
-
     } while (ct > 0);
 }
 
@@ -715,7 +716,7 @@ int Octree::CountElemt()
 
     NekDouble total = 0.0;
 
-    Array<OneD, NekDouble> boundingBox = m_mesh->m_cad->GetBoundingBox();
+    auto boundingBox = m_mesh->m_cad->GetBoundingBox();
 
     for (int i = 0; i < m_octants.size(); i++)
     {
@@ -861,10 +862,10 @@ void Octree::CompileSourcePointList()
                     CurveSource(it->second.first, it->second.second, curve));
             }
 
-            Array<OneD, NekDouble> bds = curve->GetBounds();
+            auto bds = curve->GetBounds();
             // this works assuming the curves are not distorted
             int samples  = ceil(curve->Length(bds[0], bds[1]) / m_minDelta) * 2;
-            samples      = max(40, samples);
+            samples      = max(nSamp, samples);
             NekDouble dt = (bds[1] - bds[0]) / (samples + 1);
             for (int j = 1; j < samples - 1;
                  j++) // dont want first and last point
@@ -872,11 +873,11 @@ void Octree::CompileSourcePointList()
                 NekDouble t = bds[0] + dt * j;
                 NekDouble C = curve->Curvature(t);
 
-                Array<OneD, NekDouble> loc = curve->P(t);
+                auto loc = curve->P(t);
 
                 vector<pair<weak_ptr<CADSurf>, CADOrientation::Orientation>>
-                    ss                    = curve->GetAdjSurf();
-                Array<OneD, NekDouble> uv = ss[0].first.lock()->locuv(loc);
+                    ss  = curve->GetAdjSurf();
+                auto uv = ss[0].first.lock()->locuv(loc);
 
                 if (C != 0.0)
                 {
@@ -928,39 +929,38 @@ void Octree::CompileSourcePointList()
         {
             m_log(VERBOSE).Progress(i, totalEnt, "  - Compiling source points");
 
-            CADSurfSharedPtr surf         = m_mesh->m_cad->GetSurf(i);
-            Array<OneD, NekDouble> bounds = surf->GetBounds();
+            CADSurfSharedPtr surf = m_mesh->m_cad->GetSurf(i);
+            auto bounds           = surf->GetBounds();
 
             // to figure out the amount of curvature sampling to be conducted on
-            // each parameter plane the surface is first sampled with a 40x40
-            // grid the real space lengths of this grid are analyzed to find the
-            // largest stretching in the u and v directions
-            // this stretching is then considered with the mindelta user input
-            // to find a number of sampling points in each direction which
-            // ensures that in the final octree each surface octant will have at
-            // least one sample point within its volume.
-            // the 40x40 grid is used to ensure each surface has a minimum of
-            // 40x40 samples.
-            NekDouble du = (bounds[1] - bounds[0]) / (40 - 1);
-            NekDouble dv = (bounds[3] - bounds[2]) / (40 - 1);
+            // each parameter plane the surface is first sampled with a nSamp x
+            // nSamp grid the real space lengths of this grid are analyzed to
+            // find the largest stretching in the u and v directions this
+            // stretching is then considered with the mindelta user input to
+            // find a number of sampling points in each direction which ensures
+            // that in the final octree each surface octant will have at least
+            // one sample point within its volume.  the nSamp x nSamp grid is
+            // used to ensure each surface has a minimum of nSamp x nSamp
+            // samples.
+            NekDouble du = (bounds[1] - bounds[0]) / (nSamp - 1);
+            NekDouble dv = (bounds[3] - bounds[2]) / (nSamp - 1);
 
             NekDouble DeltaU = 0.0;
             NekDouble DeltaV = 0.0;
 
-            Array<TwoD, Array<OneD, NekDouble>> samplepoints(40, 40);
+            Array<TwoD, std::array<NekDouble, 3>> samplepoints(nSamp, nSamp);
 
-            for (int j = 0; j < 40; j++)
+            for (int j = 0; j < nSamp; j++)
             {
-                for (int k = 0; k < 40; k++)
+                for (int k = 0; k < nSamp; k++)
                 {
-                    Array<OneD, NekDouble> uv(2);
-                    uv[0] = k * du + bounds[0];
-                    uv[1] = j * dv + bounds[2];
-                    if (j == 40 - 1)
+                    std::array<NekDouble, 2> uv = {k * du + bounds[0],
+                                                   j * dv + bounds[2]};
+                    if (j == nSamp - 1)
                     {
                         uv[1] = bounds[3];
                     }
-                    if (k == 40 - 1)
+                    if (k == nSamp - 1)
                     {
                         uv[0] = bounds[1];
                     }
@@ -968,9 +968,9 @@ void Octree::CompileSourcePointList()
                 }
             }
 
-            for (int j = 0; j < 40 - 1; j++)
+            for (int j = 0; j < nSamp - 1; j++)
             {
-                for (int k = 0; k < 40 - 1; k++)
+                for (int k = 0; k < nSamp - 1; k++)
                 {
                     NekDouble deltau = sqrt(
                         (samplepoints[k][j][0] - samplepoints[k + 1][j][0]) *
@@ -1006,18 +1006,18 @@ void Octree::CompileSourcePointList()
 
             // these are the acutal number of sample points in each parametric
             // direction
-            int nu = ceil(DeltaU * 40 / m_minDelta) * 2;
-            int nv = ceil(DeltaV * 40 / m_minDelta) * 2;
-            nu     = max(40, nu);
-            nv     = max(40, nv);
+            int nu = ceil(DeltaU * nSamp / m_minDelta) * 2;
+            int nv = ceil(DeltaV * nSamp / m_minDelta) * 2;
+            nu     = max(nSamp, nu);
+            nv     = max(nSamp, nv);
 
             for (int j = 0; j < nu; j++)
             {
                 for (int k = 0; k < nv; k++)
                 {
-                    Array<OneD, NekDouble> uv(2);
-                    uv[0] = (bounds[1] - bounds[0]) / (nu - 1) * j + bounds[0];
-                    uv[1] = (bounds[3] - bounds[2]) / (nv - 1) * k + bounds[2];
+                    std::array<NekDouble, 2> uv = {
+                        (bounds[1] - bounds[0]) / (nu - 1) * j + bounds[0],
+                        (bounds[3] - bounds[2]) / (nv - 1) * k + bounds[2]};
 
                     // this prevents round off error at the end of the surface
                     // may not be neseercary but works
@@ -1090,7 +1090,7 @@ void Octree::CompileSourcePointList()
             vector<NekDouble> data;
             ParseUtils::GenerateVector(lines[i], data);
 
-            Array<OneD, NekDouble> x1(3), x2(3);
+            std::array<NekDouble, 3> x1, x2;
 
             x1[0] = data[0];
             x1[1] = data[1];
@@ -1115,10 +1115,8 @@ void Octree::CompileSourcePointList()
 
             for (size_t j = 0; j < num_points; j++)
             {
-                Array<OneD, NekDouble> loc(3);
-                loc[0] = x1[0] + dx * j;
-                loc[1] = x1[1] + dy * j;
-                loc[2] = x1[2] + dz * j;
+                std::array<NekDouble, 3> loc = {x1[0] + dx * j, x1[1] + dy * j,
+                                                x1[2] + dz * j};
                 SrcPointSharedPtr newSPoint =
                     MemoryManager<SrcPoint>::AllocateSharedPtr(loc, data[7]);
                 m_SPList.push_back(newSPoint);

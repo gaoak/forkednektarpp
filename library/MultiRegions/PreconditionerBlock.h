@@ -70,11 +70,15 @@ public:
     MULTI_REGIONS_EXPORT
     ~PreconditionerBlock() override
     {
+        Gs::Free(m_gs_mapping);
     }
 
 protected:
     bool m_isFull;
     DNekBlkMatSharedPtr m_blkMat;
+
+    // Hold gs mapping as member to hold and delete only at descrution
+    Gs::gs_data *m_gs_mapping;
 
     void v_InitObject() override;
     void v_DoPreconditioner(const Array<OneD, NekDouble> &pInput,

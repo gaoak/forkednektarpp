@@ -35,7 +35,6 @@
 #ifndef NEKTAR_SOLVERS_ADRSOLVER_EQUATIONSYSTEMS_MMFSWE_H
 #define NEKTAR_SOLVERS_ADRSOLVER_EQUATIONSYSTEMS_MMFSWE_H
 
-#include <ShallowWaterSolver/EquationSystems/ShallowWaterSystem.h>
 #include <SolverUtils/MMFSystem.h>
 
 namespace Nektar
@@ -79,7 +78,7 @@ public:
     TestType m_TestType;
 
     /// Destructor
-    ~MMFSWE() override;
+    ~MMFSWE() override = default;
 
 protected:
     /// Still water depth

@@ -357,14 +357,14 @@ void DisContField3DHomogeneous2D::v_EvaluateBoundaryConditions(
     }
 }
 
-const Array<OneD, const std::shared_ptr<ExpList>>
-    &DisContField3DHomogeneous2D::v_GetBndCondExpansions(void)
+const Array<OneD, const std::shared_ptr<ExpList>> &DisContField3DHomogeneous2D::
+    v_GetBndCondExpansions(void)
 {
     return m_bndCondExpansions;
 }
 
-const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-    &DisContField3DHomogeneous2D::v_GetBndConditions()
+const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &
+DisContField3DHomogeneous2D::v_GetBndConditions()
 {
     return m_bndConditions;
 }
@@ -375,8 +375,8 @@ std::shared_ptr<ExpList> &DisContField3DHomogeneous2D::v_UpdateBndCondExpansion(
     return m_bndCondExpansions[i];
 }
 
-Array<OneD, SpatialDomains::BoundaryConditionShPtr>
-    &DisContField3DHomogeneous2D::v_UpdateBndConditions()
+Array<OneD, SpatialDomains::BoundaryConditionShPtr> &DisContField3DHomogeneous2D::
+    v_UpdateBndConditions()
 {
     return m_bndConditions;
 }

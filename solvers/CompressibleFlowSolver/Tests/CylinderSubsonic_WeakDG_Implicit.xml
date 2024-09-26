@@ -2840,6 +2840,7 @@
             <P> rhoInf          = 1.225     </P>
             <P> uInf            = 0.1       </P>
             <P> vInf            = 0.0       </P>
+            <P> JacobiFreeEps   = 5.0e-8    </P>
         </PARAMETERS>
 
         <SOLVERINFO>

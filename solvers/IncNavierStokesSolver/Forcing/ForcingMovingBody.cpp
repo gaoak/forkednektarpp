@@ -742,7 +742,7 @@ void ForcingMovingBody::InitialiseCableModel(
         m_session->LoadParameter("Strip_Z", nstrips);
         m_lhom = nstrips * DistStrip;
         m_FFT  = LibUtilities::GetNektarFFTFactory().CreateInstance("NekFFTW",
-                                                                   nstrips);
+                                                                    nstrips);
     }
 
     // load the structural dynamic parameters from xml file
@@ -1243,7 +1243,7 @@ void ForcingMovingBody::InitialiseFilter(
     // fluid forces and write both the aerodynamic forces and motion variables
     // into the output files
     m_MovBodyfilter = MemoryManager<FilterMovingBody>::AllocateSharedPtr(
-        pSession, m_equ, vParams);
+        pSession, m_equ.lock(), vParams);
 
     // Initialise the object of MovingBody filter
     m_MovBodyfilter->Initialise(pFields, 0.0);

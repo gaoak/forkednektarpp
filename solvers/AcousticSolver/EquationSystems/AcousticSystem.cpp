@@ -609,8 +609,8 @@ const Array<OneD, const Array<OneD, NekDouble>> &AcousticSystem::GetVecLocs()
 /**
  * @brief Get the baseflow field.
  */
-const Array<OneD, const Array<OneD, NekDouble>>
-    &AcousticSystem::GetBasefieldFwdBwd()
+const Array<OneD, const Array<OneD, NekDouble>> &AcousticSystem::
+    GetBasefieldFwdBwd()
 {
     return m_bfFwdBwd;
 }

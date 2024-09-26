@@ -76,8 +76,7 @@ protected:
 
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
-                      Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble factor) override;
+                      Array<OneD, NekDouble> &pOutput, const int nDir) override;
 
 private:
 };

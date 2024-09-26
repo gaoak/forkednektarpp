@@ -253,15 +253,13 @@ void Face::MakeOrder(int order, SpatialDomains::GeometrySharedPtr geom,
         CADSurfSharedPtr s = std::dynamic_pointer_cast<CADSurf>(m_parentCAD);
         for (int i = 0; i < m_faceNodes.size(); i++)
         {
-            Array<OneD, NekDouble> loc(3);
-            loc[0]                    = m_faceNodes[i]->m_x;
-            loc[1]                    = m_faceNodes[i]->m_y;
-            loc[2]                    = m_faceNodes[i]->m_z;
-            Array<OneD, NekDouble> uv = s->locuv(loc);
-            loc                       = s->P(uv);
-            m_faceNodes[i]->m_x       = loc[0];
-            m_faceNodes[i]->m_y       = loc[1];
-            m_faceNodes[i]->m_z       = loc[2];
+            std::array<NekDouble, 3> loc = {
+                m_faceNodes[i]->m_x, m_faceNodes[i]->m_y, m_faceNodes[i]->m_z};
+            auto uv             = s->locuv(loc);
+            loc                 = s->P(uv);
+            m_faceNodes[i]->m_x = loc[0];
+            m_faceNodes[i]->m_y = loc[1];
+            m_faceNodes[i]->m_z = loc[2];
             m_faceNodes[i]->SetCADSurf(s, uv);
         }
     }

@@ -50,6 +50,7 @@ namespace io = boost::iostreams;
 #include <LibUtilities/BasicUtils/Filesystem.hpp>
 #include <NekMesh/MeshElements/Element.h>
 #include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <SpatialDomains/PointGeom.h>
 #include <tinyxml.h>
 
@@ -210,7 +211,7 @@ void OutputNekpp::Process()
     }
 
     SpatialDomains::MeshGraphSharedPtr graph =
-        SpatialDomains::GetMeshGraphFactory().CreateInstance(type);
+        MemoryManager<SpatialDomains::MeshGraph>::AllocateSharedPtr();
     graph->Empty(m_mesh->m_expDim, m_mesh->m_spaceDim);
 
     TransferVertices(graph);
@@ -223,7 +224,9 @@ void OutputNekpp::Process()
     TransferComposites(graph);
     TransferDomain(graph);
 
-    graph->WriteGeometry(filename, true, m_mesh->m_metadata);
+    auto graphIO = SpatialDomains::GetMeshGraphIOFactory().CreateInstance(type);
+    graphIO->SetMeshGraph(graph);
+    graphIO->WriteGeometry(filename, true, m_mesh->m_metadata);
 
     // Test the resulting XML file (with a basic test) by loading it
     // with the session reader, generating the MeshGraph and testing if
@@ -258,7 +261,7 @@ void OutputNekpp::Process()
             LibUtilities::SessionReader::CreateInstance(1, &prgname, filenames,
                                                         m_mesh->m_comm);
         SpatialDomains::MeshGraphSharedPtr graph =
-            SpatialDomains::MeshGraph::Read(vSession);
+            SpatialDomains::MeshGraphIO::Read(vSession);
 
         TestElmts(graph->GetAllSegGeoms(), graph, m_strEval, exprId, m_log);
         TestElmts(graph->GetAllTriGeoms(), graph, m_strEval, exprId, m_log);

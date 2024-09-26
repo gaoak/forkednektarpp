@@ -63,6 +63,7 @@ enum OperatorType
 {
     eBwdTrans,
     eHelmholtz,
+    eLinearAdvectionDiffusionReaction,
     eIProductWRTBase,
     eIProductWRTDerivBase,
     ePhysDeriv,
@@ -70,13 +71,17 @@ enum OperatorType
     SIZE_OperatorType
 };
 
-const char *const OperatorTypeMap[] = {
-    "BwdTrans",  "Helmholtz",         "IProductWRTBase", "IProductWRTDerivBase",
-    "PhysDeriv", "PhysInterp1DScaled"};
+const char *const OperatorTypeMap[] = {"BwdTrans",
+                                       "Helmholtz",
+                                       "LinearAdvectionDiffusionReaction",
+                                       "IProductWRTBase",
+                                       "IProductWRTDerivBase",
+                                       "PhysDeriv",
+                                       "PhysInterp1DScaled"};
 
-const char *const OperatorTypeMap1[] = {"BwdTrans",  "Helmholtz",
-                                        "IPWrtBase", "IPWrtDBase",
-                                        "PhysDeriv", "PhysInterp1DScaled"};
+const char *const OperatorTypeMap1[] = {
+    "BwdTrans",   "Helmholtz", "LinearADR",         "IPWrtBase",
+    "IPWrtDBase", "PhysDeriv", "PhysInterp1DScaled"};
 
 enum ImplementationType
 {
@@ -151,10 +156,15 @@ public:
         Array<OneD, NekDouble> &output,
         Array<OneD, NekDouble> &wsp = NullNekDouble1DArray) = 0;
 
-    /// Check the validity of the supplied factor map
-    COLLECTIONS_EXPORT virtual void UpdateFactors(StdRegions::FactorMap factors,
-                                                  int coll_phys_offset) = 0;
+    /// Update the supplied factor map
+    COLLECTIONS_EXPORT virtual void UpdateFactors(
+        [[maybe_unused]] StdRegions::FactorMap factors)
+    {
+        ASSERTL0(false, "This method needs to be re-implemented in derived "
+                        "operator class.");
+    }
 
+    /// Update the supplied variable coefficients
     COLLECTIONS_EXPORT virtual void UpdateVarcoeffs(
         [[maybe_unused]] StdRegions::VarCoeffMap &varcoeffs)
     {

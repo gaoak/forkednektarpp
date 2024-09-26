@@ -115,10 +115,11 @@ protected:
         Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble time);
 
     void SubStepExtrapolateField(NekDouble toff,
-                                 Array<OneD, Array<OneD, NekDouble>> &ExtVel);
+                                 Array<OneD, Array<OneD, NekDouble>> &ExtVel,
+                                 Array<OneD, NekDouble> &ExtVn);
 
     void AddAdvectionPenaltyFlux(
-        const Array<OneD, const Array<OneD, NekDouble>> &velfield,
+        const Array<OneD, NekDouble> &Vn,
         const Array<OneD, const Array<OneD, NekDouble>> &physfield,
         Array<OneD, Array<OneD, NekDouble>> &outarray);
 
@@ -129,6 +130,7 @@ protected:
     LibUtilities::TimeIntegrationSchemeOperators m_subStepIntegrationOps;
 
     Array<OneD, Array<OneD, NekDouble>> m_previousVelFields;
+    Array<OneD, Array<OneD, NekDouble>> m_previousVnFields;
 
     NekDouble m_cflSafetyFactor;
     int m_infosteps;

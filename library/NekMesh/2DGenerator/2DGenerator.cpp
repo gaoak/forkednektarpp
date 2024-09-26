@@ -79,7 +79,7 @@ Generator2D::~Generator2D()
 void Generator2D::Process()
 {
     // Check that cad is 2D
-    Array<OneD, NekDouble> bndBox = m_mesh->m_cad->GetBoundingBox();
+    auto bndBox = m_mesh->m_cad->GetBoundingBox();
 
     if (fabs(bndBox[5] - bndBox[4]) > 1.0e-7)
     {
@@ -121,7 +121,7 @@ void Generator2D::Process()
             {
                 vector<CADVertSharedPtr> vertices =
                     m_mesh->m_cad->GetCurve(i)->GetVertex();
-                Array<OneD, NekDouble> loc;
+                std::array<NekDouble, 3> loc;
                 NekDouble t;
 
                 // offset needed at first node (or both)
@@ -129,7 +129,7 @@ void Generator2D::Process()
                 {
                     loc = vertices[0]->GetLoc();
                     t   = m_thickness.Evaluate(m_thickness_ID, loc[0], loc[1],
-                                             loc[2], 0.0);
+                                               loc[2], 0.0);
                     m_curvemeshes[i]->SetOffset(0, t);
                 }
                 // offset needed at second node (or both)
@@ -137,7 +137,7 @@ void Generator2D::Process()
                 {
                     loc = vertices[1]->GetLoc();
                     t   = m_thickness.Evaluate(m_thickness_ID, loc[0], loc[1],
-                                             loc[2], 0.0);
+                                               loc[2], 0.0);
                     m_curvemeshes[i]->SetOffset(1, t);
                 }
             }
@@ -316,7 +316,7 @@ void Generator2D::MakeBLPrep()
 
 void Generator2D::MakeBL(int faceid)
 {
-    map<int, Array<OneD, NekDouble>> edgeNormals;
+    map<int, std::array<NekDouble, 2>> edgeNormals;
     int eid = 0;
     for (auto &it : m_blCurves)
     {
@@ -330,12 +330,10 @@ void Generator2D::MakeBL(int faceid)
         for (auto &ie : es)
         {
             ie->m_id = eid++;
-            Array<OneD, NekDouble> p1, p2;
-            p1 = ie->m_n1->GetCADSurfInfo(faceid);
-            p2 = ie->m_n2->GetCADSurfInfo(faceid);
-            Array<OneD, NekDouble> n(2);
-            n[0] = p1[1] - p2[1];
-            n[1] = p2[0] - p1[0];
+            auto p1  = ie->m_n1->GetCADSurfInfo(faceid);
+            auto p2  = ie->m_n2->GetCADSurfInfo(faceid);
+
+            std::array<NekDouble, 2> n = {p1[1] - p2[1], p2[0] - p1[0]};
             if (edgeo == CADOrientation::eBackwards)
             {
                 n[0] *= -1.0;
@@ -344,14 +342,14 @@ void Generator2D::MakeBL(int faceid)
             NekDouble mag = sqrt(n[0] * n[0] + n[1] * n[1]);
             n[0] /= mag;
             n[1] /= mag;
-            Array<OneD, NekDouble> np(2);
-            np[0]                       = p1[0] + n[0];
-            np[1]                       = p1[1] + n[1];
-            Array<OneD, NekDouble> loc  = ie->m_n1->GetLoc();
-            Array<OneD, NekDouble> locp = m_mesh->m_cad->GetSurf(faceid)->P(np);
-            n[0]                        = locp[0] - loc[0];
-            n[1]                        = locp[1] - loc[1];
-            mag                         = sqrt(n[0] * n[0] + n[1] * n[1]);
+
+            std::array<NekDouble, 2> np = {p1[0] + n[0], p1[1] + n[1]};
+
+            auto loc  = ie->m_n1->GetLoc();
+            auto locp = m_mesh->m_cad->GetSurf(faceid)->P(np);
+            n[0]      = locp[0] - loc[0];
+            n[1]      = locp[1] - loc[1];
+            mag       = sqrt(n[0] * n[0] + n[1] * n[1]);
             n[0] /= mag;
             n[1] /= mag;
             edgeNormals[ie->m_id] = n;
@@ -403,12 +401,12 @@ void Generator2D::MakeBL(int faceid)
             continue;
         }
 
-        Array<OneD, NekDouble> n(3, 0.0);
-        Array<OneD, NekDouble> n1 = edgeNormals[it.second[0]->m_id];
-        Array<OneD, NekDouble> n2 = edgeNormals[it.second[1]->m_id];
-        n[0]                      = (n1[0] + n2[0]) / 2.0;
-        n[1]                      = (n1[1] + n2[1]) / 2.0;
-        NekDouble mag             = sqrt(n[0] * n[0] + n[1] * n[1]);
+        std::array<NekDouble, 3> n = {0.0, 0.0, 0.0};
+        auto n1                    = edgeNormals[it.second[0]->m_id];
+        auto n2                    = edgeNormals[it.second[1]->m_id];
+        n[0]                       = (n1[0] + n2[0]) / 2.0;
+        n[1]                       = (n1[1] + n2[1]) / 2.0;
+        NekDouble mag              = sqrt(n[0] * n[0] + n[1] * n[1]);
         n[0] /= mag;
         n[1] /= mag;
         NekDouble t = m_thickness.Evaluate(m_thickness_ID, it.first->m_x,
@@ -428,8 +426,8 @@ void Generator2D::MakeBL(int faceid)
         n[1]             = n[1] * t + it.first->m_y;
         NodeSharedPtr nn = std::shared_ptr<Node>(
             new Node(m_mesh->m_numNodes++, n[0], n[1], 0.0));
-        CADSurfSharedPtr s        = m_mesh->m_cad->GetSurf(faceid);
-        Array<OneD, NekDouble> uv = s->locuv(n);
+        CADSurfSharedPtr s = m_mesh->m_cad->GetSurf(faceid);
+        auto uv            = s->locuv(n);
         nn->SetCADSurf(s, uv);
         nodeNormals[it.first] = nn;
     }
@@ -507,7 +505,7 @@ void Generator2D::MakeBL(int faceid)
                              it.first->m_y + avg.m_y * dist[it.first], 0.0));
                 CADSurfSharedPtr s =
                     *nodeNormals[it.first]->GetCADSurfs().begin();
-                Array<OneD, NekDouble> uv = s->locuv(nn->GetLoc());
+                auto uv = s->locuv(nn->GetLoc());
                 nn->SetCADSurf(s, uv);
 
                 nodeNormals[it.first] = nn;
@@ -770,12 +768,10 @@ void Generator2D::MakeBL(int faceid)
                 for (int i = 1; i < il.size() - 1; ++i)
                 {
                     runningTotal += deltas[i - 1];
-                    Array<OneD, NekDouble> loc =
-                        (*ni * (1.0 - runningTotal) + *nf * runningTotal)
-                            .GetLoc();
+                    auto loc = (*ni * (1.0 - runningTotal) + *nf * runningTotal)
+                                   .GetLoc();
 
-                    Array<OneD, NekDouble> uv =
-                        m_mesh->m_cad->GetSurf(faceid)->locuv(loc);
+                    auto uv = m_mesh->m_cad->GetSurf(faceid)->locuv(loc);
 
                     il[i]->Move(loc, faceid, uv);
                 }

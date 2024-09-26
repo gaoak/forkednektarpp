@@ -72,7 +72,7 @@ ProcessAddFld::~ProcessAddFld()
 void ProcessAddFld::v_Process([[maybe_unused]] po::variables_map &vm)
 {
     string scalestr = m_config["scale"].as<string>();
-    NekDouble scale = boost::lexical_cast<NekDouble>(scalestr);
+    NekDouble scale = std::stod(scalestr);
 
     ASSERTL0(m_config["fromfld"].as<string>().compare("NotSet") != 0,
              "Need to specify fromfld=file.fld ");

@@ -279,7 +279,7 @@ protected:
     }
 
 private:
-    NekFactory(const NekFactory &rhs) = delete;
+    NekFactory(const NekFactory &rhs)            = delete;
     NekFactory &operator=(const NekFactory &rhs) = delete;
 
     TMapFactory mMapFactory;

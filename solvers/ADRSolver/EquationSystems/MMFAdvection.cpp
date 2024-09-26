@@ -971,7 +971,7 @@ void MMFAdvection::AdvectionBellSphere(Array<OneD, NekDouble> &outfield)
 
         cosdiff = cos_varphi * cos(m_varphi_c) + sin_varphi * sin(m_varphi_c);
         dist    = radius * acos(sin(m_theta_c) * sin_theta +
-                             cos(m_theta_c) * cos_theta * cosdiff);
+                                cos(m_theta_c) * cos_theta * cosdiff);
 
         if (dist < m_radius_limit)
         {

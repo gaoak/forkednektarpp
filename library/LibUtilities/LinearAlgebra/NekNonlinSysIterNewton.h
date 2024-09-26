@@ -68,16 +68,13 @@ public:
     LIB_UTILITIES_EXPORT ~NekNonlinSysIterNewton() override = default;
 
 protected:
-    bool m_InexactNewtonForcing = 0;
-    NekDouble m_forcingGamma    = 1.0;
-    NekDouble m_forcingAlpha    = 0.5 * (1.0 + sqrt(5.0));
+    bool m_InexactNewtonForcing = false;
 
     void v_InitObject() override;
 
     int v_SolveSystem(const int nGlobal,
                       const Array<OneD, const NekDouble> &pInput,
-                      Array<OneD, NekDouble> &pOutput, const int nDir,
-                      const NekDouble factor) override;
+                      Array<OneD, NekDouble> &pOutput, const int nDir) override;
 
 private:
     NekDouble CalcInexactNewtonForcing(const int &nIteration,

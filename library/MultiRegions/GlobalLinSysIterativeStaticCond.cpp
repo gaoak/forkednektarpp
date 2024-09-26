@@ -435,12 +435,6 @@ void GlobalLinSysIterativeStaticCond::v_UniqueMap()
 void GlobalLinSysIterativeStaticCond::v_PreSolve(int scLevel,
                                                  Array<OneD, NekDouble> &F_bnd)
 {
-    if (m_isAbsoluteTolerance)
-    {
-        m_rhs_magnitude = 1.0;
-        return;
-    }
-
     if (scLevel == 0)
     {
         // When matrices are supplied to the constructor at the top
@@ -449,6 +443,12 @@ void GlobalLinSysIterativeStaticCond::v_PreSolve(int scLevel,
         {
             m_precon = CreatePrecon(m_locToGloMap.lock());
             m_precon->BuildPreconditioner();
+        }
+
+        if (m_isAbsoluteTolerance)
+        {
+            m_rhs_magnitude = 1.0;
+            return;
         }
 
         int nGloBndDofs = m_locToGloMap.lock()->GetNumGlobalBndCoeffs();

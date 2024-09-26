@@ -72,7 +72,7 @@ ForcingMovingReferenceFrame::ForcingMovingReferenceFrame(
 
 ForcingMovingReferenceFrame::~ForcingMovingReferenceFrame(void)
 {
-    if (m_rank == 0)
+    if (m_isRoot)
     {
         m_outputStream.close();
     }
@@ -98,39 +98,52 @@ void ForcingMovingReferenceFrame::v_InitObject(
     {
         m_isH1d = false;
     }
-
-    int npoints   = pFields[0]->GetNpoints();
-    m_expdim      = m_isH2d ? 1 : pFields[0]->GetGraph()->GetMeshDimension();
-    m_spacedim    = m_expdim + (m_isH1d ? 1 : 0) + (m_isH2d ? 2 : 0);
-    m_NumVariable = m_spacedim;
-
+    m_expdim    = m_isH2d ? 1 : pFields[0]->GetGraph()->GetMeshDimension();
+    m_spacedim  = m_expdim + (m_isH1d ? 1 : 0) + (m_isH2d ? 2 : 0);
+    m_isRoot    = pFields[0]->GetComm()->TreatAsRankZero();
     m_hasPlane0 = true;
     if (m_isH1d)
     {
         m_hasPlane0 = pFields[0]->GetZIDs()[0] == 0;
     }
-
     // initialize variables
-    m_velXYZ      = Array<OneD, NekDouble>(3, 0.0);
-    m_velxyz      = Array<OneD, NekDouble>(3, 0.0);
-    m_omegaXYZ    = Array<OneD, NekDouble>(3, 0.0);
-    m_omegaxyz    = Array<OneD, NekDouble>(3, 0.0);
-    m_extForceXYZ = Array<OneD, NekDouble>(6, 0.0);
-    m_hasVel      = Array<OneD, bool>(3, false);
-    m_hasOmega    = Array<OneD, bool>(3, false);
-    m_disp        = Array<OneD, NekDouble>(9, 0.0);
-    m_pivotPoint  = Array<OneD, NekDouble>(3, 0.0);
-    m_travelWave  = Array<OneD, NekDouble>(3, 0.);
-
-    // initialize time
-    NekDouble time = 0.;
-    CheckForRestartTime(pFields, time);
-    m_startTime = time;
-    // load moving frame infomation
-    LoadParameters(pForce, time);
+    m_velxyz           = Array<OneD, NekDouble>(3, 0.0);
+    m_omegaxyz         = Array<OneD, NekDouble>(3, 0.0);
+    m_body.extForceXYZ = Array<OneD, NekDouble>(6, 0.0);
+    m_hasVel           = Array<OneD, bool>(3, false);
+    m_hasOmega         = Array<OneD, bool>(3, false);
+    m_travelWave       = Array<OneD, NekDouble>(3, 0.);
+    m_pivotPoint       = Array<OneD, NekDouble>(3, 0.0);
+    m_index            = 0;
+    m_currentTime      = -1.;
+    LoadParameters(pForce);
+    InitBodySolver(pForce);
+    if (m_body.isCircular || m_expdim == 1)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            m_hasOmega[i] = false;
+        }
+        m_hasRotation = false;
+    }
+    // account for the effect of rotation
+    // Omega_X results in having v and w even if not defined by user
+    // Omega_Y results in having u and w even if not defined by user
+    // Omega_Z results in having u and v even if not defined by user
+    for (int i = 0; i < 3; ++i)
+    {
+        int j = (i + 1) % 3;
+        int k = (i + 2) % 3;
+        if (m_hasOmega[i])
+        {
+            m_hasVel[j] = true;
+            m_hasVel[k] = true;
+        }
+    }
     if (m_hasRotation)
     {
-        m_coords = Array<OneD, Array<OneD, NekDouble>>(3);
+        int npoints = pFields[0]->GetNpoints();
+        m_coords    = Array<OneD, Array<OneD, NekDouble>>(3);
         for (int j = 0; j < m_spacedim; ++j)
         {
             m_coords[j] = Array<OneD, NekDouble>(npoints);
@@ -143,59 +156,13 @@ void ForcingMovingReferenceFrame::v_InitObject(
                         1);
         }
     }
-
-    // init body solver
-    m_rank = pFields[0]->GetComm()->GetRank();
-    InitBodySolver(pForce, m_spacedim, m_rank, time);
-
-    // Initialize theta with the data from NS class
-    // This ensure correct moving coordinate orientation with respect to the
-    // stationary inertial frame when we restart the simulation
+    // initialise pivot point for fluid interface
     auto equ = m_equ.lock();
     ASSERTL0(equ, "Weak pointer to the equation system is expired");
     auto FluidEq = std::dynamic_pointer_cast<FluidInterface>(equ);
-    FluidEq->SetMovingFrameDisp(m_disp);
-
-    // initiate the rotation matrix to zero,
-    // Note that the rotation matrix is assumed for the rotation around z axis
-    // TODO: Generalize this for the 3D case with possiblity of rotation around
-    // each of axis. Probabley we only can support rotation around one axis. In
-    // that case the generalization means the user can provide Omega for one of
-    // x, y or z axis. Not sure how complicated to consider a general axis of
-    // rotation
-    //
-    // Note that these rotation matrices should be extrinsic rotations
-    m_ProjMatZ = bn::ublas::zero_matrix<NekDouble>(3, 3);
-    // populate the rotation matrix R(z)
-    {
-        NekDouble sn, cs;
-        sn = sin(m_disp[5]);
-        cs = cos(m_disp[5]);
-
-        m_ProjMatZ(0, 0) = cs;
-        m_ProjMatZ(0, 1) = sn;
-        m_ProjMatZ(1, 0) = -1. * sn;
-        m_ProjMatZ(1, 1) = cs;
-        m_ProjMatZ(2, 2) = 1.0;
-    }
-    // account for the effect of rotation
-    // Omega_X results in having v and w even if not defined by user
-    // Omega_Y results in having u and w even if not defined by user
-    // Omega_Z results in having u and v even if not defined by user
-    //
-    for (int i = 0; i < 3; ++i)
-    {
-        int j = (i + 1) % 3;
-        int k = (i + 2) % 3;
-
-        if (m_hasOmega[i])
-        {
-            m_hasVel[j] = true;
-            m_hasVel[k] = true;
-        }
-    }
+    FluidEq->SetMovingFramePivot(m_pivotPoint);
     // initialize aeroforce filter
-    if (m_hasFreeMotion)
+    if (m_body.hasFreeMotion)
     {
         InitialiseFilter(m_session, pFields, pForce);
     }
@@ -218,10 +185,20 @@ NekDouble ForcingMovingReferenceFrame::EvaluateExpression(
     return value;
 }
 
-void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
-                                                 const NekDouble time)
+void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce)
 {
     const TiXmlElement *funcNameElmt;
+    // body is a circular cylinder
+    const TiXmlElement *mssgTagSpecial =
+        pForce->FirstChildElement("CIRCULARCYLINDER");
+    if (mssgTagSpecial)
+    {
+        m_body.isCircular = true;
+    }
+    else
+    {
+        m_body.isCircular = false;
+    }
     // load frame velocity
     funcNameElmt = pForce->FirstChildElement("FRAMEVELOCITY");
     if (funcNameElmt)
@@ -239,6 +216,22 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
                 m_hasVel[i]           = true;
             }
         }
+        // linear displacement and acceleration
+        std::vector<std::string> linearDispVar = {"X", "Y", "Z"};
+        std::vector<std::string> linearAcceVar = {"A_x", "A_y", "A_z"};
+        for (int i = 0; i < m_spacedim; ++i)
+        {
+            if (m_session->DefinesFunction(FuncName, linearDispVar[i]))
+            {
+                m_frameVelFunction[i + 6] =
+                    m_session->GetFunction(FuncName, linearDispVar[i]);
+            }
+            if (m_session->DefinesFunction(FuncName, linearAcceVar[i]))
+            {
+                m_frameVelFunction[i + 12] =
+                    m_session->GetFunction(FuncName, linearAcceVar[i]);
+            }
+        }
         // angular velocities
         m_hasRotation                       = false;
         std::vector<std::string> angularVar = {"Omega_x", "Omega_y", "Omega_z"};
@@ -253,15 +246,29 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
                 m_hasRotation = true;
             }
         }
+        // angular displacement and acceleration
+        std::vector<std::string> angularDispVar  = {"Theta_x", "Theta_y",
+                                                    "Theta_z"};
+        std::vector<std::string> angularAccepVar = {"DOmega_x", "DOmega_y",
+                                                    "DOmega_z"};
+        for (int i = 0; i < 3; ++i)
+        {
+            if (m_session->DefinesFunction(FuncName, angularDispVar[i]))
+            {
+                m_frameVelFunction[i + 3 + 6] =
+                    m_session->GetFunction(FuncName, angularDispVar[i]);
+            }
+            if (m_session->DefinesFunction(FuncName, angularAccepVar[i]))
+            {
+                m_frameVelFunction[i + 3 + 12] =
+                    m_session->GetFunction(FuncName, angularAccepVar[i]);
+            }
+        }
         // TODO: add the support for general rotation
         for (int i = 0; i < 2; ++i)
         {
             ASSERTL0(!m_hasOmega[i], "Currently only Omega_z is supported");
         }
-    }
-    if (m_expdim == 1)
-    {
-        m_hasRotation = false;
     }
 
     // load external force
@@ -271,13 +278,13 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
         std::string FuncName = funcNameElmt->GetText();
         if (m_session->DefinesFunction(FuncName))
         {
-            std::vector<std::string> forceVar = {"fx", "fy", "fz"};
+            std::vector<std::string> forceVar = {"Fx", "Fy", "Fz"};
             for (int i = 0; i < m_spacedim; ++i)
             {
                 std::string var = forceVar[i];
                 if (m_session->DefinesFunction(FuncName, var))
                 {
-                    m_extForceFunction[i] =
+                    m_body.extForceFunction[i] =
                         m_session->GetFunction(FuncName, var);
                 }
             }
@@ -287,7 +294,7 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
                 std::string var = momentVar[i];
                 if (m_session->DefinesFunction(FuncName, var))
                 {
-                    m_extForceFunction[i + 3] =
+                    m_body.extForceFunction[i + 3] =
                         m_session->GetFunction(FuncName, var);
                 }
             }
@@ -304,7 +311,6 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
         for (int j = 0; j < m_spacedim; ++j)
         {
             m_pivotPoint[j] = EvaluateExpression(values[j]);
-            m_disp[6 + j]   = m_pivotPoint[j];
         }
     }
 
@@ -327,156 +333,9 @@ void ForcingMovingReferenceFrame::LoadParameters(const TiXmlElement *pForce,
         }
     }
 
-    // load initial displacement
-    std::map<int, LibUtilities::EquationSharedPtr> initDisplacement;
-    funcNameElmt = pForce->FirstChildElement("INITIALDISPLACEMENT");
-    if (funcNameElmt)
-    {
-        std::string FuncName = funcNameElmt->GetText();
-        ASSERTL0(m_session->DefinesFunction(FuncName),
-                 "Function '" + FuncName + "' is not defined in the session.");
-        // linear displacement
-        std::vector<std::string> dispVar = {"x", "y", "z"};
-        for (int i = 0; i < m_spacedim; ++i)
-        {
-            std::string var = dispVar[i];
-            if (m_session->DefinesFunction(FuncName, var))
-            {
-                m_disp[i] = m_session->GetFunction(FuncName, var)
-                                ->Evaluate(0., 0., 0., time);
-            }
-        }
-        // angular displacement
-        std::vector<std::string> angleVar = {"theta_x", "theta_y", "theta_z"};
-        for (int i = 0; i < 3; ++i)
-        {
-            std::string var = angleVar[i];
-            if (m_session->DefinesFunction(FuncName, var))
-            {
-                m_disp[i + 3] =
-                    m_session->GetFunction(FuncName, var)->Evaluate();
-            }
-        }
-    }
-}
-
-void ForcingMovingReferenceFrame::InitBodySolver(const TiXmlElement *pForce,
-                                                 const int dim, const int rank,
-                                                 const NekDouble time)
-{
-    int NumDof = dim + 1;
-    std::set<int> DirBCs;
-    const TiXmlElement *mssgTag;
-    std::string mssgStr;
-    // read free motion DoFs
-    m_DirDoFs.clear();
-    for (int i = 0; i < NumDof; ++i)
-    {
-        m_DirDoFs.insert(i);
-    }
-    mssgTag = pForce->FirstChildElement("MOTIONPRESCRIBED");
-    if (mssgTag)
-    {
-        std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
-        ParseUtils::GenerateVector(mssgStr, values);
-        ASSERTL0(values.size() >= NumDof,
-                 "MOTIONPRESCRIBED vector should be of size " +
-                     std::to_string(NumDof));
-        for (int i = 0; i < NumDof; ++i)
-        {
-            if (EvaluateExpression(values[i]) == 0)
-            {
-                m_DirDoFs.erase(i);
-                if (i < dim)
-                {
-                    m_hasVel[i] = true;
-                }
-                else if (i == dim)
-                {
-                    m_hasOmega[2] = true;
-                }
-            }
-        }
-    }
-    m_hasFreeMotion = m_DirDoFs.size() < NumDof;
-    // read mass matrix
-    DNekMatSharedPtr M =
-        MemoryManager<DNekMat>::AllocateSharedPtr(NumDof, NumDof, 0.0, eFULL);
-    mssgTag = pForce->FirstChildElement("MASS");
-    ASSERTL0(m_DirDoFs.size() == NumDof || mssgTag, "Mass matrix is required.");
-    if (mssgTag)
-    {
-        std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
-        ParseUtils::GenerateVector(mssgStr, values);
-        ASSERTL0(values.size() >= NumDof * NumDof,
-                 "Mass matrix should be of size " + std::to_string(NumDof) +
-                     "X" + std::to_string(NumDof));
-        for (int i = 0; i < NumDof; ++i)
-        {
-            for (int j = 0; j < NumDof; ++j)
-            {
-                M->SetValue(i, j, EvaluateExpression(values[i * NumDof + j]));
-            }
-        }
-    }
-    // read damping matrix
-    DNekMatSharedPtr C =
-        MemoryManager<DNekMat>::AllocateSharedPtr(NumDof, NumDof, 0.0, eFULL);
-    mssgTag = pForce->FirstChildElement("DAMPING");
-    if (mssgTag)
-    {
-        std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
-        ParseUtils::GenerateVector(mssgStr, values);
-        ASSERTL0(values.size() >= NumDof * NumDof,
-                 "Damping matrix should be of size " + std::to_string(NumDof) +
-                     "X" + std::to_string(NumDof));
-        for (int i = 0; i < NumDof; ++i)
-        {
-            for (int j = 0; j < NumDof; ++j)
-            {
-                C->SetValue(i, j, EvaluateExpression(values[i * NumDof + j]));
-            }
-        }
-    }
-    // read rigidity matrix
-    DNekMatSharedPtr K =
-        MemoryManager<DNekMat>::AllocateSharedPtr(NumDof, NumDof, 0.0, eFULL);
-    mssgTag = pForce->FirstChildElement("RIGIDITY");
-    if (mssgTag)
-    {
-        std::vector<std::string> values;
-        mssgStr = mssgTag->GetText();
-        ParseUtils::GenerateVector(mssgStr, values);
-        ASSERTL0(values.size() >= NumDof * NumDof,
-                 "Rigidity matrix should be of size " + std::to_string(NumDof) +
-                     "X" + std::to_string(NumDof));
-        for (int i = 0; i < NumDof; ++i)
-        {
-            for (int j = 0; j < NumDof; ++j)
-            {
-                K->SetValue(i, j, EvaluateExpression(values[i * NumDof + j]));
-            }
-        }
-    }
-    // read Newmark Beta paramters
-    m_timestep      = m_session->GetParameter("TimeStep");
-    NekDouble beta  = 0.25;
-    NekDouble gamma = 0.75;
-    if (m_session->DefinesParameter("NewmarkBeta"))
-    {
-        beta = m_session->GetParameter("NewmarkBeta");
-    }
-    if (m_session->DefinesParameter("NewmarkGamma"))
-    {
-        gamma = m_session->GetParameter("NewmarkGamma");
-    }
-    m_bodySolver.SetNewmarkBeta(beta, gamma, m_timestep, M, C, K, m_DirDoFs);
     // OutputFile
+    const TiXmlElement *mssgTag = pForce->FirstChildElement("OutputFile");
     string filename;
-    mssgTag = pForce->FirstChildElement("OutputFile");
     if (mssgTag)
     {
         filename = mssgTag->GetText();
@@ -490,163 +349,329 @@ void ForcingMovingReferenceFrame::InitBodySolver(const TiXmlElement *pForce,
     {
         filename += ".mrf";
     }
-    if (rank == 0)
+    if (m_isRoot)
     {
         m_outputStream.open(filename.c_str());
-        if (dim == 2)
+        if (m_spacedim == 2)
         {
             m_outputStream
                 << "Variables = t, x, ux, ax, y, uy, ay, theta, omega, domega"
                 << endl;
         }
-        else if (dim == 3)
+        else if (m_spacedim == 3)
         {
             m_outputStream << "Variables = t, x, ux, ax, y, uy, ay, z, uz, az, "
                               "theta, omega, domega"
                            << endl;
         }
     }
+
     // output frequency
-    m_index           = 0;
     m_outputFrequency = 1;
     mssgTag           = pForce->FirstChildElement("OutputFrequency");
     if (mssgTag)
     {
         std::vector<std::string> values;
-        mssgStr           = mssgTag->GetText();
-        m_outputFrequency = round(EvaluateExpression(mssgStr));
+        std::string mssgStr = mssgTag->GetText();
+        m_outputFrequency   = round(EvaluateExpression(mssgStr));
     }
     ASSERTL0(m_outputFrequency > 0,
              "OutputFrequency should be greater than zero.");
-    // initialize displacement velocity
-    m_bodyVel = Array<OneD, Array<OneD, NekDouble>>(3);
+}
+
+void ForcingMovingReferenceFrame::InitBodySolver(const TiXmlElement *pForce)
+{
+    int NumDof = m_spacedim + 1;
+    const TiXmlElement *mssgTag;
+    std::string mssgStr;
+    // allocate memory and initialise
+    m_body.vel = Array<OneD, Array<OneD, NekDouble>>(3);
     for (size_t i = 0; i < 3; ++i)
     {
-        m_bodyVel[i] = Array<OneD, NekDouble>(NumDof, 0.);
+        m_body.vel[i] = Array<OneD, NekDouble>(NumDof, 0.);
     }
-    for (int i = 0; i < m_spacedim; ++i)
+    SetInitialConditions();
+    UpdateFluidInterface(m_body.vel, 1);
+    // read free motion DoFs
+    m_body.dirDoFs.clear();
+    for (int i = 0; i < NumDof; ++i)
     {
-        m_bodyVel[0][i] = m_disp[i];
+        m_body.dirDoFs.insert(i);
     }
-    m_bodyVel[0][NumDof - 1] = m_disp[5];
+    mssgTag = pForce->FirstChildElement("MOTIONPRESCRIBED");
+    if (mssgTag)
+    {
+        std::vector<std::string> values;
+        mssgStr = mssgTag->GetText();
+        ParseUtils::GenerateVector(mssgStr, values);
+        ASSERTL0(values.size() == NumDof,
+                 "MOTIONPRESCRIBED vector should be of size " +
+                     std::to_string(NumDof));
+        for (int i = 0; i < NumDof; ++i)
+        {
+            if (EvaluateExpression(values[i]) == 0)
+            {
+                m_body.dirDoFs.erase(i);
+                if (i < m_spacedim)
+                {
+                    m_hasVel[i] = true;
+                }
+                else if (i == m_spacedim)
+                {
+                    m_hasOmega[2] = true;
+                    m_hasRotation = true;
+                }
+            }
+        }
+    }
+    m_body.hasFreeMotion = m_body.dirDoFs.size() < NumDof;
+    // read mass matrix
+    m_body.M = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    mssgTag  = pForce->FirstChildElement("MASS");
+    ASSERTL0(m_body.dirDoFs.size() == NumDof || mssgTag,
+             "Mass matrix is required.");
+    if (mssgTag)
+    {
+        std::vector<std::string> values;
+        mssgStr = mssgTag->GetText();
+        ParseUtils::GenerateVector(mssgStr, values);
+        ASSERTL0(values.size() == NumDof * NumDof,
+                 "Mass matrix should be of size " + std::to_string(NumDof) +
+                     "X" + std::to_string(NumDof));
+        int count = 0;
+        for (int i = 0; i < NumDof; ++i)
+        {
+            for (int j = 0; j < NumDof; ++j)
+            {
+                m_body.M[count] = EvaluateExpression(values[count]);
+                ++count;
+            }
+        }
+    }
+    // read damping matrix
+    m_body.C = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    mssgTag  = pForce->FirstChildElement("DAMPING");
+    if (mssgTag)
+    {
+        std::vector<std::string> values;
+        mssgStr = mssgTag->GetText();
+        ParseUtils::GenerateVector(mssgStr, values);
+        ASSERTL0(values.size() == NumDof * NumDof,
+                 "Damping matrix should be of size " + std::to_string(NumDof) +
+                     "X" + std::to_string(NumDof));
+        int count = 0;
+        for (int i = 0; i < NumDof; ++i)
+        {
+            for (int j = 0; j < NumDof; ++j)
+            {
+                m_body.C[count] = EvaluateExpression(values[count]);
+                ++count;
+            }
+        }
+    }
+    // read rigidity matrix
+    m_body.K = Array<OneD, NekDouble>(NumDof * NumDof, 0.);
+    mssgTag  = pForce->FirstChildElement("RIGIDITY");
+    if (mssgTag)
+    {
+        std::vector<std::string> values;
+        mssgStr = mssgTag->GetText();
+        ParseUtils::GenerateVector(mssgStr, values);
+        ASSERTL0(values.size() == NumDof * NumDof,
+                 "Rigidity matrix should be of size " + std::to_string(NumDof) +
+                     "X" + std::to_string(NumDof));
+        int count = 0;
+        for (int i = 0; i < NumDof; ++i)
+        {
+            for (int j = 0; j < NumDof; ++j)
+            {
+                m_body.K[count] = EvaluateExpression(values[count]);
+                ++count;
+            }
+        }
+    }
+    // read Newmark Beta paramters
+    m_timestep      = m_session->GetParameter("TimeStep");
+    NekDouble beta  = 0.25;
+    NekDouble gamma = 0.51;
+    if (m_session->DefinesParameter("NewmarkBeta"))
+    {
+        beta = m_session->GetParameter("NewmarkBeta");
+    }
+    if (m_session->DefinesParameter("NewmarkGamma"))
+    {
+        gamma = m_session->GetParameter("NewmarkGamma");
+    }
+    m_bodySolver.SetNewmarkBeta(beta, gamma, m_timestep, m_body.M, m_body.C,
+                                m_body.K, m_body.dirDoFs);
+}
+
+void ForcingMovingReferenceFrame::UpdatePrescribed(
+    const NekDouble &time, std::map<int, NekDouble> &Dirs)
+{
+    int NumDof = m_spacedim + 1;
     for (auto it : m_frameVelFunction)
     {
         if (it.first < 3)
         {
-            m_bodyVel[1][it.first] = it.second->Evaluate(0., 0., 0., time);
+            Dirs[it.first] = it.second->Evaluate(0., 0., 0., time);
         }
         else if (it.first == 5)
         {
-            m_bodyVel[1][NumDof - 1] = it.second->Evaluate(0., 0., 0., time);
+            Dirs[m_spacedim] = it.second->Evaluate(0., 0., 0., time);
+        }
+        else if (it.first < 9)
+        {
+            Dirs[NumDof + it.first - 6] = it.second->Evaluate(0., 0., 0., time);
+        }
+        else if (it.first == 11)
+        {
+            Dirs[NumDof + m_spacedim] = it.second->Evaluate(0., 0., 0., time);
+        }
+        else if (it.first < 15)
+        {
+            Dirs[(NumDof << 1) + it.first - 12] =
+                it.second->Evaluate(0., 0., 0., time);
+        }
+        else if (it.first == 17)
+        {
+            Dirs[(NumDof << 1) + m_spacedim] =
+                it.second->Evaluate(0., 0., 0., time);
+        }
+    }
+    for (auto i : m_body.dirDoFs)
+    {
+        if (Dirs.find(i) == Dirs.end())
+        {
+            Dirs[i]                 = 0.;
+            Dirs[i + NumDof]        = 0.;
+            Dirs[i + (NumDof << 1)] = 0.;
         }
     }
 }
-
 /**
  * @brief Updates the forcing array with the current required forcing.
  * @param pFields
  * @param time
  */
-void ForcingMovingReferenceFrame::Update(
+void ForcingMovingReferenceFrame::UpdateFrameVelocity(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
     const NekDouble &time)
 {
-    // compute the velociites whos functions are provided in inertial frame
-    for (auto it : m_frameVelFunction)
+    if (m_currentTime >= time)
     {
-        if (it.first < 3)
-        {
-            m_velXYZ[it.first] = it.second->Evaluate(0., 0., 0., time);
-        }
-        else
-        {
-            m_omegaXYZ[it.first - 3] = it.second->Evaluate(0., 0., 0., time);
-        }
+        return;
     }
-    for (auto it : m_extForceFunction)
+    m_currentTime = time;
+    std::map<int, NekDouble> Dirs;
+    UpdatePrescribed(time, Dirs);
+    if (m_index == 0)
     {
-        m_extForceXYZ[it.first] = it.second->Evaluate(0., 0., 0., time);
+        SetInitialConditions(Dirs);
+    }
+    else
+    {
+        // compute the velocites whoes functions are provided in inertial frame
+        Array<OneD, NekDouble> forcebody(6, 0.); // fluid force
+        if (m_body.hasFreeMotion)
+        {
+            for (auto it : m_body.extForceFunction)
+            {
+                m_body.extForceXYZ[it.first] =
+                    it.second->Evaluate(0., 0., 0., time);
+            }
+            m_body.aeroforceFilter->GetForces(pFields, NullNekDouble1DArray,
+                                              time);
+            auto equ = m_equ.lock();
+            ASSERTL0(equ, "Weak pointer to the equation system is expired");
+            auto FluidEq = std::dynamic_pointer_cast<FluidInterface>(equ);
+            FluidEq->GetAeroForce(forcebody);
+        }
+        SolveBodyMotion(m_body.vel, forcebody, Dirs);
+    }
+    if (m_isRoot && m_index % m_outputFrequency == 0)
+    {
+        m_outputStream << boost::format("%25.19e") % time << " ";
+        for (size_t i = 0; i < m_body.vel[0].size(); ++i)
+        {
+            m_outputStream << boost::format("%25.19e") % m_body.vel[0][i] << " "
+                           << boost::format("%25.19e") % m_body.vel[1][i] << " "
+                           << boost::format("%25.19e") % m_body.vel[2][i]
+                           << " ";
+        }
+        m_outputStream << endl;
+    }
+    // extract values and transform to body frame
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        m_velxyz[i] = m_body.vel[1][i];
+    }
+    if (m_hasRotation)
+    {
+        m_omegaxyz[2] = m_body.vel[1][m_spacedim];
+        Array<OneD, NekDouble> angle(3, 0.);
+        angle[2] = m_body.vel[0][m_spacedim];
+        m_frame.SetAngle(angle);
+        m_frame.IneritalToBody(3, m_velxyz, m_velxyz);
+    }
+    // set displacements at the current time step
+    UpdateFluidInterface(m_body.vel, 0);
+    ++m_index;
+}
+
+void ForcingMovingReferenceFrame::UpdateFluidInterface(
+    Array<OneD, Array<OneD, NekDouble>> &bodyVel, const int step)
+{
+    // set displacements at the current or next time step
+    Array<OneD, NekDouble> disp(6, 0.);
+    Array<OneD, NekDouble> vel(12, 0.0);
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        disp[i] = bodyVel[0][i];
+    }
+    if (!m_body.isCircular)
+    {
+        disp[5] = bodyVel[0][m_spacedim];
+    }
+    // to set the boundary condition of the next time step
+    // update the frame velocities and accelerations
+    for (int i = 0; i < m_spacedim; ++i)
+    {
+        vel[i]     = bodyVel[1][i];
+        vel[i + 6] = bodyVel[2][i];
+    }
+    vel[5]  = bodyVel[1][m_spacedim];
+    vel[11] = bodyVel[2][m_spacedim];
+    Array<OneD, NekDouble> tmp;
+    if (step && m_hasRotation)
+    {
+        m_frame.SetAngle(disp + 3);
+        m_frame.IneritalToBody(3, vel, vel);
+        m_frame.IneritalToBody(3, vel + 6, tmp = vel + 6);
     }
     auto equ = m_equ.lock();
     ASSERTL0(equ, "Weak pointer to the equation system is expired");
     auto FluidEq = std::dynamic_pointer_cast<FluidInterface>(equ);
-    if (time > m_startTime)
-    {
-        Array<OneD, NekDouble> forcebody(6, 0.); // fluid force
-        std::map<int, NekDouble> Dirs;           // prescribed Motion
-        for (auto it : m_DirDoFs)
-        {
-            if (it < m_spacedim)
-            {
-                Dirs[it] = m_velXYZ[it];
-            }
-            else if (it == m_spacedim)
-            {
-                Dirs[it] = m_omegaXYZ[2];
-            }
-        }
-        if (m_hasFreeMotion)
-        {
-            m_aeroforceFilter->GetForces(pFields, NullNekDouble1DArray, time);
-        }
-        FluidEq->GetAeroForce(forcebody);
-        SolveBodyMotion(m_bodyVel, forcebody, Dirs);
-    }
-    if (m_rank == 0 && m_index % m_outputFrequency == 0)
-    {
-        m_outputStream << boost::format("%25.19e") % time << " ";
-        for (size_t i = 0; i < m_bodyVel[0].size(); ++i)
-        {
-            m_outputStream << boost::format("%25.19e") % m_bodyVel[0][i] << " "
-                           << boost::format("%25.19e") % m_bodyVel[1][i] << " "
-                           << boost::format("%25.19e") % m_bodyVel[2][i] << " ";
-        }
-        m_outputStream << endl;
-    }
-    // overwirte m_omegaXYZ with u, also update theta
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        m_velXYZ[i] = m_bodyVel[1][i];
-    }
-    m_omegaXYZ[2] = m_bodyVel[1][m_spacedim];
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        m_disp[i] = m_bodyVel[0][i] + m_travelWave[i] * time;
-    }
-    m_disp[5] = m_bodyVel[0][m_spacedim];
-
-    // include the effect of rotation
-    if (m_hasRotation)
-    {
-        UpdateRotMat();
-        m_frame.SetAngle(m_disp + 3);
-        m_frame.IneritalToBody(3, m_velxyz, m_velXYZ);
-        m_frame.IneritalToBody(3, m_omegaxyz, m_omegaXYZ);
-    }
-    else
-    {
-        // for translation only,
-        for (int i = 0; i < m_spacedim; ++i)
-        {
-            m_velxyz[i] = m_velXYZ[i];
-        }
-    }
-    ++m_index;
+    FluidEq->SetMovingFrameVelocities(vel, step);
+    FluidEq->SetMovingFrameDisp(disp, step);
 }
 
 void ForcingMovingReferenceFrame::SolveBodyMotion(
     Array<OneD, Array<OneD, NekDouble>> &bodyVel,
     const Array<OneD, NekDouble> &forcebody, std::map<int, NekDouble> &Dirs)
 {
-    if (!m_hasRotation || Dirs.find(m_spacedim) != Dirs.end())
+    if (!m_body.hasFreeMotion)
     {
+        m_bodySolver.SolvePrescribed(bodyVel, Dirs);
+    }
+    else if (!m_hasRotation || Dirs.find(m_spacedim) != Dirs.end())
+    {
+        m_bodySolver.SolvePrescribed(bodyVel, Dirs);
         Array<OneD, NekDouble> force(6, 0.), tmp;
-        if (Dirs.find(m_spacedim) != Dirs.end())
+        if (m_hasRotation && Dirs.find(m_spacedim) != Dirs.end())
         {
             Array<OneD, NekDouble> angle(3, 0.);
-            angle[2] =
-                bodyVel[0][m_spacedim] +
-                0.5 * m_timestep * (bodyVel[1][m_spacedim] + Dirs[m_spacedim]);
+            angle[2] = bodyVel[0][m_spacedim];
             m_frame.SetAngle(angle);
             m_frame.BodyToInerital(3, forcebody, force);
             m_frame.BodyToInerital(3, forcebody + 3, tmp = force + 3);
@@ -657,10 +682,10 @@ void ForcingMovingReferenceFrame::SolveBodyMotion(
         }
         for (int i = 0; i < m_spacedim; ++i)
         {
-            force[i] += m_extForceXYZ[i];
+            force[i] += m_body.extForceXYZ[i];
         }
-        force[m_spacedim] = force[5] + m_extForceXYZ[5];
-        m_bodySolver.Solve(bodyVel, force, Dirs);
+        force[m_spacedim] = force[5] + m_body.extForceXYZ[5];
+        m_bodySolver.SolveFree(bodyVel, force);
     }
     else
     {
@@ -685,9 +710,9 @@ void ForcingMovingReferenceFrame::SolveBodyMotion(
             m_frame.BodyToInerital(3, forcebody + 3, tmp = force + 3);
             for (int i = 0; i < m_spacedim; ++i)
             {
-                force[i] += m_extForceXYZ[i];
+                force[i] += m_body.extForceXYZ[i];
             }
-            force[m_spacedim] = force[5] + m_extForceXYZ[5];
+            force[m_spacedim] = force[5] + m_body.extForceXYZ[5];
             m_bodySolver.Solve(tmpbodyVel, force, Dirs);
             angle[2] = tmpbodyVel[0][m_spacedim];
         }
@@ -697,20 +722,6 @@ void ForcingMovingReferenceFrame::SolveBodyMotion(
             Vmath::Vcopy(bodyVel[i].size(), tmpbodyVel[i], 1, bodyVel[i], 1);
         }
     }
-}
-
-void ForcingMovingReferenceFrame::UpdateRotMat()
-{
-    // update the rotation matrix
-    NekDouble sn, cs;
-    sn = sin(m_disp[5]);
-    cs = cos(m_disp[5]);
-
-    m_ProjMatZ(0, 0) = cs;
-    m_ProjMatZ(0, 1) = sn;
-    m_ProjMatZ(1, 0) = -sn;
-    m_ProjMatZ(1, 1) = cs;
-    m_ProjMatZ(2, 2) = 1.0;
 }
 
 /**
@@ -742,96 +753,17 @@ void ForcingMovingReferenceFrame::UpdateBoundaryConditions(NekDouble time)
 {
     time += m_timestep;
     // compute the velocities whose functions are provided in inertial frame
-    for (auto it : m_frameVelFunction)
+    std::map<int, NekDouble> Dirs;
+    UpdatePrescribed(time, Dirs);
+    Array<OneD, Array<OneD, NekDouble>> bodyVel(m_body.vel.size());
+    for (size_t i = 0; i < m_body.vel.size(); ++i)
     {
-        if (it.first < 3)
-        {
-            m_velXYZ[it.first] = it.second->Evaluate(0., 0., 0., time);
-        }
-        else
-        {
-            m_omegaXYZ[it.first - 3] = it.second->Evaluate(0., 0., 0., time);
-        }
+        bodyVel[i] = Array<OneD, NekDouble>(m_body.vel[i].size());
+        Vmath::Vcopy(m_body.vel[i].size(), m_body.vel[i], 1, bodyVel[i], 1);
     }
-    for (auto it : m_extForceFunction)
-    {
-        m_extForceXYZ[it.first] = it.second->Evaluate(0., 0., 0., time);
-    }
-    std::map<int, NekDouble> Dirs; // prescribed Motion
-    for (auto it : m_DirDoFs)
-    {
-        if (it < m_spacedim)
-        {
-            Dirs[it] = m_velXYZ[it];
-        }
-        else if (it == m_spacedim)
-        {
-            Dirs[it] = m_omegaXYZ[2];
-        }
-    }
-
-    auto equ = m_equ.lock();
-    ASSERTL0(equ, "Weak pointer to the equation system is expired");
-    auto FluidEq = std::dynamic_pointer_cast<FluidInterface>(equ);
-    Array<OneD, NekDouble> forcebody(6, 0.); // fluid force
-    FluidEq->GetAeroForce(forcebody);
-
-    Array<OneD, Array<OneD, NekDouble>> bodyVel(m_bodyVel.size());
-    for (size_t i = 0; i < m_bodyVel.size(); ++i)
-    {
-        bodyVel[i] = Array<OneD, NekDouble>(m_bodyVel[i].size());
-    }
-    // copy initial condition
-    for (size_t i = 0; i < m_bodyVel.size(); ++i)
-    {
-        Vmath::Vcopy(m_bodyVel[i].size(), m_bodyVel[i], 1, bodyVel[i], 1);
-    }
-    SolveBodyMotion(bodyVel, forcebody, Dirs);
-    // to stablize the velocity bcs, use the old values if extrapolation is
-    // involved
-    for (size_t i = 0; i < bodyVel[0].size(); ++i)
-    {
-        if (Dirs.find(i) == Dirs.end())
-        {
-            for (size_t k = 0; k < bodyVel.size(); ++k)
-            {
-                bodyVel[k][i] = m_bodyVel[k][i];
-            }
-        }
-    }
+    m_bodySolver.SolvePrescribed(bodyVel, Dirs);
     // set displacements at the next time step
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        m_disp[i] = bodyVel[0][i] + m_travelWave[i] * time;
-    }
-    m_disp[5] = bodyVel[0][m_spacedim];
-    // copy the velocities and rotation matrix for enforcing bc
-    // copy linear and angular velocities and accelerations
-    Array<OneD, NekDouble> vel(12, 0.0), tmp;
-    for (int i = 0; i < m_spacedim; ++i)
-    {
-        vel[i]     = bodyVel[1][i];
-        vel[i + 6] = bodyVel[2][i];
-    }
-    vel[5]  = bodyVel[1][m_spacedim];
-    vel[11] = bodyVel[2][m_spacedim];
-    if (m_hasRotation)
-    {
-        UpdateRotMat();
-        m_frame.SetAngle(m_disp + 3);
-        m_frame.IneritalToBody(3, vel, vel);
-        m_frame.IneritalToBody(3, tmp = vel + 6, vel + 6);
-    }
-
-    // to set the boundary condition of the next time step
-    // update the frame velocities
-    FluidEq->SetMovingFrameVelocities(vel);
-    // update the projection matrix
-    FluidEq->SetMovingFrameProjectionMat(m_ProjMatZ);
-    // update the frame angle (with respect to the inertial frame)
-    // this angle is used to update the meta data,
-    // on the other hand, for boundary conditions the projection matrix is used
-    FluidEq->SetMovingFrameDisp(m_disp);
+    UpdateFluidInterface(bodyVel, 1);
 }
 
 /**
@@ -889,12 +821,15 @@ void ForcingMovingReferenceFrame::addRotation(
     }
 }
 
+/**
+ * @brief Compute the moving frame velocity at given time
+ */
 void ForcingMovingReferenceFrame::v_PreApply(
     const Array<OneD, MultiRegions::ExpListSharedPtr> &fields,
     const Array<OneD, Array<OneD, NekDouble>> &inarray,
     Array<OneD, Array<OneD, NekDouble>> &outarray, const NekDouble &time)
 {
-    Update(fields, time);
+    UpdateFrameVelocity(fields, time);
     int npoints = fields[0]->GetNpoints();
     if (m_isH2d && fields[0]->GetWaveSpace())
     {
@@ -946,26 +881,26 @@ void ForcingMovingReferenceFrame::v_PreApply(
     }
 }
 
-void ForcingMovingReferenceFrame::CheckForRestartTime(
-    const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields, NekDouble &time)
+void ForcingMovingReferenceFrame::SetInitialConditions()
 {
+    NekDouble time = 0.;
     std::map<std::string, std::string> fieldMetaDataMap;
+    std::vector<std::string> strFrameData = {
+        "X",   "Y",   "Z",   "Theta_x",  "Theta_y",  "Theta_z",
+        "U",   "V",   "W",   "Omega_x",  "Omega_y",  "Omega_z",
+        "A_x", "A_y", "A_z", "DOmega_x", "DOmega_y", "DOmega_z"};
+    std::map<std::string, NekDouble> fileData;
     if (m_session->DefinesFunction("InitialConditions"))
     {
-        for (int i = 0; i < pFields.size(); ++i)
+        for (int i = 0; i < m_session->GetVariables().size(); ++i)
         {
-            LibUtilities::FunctionType vType;
-
-            vType = m_session->GetFunctionType("InitialConditions",
-                                               m_session->GetVariable(i));
-
-            if (vType == LibUtilities::eFunctionTypeFile)
+            if (m_session->GetFunctionType("InitialConditions",
+                                           m_session->GetVariable(i)) ==
+                LibUtilities::eFunctionTypeFile)
             {
                 std::string filename = m_session->GetFunctionFilename(
                     "InitialConditions", m_session->GetVariable(i));
-
                 fs::path pfilename(filename);
-
                 // redefine path for parallel file which is in directory
                 if (fs::is_directory(pfilename))
                 {
@@ -980,15 +915,68 @@ void ForcingMovingReferenceFrame::CheckForRestartTime(
                 // check to see if time is defined
                 if (fieldMetaDataMap != LibUtilities::NullFieldMetaDataMap)
                 {
-                    std::string strt = "Time";
-                    if (fieldMetaDataMap.find(strt) != fieldMetaDataMap.end())
+                    if (fieldMetaDataMap.find("Time") != fieldMetaDataMap.end())
                     {
-                        time = boost::lexical_cast<NekDouble>(
-                            fieldMetaDataMap[strt]);
+                        time = std::stod(fieldMetaDataMap["Time"]);
+                    }
+                    fileData.clear();
+                    for (auto &var : strFrameData)
+                    {
+                        if (fieldMetaDataMap.find(var) !=
+                            fieldMetaDataMap.end())
+                        {
+                            fileData[var] = std::stod(fieldMetaDataMap[var]);
+                        }
+                    }
+                    if (fileData.size() == strFrameData.size())
+                    {
                         break;
                     }
                 }
             }
+        }
+    }
+    if (m_session->DefinesCmdLineArgument("set-start-time"))
+    {
+        time = std::stod(
+            m_session->GetCmdLineArgument<std::string>("set-start-time"));
+    }
+    if (fileData.size() == strFrameData.size())
+    {
+        int NumDofm1 = m_body.vel[0].size() - 1;
+        for (int i = 0; i < m_spacedim; ++i)
+        {
+            m_body.vel[0][i] = fileData[strFrameData[i]];
+            m_body.vel[1][i] = fileData[strFrameData[i + 6]];
+            m_body.vel[2][i] = fileData[strFrameData[i + 12]];
+        }
+        m_body.vel[0][NumDofm1] = fileData[strFrameData[5]];
+        m_body.vel[1][NumDofm1] = fileData[strFrameData[11]];
+        m_body.vel[2][NumDofm1] = fileData[strFrameData[17]];
+    }
+    std::map<int, NekDouble> Dirs;
+    UpdatePrescribed(time, Dirs);
+    SetInitialConditions(Dirs);
+}
+
+void ForcingMovingReferenceFrame::SetInitialConditions(
+    std::map<int, NekDouble> &Dirs)
+{
+    for (auto it : Dirs)
+    {
+        int NumDof  = m_body.vel[0].size();
+        int NumDof2 = NumDof << 1;
+        if (it.first < m_body.vel[0].size())
+        {
+            m_body.vel[1][it.first] = it.second;
+        }
+        else if (it.first < NumDof2)
+        {
+            m_body.vel[0][it.first - NumDof] = it.second;
+        }
+        else
+        {
+            m_body.vel[2][it.first - NumDof2] = it.second;
         }
     }
 }
@@ -999,18 +987,28 @@ void ForcingMovingReferenceFrame::InitialiseFilter(
     const TiXmlElement *pForce)
 {
     std::map<std::string, std::string> vParams;
-    vParams["OutputFile"]     = ".dummyfilename";
+    vParams["OutputFile"]     = ".dummyMRFForceFile";
     const TiXmlElement *param = pForce->FirstChildElement("BOUNDARY");
     ASSERTL0(param, "Body surface should be assigned");
-    vParams["Boundary"] = param->GetText();
-    m_aeroforceFilter   = MemoryManager<FilterAeroForces>::AllocateSharedPtr(
-        pSession, m_equ, vParams);
-    m_aeroforceFilter->Initialise(pFields, 0.0);
+
+    vParams["Boundary"]           = param->GetText();
+    const TiXmlElement *pivotElmt = pForce->FirstChildElement("PIVOTPOINT");
+    if (pivotElmt)
+    {
+        std::string pstr = pivotElmt->GetText();
+        std::replace(pstr.begin(), pstr.end(), ',', ' ');
+        vParams["MomentPoint"] = pstr;
+    }
+    m_body.aeroforceFilter = MemoryManager<FilterAeroForces>::AllocateSharedPtr(
+        pSession, m_equ.lock(), vParams);
+
+    m_body.aeroforceFilter->Initialise(pFields, 0.0);
 }
 
 void Newmark_BetaSolver::SetNewmarkBeta(NekDouble beta, NekDouble gamma,
-                                        NekDouble dt, DNekMatSharedPtr M,
-                                        DNekMatSharedPtr C, DNekMatSharedPtr K,
+                                        NekDouble dt, Array<OneD, NekDouble> M,
+                                        Array<OneD, NekDouble> C,
+                                        Array<OneD, NekDouble> K,
                                         std::set<int> DirDoFs)
 {
     m_coeffs    = Array<OneD, NekDouble>(5, 0.);
@@ -1020,79 +1018,152 @@ void Newmark_BetaSolver::SetNewmarkBeta(NekDouble beta, NekDouble gamma,
     m_coeffs[3] = dt * (1. - beta / gamma);
     m_coeffs[4] = (0.5 - beta / gamma) * dt * dt;
 
-    m_rows = M->GetRows();
-    m_coeffMatrix =
-        MemoryManager<DNekMat>::AllocateSharedPtr(m_rows, m_rows, 0.0, eFULL);
-    m_inverseMatrix =
-        MemoryManager<DNekMat>::AllocateSharedPtr(m_rows, m_rows, 0.0, eFULL);
+    m_rows = sqrt(M.size());
+    m_index.resize(m_rows, -1);
+    m_motionDofs = 0;
     for (int i = 0; i < m_rows; ++i)
     {
-        for (int j = 0; j < m_rows; ++j)
+        if (DirDoFs.find(i) == DirDoFs.end())
         {
-            NekDouble value = m_coeffs[0] * M->GetValue(i, j) +
-                              C->GetValue(i, j) +
-                              m_coeffs[2] * K->GetValue(i, j);
-            m_coeffMatrix->SetValue(i, j, value);
-            if (DirDoFs.find(i) != DirDoFs.end() ||
-                DirDoFs.find(j) != DirDoFs.end())
-            {
-                value = (i == j) ? 1. : 0.;
-            }
-            m_inverseMatrix->SetValue(i, j, value);
+            m_index[m_motionDofs++] = i;
         }
     }
-    m_inverseMatrix->Invert();
-    m_M = M;
-    m_C = C;
-    m_K = K;
+    for (int i = 0, count = m_motionDofs; i < m_rows; ++i)
+    {
+        if (DirDoFs.find(i) != DirDoFs.end())
+        {
+            m_index[count++] = i;
+        }
+    }
+    if (m_motionDofs)
+    {
+        Array<OneD, NekDouble> temp;
+        m_Matrix = Array<OneD, Array<OneD, NekDouble>>(m_motionDofs);
+        m_M      = Array<OneD, Array<OneD, NekDouble>>(m_motionDofs);
+        m_C      = Array<OneD, Array<OneD, NekDouble>>(m_motionDofs);
+        m_K      = Array<OneD, Array<OneD, NekDouble>>(m_motionDofs);
+        DNekMatSharedPtr inverseMatrix =
+            MemoryManager<DNekMat>::AllocateSharedPtr(m_motionDofs,
+                                                      m_motionDofs, 0.0, eFULL);
+        for (int i = 0; i < m_motionDofs; ++i)
+        {
+            m_Matrix[i] = Array<OneD, NekDouble>(m_motionDofs, 0.);
+            m_M[i]      = Array<OneD, NekDouble>(m_rows, 0.);
+            m_C[i]      = Array<OneD, NekDouble>(m_rows, 0.);
+            m_K[i]      = Array<OneD, NekDouble>(m_rows, 0.);
+            int offset  = m_index[i] * m_rows;
+            for (int j = 0; j < m_rows; ++j)
+            {
+                int ind   = offset + m_index[j];
+                m_M[i][j] = M[ind];
+                m_C[i][j] = C[ind];
+                m_K[i][j] = K[ind];
+                NekDouble value =
+                    m_coeffs[0] * M[ind] + C[ind] + m_coeffs[2] * K[ind];
+                if (j < m_motionDofs)
+                {
+                    inverseMatrix->SetValue(i, j, value);
+                }
+            }
+        }
+        inverseMatrix->Invert();
+        for (int i = 0; i < m_motionDofs; ++i)
+        {
+            for (int j = 0; j < m_rows; ++j)
+            {
+                if (j < m_motionDofs)
+                {
+                    m_Matrix[i][j] = inverseMatrix->GetValue(i, j);
+                }
+            }
+        }
+    }
+}
+
+void Newmark_BetaSolver::SolvePrescribed(
+    Array<OneD, Array<OneD, NekDouble>> u,
+    std::map<int, NekDouble> motionPrescribed)
+{
+    for (int i = 0; i < m_rows; ++i)
+    {
+        if (motionPrescribed.find(i) != motionPrescribed.end())
+        {
+            int i0       = i + m_rows;
+            int i2       = i0 + m_rows;
+            NekDouble bm = 0., bk = 0.;
+            if (motionPrescribed.find(i2) == motionPrescribed.end())
+            {
+                bm = m_coeffs[0] * u[1][i] + m_coeffs[1] * u[2][i];
+            }
+            if (motionPrescribed.find(i0) == motionPrescribed.end())
+            {
+                bk = u[0][i] + m_coeffs[3] * u[1][i] + m_coeffs[4] * u[2][i];
+            }
+
+            u[1][i] = motionPrescribed[i];
+            if (motionPrescribed.find(i2) == motionPrescribed.end())
+            {
+                u[2][i] = m_coeffs[0] * u[1][i] - bm;
+            }
+            else
+            {
+                u[2][i] = motionPrescribed[i2];
+            }
+            if (motionPrescribed.find(i0) == motionPrescribed.end())
+            {
+                u[0][i] = m_coeffs[2] * u[1][i] + bk;
+            }
+            else
+            {
+                u[0][i] = motionPrescribed[i0];
+            }
+        }
+    }
 }
 
 void Newmark_BetaSolver::Solve(Array<OneD, Array<OneD, NekDouble>> u,
                                Array<OneD, NekDouble> force,
                                std::map<int, NekDouble> motionPrescribed)
 {
-    NekVector<NekDouble> bm(m_rows);
-    for (int i = 0; i < m_rows; ++i)
+    SolvePrescribed(u, motionPrescribed);
+    SolveFree(u, force);
+}
+
+void Newmark_BetaSolver::SolveFree(Array<OneD, Array<OneD, NekDouble>> u,
+                                   Array<OneD, NekDouble> force)
+{
+    if (m_motionDofs)
     {
-        bm[i] = m_coeffs[0] * u[1][i] + m_coeffs[1] * u[2][i];
-    }
-    NekVector<NekDouble> fbm(m_rows);
-    Multiply(fbm, *m_M, bm);
-    NekVector<NekDouble> bk(m_rows);
-    for (int i = 0; i < m_rows; ++i)
-    {
-        bk[i] = u[0][i] + m_coeffs[3] * u[1][i] + m_coeffs[4] * u[2][i];
-    }
-    NekVector<NekDouble> fbk(m_rows);
-    Multiply(fbk, *m_K, bk);
-    NekVector<NekDouble> rhs(m_rows);
-    for (int i = 0; i < m_rows; ++i)
-    {
-        rhs[i] = force[i] - fbk[i] + fbm[i];
-    }
-    // apply Dirichelet DoFs
-    for (int i = 0; i < 3; ++i)
-    {
-        if (motionPrescribed.find(i) != motionPrescribed.end())
+        Array<OneD, NekDouble> bm(m_motionDofs, 0.);
+        Array<OneD, NekDouble> bk(m_motionDofs, 0.);
+        for (int j = 0; j < m_motionDofs; ++j)
         {
-            rhs[i] = motionPrescribed[i];
+            int j1 = m_index[j];
+            bm[j]  = m_coeffs[0] * u[1][j1] + m_coeffs[1] * u[2][j1];
+            bk[j]  = u[0][j1] + m_coeffs[3] * u[1][j1] + m_coeffs[4] * u[2][j1];
         }
-        else
+        Array<OneD, NekDouble> rhs(m_motionDofs, 0.);
+        for (int i = 0; i < m_motionDofs; ++i)
         {
-            for (auto it : motionPrescribed)
+            rhs[i] = force[m_index[i]];
+            for (int j = 0; j < m_motionDofs; ++j)
             {
-                rhs[i] -= it.second * m_coeffMatrix->GetValue(it.first, i);
+                rhs[i] += m_M[i][j] * bm[j] - m_K[i][j] * bk[j];
+            }
+            for (int j = m_motionDofs; j < m_rows; ++j)
+            {
+                int j1 = m_index[j];
+                rhs[i] -= m_M[i][j] * u[2][j1] + m_C[i][j] * u[1][j1] +
+                          m_K[i][j] * u[0][j1];
             }
         }
-    }
-    // solve
-    NekVector<NekDouble> b(m_rows);
-    Multiply(b, *m_inverseMatrix, rhs);
-    for (int i = 0; i < m_rows; ++i)
-    {
-        u[1][i] = b[i];
-        u[0][i] = m_coeffs[2] * u[1][i] + bk[i];
-        u[2][i] = m_coeffs[0] * u[1][i] - bm[i];
+        for (int j = 0; j < m_motionDofs; ++j)
+        {
+            int j1   = m_index[j];
+            u[1][j1] = Vmath::Dot(m_motionDofs, m_Matrix[j], 1, rhs, 1);
+            u[0][j1] = m_coeffs[2] * u[1][j1] + bk[j];
+            u[2][j1] = m_coeffs[0] * u[1][j1] - bm[j];
+        }
     }
 }
 
@@ -1106,6 +1177,7 @@ void FrameTransform::SetAngle(const Array<OneD, NekDouble> theta)
     m_matrix[0] = cos(theta[2]);
     m_matrix[1] = sin(theta[2]);
 }
+
 void FrameTransform::BodyToInerital(const int dim,
                                     const Array<OneD, NekDouble> &body,
                                     Array<OneD, NekDouble> &inertial)
@@ -1121,8 +1193,10 @@ void FrameTransform::BodyToInerital(const int dim,
         }
     }
 }
-void FrameTransform::IneritalToBody(const int dim, Array<OneD, NekDouble> &body,
-                                    const Array<OneD, NekDouble> &inertial)
+
+void FrameTransform::IneritalToBody(const int dim,
+                                    const Array<OneD, NekDouble> &inertial,
+                                    Array<OneD, NekDouble> &body)
 {
     NekDouble x = inertial[0], y = inertial[1];
     body[0] = x * m_matrix[0] + y * m_matrix[1];

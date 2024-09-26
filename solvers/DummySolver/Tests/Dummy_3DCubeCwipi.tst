@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <test>
     <description>Run two CWIPI-coupled instances of the DummySolver, exchanging fields</description>
-    <segment>
+    <segment type="parallel">
         <executable> DummySolver </executable>
         <parameters> --verbose --cwipi 'Dummy0' Dummy_3DCubeCwipi_0.xml cube.left.xml </parameters>
         <processes> 1 </processes>
     </segment>
-    <segment>
+    <segment type="parallel">
         <executable> DummySolver </executable>
         <parameters> --verbose --cwipi 'Dummy1' Dummy_3DCubeCwipi_1.xml cube.right.xml </parameters>
         <processes> 1 </processes>

@@ -834,13 +834,25 @@ DNekScalMatSharedPtr Expansion3D::CreateMatrix(const MatrixKey &mkey)
                               mkey.GetVarCoeffs());
             DNekScalBlkMatSharedPtr helmStatCond =
                 GetLocStaticCondMatrix(helmkey);
+
             DNekScalMatSharedPtr A = helmStatCond->GetBlock(0, 0);
 
             DNekScalMatSharedPtr Atmp;
+
             DNekMatSharedPtr R =
                 BuildTransformationMatrix(A, mkey.GetMatrixType());
 
             returnval = MemoryManager<DNekScalMat>::AllocateSharedPtr(one, R);
+
+            // Free memory,
+            // need to build keys to delete Mass and Laplacian
+            MatrixKey masskey(StdRegions::eMass, mkey.GetShapeType(), *this);
+            MatrixKey lapkey(StdRegions::eLaplacian, mkey.GetShapeType(), *this,
+                             mkey.GetConstFactors(), mkey.GetVarCoeffs());
+            DropLocStaticCondMatrix(helmkey);
+            DropLocMatrix(helmkey);
+            DropLocMatrix(lapkey);
+            DropLocMatrix(masskey);
         }
         break;
         case StdRegions::ePreconRMass:

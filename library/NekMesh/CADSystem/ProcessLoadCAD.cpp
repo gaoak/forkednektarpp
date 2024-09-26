@@ -101,7 +101,7 @@ void ProcessLoadCAD::Process()
     if (voidPoints.length() > 0)
     {
         std::vector<std::string> splitStr;
-        std::vector<Array<OneD, NekDouble>> voidPts;
+        std::vector<std::array<NekDouble, 3>> voidPts;
 
         boost::split(splitStr, voidPoints, boost::is_any_of(";"));
 
@@ -116,10 +116,9 @@ void ProcessLoadCAD::Process()
                              << "coordinates." << endl;
             }
 
-            Array<OneD, NekDouble> tmp(3);
-            tmp[0] = std::stod(coords[0]);
-            tmp[1] = std::stod(coords[1]);
-            tmp[2] = std::stod(coords[2]);
+            std::array<NekDouble, 3> tmp = {std::stod(coords[0]),
+                                            std::stod(coords[1]),
+                                            std::stod(coords[2])};
 
             voidPts.push_back(tmp);
         }

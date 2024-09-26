@@ -100,11 +100,10 @@ Movement::Movement(const LibUtilities::SessionReaderSharedPtr &pSession,
                  "block.")
         // Generate domain box
         DomainBox();
-        auto comm = pSession->GetComm();
         // Get DomainBox from all processes
         if (m_translate)
         {
-            // auto comm = pSession->GetComm();
+            auto comm = pSession->GetComm();
             for (int i = 0; i < 3; ++i)
             {
                 auto &min = m_DomainBox[i];
@@ -113,13 +112,6 @@ Movement::Movement(const LibUtilities::SessionReaderSharedPtr &pSession,
                 comm->GetSpaceComm()->AllReduce(max, LibUtilities::ReduceMax);
                 m_DomainLength[i] = max - min;
             }
-        }
-        // Don't support interior penalty yet
-        if (pSession->DefinesSolverInfo("DiffusionType"))
-        {
-            ASSERTL0(pSession->GetSolverInfo("DiffusionType") == "LDGNS",
-                     "Only LDGNS is supported as the DiffusionType in "
-                     "SOLVERINFO when a MOVEMENT block is defined.")
         }
     }
 

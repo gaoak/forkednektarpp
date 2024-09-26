@@ -1,12 +1,12 @@
 from NekPy.LibUtilities import SessionReader, BasisKey, PointsKey, PointsType, BasisType
-from NekPy.SpatialDomains import MeshGraph, QuadGeom
+from NekPy.SpatialDomains import MeshGraphIO, QuadGeom
 import NekPy.StdRegions
 from NekPy.LocalRegions import QuadExp
 import sys
 import numpy as np
 
 session = SessionReader.CreateInstance(sys.argv)
-graph = MeshGraph.Read(session)
+graph = MeshGraphIO.Read(session)
 
 print("Loaded session: %s" % session.GetSessionName())
 print("Loaded MeshGraph of dimension: %d" % graph.GetMeshDimension())

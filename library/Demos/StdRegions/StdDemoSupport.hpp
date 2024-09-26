@@ -53,7 +53,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 
-using namespace std;
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 using namespace Nektar::StdRegions;
@@ -69,23 +68,23 @@ public:
             ("help,h",
              "Produce this help message and list basis and shape types.")
             ("nodal,n",
-             po::value<string>(&m_ntype),
+             po::value<std::string>(&m_ntype),
              "Optional nodal type, autofills shape and basis choices.")
             ("shape,s",
-             po::value<string>(&m_shape),
+             po::value<std::string>(&m_shape),
              "Region shape to project function on.")
             ("basis,b",
-             po::value<vector<string>>(&m_basis)->multitoken(),
+             po::value<std::vector<std::string>>(&m_basis)->multitoken(),
              "Basis type, separate by spaces for higher dimensions.")
             ("order,o",
-             po::value<vector<int>>(&m_order)->multitoken()->required(),
+             po::value<std::vector<int>>(&m_order)->multitoken()->required(),
              "Order of basis sets, separate by spaces for higher dimensions.")
             ("points,p",
-             po::value<vector<int>>(&m_points)->multitoken()->required(),
+             po::value<std::vector<int>>(&m_points)->multitoken()->required(),
              "Number of quadrature points, separate by spaces for "
              "higher dimensions.")
             ("pointstype,P",
-             po::value<vector<string>>(&m_pointstype)->multitoken(),
+             po::value<std::vector<std::string>>(&m_pointstype)->multitoken(),
              "Optional points type, separate by spaces for higher dimensions.");
         // clang-format on
     }
@@ -97,42 +96,49 @@ public:
             po::store(po::parse_command_line(argc, argv, m_desc), m_vm);
             if (m_vm.count("help"))
             {
-                cout << m_desc;
-                cout << endl << "All nodal types, -n [ --nodal ], are:" << endl;
+                std::cout << m_desc;
+                std::cout << std::endl
+                          << "All nodal types, -n [ --nodal ], are:"
+                          << std::endl;
                 for (int i = 22; i < SIZE_PointsType; ++i)
                 {
-                    cout << kPointsTypeStr[i] << endl;
+                    std::cout << kPointsTypeStr[i] << std::endl;
                 };
-                cout << endl << "All shape types, -s [ --shape ], are:" << endl;
+                std::cout << std::endl
+                          << "All shape types, -s [ --shape ], are:"
+                          << std::endl;
                 for (int i = 1; i < SIZE_ShapeType; ++i)
                 {
-                    cout << ShapeTypeMap[i] << endl;
+                    std::cout << ShapeTypeMap[i] << std::endl;
                 };
-                cout << endl << "All basis types, -b [ --basis ], are:" << endl;
+                std::cout << std::endl
+                          << "All basis types, -b [ --basis ], are:"
+                          << std::endl;
                 for (int i = 1; i < SIZE_BasisType; ++i)
                 {
-                    cout << BasisTypeMap[i] << endl;
+                    std::cout << BasisTypeMap[i] << std::endl;
                 };
-                cout << endl
-                     << "All points types, -P [ --pointstype ], are:" << endl;
+                std::cout << std::endl
+                          << "All points types, -P [ --pointstype ], are:"
+                          << std::endl;
                 for (int i = 1; i < SIZE_PointsType; ++i)
                 {
-                    cout << kPointsTypeStr[i] << endl;
+                    std::cout << kPointsTypeStr[i] << std::endl;
                 };
                 exit(0);
             }
             po::notify(m_vm);
         }
-        catch (const exception &e)
+        catch (const std::exception &e)
         {
-            cerr << "Error: " << e.what() << endl << m_desc;
+            std::cerr << "Error: " << e.what() << std::endl << m_desc;
             exit(1);
         }
     }
 
     StdExpansion *CreateStdExpansion()
     {
-        vector<PointsType> ptype;
+        std::vector<PointsType> ptype;
         if (m_vm.count("pointstype"))
         {
             for (auto &p : m_pointstype)
@@ -158,7 +164,7 @@ public:
         // Convert string input argument to nodal type
         PointsType nodaltype = eNoPointsType;
         ShapeType stype      = eNoShapeType;
-        vector<BasisType> btype(3, eNoBasisType);
+        std::vector<BasisType> btype(3, eNoBasisType);
         if (m_vm.count("nodal"))
         {
             for (int i = 22; i < SIZE_PointsType; ++i) // starts at nodal points
@@ -262,11 +268,11 @@ public:
         }
 
         // check basis selection is permitted for chosen shape
-        map<ShapeType, vector<vector<BasisType>>> allowableBasis;
+        std::map<ShapeType, std::vector<std::vector<BasisType>>> allowableBasis;
         allowableBasis[ePoint]    = {{eOrtho_A, eModified_A, eFourier,
-                                   eGLL_Lagrange, eGauss_Lagrange, eLegendre,
-                                   eChebyshev, eMonomial, eFourierSingleMode,
-                                   eFourierHalfModeRe, eFourierHalfModeIm}};
+                                      eGLL_Lagrange, eGauss_Lagrange, eLegendre,
+                                      eChebyshev, eMonomial, eFourierSingleMode,
+                                      eFourierHalfModeRe, eFourierHalfModeIm}};
         allowableBasis[eSegment]  = {allowableBasis[ePoint][0]};
         allowableBasis[eTriangle] = {
             {eOrtho_A, eModified_A, eGLL_Lagrange, eGauss_Lagrange},
@@ -305,9 +311,9 @@ public:
                 }
                 ASSERTL0(j != basisListLength - 1,
                          ("The basis type '" +
-                          static_cast<string>(BasisTypeMap[btype[i]]) +
+                          static_cast<std::string>(BasisTypeMap[btype[i]]) +
                           "' is invalid for basis argument " +
-                          to_string(i + 1) + " for shape '" +
+                          std::to_string(i + 1) + " for shape '" +
                           ShapeTypeMap[stype] + "'."))
             }
         }
@@ -355,8 +361,8 @@ public:
             }
         }
 
-        vector<PointsKey> pkey;
-        vector<BasisKey> bkey;
+        std::vector<PointsKey> pkey;
+        std::vector<BasisKey> bkey;
         for (int i = 0; i < dimension; ++i)
         {
             pkey.emplace_back(PointsKey(m_points[i], ptype[i]));
@@ -430,12 +436,12 @@ public:
         return m_vm;
     }
 
-    std::vector<string> &GetPointsType()
+    std::vector<std::string> &GetPointsType()
     {
         return m_pointstype;
     }
 
-    std::vector<string> &GetBasisType()
+    std::vector<std::string> &GetBasisType()
     {
         return m_basis;
     }
@@ -491,10 +497,10 @@ protected:
 
     std::string m_shape;
     std::string m_ntype;
-    vector<string> m_basis{3, "NoBasisType"};
-    vector<string> m_pointstype{3, "NoPointsType"};
-    vector<int> m_order;
-    vector<int> m_points;
+    std::vector<std::string> m_basis{3, "NoBasisType"};
+    std::vector<std::string> m_pointstype{3, "NoPointsType"};
+    std::vector<int> m_order;
+    std::vector<int> m_points;
 };
 
 #endif

@@ -68,18 +68,23 @@ public:
     Newmark_BetaSolver(){};
     ~Newmark_BetaSolver(){};
     void SetNewmarkBeta(NekDouble beta, NekDouble gamma, NekDouble dt,
-                        DNekMatSharedPtr M, DNekMatSharedPtr C,
-                        DNekMatSharedPtr K, std::set<int> DirDoFs);
+                        Array<OneD, NekDouble> M, Array<OneD, NekDouble> C,
+                        Array<OneD, NekDouble> K, std::set<int> DirDoFs);
+    void SolvePrescribed(Array<OneD, Array<OneD, NekDouble>> u,
+                         std::map<int, NekDouble> motionPrescribed);
+    void SolveFree(Array<OneD, Array<OneD, NekDouble>> u,
+                   Array<OneD, NekDouble> force);
     void Solve(Array<OneD, Array<OneD, NekDouble>> u,
                Array<OneD, NekDouble> force,
                std::map<int, NekDouble> motionPrescribed);
     int m_rows;
+    int m_motionDofs;
+    std::vector<int> m_index;
     Array<OneD, NekDouble> m_coeffs;
-    DNekMatSharedPtr m_M;
-    DNekMatSharedPtr m_C;
-    DNekMatSharedPtr m_K;
-    DNekMatSharedPtr m_coeffMatrix;
-    DNekMatSharedPtr m_inverseMatrix;
+    Array<OneD, Array<OneD, NekDouble>> m_Matrix;
+    Array<OneD, Array<OneD, NekDouble>> m_M;
+    Array<OneD, Array<OneD, NekDouble>> m_C;
+    Array<OneD, Array<OneD, NekDouble>> m_K;
 };
 
 class FrameTransform
@@ -90,8 +95,8 @@ public:
     void SetAngle(const Array<OneD, NekDouble> theta);
     void BodyToInerital(const int dim, const Array<OneD, NekDouble> &body,
                         Array<OneD, NekDouble> &inertial);
-    void IneritalToBody(const int dim, Array<OneD, NekDouble> &body,
-                        const Array<OneD, NekDouble> &inertial);
+    void IneritalToBody(const int dim, const Array<OneD, NekDouble> &inertial,
+                        Array<OneD, NekDouble> &body);
 
 private:
     Array<OneD, NekDouble> m_matrix;
@@ -148,9 +153,8 @@ private:
 
     // prescribed functions in the session file
     std::map<int, LibUtilities::EquationSharedPtr> m_frameVelFunction;
-    std::map<int, LibUtilities::EquationSharedPtr> m_extForceFunction;
     std::ofstream m_outputStream;
-    int m_rank;
+    bool m_isRoot;
 
     // a boolean switch indicating for which direction the velocities are
     // available. The available velocites could be different from the
@@ -158,46 +162,43 @@ private:
     // vector of local frame to the inertial frame.
     Array<OneD, bool> m_hasVel;
     Array<OneD, bool> m_hasOmega;
-
-    // frame linear velocities in inertial frame
-    Array<OneD, NekDouble> m_velXYZ;
+    bool m_hasRotation; // m_hasOmega[0] || m_hasOmega[1] || m_hasOmega[2]
 
     // frame linear velocities in local translating-rotating frame
     Array<OneD, NekDouble> m_velxyz;
-
-    // frame angular velocities in inertial frame
-    Array<OneD, NekDouble> m_omegaXYZ;
 
     // frame angular velocities in local translating-rotating frame
     Array<OneD, NekDouble> m_omegaxyz;
     // coordinate vector
     Array<OneD, Array<OneD, NekDouble>> m_coords;
-    // externel force
-    Array<OneD, NekDouble> m_extForceXYZ;
 
-    // rotation angel
-    Array<OneD, NekDouble> m_disp;
-
-    // Projection matrix for transformation of vectors between inertial and
-    // moving reference frames
-    bn::ublas::matrix<NekDouble> m_ProjMatZ;
-
-    NekDouble m_startTime;
+    NekDouble m_currentTime;
     NekDouble m_timestep;
 
-    bool m_hasRotation;
     bool m_isH1d;
     bool m_hasPlane0;
     bool m_isH2d;
-    bool m_hasFreeMotion;
     NekInt m_spacedim;
     NekInt m_expdim;
     unsigned int m_index;
     unsigned int m_outputFrequency;
+
+    struct
+    {
+        Array<OneD, Array<OneD, NekDouble>> vel;
+        bool hasFreeMotion;
+        std::set<int> dirDoFs;
+        bool isCircular;
+        // fluid force filter
+        FilterAeroForcesSharedPtr aeroforceFilter;
+        // externel force
+        std::map<int, LibUtilities::EquationSharedPtr> extForceFunction;
+        Array<OneD, NekDouble> extForceXYZ;
+        Array<OneD, NekDouble> M;
+        Array<OneD, NekDouble> C;
+        Array<OneD, NekDouble> K;
+    } m_body;
     Newmark_BetaSolver m_bodySolver;
-    Array<OneD, Array<OneD, NekDouble>> m_bodyVel;
-    std::set<int> m_DirDoFs;
-    FilterAeroForcesSharedPtr m_aeroforceFilter;
 
     ForcingMovingReferenceFrame(
         const LibUtilities::SessionReaderSharedPtr &pSession,
@@ -205,24 +206,26 @@ private:
 
     ~ForcingMovingReferenceFrame(void) override;
 
-    void Update(const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-                const NekDouble &time);
-    void UpdateRotMat();
-    void CheckForRestartTime(
+    void UpdatePrescribed(const NekDouble &time,
+                          std::map<int, NekDouble> &Dirs);
+    void UpdateFrameVelocity(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        NekDouble &time);
+        const NekDouble &time);
+    void UpdateFluidInterface(Array<OneD, Array<OneD, NekDouble>> &bodyVel,
+                              const int step);
+    void SetInitialConditions();
+    void SetInitialConditions(std::map<int, NekDouble> &Dirs);
 
     void addRotation(int npoints,
                      const Array<OneD, Array<OneD, NekDouble>> &inarray0,
                      NekDouble angVelScale,
                      const Array<OneD, Array<OneD, NekDouble>> &inarray1,
                      Array<OneD, Array<OneD, NekDouble>> &outarray);
-    void InitBodySolver(const TiXmlElement *pForce, const int dim,
-                        const int rank, const NekDouble time);
+    void InitBodySolver(const TiXmlElement *pForce);
     void SolveBodyMotion(Array<OneD, Array<OneD, NekDouble>> &bodyVel,
                          const Array<OneD, NekDouble> &forcebody,
                          std::map<int, NekDouble> &Dirs);
-    void LoadParameters(const TiXmlElement *pForce, const NekDouble time);
+    void LoadParameters(const TiXmlElement *pForce);
     NekDouble EvaluateExpression(std::string expression);
     void InitialiseFilter(
         const LibUtilities::SessionReaderSharedPtr &pSession,

@@ -121,7 +121,6 @@ protected:
     std::string m_preconType;
     DNekMatSharedPtr m_preconditioner;
     std::weak_ptr<AssemblyMap> m_locToGloMap;
-    LibUtilities::CommSharedPtr m_comm;
 
     virtual DNekScalMatSharedPtr v_TransformedSchurCompl(
         int offset, int bndoffset, const std::shared_ptr<DNekScalMat> &loc_mat);

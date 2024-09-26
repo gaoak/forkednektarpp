@@ -211,18 +211,22 @@ public:
     NekSysKey()  = default;
     ~NekSysKey() = default;
 
-    int m_NekLinSysMaxIterations               = 5000;
+    // NekLinSysIter
+    int m_NekLinSysMaxIterations   = 5000;
+    NekDouble m_NekLinSysTolerance = NekConstants::kNekIterativeTol;
+
+    // NekNonlinSysIter
     int m_NekNonlinSysMaxIterations            = 100;
-    NekDouble m_NekLinSysTolerance             = NekConstants::kNekIterativeTol;
     NekDouble m_NekNonLinSysTolerance          = NekConstants::kNekIterativeTol;
-    NekDouble m_NonlinIterTolRelativeL2        = 1.0E-6;
-    int m_LinSysMaxStorage                     = 100;
-    int m_KrylovMaxHessMatBand                 = 101;
-    bool m_NekLinSysLeftPrecon                 = false;
-    bool m_NekLinSysRightPrecon                = true;
-    bool m_DifferenceFlag0                     = false;
-    bool m_DifferenceFlag1                     = false;
+    NekDouble m_NonlinIterTolRelativeL2        = 1.0E-06;
     std::string m_LinSysIterSolverTypeInNonlin = "GMRES";
+
+    // GMRES
+    int m_LinSysMaxStorage        = 100;
+    int m_KrylovMaxHessMatBand    = 101;
+    bool m_NekLinSysLeftPrecon    = false;
+    bool m_NekLinSysRightPrecon   = true;
+    bool m_GMRESCentralDifference = false;
 };
 
 class NekSys;
@@ -256,9 +260,11 @@ public:
         v_InitObject();
     }
 
-    LIB_UTILITIES_EXPORT inline void SetSysOperators(const NekSysOperators &in)
+    LIB_UTILITIES_EXPORT int SolveSystem(
+        const int nGlobal, const Array<OneD, const NekDouble> &pInput,
+        Array<OneD, NekDouble> &pOutput, const int nDir = 0)
     {
-        v_SetSysOperators(in);
+        return v_SolveSystem(nGlobal, pInput, pOutput, nDir);
     }
 
     LIB_UTILITIES_EXPORT inline const NekSysOperators &GetSysOperators()
@@ -266,12 +272,9 @@ public:
         return m_operator;
     }
 
-    LIB_UTILITIES_EXPORT int SolveSystem(
-        const int nGlobal, const Array<OneD, const NekDouble> &pInput,
-        Array<OneD, NekDouble> &pOutput, const int nDir,
-        const NekDouble factor = 1.0)
+    LIB_UTILITIES_EXPORT inline void SetSysOperators(const NekSysOperators &in)
     {
-        return v_SolveSystem(nGlobal, pInput, pOutput, nDir, factor);
+        v_SetSysOperators(in);
     }
 
     LIB_UTILITIES_EXPORT void SetFlagWarnings(bool in)
@@ -285,20 +288,15 @@ public:
     }
 
 protected:
-    /// Communicate.
     LibUtilities::CommSharedPtr m_rowComm;
-    /// Whether the iteration has been converged
     bool m_converged;
-    /// Root if parallel
     bool m_root;
-    /// Verbose
     bool m_verbose;
     bool m_FlagWarnings;
-    /// Operators
-    NekSysOperators m_operator;
-    /// The dimension of the system
     int m_SysDimen;
-    /// Dot product of rhs to normalise stopping criterion
+
+    NekSysOperators m_operator;
+
     NekDouble m_rhs_magnitude = NekConstants::kNekUnsetDouble;
 
     virtual void v_InitObject()
@@ -314,12 +312,12 @@ protected:
         [[maybe_unused]] const int nGlobal,
         [[maybe_unused]] const Array<OneD, const NekDouble> &pInput,
         [[maybe_unused]] Array<OneD, NekDouble> &pOutput,
-        [[maybe_unused]] const int nDir,
-        [[maybe_unused]] const NekDouble factor)
+        [[maybe_unused]] const int nDir)
     {
         ASSERTL0(false, "LinSysIterSolver NOT CORRECT.");
         return 0;
     }
 };
+
 } // namespace Nektar::LibUtilities
 #endif

@@ -41,7 +41,7 @@
 #include <SpatialDomains/Geometry1D.h>
 #include <StdRegions/StdSegExp.h>
 
-//#include <fstream>
+// #include <fstream>
 
 namespace Nektar::LocalRegions
 {

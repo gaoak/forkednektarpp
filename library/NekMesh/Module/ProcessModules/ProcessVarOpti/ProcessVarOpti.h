@@ -119,6 +119,9 @@ private:
 
     NodeElMap m_nodeElMap;
     std::vector<ElUtilSharedPtr> m_dataSet;
+    std::vector<std::pair<CADCurveSharedPtr, std::pair<Node, Node>>>
+        m_adaptCurves;
+    bool m_radaptCAD;
 
     ResidualSharedPtr m_res;
     optiType m_opti;

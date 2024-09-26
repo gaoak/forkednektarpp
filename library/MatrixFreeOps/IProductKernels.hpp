@@ -838,7 +838,7 @@ NEK_FORCE_INLINE static void IProduct1DWorkspace(
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void IProduct2DWorkspace(
     [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
-    const size_t nq0, [[maybe_unused]] const size_t nq1, size_t &wsp0Size)
+    [[maybe_unused]] const size_t nq0, const size_t nq1, size_t &wsp0Size)
 {
     // Check preconditions
     ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Tri && nm0 == nm1 &&
@@ -847,7 +847,7 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
                   nq0 == nq1),
              "IProduct2DWorkspace: Requires homogenous points.");
 
-    wsp0Size = std::max(wsp0Size, nq0);
+    wsp0Size = std::max(wsp0Size, nq1);
 }
 
 #elif defined(SHAPE_DIMENSION_3D)

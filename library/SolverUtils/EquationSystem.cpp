@@ -804,6 +804,16 @@ NekDouble EquationSystem::v_L2Error(unsigned int field,
                                       m_fields[field]->UpdatePhys());
         }
 
+        // Transform from (phys, wave) -> (phys, phys), for 2.5D
+        bool physwavetrans = false;
+        if (m_fields[field]->GetWaveSpace() == true)
+        {
+            m_fields[field]->HomogeneousBwdTrans(
+                m_fields[field]->GetTotPoints(), m_fields[field]->GetPhys(),
+                m_fields[field]->UpdatePhys());
+            physwavetrans = true;
+        }
+
         if (exactsoln.size())
         {
             L2error =
@@ -830,6 +840,15 @@ NekDouble EquationSystem::v_L2Error(unsigned int field,
 
             NekDouble Vol = m_fields[field]->Integral(one);
             L2error       = sqrt(L2error * L2error / Vol);
+        }
+
+        // Transform from (phys, phys) -> (phys, wave), for 2.5D
+        if (physwavetrans == true)
+        {
+            m_fields[field]->HomogeneousFwdTrans(
+                m_fields[field]->GetTotPoints(), m_fields[field]->GetPhys(),
+                m_fields[field]->UpdatePhys());
+            physwavetrans = false;
         }
     }
     else
@@ -1311,13 +1330,15 @@ void EquationSystem::WriteFld(const std::string &outname,
     // If necessary, add informaton for moving frame reference to metadata
     // X, Y, Z translational displacements
     // Theta_x, Theta_y, Theta_z angular displacements
+    // U, V, W translational velocity
+    // Omega_x, Omega_y, Omega_z angular velocity
+    // A_x, A_y, A_z translational acceleration
+    // DOmega_x, DOmega_y, DOmega_z angular acceleration
     // X0, Y0, Z0 pivot point
-    std::vector<std::string> strFrameData = {
-        "X", "Y", "Z", "Theta_x", "Theta_y", "Theta_z", "X0", "Y0", "Z0"};
-    for (size_t i = 0; i < strFrameData.size() && i < m_movingFrameData.size();
-         ++i)
+    for (size_t i = 0;
+         i < m_strFrameData.size() && i < m_movingFrameData.size(); ++i)
     {
-        fieldMetaDataMap[strFrameData[i]] =
+        fieldMetaDataMap[m_strFrameData[i]] =
             boost::lexical_cast<std::string>(m_movingFrameData[i]);
     }
 
@@ -1488,7 +1509,10 @@ void EquationSystem::ImportFld(const std::string &infile,
  */
 void EquationSystem::SessionSummary(SummaryList &s)
 {
-    AddSummaryItem(s, "EquationType", m_session->GetSolverInfo("EQTYPE"));
+    if (m_session->DefinesSolverInfo("EQTYPE"))
+    {
+        AddSummaryItem(s, "EquationType", m_session->GetSolverInfo("EQTYPE"));
+    }
     AddSummaryItem(s, "Session Name", m_sessionName);
     AddSummaryItem(s, "Spatial Dim.", m_spacedim);
     AddSummaryItem(s, "Max SEM Exp. Order",
@@ -1549,6 +1573,15 @@ void EquationSystem::SessionSummary(SummaryList &s)
             GetAdvectionFactory().GetClassDescription(AdvectionType));
     }
 
+    if (m_session->DefinesSolverInfo("DiffusionType"))
+    {
+        std::string DiffusionType;
+        DiffusionType = m_session->GetSolverInfo("DiffusionType");
+        AddSummaryItem(
+            s, "Diffusion Type",
+            GetDiffusionFactory().GetClassDescription(DiffusionType));
+    }
+
     if (m_projectionType == MultiRegions::eGalerkin)
     {
         AddSummaryItem(s, "Projection Type", "Continuous Galerkin");
@@ -1561,33 +1594,6 @@ void EquationSystem::SessionSummary(SummaryList &s)
     {
         AddSummaryItem(s, "Projection Type",
                        "Mixed Continuous Galerkin and Discontinuous");
-    }
-
-    if (m_session->DefinesSolverInfo("DiffusionType"))
-    {
-        std::string DiffusionType;
-        DiffusionType = m_session->GetSolverInfo("DiffusionType");
-        AddSummaryItem(
-            s, "Diffusion Type",
-            GetDiffusionFactory().GetClassDescription(DiffusionType));
-    }
-    else if (m_projectionType == MultiRegions::eDiscontinuous)
-    {
-        AddSummaryItem(s, "Projection Type", "Discontinuous Galerkin");
-    }
-    else if (m_projectionType == MultiRegions::eMixed_CG_Discontinuous)
-    {
-        AddSummaryItem(s, "Projection Type",
-                       "Mixed Continuous Galerkin and Discontinuous");
-    }
-
-    if (m_session->DefinesSolverInfo("DiffusionType"))
-    {
-        std::string DiffusionType;
-        DiffusionType = m_session->GetSolverInfo("DiffusionType");
-        AddSummaryItem(
-            s, "Diffusion Type",
-            GetDiffusionFactory().GetClassDescription(DiffusionType));
     }
 }
 

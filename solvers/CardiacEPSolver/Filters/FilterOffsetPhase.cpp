@@ -43,7 +43,7 @@ std::string FilterOffsetPhase::className =
 
 FilterOffsetPhase::FilterOffsetPhase(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<SolverUtils::EquationSystem> &pEquation,
+    const std::shared_ptr<SolverUtils::EquationSystem> &pEquation,
     const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {

@@ -44,6 +44,6 @@ namespace Nektar::NekConstants
 extern const std::string kGitSha1   = "@GIT_SHA1@";
 extern const std::string kGitBranch = "@GIT_REFSPEC@";
 
-}
+} // namespace Nektar::NekConstants
 
 #endif

@@ -515,7 +515,7 @@ void GeomFactors::ComputeMovingFrames(
     // and MF2. MF2 is consequently computed as the cross product of
     // MF3 and MF1.
     Array<OneD, Array<OneD, NekDouble>> PrincipleDir(m_coordDim);
-    for (int k = 0; k < m_coordDim; k++)
+    for (k = 0; k < m_coordDim; k++)
     {
         PrincipleDir[k] = Array<OneD, NekDouble>(nq);
     }

@@ -61,7 +61,6 @@ void CADSurfOCE::Initialise(int i, TopoDS_Shape in)
 
     m_id = i;
 
-    m_bounds = Array<OneD, NekDouble>(4);
     BRepTools::UVBounds(TopoDS::Face(in), m_bounds[0], m_bounds[1], m_bounds[2],
                         m_bounds[3]);
     m_sas = new ShapeAnalysis_Surface(m_s);
@@ -72,7 +71,7 @@ void CADSurfOCE::Initialise(int i, TopoDS_Shape in)
     m_2Dclass = new BRepTopAdaptor_FClass2d(TopoDS::Face(m_shape), 1e-4);
 }
 
-Array<OneD, NekDouble> CADSurfOCE::GetBounds()
+std::array<NekDouble, 4> CADSurfOCE::GetBounds()
 {
     return m_bounds;
 }
@@ -96,7 +95,7 @@ bool CADSurfOCE::IsPlanar()
     return false;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::BoundingBox()
+std::array<NekDouble, 6> CADSurfOCE::BoundingBox()
 {
     BRepMesh_IncrementalMesh brmsh(m_shape, 0.005);
 
@@ -105,7 +104,8 @@ Array<OneD, NekDouble> CADSurfOCE::BoundingBox()
     NekDouble e = sqrt(B.SquareExtent()) * 0.01;
     e           = min(e, 5e-3);
     B.Enlarge(e);
-    Array<OneD, NekDouble> ret(6);
+
+    std::array<NekDouble, 6> ret;
     B.Get(ret[0], ret[1], ret[2], ret[3], ret[4], ret[5]);
     ret[0] /= 1000.0;
     ret[1] /= 1000.0;
@@ -113,14 +113,15 @@ Array<OneD, NekDouble> CADSurfOCE::BoundingBox()
     ret[3] /= 1000.0;
     ret[4] /= 1000.0;
     ret[5] /= 1000.0;
+
     return ret;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::locuv(Array<OneD, NekDouble> p,
-                                         NekDouble &dist)
+std::array<NekDouble, 2> CADSurfOCE::locuv(std::array<NekDouble, 3> p,
+                                           NekDouble &dist)
 {
     gp_Pnt loc(p[0] * 1000.0, p[1] * 1000.0, p[2] * 1000.0);
-    Array<OneD, NekDouble> uv(2);
+    std::array<NekDouble, 2> uv;
 
     if (!m_isTransfiniteSurf)
     {
@@ -147,7 +148,6 @@ Array<OneD, NekDouble> CADSurfOCE::locuv(Array<OneD, NekDouble> p,
     }
     else
     {
-        Array<OneD, NekDouble> out(3);
         GeomAPI_ProjectPointOnSurf proj(loc, m_s, Precision::Confusion());
         proj.Perform(loc);
         ASSERTL1(proj.NbPoints() > 0, "Unable to find a projection!");
@@ -158,7 +158,7 @@ Array<OneD, NekDouble> CADSurfOCE::locuv(Array<OneD, NekDouble> p,
     return uv;
 }
 
-NekDouble CADSurfOCE::Curvature(Array<OneD, NekDouble> uv)
+NekDouble CADSurfOCE::Curvature(std::array<NekDouble, 2> uv)
 {
 #if defined(NEKTAR_DEBUG)
     Test(uv);
@@ -178,21 +178,17 @@ NekDouble CADSurfOCE::Curvature(Array<OneD, NekDouble> uv)
     return d1 > d2 ? d1 * 1000.0 : d2 * 1000.0;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::P(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 3> CADSurfOCE::P(std::array<NekDouble, 2> uv)
 {
 #if defined(NEKTAR_DEBUG)
     Test(uv);
 #endif
 
     gp_Pnt loc = m_s->Value(uv[0], uv[1]);
-    Array<OneD, NekDouble> location(3);
-    location[0] = loc.X() / 1000.0;
-    location[1] = loc.Y() / 1000.0;
-    location[2] = loc.Z() / 1000.0;
-    return location;
+    return {loc.X() / 1000.0, loc.Y() / 1000.0, loc.Z() / 1000.0};
 }
 
-void CADSurfOCE::P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y,
+void CADSurfOCE::P(std::array<NekDouble, 2> uv, NekDouble &x, NekDouble &y,
                    NekDouble &z)
 {
 #if defined(NEKTAR_DEBUG)
@@ -205,7 +201,7 @@ void CADSurfOCE::P(Array<OneD, NekDouble> uv, NekDouble &x, NekDouble &y,
     z          = loc.Z() / 1000.0;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::N(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 3> CADSurfOCE::N(std::array<NekDouble, 2> uv)
 {
 #if defined(NEKTAR_DEBUG)
     Test(uv);
@@ -214,11 +210,10 @@ Array<OneD, NekDouble> CADSurfOCE::N(Array<OneD, NekDouble> uv)
     GeomLProp_SLProps d(m_s, 2, Precision::Confusion());
     d.SetParameters(uv[0], uv[1]);
 
-    Array<OneD, NekDouble> normal(3);
+    std::array<NekDouble, 3> normal = {0.0, 0.0, 0.0};
 
     if (!d.IsNormalDefined())
     {
-        normal = Array<OneD, NekDouble>(3, 0.0);
         return normal;
     }
 
@@ -236,13 +231,13 @@ Array<OneD, NekDouble> CADSurfOCE::N(Array<OneD, NekDouble> uv)
     return normal;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::D1(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 9> CADSurfOCE::D1(std::array<NekDouble, 2> uv)
 {
 #if defined(NEKTAR_DEBUG)
     Test(uv);
 #endif
 
-    Array<OneD, NekDouble> r(9);
+    std::array<NekDouble, 9> r;
     gp_Pnt Loc;
     gp_Vec D1U, D1V;
     m_s->D1(uv[0], uv[1], Loc, D1U, D1V);
@@ -260,13 +255,13 @@ Array<OneD, NekDouble> CADSurfOCE::D1(Array<OneD, NekDouble> uv)
     return r;
 }
 
-Array<OneD, NekDouble> CADSurfOCE::D2(Array<OneD, NekDouble> uv)
+std::array<NekDouble, 18> CADSurfOCE::D2(std::array<NekDouble, 2> uv)
 {
 #if defined(NEKTAR_DEBUG)
     Test(uv);
 #endif
 
-    Array<OneD, NekDouble> r(18);
+    std::array<NekDouble, 18> r;
     gp_Pnt Loc;
     gp_Vec D1U, D1V, D2U, D2V, D2UV;
     m_s->D2(uv[0], uv[1], Loc, D1U, D1V, D2U, D2V, D2UV);
@@ -293,7 +288,7 @@ Array<OneD, NekDouble> CADSurfOCE::D2(Array<OneD, NekDouble> uv)
     return r;
 }
 
-void CADSurfOCE::Test(Array<OneD, NekDouble> uv)
+void CADSurfOCE::Test(std::array<NekDouble, 2> uv)
 {
     stringstream error;
 

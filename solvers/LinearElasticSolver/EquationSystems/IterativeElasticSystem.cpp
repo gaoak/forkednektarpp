@@ -40,6 +40,7 @@
 #include <LocalRegions/MatrixKey.h>
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/GlobalLinSysDirectStaticCond.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <StdRegions/StdQuadExp.h>
 #include <StdRegions/StdTriExp.h>
 
@@ -242,8 +243,12 @@ void IterativeElasticSystem::WriteGeometry(const int i)
         filename = fs::path(s.str());
     }
 
-    string fname = LibUtilities::PortablePath(filename);
-    m_fields[0]->GetGraph()->WriteGeometry(fname);
+    string fname    = LibUtilities::PortablePath(filename);
+    string geomType = m_session->GetGeometryType();
+    auto graphIO =
+        SpatialDomains::GetMeshGraphIOFactory().CreateInstance(geomType);
+    graphIO->SetMeshGraph(m_graph);
+    graphIO->WriteGeometry(fname);
 }
 
 } // namespace Nektar

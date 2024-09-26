@@ -56,18 +56,17 @@ void CADCurveCFI::Initialise(int i, cfi::Line *in, NekDouble s)
 NekDouble CADCurveCFI::tAtArcLength(NekDouble s)
 {
     s /= m_scal;
-    Array<OneD, NekDouble> bds = GetBounds();
-    NekDouble dt               = (bds[1] - bds[0]) / 1000;
+    auto bds     = GetBounds();
+    NekDouble dt = (bds[1] - bds[0]) / 1000;
 
     NekDouble t   = bds[0];
     NekDouble len = 0.0;
 
     while (len <= s)
     {
-        Array<OneD, NekDouble> drdt1, drdt2;
-        drdt1 = D2(t);
+        auto drdt1 = D2(t);
         t += dt;
-        drdt2 = D2(t);
+        auto drdt2 = D2(t);
 
         NekDouble mag1 = sqrt(drdt1[3] * drdt1[3] + drdt1[4] * drdt1[4] +
                               drdt1[5] * drdt1[5]);
@@ -80,7 +79,8 @@ NekDouble CADCurveCFI::tAtArcLength(NekDouble s)
     return t - dt;
 }
 
-NekDouble CADCurveCFI::loct(Array<OneD, NekDouble> xyz, NekDouble &t)
+NekDouble CADCurveCFI::loct(std::array<NekDouble, 3> xyz, NekDouble > xyz,
+                            NekDouble &t)
 {
     cfi::Position p;
     p.x = xyz[0] / m_scal;
@@ -96,18 +96,17 @@ NekDouble CADCurveCFI::loct(Array<OneD, NekDouble> xyz, NekDouble &t)
 
 NekDouble CADCurveCFI::Length(NekDouble ti, NekDouble tf)
 {
-    Array<OneD, NekDouble> bds = GetBounds();
-    NekDouble dt               = (bds[1] - bds[0]) / 1000;
+    auto bds     = GetBounds();
+    NekDouble dt = (bds[1] - bds[0]) / 1000;
 
     NekDouble t   = ti;
     NekDouble len = 0.0;
 
     while (t <= tf)
     {
-        Array<OneD, NekDouble> drdt1, drdt2;
-        drdt1 = D2(t);
+        auto drdt1 = D2(t);
         t += dt;
-        drdt2 = D2(t);
+        auto drdt2 = D2(t);
 
         NekDouble mag1 = sqrt(drdt1[3] * drdt1[3] + drdt1[4] * drdt1[4] +
                               drdt1[5] * drdt1[5]);
@@ -120,17 +119,11 @@ NekDouble CADCurveCFI::Length(NekDouble ti, NekDouble tf)
     return len * m_scal;
 }
 
-Array<OneD, NekDouble> CADCurveCFI::P(NekDouble t)
+std::array<NekDouble, 3> CADCurveCFI::P(NekDouble t)
 {
     cfi::Position p = m_cfiEdge->calcXYZAtT(t);
 
-    Array<OneD, NekDouble> out(3);
-
-    out[0] = p.x * m_scal;
-    out[1] = p.y * m_scal;
-    out[2] = p.z * m_scal;
-
-    return out;
+    return {p.x * m_scal, p.y * m_scal, p.z * m_scal};
 }
 
 void CADCurveCFI::P(NekDouble t, NekDouble &x, NekDouble &y, NekDouble &z)
@@ -142,33 +135,28 @@ void CADCurveCFI::P(NekDouble t, NekDouble &x, NekDouble &y, NekDouble &z)
     z = p.z * m_scal;
 }
 
-Array<OneD, NekDouble> CADCurveCFI::D2(NekDouble t)
+std::array<NekDouble, 9> CADCurveCFI::D2(NekDouble t)
 {
     vector<cfi::DerivativeList> *d = m_cfiEdge->calcDerivAtT(t);
     cfi::Position p                = m_cfiEdge->calcXYZAtT(t);
 
-    Array<OneD, NekDouble> out(9);
-
-    out[0] = p.x * m_scal;
-    out[1] = p.y * m_scal;
-    out[2] = p.z * m_scal;
-
     cfi::DerivativeList d1 = d->at(0);
     cfi::DerivativeList d2 = d->at(1);
 
-    out[3] = d1.getDeriv(0) * m_scal;
-    out[4] = d1.getDeriv(1) * m_scal;
-    out[5] = d1.getDeriv(2) * m_scal;
-    out[6] = d2.getDeriv(0) * m_scal;
-    out[7] = d2.getDeriv(1) * m_scal;
-    out[8] = d2.getDeriv(2) * m_scal;
-
-    return out;
+    return {p.x * m_scal,
+            p.y * m_scal,
+            p.z * m_scal,
+            d1.getDeriv(0) * m_scal,
+            d1.getDeriv(1) * m_scal,
+            d1.getDeriv(2) * m_scal,
+            d2.getDeriv(0) * m_scal,
+            d2.getDeriv(0) * m_scal,
+            d2.getDeriv(0) * m_scal};
 }
 
-Array<OneD, NekDouble> CADCurveCFI::GetBounds()
+std::array<NekDouble, 2> CADCurveCFI::GetBounds()
 {
-    Array<OneD, NekDouble> t(2);
+    std::array<NekDouble, 2> t;
     t[0] = 0.0;
     t[1] = 1.0;
 
@@ -181,23 +169,15 @@ void CADCurveCFI::GetBounds(NekDouble &tmin, NekDouble &tmax)
     tmax = 1.0;
 }
 
-Array<OneD, NekDouble> CADCurveCFI::GetMinMax()
+std::array<NekDouble, 6> CADCurveCFI::GetMinMax()
 {
-    Array<OneD, NekDouble> bds = GetBounds();
+    auto bds = GetBounds();
 
     cfi::Position x1 = m_cfiEdge->calcXYZAtT(bds[0]);
     cfi::Position x2 = m_cfiEdge->calcXYZAtT(bds[1]);
 
-    Array<OneD, NekDouble> locs(6);
-
-    locs[0] = x1.x * m_scal;
-    locs[1] = x1.y * m_scal;
-    locs[2] = x1.z * m_scal;
-    locs[3] = x2.x * m_scal;
-    locs[4] = x2.y * m_scal;
-    locs[5] = x2.z * m_scal;
-
-    return locs;
+    return {x1.x * m_scal, x1.y * m_scal, x1.z * m_scal,
+            x2.x * m_scal, x2.y * m_scal, x2.z * m_scal};
 }
 } // namespace NekMesh
 } // namespace Nektar

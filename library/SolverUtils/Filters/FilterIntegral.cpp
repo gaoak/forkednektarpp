@@ -51,7 +51,7 @@ std::string FilterIntegral::className =
  */
 FilterIntegral::FilterIntegral(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
     std::string outName;

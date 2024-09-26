@@ -64,25 +64,25 @@ public:
     {
     }
 
-    virtual Array<OneD, NekDouble> GetBounds();
+    virtual std::array<NekDouble, 2> GetBounds();
     virtual void GetBounds(NekDouble &tmin, NekDouble &tmax);
     virtual NekDouble Length(NekDouble ti, NekDouble tf);
-    virtual Array<OneD, NekDouble> P(NekDouble t);
+    virtual std::array<NekDouble, 3> P(NekDouble t);
     virtual void P(NekDouble t, NekDouble &x, NekDouble &y, NekDouble &z);
-    virtual Array<OneD, NekDouble> D2(NekDouble t);
+    virtual std::array<NekDouble, 9> D2(NekDouble t);
     virtual NekDouble Curvature([[maybe_unused]] NekDouble t)
     {
         ASSERTL0(false, "Function: Curvature not implemented in CFI engine");
         return 0;
     }
-    virtual Array<OneD, NekDouble> N([[maybe_unused]] NekDouble t)
+    virtual std::array<NekDouble, 3> N([[maybe_unused]] NekDouble t)
     {
         ASSERTL0(false, "Function: N not implemented in CFI engine");
-        return Array<OneD, NekDouble>();
+        return std::array<NekDouble, 3>();
     }
     virtual NekDouble tAtArcLength(NekDouble s);
-    virtual Array<OneD, NekDouble> GetMinMax();
-    virtual NekDouble loct(Array<OneD, NekDouble> xyz, NekDouble &t);
+    virtual std::array<NekDouble, 6> GetMinMax();
+    virtual NekDouble loct(std::array<NekDouble, 3> xyz, NekDouble &t);
 
     void Initialise(int i, cfi::Line *in, NekDouble s);
 

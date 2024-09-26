@@ -52,7 +52,8 @@
             </REGION>
         </BOUNDARYCONDITIONS>
         <FUNCTION NAME="InitialConditions">
-            <F VAR="u,v,p" FILE="Cyl_AdaptiveSFD_Eig.rst"/>
+            <F VAR="u,v" FILE="Cyl_AdaptiveSFD_Eig.rst"/>
+            <E VAR="p" VALUE="0.0"/>
         </FUNCTION>
         <FUNCTION NAME="BaseFlow">
             <E VAR="u" VALUE="1.0"/>

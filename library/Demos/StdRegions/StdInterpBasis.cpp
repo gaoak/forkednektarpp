@@ -79,8 +79,10 @@ int main(int argc, char *argv[])
         E->FillMode(k, tmp);
     }
 
-    cout << "L infinity error : " << scientific << E->Linf(phys, sol) << endl;
-    cout << "L 2 error        : " << scientific << E->L2(phys, sol) << endl;
+    std::cout << "L infinity error : " << std::scientific << E->Linf(phys, sol)
+              << std::endl;
+    std::cout << "L 2 error        : " << std::scientific << E->L2(phys, sol)
+              << std::endl;
 
     return 0;
 }

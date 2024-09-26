@@ -240,7 +240,7 @@ public:
     {
         m_fileName = std::string("OneDFiniteDiffAdvDiffSolver");
         m_title    = std::string("Finite Difference Solution to the 1D "
-                              "advection-diffusion equation");
+                                    "advection-diffusion equation");
     }
 
     // -----------------------------------------------------------------

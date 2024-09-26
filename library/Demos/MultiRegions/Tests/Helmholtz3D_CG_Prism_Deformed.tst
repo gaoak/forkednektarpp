@@ -9,7 +9,7 @@
 
     <metrics>
         <metric type="L2" id="1">
-            <value tolerance="1e-9">8.71461e-06</value>
+            <value tolerance="1e-9">8.88011e-06</value>
         </metric>
         <metric type="Linf" id="2">
             <value tolerance="1e-9">7.59576e-05</value>

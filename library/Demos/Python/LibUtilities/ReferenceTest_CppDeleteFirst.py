@@ -1,5 +1,5 @@
 from NekPy.LibUtilities import SessionReader
-from NekPy.SpatialDomains import MeshGraph
+from NekPy.SpatialDomains import MeshGraph, MeshGraphIO
 from NekPy.MultiRegions import ExpList
 import ctypes
 import gc
@@ -16,7 +16,7 @@ def main():
     actual_test_outcome = []
 
     session = SessionReader.CreateInstance(session_name)
-    graph = MeshGraph.Read(session)
+    graph = MeshGraphIO.Read(session)
     exp = ExpList(session, graph)
 
     print("Loaded session: %s" % session.GetSessionName())

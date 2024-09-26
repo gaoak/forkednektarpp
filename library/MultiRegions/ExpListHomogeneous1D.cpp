@@ -1662,7 +1662,7 @@ NekDouble ExpListHomogeneous1D::v_Integral(
     }
     val *= m_lhom / m_homogeneousBasis->GetNumModes();
 
-    m_comm->AllReduce(val, LibUtilities::ReduceSum);
+    m_comm->GetSpaceComm()->AllReduce(val, LibUtilities::ReduceSum);
 
     return val;
 }

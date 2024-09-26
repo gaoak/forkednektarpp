@@ -227,9 +227,9 @@ NekMatrix<NekMatrix<DataType, InnerMatrixType>, BlockMatrixTag>::GetBlock(
 
 template <typename DataType, typename InnerMatrixType>
 std::shared_ptr<typename NekMatrix<NekMatrix<DataType, InnerMatrixType>,
-                                   BlockMatrixTag>::InnerType>
-    &NekMatrix<NekMatrix<DataType, InnerMatrixType>, BlockMatrixTag>::GetBlock(
-        unsigned int row, unsigned int column)
+                                   BlockMatrixTag>::InnerType> &
+NekMatrix<NekMatrix<DataType, InnerMatrixType>, BlockMatrixTag>::GetBlock(
+    unsigned int row, unsigned int column)
 {
     ASSERTL2(
         this->GetTransposeFlag() == 'N' ? row < m_numberOfBlockRows

@@ -61,6 +61,11 @@ public:
 
     ~OutputVtk() final = default;
 
+    vtkUnstructuredGrid *GetVtkGrid()
+    {
+        return m_vtkMesh.GetPointer();
+    }
+
 protected:
     std::string v_GetModuleName() final
     {

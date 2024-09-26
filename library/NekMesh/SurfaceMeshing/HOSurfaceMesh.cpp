@@ -223,7 +223,7 @@ void HOSurfaceMesh::Process()
 
                     DNekMat J = opti->dF(xi);
 
-                    Array<OneD, NekDouble> bnds = c->GetBounds();
+                    auto bnds = c->GetBounds();
 
                     bool repeat = true;
                     int itct    = 0;
@@ -271,15 +271,14 @@ void HOSurfaceMesh::Process()
 
                 for (int k = 1; k < m_mesh->m_nummode - 1; k++)
                 {
-                    Array<OneD, NekDouble> loc = c->P(ti[k]);
-                    NodeSharedPtr nn           = std::shared_ptr<Node>(
+                    auto loc         = c->P(ti[k]);
+                    NodeSharedPtr nn = std::shared_ptr<Node>(
                         new Node(0, loc[0], loc[1], loc[2]));
 
                     nn->SetCADCurve(c, ti[k]);
                     for (int m = 0; m < s.size(); m++)
                     {
-                        Array<OneD, NekDouble> uv =
-                            s[m].first.lock()->locuv(loc);
+                        auto uv = s[m].first.lock()->locuv(loc);
                         nn->SetCADSurf(s[m].first.lock(), uv);
                     }
 
@@ -289,19 +288,15 @@ void HOSurfaceMesh::Process()
             else
             {
                 // edge is on surface and needs 2d optimisation
-                Array<OneD, NekDouble> uvb, uve;
-                uvb = e->m_n1->GetCADSurfInfo(surf);
-                uve = e->m_n2->GetCADSurfInfo(surf);
-
-                Array<OneD, NekDouble> l1 = e->m_n1->GetLoc();
-                Array<OneD, NekDouble> l2 = e->m_n2->GetLoc();
+                auto uvb = e->m_n1->GetCADSurfInfo(surf);
+                auto uve = e->m_n2->GetCADSurfInfo(surf);
 
                 e->m_parentCAD = s;
-                Array<OneD, Array<OneD, NekDouble>> uvi(nq);
+                Array<OneD, std::array<NekDouble, 2>> uvi(nq);
 
                 for (int k = 0; k < nq; k++)
                 {
-                    Array<OneD, NekDouble> uv(2);
+                    std::array<NekDouble, 2> uv;
                     uv[0] = uvb[0] * (1.0 - gll[k]) / 2.0 +
                             uve[0] * (1.0 + gll[k]) / 2.0;
                     uv[1] = uvb[1] * (1.0 - gll[k]) / 2.0 +
@@ -311,7 +306,6 @@ void HOSurfaceMesh::Process()
 
                 if (qOpti)
                 {
-                    Array<OneD, NekDouble> bnds = s->GetBounds();
                     Array<OneD, NekDouble> all(2 * nq);
                     for (int k = 0; k < nq; k++)
                     {
@@ -379,7 +373,7 @@ void HOSurfaceMesh::Process()
                                            << Norm << endl;
                             for (int k = 0; k < nq; k++)
                             {
-                                Array<OneD, NekDouble> uv(2);
+                                std::array<NekDouble, 2> uv;
                                 uv[0] = uvb[0] * (1.0 - gll[k]) / 2.0 +
                                         uve[0] * (1.0 + gll[k]) / 2.0;
                                 uv[1] = uvb[1] * (1.0 - gll[k]) / 2.0 +
@@ -412,8 +406,8 @@ void HOSurfaceMesh::Process()
 
                 for (int k = 1; k < nq - 1; k++)
                 {
-                    Array<OneD, NekDouble> loc = s->P(uvi[k]);
-                    NodeSharedPtr nn           = std::shared_ptr<Node>(
+                    auto loc         = s->P(uvi[k]);
+                    NodeSharedPtr nn = std::shared_ptr<Node>(
                         new Node(0, loc[0], loc[1], loc[2]));
                     nn->SetCADSurf(s, uvi[k]);
                     honodes[k - 1] = nn;
@@ -446,27 +440,23 @@ void HOSurfaceMesh::Process()
         if (vertices.size() == 3)
         {
             // build an array of all uvs
-            vector<Array<OneD, NekDouble>> uvi;
+            vector<std::array<NekDouble, 2>> uvi;
             for (int j = np - ni; j < np; j++)
             {
                 Array<OneD, NekDouble> xp(2);
-                xp[0] = u[j];
-                xp[1] = v[j];
+                xp[0]                        = u[j];
+                xp[1]                        = v[j];
+                std::array<NekDouble, 3> loc = {xmap->PhysEvaluate(xp, xc),
+                                                xmap->PhysEvaluate(xp, yc),
+                                                xmap->PhysEvaluate(xp, zc)};
 
-                Array<OneD, NekDouble> loc(3);
-                loc[0] = xmap->PhysEvaluate(xp, xc);
-                loc[1] = xmap->PhysEvaluate(xp, yc);
-                loc[2] = xmap->PhysEvaluate(xp, zc);
-
-                Array<OneD, NekDouble> uv = s->locuv(loc);
-                uvi.push_back(uv);
+                uvi.push_back(s->locuv(loc));
             }
 
             vector<NodeSharedPtr> honodes;
             for (int j = 0; j < ni; j++)
             {
-                Array<OneD, NekDouble> loc;
-                loc = s->P(uvi[j]);
+                auto loc = s->P(uvi[j]);
                 NodeSharedPtr nn =
                     std::shared_ptr<Node>(new Node(0, loc[0], loc[1], loc[2]));
                 nn->SetCADSurf(s, uvi[j]);
@@ -479,30 +469,26 @@ void HOSurfaceMesh::Process()
         else if (vertices.size() == 4)
         {
             // build an array of all uvs
-            vector<Array<OneD, NekDouble>> uvi;
+            vector<std::array<NekDouble, 2>> uvi;
             for (int i = 1; i < nq - 1; i++)
             {
                 for (int j = 1; j < nq - 1; j++)
                 {
                     Array<OneD, NekDouble> xp(2);
-                    xp[0] = gll[j];
-                    xp[1] = gll[i];
+                    xp[0]                        = gll[j];
+                    xp[1]                        = gll[i];
+                    std::array<NekDouble, 3> loc = {xmap->PhysEvaluate(xp, xc),
+                                                    xmap->PhysEvaluate(xp, yc),
+                                                    xmap->PhysEvaluate(xp, zc)};
 
-                    Array<OneD, NekDouble> loc(3);
-                    loc[0] = xmap->PhysEvaluate(xp, xc);
-                    loc[1] = xmap->PhysEvaluate(xp, yc);
-                    loc[2] = xmap->PhysEvaluate(xp, zc);
-
-                    Array<OneD, NekDouble> uv = s->locuv(loc);
-                    uvi.push_back(uv);
+                    uvi.push_back(s->locuv(loc));
                 }
             }
 
             vector<NodeSharedPtr> honodes;
             for (int j = 0; j < niq; j++)
             {
-                Array<OneD, NekDouble> loc;
-                loc = s->P(uvi[j]);
+                auto loc = s->P(uvi[j]);
                 NodeSharedPtr nn =
                     std::shared_ptr<Node>(new Node(0, loc[0], loc[1], loc[2]));
                 nn->SetCADSurf(s, uvi[j]);

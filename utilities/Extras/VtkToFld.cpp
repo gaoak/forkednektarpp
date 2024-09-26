@@ -56,7 +56,7 @@ namespace po = boost::program_options;
 #include <LibUtilities/Communication/Comm.h>
 #include <LocalRegions/Expansion2D.h>
 #include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 using namespace std;
 using namespace Nektar;
@@ -193,7 +193,7 @@ int main(int argc, char *argv[])
     {
         //----------------------------------------------
         // Read in mesh from input file
-        graph2D = SpatialDomains::MeshGraph::Read(vSession);
+        graph2D = SpatialDomains::MeshGraphIO::Read(vSession);
         //----------------------------------------------
 
         //----------------------------------------------

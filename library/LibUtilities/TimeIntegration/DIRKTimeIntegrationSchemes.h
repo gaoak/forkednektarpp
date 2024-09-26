@@ -42,7 +42,6 @@
 #define NEKTAR_LIB_UTILITIES_TIME_INTEGRATION_DIRK_TIME_INTEGRATION_SCHEME
 
 #define LUE LIB_UTILITIES_EXPORT
-using namespace std;
 
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeGLM.h>
 

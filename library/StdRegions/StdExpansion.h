@@ -1414,7 +1414,7 @@ protected:
                 ((DERIV || DERIV2) && std::abs(xdiff) < 1e-15))
             {
 
-                if (DERIV2)
+                if constexpr (DERIV2)
                 {
                     DNekMatSharedPtr D0 = m_base[DIR]->GetD();
 
@@ -1430,7 +1430,7 @@ protected:
                                         &tmp[0], 1);
                     deriv  = tmp[i];
                 }
-                else if (DERIV)
+                else if constexpr (DERIV)
                 {
                     DNekMatSharedPtr D0 = m_base[DIR]->GetD();
 
@@ -1446,13 +1446,13 @@ protected:
             numer1 += tmp * pval;
             denom += tmp;
 
-            if (DERIV || DERIV2)
+            if constexpr (DERIV || DERIV2)
             {
                 NekDouble tmp2 = tmp / xdiff;
                 numer2 += tmp2 * pval;
                 numer3 += tmp2;
 
-                if (DERIV2)
+                if constexpr (DERIV2)
                 {
                     NekDouble tmp3 = tmp2 / xdiff;
                     numer4 += tmp3 * pval;
@@ -1461,14 +1461,14 @@ protected:
             }
         }
 
-        if (DERIV || DERIV2)
+        if constexpr (DERIV || DERIV2)
         {
             NekDouble denomdenom   = denom * denom;
             NekDouble numer1numer3 = numer1 * numer3;
 
             deriv = (numer2 * denom - numer1numer3) / (denomdenom);
 
-            if (DERIV2)
+            if constexpr (DERIV2)
             {
                 deriv2 = (2.0 * numer4 / denom) -
                          (2.0 * numer5 * numer1) / (denomdenom) -

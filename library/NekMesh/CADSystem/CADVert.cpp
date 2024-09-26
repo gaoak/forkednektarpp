@@ -40,24 +40,18 @@ namespace Nektar::NekMesh
 
 void CADVert::SetDegen(int s, CADSurfSharedPtr su, NekDouble u, NekDouble v)
 {
-    degen     = true;
-    degensurf = s;
-    Array<OneD, NekDouble> uv(2);
-    uv[0] = u;
-    uv[1] = v;
+    degen                       = true;
+    degensurf                   = s;
+    std::array<NekDouble, 2> uv = {u, v};
     m_node->SetCADSurf(su, uv);
 }
 
-Array<OneD, NekDouble> CADVert::GetLoc()
+std::array<NekDouble, 3> CADVert::GetLoc()
 {
-    Array<OneD, NekDouble> out(3);
-    out[0] = m_node->m_x;
-    out[1] = m_node->m_y;
-    out[2] = m_node->m_z;
-    return out;
+    return {m_node->m_x, m_node->m_y, m_node->m_z};
 }
 
-NekDouble CADVert::DistanceTo(Array<OneD, NekDouble> xyz)
+NekDouble CADVert::DistanceTo(std::array<NekDouble, 3> xyz)
 {
     return sqrt((m_node->m_x - xyz[0]) * (m_node->m_x - xyz[0]) +
                 (m_node->m_y - xyz[1]) * (m_node->m_y - xyz[1]) +

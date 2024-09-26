@@ -286,8 +286,8 @@ void ALEHelper::MoveMesh(const NekDouble &time,
     m_prevStageTime = time;
 }
 
-const Array<OneD, const Array<OneD, NekDouble>>
-    &ALEHelper::GetGridVelocityTrace()
+const Array<OneD, const Array<OneD, NekDouble>> &ALEHelper::
+    GetGridVelocityTrace()
 {
     return m_gridVelocityTrace;
 }

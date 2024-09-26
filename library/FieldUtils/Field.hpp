@@ -247,7 +247,7 @@ struct Field
 
         if (fldfilegiven)
         {
-            size_t i, j, nfields, nstrips;
+            size_t i, nfields, nstrips;
             m_session->LoadParameter("Strip_Z", nstrips, 1);
             std::vector<std::string> vars = m_session->GetVariables();
 
@@ -288,36 +288,48 @@ struct Field
                 }
             }
 
-            // Extract data to coeffs and bwd transform
-            for (size_t s = 0; s < nstrips; ++s) // homogeneous strip varient
-            {
-                for (j = 0; j < nfields; ++j)
-                {
-                    for (i = 0; i < m_data.size() / nstrips; ++i)
-                    {
-                        size_t n = i * nstrips + s;
-                        // In case of multiple flds, we might not have a
-                        //   variable in this m_data[n] -> skip in this case
-                        auto it =
-                            find(m_fielddef[n]->m_fields.begin(),
-                                 m_fielddef[n]->m_fields.end(), m_variables[j]);
-                        if (it != m_fielddef[n]->m_fields.end())
-                        {
-                            m_exp[s * nfields + j]->ExtractDataToCoeffs(
-                                m_fielddef[n], m_data[n], m_variables[j],
-                                m_exp[s * nfields + j]->UpdateCoeffs());
-                        }
-                    }
-                    m_exp[s * nfields + j]->BwdTrans(
-                        m_exp[s * nfields + j]->GetCoeffs(),
-                        m_exp[s * nfields + j]->UpdatePhys());
-                }
-            }
-            // Clear fielddef and data
-            //    (they should not be used after running this module)
-            m_fielddef = std::vector<LibUtilities::FieldDefinitionsSharedPtr>();
-            m_data     = std::vector<std::vector<NekDouble>>();
+            ReadFieldDefs();
         }
+    }
+
+    FIELD_UTILS_EXPORT void ReadFieldDefs()
+    {
+        size_t i, j, nfields, nstrips;
+        m_session->LoadParameter("Strip_Z", nstrips, 1);
+        std::vector<std::string> vars = m_session->GetVariables();
+
+        nfields = m_variables.size();
+
+        // Extract data to coeffs and bwd transform
+        for (size_t s = 0; s < nstrips; ++s) // homogeneous strip varient
+        {
+            for (j = 0; j < nfields; ++j)
+            {
+                for (i = 0; i < m_data.size() / nstrips; ++i)
+                {
+                    size_t n = i * nstrips + s;
+                    // In case of multiple flds, we might not have a
+                    //   variable in this m_data[n] -> skip in this case
+                    auto it =
+                        find(m_fielddef[n]->m_fields.begin(),
+                             m_fielddef[n]->m_fields.end(), m_variables[j]);
+                    if (it != m_fielddef[n]->m_fields.end())
+                    {
+                        m_exp[s * nfields + j]->ExtractDataToCoeffs(
+                            m_fielddef[n], m_data[n], m_variables[j],
+                            m_exp[s * nfields + j]->UpdateCoeffs());
+                    }
+                }
+                m_exp[s * nfields + j]->BwdTrans(
+                    m_exp[s * nfields + j]->GetCoeffs(),
+                    m_exp[s * nfields + j]->UpdatePhys());
+            }
+        }
+
+        // Clear fielddef and data
+        //    (they should not be used after running this module)
+        m_fielddef = std::vector<LibUtilities::FieldDefinitionsSharedPtr>();
+        m_data     = std::vector<std::vector<NekDouble>>();
     }
 
     FIELD_UTILS_EXPORT MultiRegions::ExpListSharedPtr SetUpFirstExpList(
@@ -979,6 +991,30 @@ struct Field
         m_fielddef = std::vector<LibUtilities::FieldDefinitionsSharedPtr>();
         m_data     = std::vector<std::vector<NekDouble>>();
         m_variables.clear();
+    }
+
+    FIELD_UTILS_EXPORT void SetupFromExpList(
+        Array<OneD, MultiRegions::ExpListSharedPtr> &exp)
+    {
+        ClearField();
+
+        m_exp.resize(exp.size());
+        m_variables.resize(exp.size());
+
+        if (exp.size() == 0)
+        {
+            return;
+        }
+
+        m_session = exp[0]->GetSession();
+        m_graph   = exp[0]->GetGraph();
+        m_comm    = m_session->GetComm();
+
+        for (int i = 0; i < exp.size(); ++i)
+        {
+            m_exp[i]       = exp[i];
+            m_variables[i] = m_session->GetVariable(i);
+        }
     }
 
 private:

@@ -190,12 +190,6 @@ public:
         }
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     Array<OneD, DNekMatSharedPtr> m_derivMat;
     Array<TwoD, const NekDouble> m_derivFac;
@@ -273,7 +267,7 @@ OperatorKey PhysDeriv_StdMat::m_typeArr[] = {
  * @brief Phys deriv operator using matrix free operators.
  */
 class PhysDeriv_MatrixFree final : virtual public Operator,
-                                   MatrixFreeOneInMultiOut,
+                                   MatrixFreeBase,
                                    virtual public PhysDeriv_Helper
 {
 public:
@@ -287,93 +281,69 @@ public:
                     Array<OneD, NekDouble> &output2,
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
-        if (m_isPadded)
-        {
-            // copy into padded vector
-            Vmath::Vcopy(m_nIn, input, 1, m_input, 1);
-            (*m_oper)(m_input, m_output);
-        }
-        else
-        {
-            (*m_oper)(input, m_output);
-        }
-
+        Array<OneD, Array<OneD, NekDouble>> output(m_coordim);
         // currently using temporary local temporary space for output
         // to allow for other operator call below which is
         // directionally dependent
         switch (m_coordim)
         {
             case 1:
-                Vmath::Vcopy(m_nOut, m_output[0], 1, output0, 1);
+                output[0] = output0;
                 break;
             case 2:
-                Vmath::Vcopy(m_nOut, m_output[0], 1, output0, 1);
-                Vmath::Vcopy(m_nOut, m_output[1], 1, output1, 1);
+                output[0] = output0;
+                output[1] = output1;
                 break;
             case 3:
-                Vmath::Vcopy(m_nOut, m_output[0], 1, output0, 1);
-                Vmath::Vcopy(m_nOut, m_output[1], 1, output1, 1);
-                Vmath::Vcopy(m_nOut, m_output[2], 1, output2, 1);
+                output[0] = output0;
+                output[1] = output1;
+                output[2] = output2;
                 break;
             default:
                 NEKERROR(ErrorUtil::efatal, "Unknown coordinate dimension");
                 break;
         }
+        (*m_oper)(input, output);
     }
 
     void operator()(int dir, const Array<OneD, const NekDouble> &input,
                     Array<OneD, NekDouble> &output,
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
-        if (m_isPadded)
-        {
-            // copy into padded vector
-            Vmath::Vcopy(m_nIn, input, 1, m_input, 1);
-            (*m_oper)(m_input, m_output);
-        }
-        else
-        {
-            (*m_oper)(input, m_output);
-        }
+        (*m_oper)(input, m_output);
         Vmath::Vcopy(m_nOut, m_output[dir], 1, output, 1);
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 private:
     std::shared_ptr<MatrixFree::PhysDeriv> m_oper;
+    int m_coordim;
+    Array<OneD, Array<OneD, NekDouble>> m_output;
 
     PhysDeriv_MatrixFree(vector<StdRegions::StdExpansionSharedPtr> pCollExp,
                          CoalescedGeomDataSharedPtr pGeomData,
                          StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors), PhysDeriv_Helper(),
-          MatrixFreeOneInMultiOut(pCollExp[0]->GetCoordim(),
-                                  pCollExp[0]->GetStdExp()->GetTotPoints(),
-                                  pCollExp[0]->GetStdExp()->GetTotPoints(),
-                                  pCollExp.size())
+          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
+                         pCollExp[0]->GetStdExp()->GetTotPoints(),
+                         pCollExp.size())
     {
         // Check if deformed
         bool deformed{pGeomData->IsDeformed(pCollExp)};
         const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
 
-        if (m_isPadded == false) // declare local space non-padded case
+        // only used operator(dir, in, out)
+        m_coordim   = pCollExp[0]->GetCoordim();
+        int nOut    = pCollExp[0]->GetStdExp()->GetTotPoints();
+        m_output    = Array<OneD, Array<OneD, NekDouble>>(m_coordim);
+        m_output[0] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
+        if (m_coordim == 2)
         {
-            int nOut    = pCollExp[0]->GetStdExp()->GetTotPoints();
-            m_output    = Array<OneD, Array<OneD, NekDouble>>(m_coordim);
-            m_output[0] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            if (m_coordim == 2)
-            {
-                m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            }
-            else if (m_coordim == 3)
-            {
-                m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-                m_output[2] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
-            }
+            m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
+        }
+        else if (m_coordim == 3)
+        {
+            m_output[1] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
+            m_output[2] = Array<OneD, NekDouble>{nOut * m_nElmtPad, 0.0};
         }
 
         // Basis vector.
@@ -390,7 +360,10 @@ private:
         std::string op_string = "PhysDeriv";
         op_string += MatrixFree::GetOpstring(shapeType, deformed);
         auto oper = MatrixFree::GetOperatorFactory().CreateInstance(
-            op_string, basis, m_nElmtPad);
+            op_string, basis, pCollExp.size());
+
+        oper->SetUpZW(basis);
+        oper->SetUpD(basis);
 
         // Set derivative factors
         oper->SetDF(pGeomData->GetDerivFactorsInterLeave(pCollExp, m_nElmtPad));
@@ -546,12 +519,6 @@ public:
         }
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     Array<TwoD, const NekDouble> m_derivFac;
     int m_dim;
@@ -675,12 +642,6 @@ public:
             m_expList[i]->PhysDeriv(dir, input + i * nPhys,
                                     tmp = output + i * nPhys);
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -829,12 +790,6 @@ public:
                             t = output + e * m_nqe, 1);
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -994,12 +949,6 @@ public:
                              t = output + e * m_nqe, 1);
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1181,12 +1130,6 @@ public:
                              t = output + e * m_nqe, 1);
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1397,12 +1340,6 @@ public:
                 }
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1649,12 +1586,6 @@ public:
         }
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     Array<TwoD, const NekDouble> m_derivFac;
     int m_coordim;
@@ -1899,12 +1830,6 @@ public:
                 }
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -2155,12 +2080,6 @@ public:
                 }
             }
         }
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:

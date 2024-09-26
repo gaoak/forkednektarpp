@@ -76,7 +76,9 @@ def check_count(item_type, actual_count, expected_count):
 
 def main():
     print("Creating {} by {} mesh".format(NX - 1, NY - 1))
-    mesh = SD.MeshGraphXml(2, 2)
+    mesh = SD.MeshGraph()
+    mesh.SetSpaceDimension(2)
+    mesh.SetMeshDimension(2)
     points = mesh.GetAllPointGeoms()
     segments = mesh.GetAllSegGeoms()
     quads = mesh.GetAllQuadGeoms()
@@ -136,9 +138,11 @@ def main():
     # Write out the mesh then read it in as a string
     tmpdir = tempfile.mkdtemp()
     try:
+        writer = SD.MeshGraphIO.Create("Xml")
+        writer.SetMeshGraph(mesh)
         outfile = os.path.join(tmpdir, "output.xml")
         print("Writing mesh to temporary file " + outfile)
-        mesh.Write(outfile, True, SD.FieldMetaDataMap())
+        writer.Write(outfile, True, SD.FieldMetaDataMap())
         with open(outfile) as f:
             xml = f.read()
     finally:

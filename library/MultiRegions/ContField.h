@@ -248,13 +248,13 @@ protected:
             NullNekDouble1DArray) override;
 
     /// Returns the boundary conditions expansion.
-    inline const Array<OneD, const MultiRegions::ExpListSharedPtr>
-        &v_GetBndCondExpansions() override;
+    inline const Array<OneD, const MultiRegions::ExpListSharedPtr> &
+    v_GetBndCondExpansions() override;
 
     /// Template method virtual forwarder for GetBndConditions().
     MULTI_REGIONS_EXPORT const Array<
-        OneD, const SpatialDomains ::BoundaryConditionShPtr>
-        &v_GetBndConditions() override;
+        OneD, const SpatialDomains ::BoundaryConditionShPtr> &
+    v_GetBndConditions() override;
     MULTI_REGIONS_EXPORT void v_ClearGlobalLinSysManager(void) override;
 
     // Get manager pool count; intended for unit tests
@@ -335,14 +335,14 @@ inline const AssemblyMapCGSharedPtr &ContField::GetLocalToGlobalMap() const
     return m_locToGloMap;
 }
 
-inline const Array<OneD, const MultiRegions::ExpListSharedPtr>
-    &ContField::v_GetBndCondExpansions()
+inline const Array<OneD, const MultiRegions::ExpListSharedPtr> &ContField::
+    v_GetBndCondExpansions()
 {
     return m_bndCondExpansions;
 }
 
-inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr>
-    &ContField::v_GetBndConditions()
+inline const Array<OneD, const SpatialDomains::BoundaryConditionShPtr> &ContField::
+    v_GetBndConditions()
 {
     return m_bndConditions;
 }

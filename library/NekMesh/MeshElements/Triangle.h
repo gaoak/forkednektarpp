@@ -78,7 +78,8 @@ public:
                                   int &id, bool justConfig = false) override;
 
     NEKMESH_EXPORT static unsigned int GetNumNodes(ElmtConfig pConf);
-    NEKMESH_EXPORT Array<OneD, NekDouble> Normal(bool inward = false) override;
+    NEKMESH_EXPORT std::array<NekDouble, 3> Normal(
+        bool inward = false) override;
 };
 
 } // namespace Nektar::NekMesh

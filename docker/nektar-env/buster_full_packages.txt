@@ -14,6 +14,6 @@ libtriangle-dev
 libvtk7-dev
 mpi-default-dev
 petsc-dev
-python-numpy
-python-pip
-python-setuptools
+python3-numpy
+python3-pip
+python3-setuptools

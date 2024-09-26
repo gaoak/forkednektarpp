@@ -168,6 +168,9 @@ void VelocityCorrectionScheme::SetUpExtrapolation()
         m_extrapolation->SubSteppingTimeIntegration(m_intScheme);
         m_extrapolation->GenerateBndElmtExpansion();
         m_extrapolation->GenerateHOPBCMap(m_session);
+        m_IncNavierStokesBCs =
+            MemoryManager<IncBoundaryConditions>::AllocateSharedPtr();
+        m_IncNavierStokesBCs->Initialize(m_session, m_fields);
     }
 }
 
@@ -631,6 +634,18 @@ void VelocityCorrectionScheme::v_DoInitialise(bool dumpInitialConditions)
     // correction are imposed before they are imposed on initial
     // field below
     SetBoundaryConditions(m_time);
+    std::map<std::string, NekDouble> params;
+    params["Time"] = m_time;
+    for (size_t i = 0; i < m_strFrameData.size(); ++i)
+    {
+        if (std::fabs(m_movingFrameData[i + 21]) != 0.)
+        {
+            params[m_strFrameData[i]] = m_movingFrameData[i + 21];
+        }
+    }
+    Array<OneD, Array<OneD, NekDouble>> fields;
+    Array<OneD, Array<OneD, NekDouble>> Adv;
+    m_IncNavierStokesBCs->Update(fields, Adv, params);
 
     // Ensure the initial conditions have correct BCs
     for (size_t i = 0; i < m_fields.size(); ++i)
@@ -721,7 +736,18 @@ void VelocityCorrectionScheme::v_EvaluateAdvection_SetPressureBCs(
 
     // Calculate High-Order pressure boundary conditions
     timer.Start();
+    std::map<std::string, NekDouble> params;
+    params["Kinvis"] = m_kinvis;
+    params["Time"]   = time + m_timestep;
+    for (size_t i = 0; i < m_strFrameData.size(); ++i)
+    {
+        if (std::fabs(m_movingFrameData[i + 21]) != 0.)
+        {
+            params[m_strFrameData[i]] = m_movingFrameData[i + 21];
+        }
+    }
     m_extrapolation->EvaluatePressureBCs(inarray, outarray, m_kinvis);
+    m_IncNavierStokesBCs->Update(inarray, outarray, params);
     timer.Stop();
     timer.AccumulateRegion("Pressure BCs");
 }
@@ -916,6 +942,8 @@ void VelocityCorrectionScheme::SetUpSVV(void)
     }
     else
     {
+        m_useHomo1DSpecVanVisc = false;
+
         m_session->MatchSolverInfo("SpectralVanishingViscositySpectralHP",
                                    "PowerKernel", m_useSpecVanVisc, false);
     }

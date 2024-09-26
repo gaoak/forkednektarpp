@@ -75,8 +75,8 @@ public:
     }
 
 private:
-    bool findAndProject(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
-                        Array<OneD, NekDouble> &in, int &surf);
+    bool FindAndProject(bgi::rtree<boxI, bgi::quadratic<16>> &rtree,
+                        std::array<NekDouble, 3> &in, int &surf);
 
     bool IsNotValid(std::vector<NekMesh::ElementSharedPtr> &els);
 };

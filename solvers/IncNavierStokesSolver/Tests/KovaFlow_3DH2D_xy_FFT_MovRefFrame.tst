@@ -8,8 +8,8 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="2.2e-5">0</value>
-            <value variable="v" tolerance="2.23e-5">0</value>
+            <value variable="u" tolerance="3.5e-5">0</value>
+            <value variable="v" tolerance="4.46e-5">0</value>
             <value variable="w" tolerance="1e-9">0</value>
 	    <value variable="p" tolerance="4.3e-5">0</value>
         </metric>

@@ -129,7 +129,7 @@ void ProcessExtrude::Process()
         }
     }
 
-    EdgeSet es = m_mesh->m_edgeSet; // copy edges for curvature
+    EdgeSet esOld = m_mesh->m_edgeSet; // copy edges for curvature
 
     for (int j = 0; j < nLayers; ++j)
     {
@@ -186,7 +186,7 @@ void ProcessExtrude::Process()
     ProcessComposites();
 
     // Copy edge information
-    for (auto &edge : es)
+    for (auto &edge : esOld)
     {
         if (edge->m_edgeNodes.size() > 0)
         {
@@ -381,9 +381,6 @@ void ProcessExtrude::Process()
                 // corresponding composite
                 if (inCommon == 4)
                 {
-                    m_log(VERBOSE)
-                        << "Face " << itQ->GetId() << "\t"
-                        << "Composite " << itOc.second->m_id << "\t" << endl;
                     auto newC = m_mesh->m_composite.find(itOc.second->m_id);
                     // Quad
                     ElmtConfig conf(LibUtilities::eQuadrilateral, 1, false,

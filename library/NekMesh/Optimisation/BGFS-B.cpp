@@ -207,7 +207,6 @@ bool BGFSUpdate(OptiObjSharedPtr opti, DNekMat &J, DNekMat &B, DNekMat &H)
         {
             l += jn(i, 0) * dk[i];
         }
-
     } while (fn > fo + c || fabs(l) > 1.0 * fabs(r));
     // wolfe conditions
 

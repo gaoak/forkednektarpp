@@ -34,6 +34,7 @@
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <SolverUtils/Driver.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include <LibUtilities/BasicUtils/Timer.h>
 
@@ -54,7 +55,7 @@ int main(int argc, char *argv[])
         session = LibUtilities::SessionReader::CreateInstance(argc, argv);
 
         // Create MeshGraph.
-        graph = SpatialDomains::MeshGraph::Read(session);
+        graph = SpatialDomains::MeshGraphIO::Read(session);
 
         // Create driver
         session->LoadSolverInfo("Driver", vDriverModule, "Standard");
@@ -72,8 +73,8 @@ int main(int argc, char *argv[])
         session->LoadParameter("IO_Timer_Level", iolevel, 0);
 
         // Print out timings
-        LibUtilities::Timer::PrintElapsedRegions(session->GetComm(), std::cout,
-                                                 iolevel);
+        LibUtilities::Timer::PrintElapsedRegions(
+            session->GetComm()->GetSpaceComm(), std::cout, iolevel);
         // Finalise communications
         session->Finalise();
     }

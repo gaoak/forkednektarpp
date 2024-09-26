@@ -121,7 +121,7 @@ public:
         phase->m_variant    = "DIRK";
         phase->m_order      = order;
         phase->m_name       = "IMEX_DIRK"
-                        "_" +
+                              "_" +
                         std::to_string(s) + "_" + std::to_string(sigma) + "_" +
                         std::to_string(phase->m_order);
 

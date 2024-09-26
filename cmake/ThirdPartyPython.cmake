@@ -14,7 +14,7 @@ IF (NEKTAR_BUILD_PYTHON)
     # If someone is using a newer variable name (from FindPython.cmake), set
     # this instead to the older variable name from PythonInterp.
     IF (DEFINED Python_EXECUTABLE)
-        SET(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
+        SET(PYTHON_EXECUTABLE ${Python_EXECUTABLE} CACHE INTERNAL "")
     ENDIF()
 
     IF (NOT PYTHON_EXECUTABLE STREQUAL NEKTAR_PYTHON_EXECUTABLE)

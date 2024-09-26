@@ -38,7 +38,7 @@
 
 #include <LibUtilities/BasicUtils/ParseUtils.h>
 #include <MultiRegions/ExpList.h>
-#include <SpatialDomains/MeshGraph.h>
+#include <SpatialDomains/MeshGraphIO.h>
 #include <tinyxml.h>
 
 using namespace std;
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
     LibUtilities::SessionReaderSharedPtr vSession =
         LibUtilities::SessionReader::CreateInstance(2, argv);
     SpatialDomains::MeshGraphSharedPtr mesh =
-        SpatialDomains::MeshGraph::Read(vSession);
+        SpatialDomains::MeshGraphIO::Read(vSession);
 
     //-------------------------------------------------------------
     // Read in mesh from input file

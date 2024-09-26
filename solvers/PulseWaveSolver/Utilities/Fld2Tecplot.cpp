@@ -37,6 +37,7 @@
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <SolverUtils/Driver.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include <PulseWaveSolver/EquationSystems/PulseWaveSystem.h>
 
@@ -79,7 +80,7 @@ int main(int argc, char *argv[])
 
         // Create session reader and MeshGraph.
         session = LibUtilities::SessionReader::CreateInstance(newargc, newargv);
-        graph   = SpatialDomains::MeshGraph::Read(session);
+        graph   = SpatialDomains::MeshGraphIO::Read(session);
         delete[] newargv;
 
         // Create driver

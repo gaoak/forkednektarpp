@@ -45,7 +45,7 @@ std::string FilterThresholdMax::className =
 
 FilterThresholdMax::FilterThresholdMax(
     const LibUtilities::SessionReaderSharedPtr &pSession,
-    const std::weak_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
+    const std::shared_ptr<EquationSystem> &pEquation, const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
     // ThresholdValue

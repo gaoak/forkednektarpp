@@ -229,7 +229,7 @@ void GlobalLinSysPETSc::CalculateReordering(
     const AssemblyMapSharedPtr &pLocToGloMap)
 {
     LibUtilities::CommSharedPtr vComm =
-        m_expList.lock()->GetSession()->GetComm();
+        m_expList.lock()->GetSession()->GetComm()->GetSpaceComm();
 
     const int nDirDofs = pLocToGloMap->GetNumGlobalDirBndCoeffs();
     const int nHomDofs = glo2uniMap.size() - nDirDofs;

@@ -183,12 +183,6 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     Array<OneD, DNekMatSharedPtr> m_iProdWRTStdDBase;
     Array<TwoD, const NekDouble> m_derivFac;
@@ -277,7 +271,7 @@ OperatorKey IProductWRTDerivBase_StdMat::m_typeArr[] = {
  * @brief Inner product operator using operator using matrix free operators.
  */
 class IProductWRTDerivBase_MatrixFree final : virtual public Operator,
-                                              MatrixFreeMultiInOneOut,
+                                              MatrixFreeBase,
                                               IProductWRTDerivBase_Helper
 {
 public:
@@ -292,66 +286,32 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         Array<OneD, NekDouble> output;
+        Array<OneD, Array<OneD, NekDouble>> input(m_coordim);
 
-        if (m_isPadded)
+        // copy into padded vector
+        switch (m_coordim)
         {
-            // copy into padded vector
-            switch (m_coordim)
-            {
-                case 1:
-                    output = entry1;
-                    Vmath::Vcopy(m_nIn, entry0, 1, m_input[0], 1);
-                    break;
-                case 2:
-                    output = entry2;
-                    Vmath::Vcopy(m_nIn, entry0, 1, m_input[0], 1);
-                    Vmath::Vcopy(m_nIn, entry1, 1, m_input[1], 1);
-                    break;
-                case 3:
-                    output = entry3;
-                    Vmath::Vcopy(m_nIn, entry0, 1, m_input[0], 1);
-                    Vmath::Vcopy(m_nIn, entry1, 1, m_input[1], 1);
-                    Vmath::Vcopy(m_nIn, entry2, 1, m_input[2], 1);
-                    break;
-                default:
-                    NEKERROR(ErrorUtil::efatal, "m_coordim value not valid");
-                    break;
-            }
-
-            // call op
-            (*m_oper)(m_input, m_output);
-            // copy out of padded vector
-            Vmath::Vcopy(m_nOut, m_output, 1, output, 1);
+            case 1:
+                input[0] = entry0;
+                output   = entry1;
+                break;
+            case 2:
+                input[0] = entry0;
+                input[1] = entry1;
+                output   = entry2;
+                break;
+            case 3:
+                input[0] = entry0;
+                input[1] = entry1;
+                input[2] = entry2;
+                output   = entry3;
+                break;
+            default:
+                NEKERROR(ErrorUtil::efatal, "coordim not valid");
+                break;
         }
-        else
-        {
-            Array<OneD, Array<OneD, NekDouble>> input{m_coordim};
 
-            // copy into padded vector
-            switch (m_coordim)
-            {
-                case 1:
-                    output   = entry1;
-                    input[0] = entry0;
-                    break;
-                case 2:
-                    output   = entry2;
-                    input[0] = entry0;
-                    input[1] = entry1;
-                    break;
-                case 3:
-                    output   = entry3;
-                    input[0] = entry0;
-                    input[1] = entry1;
-                    input[2] = entry2;
-                    break;
-                default:
-                    NEKERROR(ErrorUtil::efatal, "coordim not valid");
-                    break;
-            }
-
-            (*m_oper)(input, output);
-        }
+        (*m_oper)(input, output);
     }
 
     void operator()([[maybe_unused]] int dir,
@@ -362,27 +322,21 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 private:
     std::shared_ptr<MatrixFree::IProductWRTDerivBase> m_oper;
+    int m_coordim;
 
     IProductWRTDerivBase_MatrixFree(
         vector<StdRegions::StdExpansionSharedPtr> pCollExp,
         CoalescedGeomDataSharedPtr pGeomData, StdRegions::FactorMap factors)
         : Operator(pCollExp, pGeomData, factors),
-          MatrixFreeMultiInOneOut(pCollExp[0]->GetCoordim(),
-                                  pCollExp[0]->GetStdExp()->GetTotPoints(),
-                                  pCollExp[0]->GetStdExp()->GetNcoeffs(),
-                                  pCollExp.size()),
+          MatrixFreeBase(pCollExp[0]->GetStdExp()->GetTotPoints(),
+                         pCollExp[0]->GetStdExp()->GetNcoeffs(),
+                         pCollExp.size()),
           IProductWRTDerivBase_Helper()
     {
-        // Check if deformed
         const auto dim = pCollExp[0]->GetStdExp()->GetShapeDimension();
+        m_coordim      = pCollExp[0]->GetCoordim();
 
         // Basis vector
         std::vector<LibUtilities::BasisSharedPtr> basis(dim);
@@ -398,7 +352,12 @@ private:
         std::string op_string = "IProductWRTDerivBase";
         op_string += MatrixFree::GetOpstring(shapeType, m_isDeformed);
         auto oper = MatrixFree::GetOperatorFactory().CreateInstance(
-            op_string, basis, m_nElmtPad);
+            op_string, basis, pCollExp.size());
+
+        // set up required copies for operations
+        oper->SetUpBdata(basis);
+        oper->SetUpDBdata(basis);
+        oper->SetUpZW(basis);
 
         // Set Jacobian
         oper->SetJac(pGeomData->GetJacInterLeave(pCollExp, m_nElmtPad));
@@ -560,12 +519,6 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     Array<TwoD, const NekDouble> m_derivFac;
     Array<OneD, const NekDouble> m_jac;
@@ -686,12 +639,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -828,12 +775,6 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     const int m_nquad0;
     const int m_nmodes0;
@@ -951,12 +892,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1137,12 +1072,6 @@ public:
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
     }
 
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
-    }
-
 protected:
     const int m_nquad0;
     const int m_nquad1;
@@ -1320,12 +1249,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1554,12 +1477,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -1805,12 +1722,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:
@@ -2065,12 +1976,6 @@ public:
                     [[maybe_unused]] Array<OneD, NekDouble> &wsp) final
     {
         NEKERROR(ErrorUtil::efatal, "Not valid for this operator.");
-    }
-
-    void UpdateFactors([[maybe_unused]] StdRegions::FactorMap factors,
-                       [[maybe_unused]] int coll_phys_offset) override
-    {
-        ASSERTL0(false, "Not valid for this operator.");
     }
 
 protected:

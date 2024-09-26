@@ -46,7 +46,7 @@ std::string FilterMean::className =
                                                             FilterMean::create);
 
 FilterMean::FilterMean(const LibUtilities::SessionReaderSharedPtr &pSession,
-                       const std::weak_ptr<EquationSystem> &pEquation,
+                       const std::shared_ptr<EquationSystem> &pEquation,
                        const ParamMap &pParams)
     : Filter(pSession, pEquation), m_index(-1), m_homogeneous(false), m_planes()
 {

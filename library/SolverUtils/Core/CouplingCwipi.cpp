@@ -39,6 +39,7 @@
 #include <LibUtilities/BasicUtils/Vmath.hpp>
 #include <LibUtilities/Foundations/Interp.h>
 #include <LibUtilities/Foundations/PhysGalerkinProject.h>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include <MultiRegions/ContField.h>
 
@@ -153,7 +154,7 @@ void CouplingCwipi::v_Init()
 
     //  Init Coupling
     cwipi_solver_type_t solver_type = CWIPI_SOLVER_CELL_VERTEX;
-    NekDouble geom_tol = boost::lexical_cast<NekDouble>(m_config["GEOMTOL"]);
+    NekDouble geom_tol              = std::stod(m_config["GEOMTOL"]);
     cwipi_create_coupling(
         m_couplingName.c_str(), CWIPI_COUPLING_PARALLEL_WITH_PARTITIONING,
         m_config["REMOTENAME"].c_str(), m_spacedim, geom_tol, CWIPI_STATIC_MESH,
@@ -230,7 +231,7 @@ void CouplingCwipi::ReadConfig(LibUtilities::SessionReaderSharedPtr session)
     TiXmlElement *vCoupling = session->GetElement("Nektar/Coupling");
     ASSERTL0(vCoupling, "Invalid Coupling config");
 
-    m_filtWidth = boost::lexical_cast<NekDouble>(m_config["FILTERWIDTH"]);
+    m_filtWidth = std::stod(m_config["FILTERWIDTH"]);
 }
 
 void CouplingCwipi::SetupReceive()
@@ -238,7 +239,7 @@ void CouplingCwipi::SetupReceive()
     int oversamp = boost::lexical_cast<int>(m_config["OVERSAMPLE"]);
 
     SpatialDomains::MeshGraphSharedPtr recvGraph =
-        SpatialDomains::MeshGraph::Read(m_evalField->GetSession());
+        SpatialDomains::MeshGraphIO::Read(m_evalField->GetSession());
     recvGraph->SetExpansionInfoToPointOrder(
         oversamp + m_evalField->GetExp(0)->GetNumPoints(0));
 

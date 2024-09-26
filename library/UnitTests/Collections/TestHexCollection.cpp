@@ -497,7 +497,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_NoCollection_VariableP)
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
-    Collections::CollectionOptimisation colOpt(dummySession, 2,
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eNoCollection);
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
@@ -869,7 +869,7 @@ BOOST_AUTO_TEST_CASE(TestHexBwdTrans_MatrixFree_UniformP)
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
-    Collections::CollectionOptimisation colOpt(dummySession, 2,
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
@@ -1008,7 +1008,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_MatrixFree_UniformP_Undeformed)
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
-    Collections::CollectionOptimisation colOpt(dummySession, 2,
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
@@ -1085,7 +1085,7 @@ BOOST_AUTO_TEST_CASE(TestHexIProductWRTBase_MatrixFree_UniformP_Deformed)
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
-    Collections::CollectionOptimisation colOpt(dummySession, 2,
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
@@ -1163,7 +1163,7 @@ BOOST_AUTO_TEST_CASE(
     CollExp.push_back(Exp);
 
     LibUtilities::SessionReaderSharedPtr dummySession;
-    Collections::CollectionOptimisation colOpt(dummySession, 2,
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
                                                Collections::eMatrixFree);
     Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(stdExp);
     Collections::Collection c(CollExp, impTypes);
@@ -4644,4 +4644,183 @@ BOOST_AUTO_TEST_CASE(TestHexHelmholtz_MatrixFree_UniformP_ConstVarDiff)
         BOOST_CHECK_CLOSE(coeffsRef[i], coeffs[i], epsilon);
     }
 }
+
+BOOST_AUTO_TEST_CASE(TestHexPhysInterp1D_NoCollection_UniformP)
+{
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v4(
+        new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
+    SpatialDomains::PointGeomSharedPtr v5(
+        new SpatialDomains::PointGeom(3u, 5u, 1.0, -1.0, 1.0));
+    SpatialDomains::PointGeomSharedPtr v6(
+        new SpatialDomains::PointGeom(3u, 6u, 2.0, 3.0, 4.0));
+    SpatialDomains::PointGeomSharedPtr v7(
+        new SpatialDomains::PointGeom(3u, 7u, -1.0, 1.0, 1.0));
+
+    SpatialDomains::HexGeomSharedPtr hexGeom =
+        CreateHex(v0, v1, v2, v3, v4, v5, v6, v7);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::HexExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom);
+
+    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
+                                               Collections::eNoCollection);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> phys(nq), tmp;
+
+    Exp->GetCoords(xc, yc, zc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3) + pow(zc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> zc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, zc, zc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3) + pow(zc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(TestHexPhysInterp1D_MatrixFree_UniformP)
+{
+    SpatialDomains::PointGeomSharedPtr v0(
+        new SpatialDomains::PointGeom(3u, 0u, -1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v1(
+        new SpatialDomains::PointGeom(3u, 1u, 1.0, -1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v2(
+        new SpatialDomains::PointGeom(3u, 2u, 1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v3(
+        new SpatialDomains::PointGeom(3u, 3u, -1.0, 1.0, -1.0));
+    SpatialDomains::PointGeomSharedPtr v4(
+        new SpatialDomains::PointGeom(3u, 4u, -1.0, -1.0, 1.0));
+    SpatialDomains::PointGeomSharedPtr v5(
+        new SpatialDomains::PointGeom(3u, 5u, 1.0, -1.0, 1.0));
+    SpatialDomains::PointGeomSharedPtr v6(
+        new SpatialDomains::PointGeom(3u, 6u, 2.0, 3.0, 4.0));
+    SpatialDomains::PointGeomSharedPtr v7(
+        new SpatialDomains::PointGeom(3u, 7u, -1.0, 1.0, 1.0));
+
+    SpatialDomains::HexGeomSharedPtr hexGeom =
+        CreateHex(v0, v1, v2, v3, v4, v5, v6, v7);
+
+    Nektar::LibUtilities::PointsType quadPointsTypeDir1 =
+        Nektar::LibUtilities::eGaussLobattoLegendre;
+    Nektar::LibUtilities::BasisType basisTypeDir1 =
+        Nektar::LibUtilities::eModified_A;
+    unsigned int numQuadPoints = 5;
+    unsigned int numModes      = 4;
+
+    const Nektar::LibUtilities::PointsKey quadPointsKeyDir1(numQuadPoints,
+                                                            quadPointsTypeDir1);
+    const Nektar::LibUtilities::BasisKey basisKeyDir1(basisTypeDir1, numModes,
+                                                      quadPointsKeyDir1);
+
+    Nektar::LocalRegions::HexExpSharedPtr Exp =
+        MemoryManager<Nektar::LocalRegions::HexExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1, hexGeom);
+
+    Nektar::StdRegions::StdHexExpSharedPtr stdExp =
+        MemoryManager<Nektar::StdRegions::StdHexExp>::AllocateSharedPtr(
+            basisKeyDir1, basisKeyDir1, basisKeyDir1);
+
+    std::vector<StdRegions::StdExpansionSharedPtr> CollExp;
+    CollExp.push_back(Exp);
+
+    LibUtilities::SessionReaderSharedPtr dummySession;
+    Collections::CollectionOptimisation colOpt(dummySession, 3,
+                                               Collections::eMatrixFree);
+    Collections::OperatorImpMap impTypes = colOpt.GetOperatorImpMap(Exp);
+    Collections::Collection c(CollExp, impTypes);
+
+    StdRegions::ConstFactorMap factors;
+    factors[StdRegions::eFactorConst] = 1.5;
+    c.Initialise(Collections::ePhysInterp1DScaled, factors);
+
+    const int nq = Exp->GetTotPoints();
+
+    Array<OneD, NekDouble> xc(nq), yc(nq), zc(nq);
+    Array<OneD, NekDouble> phys(nq), tmp;
+
+    Exp->GetCoords(xc, yc, zc);
+
+    for (int i = 0; i < nq; ++i)
+    {
+        phys[i] = pow(xc[i], 3) + pow(yc[i], 3) + pow(zc[i], 3);
+    }
+
+    const int nq1 = c.GetOutputSize(Collections::ePhysInterp1DScaled);
+    Array<OneD, NekDouble> xc1(nq1);
+    Array<OneD, NekDouble> yc1(nq1);
+    Array<OneD, NekDouble> zc1(nq1);
+    Array<OneD, NekDouble> phys1(nq1);
+
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, xc, xc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, yc, yc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, zc, zc1);
+    c.ApplyOperator(Collections::ePhysInterp1DScaled, phys, phys1);
+
+    double epsilon = 1.0e-8;
+    // since solution is a polynomial should be able to compare soln directly
+    for (int i = 0; i < nq1; ++i)
+    {
+        NekDouble exact = pow(xc1[i], 3) + pow(yc1[i], 3) + pow(zc1[i], 3);
+        phys1[i]        = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        exact           = (fabs(exact) < 1e-14) ? 0.0 : exact;
+        BOOST_CHECK_CLOSE(phys1[i], exact, epsilon);
+    }
+}
+
 } // namespace Nektar::HexCollectionTests

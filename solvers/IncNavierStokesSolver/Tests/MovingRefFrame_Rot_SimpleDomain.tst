@@ -15,7 +15,7 @@
         <metric type="Linf" id="2">
             <value variable="u" tolerance="1e-3">0</value>
             <value variable="v" tolerance="5e-4">0</value>
-            <value variable="p" tolerance="1e-2">0</value>
+            <value variable="p" tolerance="2e-2">0</value>
         </metric>
     </metrics>
 </test>

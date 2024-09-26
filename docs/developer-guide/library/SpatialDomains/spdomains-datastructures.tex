@@ -61,4 +61,9 @@ At its core, the items contained within SpatialDomains are meant to represent th
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{MeshGraph}
+\subsection{MeshGraph and MeshGraphIO}
+The MeshGraph class holds the geometric information about each element and the connectivity of these elements to form the domain, in arrays of Geometry objects.
+The MeshGraphIO classes handle MeshGraph's reading and writing operations in the different file formats.
+
+Since v5.7.0 (when MeshGraph's input/output operations were moved to the separate MeshGraphIO classes) a MeshGraph is instantiated by calling a MeshGraphIO subclass' Read method.
+Creating a MeshGraph object generates the hierarchical mesh entity data structures, constructing the domain $\Omega$ by instantiating a corresponding Geometry object for each element $\Omega_e$.

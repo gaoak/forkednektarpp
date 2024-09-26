@@ -107,6 +107,16 @@ public:
         return m_translate;
     }
 
+    inline const bool &GetImplicitALESolverFlag() const
+    {
+        return m_ImplicitALESolver;
+    }
+
+    void SetImplicitALEFlag(bool &ImplicitALE)
+    {
+        m_ImplicitALESolver = ImplicitALE;
+    }
+
     // Methods for manipulating the MOVEMENT data programatically
     /// Add a zone object to this Movement data.
     SPATIAL_DOMAINS_EXPORT void AddZone(ZoneBaseShPtr zone);
@@ -119,9 +129,10 @@ public:
 protected:
     InterfaceCollection m_interfaces;
     std::map<int, ZoneBaseShPtr> m_zones;
-    bool m_moveFlag  = false; // Flags presence of moving zones
-    bool m_translate = false; // Flags for translate
-    bool m_moved     = false; // Flags to check if domain moved
+    bool m_moveFlag          = false; // Flags presence of moving zones
+    bool m_translate         = false; // Flags for translate
+    bool m_moved             = false; // Flags to check if domain moved
+    bool m_ImplicitALESolver = false;
     bool m_coordExchangeFlag =
         true; // Flags if missing coordinates need to be calculated
     Array<OneD, NekDouble> m_DomainBox;    // Domain box

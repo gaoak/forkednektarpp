@@ -36,6 +36,7 @@
 
 #include <MultiRegions/ContField.h>
 #include <MultiRegions/MultiRegions.hpp>
+#include <SpatialDomains/MeshGraphIO.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -204,7 +205,7 @@ void setupContFieldSolve(fs::path &ph,
     // Read Session, MeshGraph and create ContField
     Session = LibUtilities::SessionReader::CreateInstance(argc, argv);
     SpatialDomains::MeshGraphSharedPtr Graph =
-        SpatialDomains::MeshGraph::Read(Session);
+        SpatialDomains::MeshGraphIO::Read(Session);
     Exp = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(
         Session, Graph, Session->GetVariable(0));
     Fce = MemoryManager<MultiRegions::ContField>::AllocateSharedPtr(*Exp);

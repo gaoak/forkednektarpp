@@ -62,6 +62,8 @@
 #include <BRep_Tool.hxx>
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GProp_GProps.hxx>
+#include <GeomAPI_PointsToBSpline.hxx>
+#include <GeomAPI_ProjectPointOnCurve.hxx>
 #include <GeomLProp_CLProps.hxx>
 #include <GeomLProp_SLProps.hxx>
 #include <ShapeAnalysis_Curve.hxx>
@@ -82,10 +84,6 @@
 #include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
-#include <GeomAPI_PointsToBSpline.hxx>
-#include <GeomAPI_ProjectPointOnCurve.hxx>
-#include <Geom_BSplineCurve.hxx>
-#include <Geom_TrimmedCurve.hxx>
 
 /// Data structure classes
 #include <Interface_InterfaceModel.hxx>
@@ -115,6 +113,7 @@
 #include <Geom_BezierCurve.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_Ellipse.hxx>
+#include <Geom_TrimmedCurve.hxx>
 #include <gp_Circ.hxx>
 #include <gp_Elips.hxx>
 

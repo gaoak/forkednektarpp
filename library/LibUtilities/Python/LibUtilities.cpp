@@ -32,9 +32,12 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/Python/NekPyConfig.hpp>
 #include <sstream>
+
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Python/NekPyConfig.hpp>
 
 void export_Basis();
 void export_Comm();
@@ -44,8 +47,8 @@ void export_Points();
 void export_SessionReader();
 void export_ShapeType();
 void export_Comm();
-
-template <typename T> void export_SharedArray();
+void export_TimeIntegrationScheme();
+void export_TimeIntegrationSchemeOperators();
 
 template <typename T> void export_NekMatrix();
 
@@ -94,6 +97,11 @@ BOOST_PYTHON_MODULE(_LibUtilities)
     export_SessionReader();
     export_ShapeType();
     export_SharedArray<double>();
+    export_SharedArray<const double>();
+    export_SharedArray<Array<OneD, double>>();
+    export_SharedArray<const Array<OneD, double>>();
     export_NekMatrix<double>();
     export_Comm();
+    export_TimeIntegrationScheme();
+    export_TimeIntegrationSchemeOperators();
 }

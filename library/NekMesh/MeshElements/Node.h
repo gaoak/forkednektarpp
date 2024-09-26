@@ -47,6 +47,7 @@
 
 namespace Nektar::NekMesh
 {
+
 class Node;
 typedef std::shared_ptr<Node> NodeSharedPtr;
 
@@ -170,13 +171,9 @@ public:
                     m_x * pSrc.m_y - m_y * pSrc.m_x);
     }
 
-    NEKMESH_EXPORT Array<OneD, NekDouble> GetLoc()
+    NEKMESH_EXPORT std::array<NekDouble, 3> GetLoc()
     {
-        Array<OneD, NekDouble> out(3);
-        out[0] = m_x;
-        out[1] = m_y;
-        out[2] = m_z;
-        return out;
+        return {m_x, m_y, m_z};
     }
 
     /// Generate a %SpatialDomains::PointGeom for this node.
@@ -198,7 +195,7 @@ public:
 
     NEKMESH_EXPORT NekDouble Angle(NodeSharedPtr &a, NodeSharedPtr &b)
     {
-        Array<OneD, NekDouble> va(3), vb(3), cn(3);
+        std::array<NekDouble, 3> va, vb, cn;
         va[0] = a->m_x - m_x;
         va[1] = a->m_y - m_y;
         va[2] = a->m_z - m_z;
@@ -235,38 +232,38 @@ public:
 
     void SetCADCurve(CADCurveSharedPtr c, NekDouble t)
     {
-        auto it = CADCurveList.find(c->GetId());
-        if (it != CADCurveList.end())
+        auto it = m_CADCurveList.find(c->GetId());
+        if (it != m_CADCurveList.end())
         {
             // already in list so remove it
-            CADCurveList.erase(it);
+            m_CADCurveList.erase(it);
         }
-        CADCurveList.insert(make_pair(c->GetId(), make_pair(c, t)));
+        m_CADCurveList.insert(make_pair(c->GetId(), make_pair(c, t)));
     }
 
-    void SetCADSurf(CADSurfSharedPtr s, Array<OneD, NekDouble> uv)
+    void SetCADSurf(CADSurfSharedPtr s, std::array<NekDouble, 2> uv)
     {
-        auto it = CADSurfList.find(s->GetId());
-        if (it != CADSurfList.end())
+        auto it = m_CADSurfList.find(s->GetId());
+        if (it != m_CADSurfList.end())
         {
             // already in list so remove it
-            CADSurfList.erase(it);
+            m_CADSurfList.erase(it);
         }
-        CADSurfList.insert(make_pair(s->GetId(), make_pair(s, uv)));
+        m_CADSurfList.insert(make_pair(s->GetId(), make_pair(s, uv)));
     }
 
     NekDouble GetCADCurveInfo(int i)
     {
-        auto search = CADCurveList.find(i);
-        ASSERTL0(search != CADCurveList.end(), "node not on this curve");
+        auto search = m_CADCurveList.find(i);
+        ASSERTL0(search != m_CADCurveList.end(), "node not on this curve");
 
         return search->second.second;
     }
 
-    Array<OneD, NekDouble> GetCADSurfInfo(int i)
+    std::array<NekDouble, 2> GetCADSurfInfo(int i)
     {
-        auto search = CADSurfList.find(i);
-        ASSERTL0(search != CADSurfList.end(), "surface not found");
+        auto search = m_CADSurfList.find(i);
+        ASSERTL0(search != m_CADSurfList.end(), "surface not found");
 
         return search->second.second;
     }
@@ -274,7 +271,7 @@ public:
     std::vector<CADCurveSharedPtr> GetCADCurves()
     {
         std::vector<CADCurveSharedPtr> lst;
-        for (auto &c : CADCurveList)
+        for (auto &c : m_CADCurveList)
         {
             lst.push_back(c.second.first.lock());
         }
@@ -284,7 +281,7 @@ public:
     std::vector<CADSurfSharedPtr> GetCADSurfs()
     {
         std::vector<CADSurfSharedPtr> lst;
-        for (auto &s : CADSurfList)
+        for (auto &s : m_CADSurfList)
         {
             lst.push_back(s.second.first.lock());
         }
@@ -293,39 +290,39 @@ public:
 
     int GetNumCadCurve()
     {
-        return CADCurveList.size();
+        return m_CADCurveList.size();
     }
 
     int GetNumCADSurf()
     {
-        return CADSurfList.size();
+        return m_CADSurfList.size();
     }
 
-    void Move(Array<OneD, NekDouble> l, int s, Array<OneD, NekDouble> uv)
+    void Move(std::array<NekDouble, 3> l, int s, std::array<NekDouble, 2> uv)
     {
         m_x                 = l[0];
         m_y                 = l[1];
         m_z                 = l[2];
-        CADSurfSharedPtr su = CADSurfList[s].first.lock();
+        CADSurfSharedPtr su = m_CADSurfList[s].first.lock();
         SetCADSurf(su, uv);
     }
 
     void Move(NekDouble x, NekDouble y, NekDouble z, int s,
-              Array<OneD, NekDouble> uv)
+              std::array<NekDouble, 2> uv)
     {
         m_x                 = x;
         m_y                 = y;
         m_z                 = z;
-        CADSurfSharedPtr su = CADSurfList[s].first.lock();
+        CADSurfSharedPtr su = m_CADSurfList[s].first.lock();
         SetCADSurf(su, uv);
     }
 
-    void Move(Array<OneD, NekDouble> l, int c, NekDouble t)
+    void Move(std::array<NekDouble, 3> l, int c, NekDouble t)
     {
         m_x                  = l[0];
         m_y                  = l[1];
         m_z                  = l[2];
-        CADCurveSharedPtr cu = CADCurveList[c].first.lock();
+        CADCurveSharedPtr cu = m_CADCurveList[c].first.lock();
         SetCADCurve(cu, t);
     }
 
@@ -334,7 +331,7 @@ public:
         m_x                  = x;
         m_y                  = y;
         m_z                  = z;
-        CADCurveSharedPtr cu = CADCurveList[c].first.lock();
+        CADCurveSharedPtr cu = m_CADCurveList[c].first.lock();
         SetCADCurve(cu, t);
     }
 
@@ -370,8 +367,8 @@ public:
         }
     }
 
-    NekDouble Angle(Array<OneD, NekDouble> locA, Array<OneD, NekDouble> locB,
-                    Array<OneD, NekDouble> N)
+    NekDouble Angle(std::array<NekDouble, 3> locA,
+                    std::array<NekDouble, 3> locB, std::array<NekDouble, 3> N)
     {
         // calculates the angle between this node to a to this node to b
         // Uses the CAD surface to orientate the angle
@@ -414,10 +411,10 @@ public:
     NekDouble m_z;
 
     /// list of cadcurves the node lies on
-    std::map<int, std::pair<std::weak_ptr<CADCurve>, NekDouble>> CADCurveList;
+    std::map<int, std::pair<std::weak_ptr<CADCurve>, NekDouble>> m_CADCurveList;
     /// list of cadsurfs the node lies on
-    std::map<int, std::pair<std::weak_ptr<CADSurf>, Array<OneD, NekDouble>>>
-        CADSurfList;
+    std::map<int, std::pair<std::weak_ptr<CADSurf>, std::array<NekDouble, 2>>>
+        m_CADSurfList;
 
 private:
     SpatialDomains::PointGeomSharedPtr m_geom;
