@@ -71,6 +71,13 @@ void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
                               const unsigned int metaBlockSize,
                               const unsigned int dataLen, int *inout);
 
+void BuildInterleaveMapCUDAlauncher(const unsigned int numMetaBlocks,
+                                    const unsigned int ncoeff,
+                                    const unsigned int newVecWidth,
+                                    const unsigned int offset,
+                                    int *deInterleaveMapPtr,
+                                    int *interleaveMapPtr);
+
 } // namespace Nektar
 
 #endif

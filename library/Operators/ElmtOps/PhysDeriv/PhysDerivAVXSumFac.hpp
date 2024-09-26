@@ -66,11 +66,8 @@ public:
         auto blocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
 
-        // size_t jacSize = Operator<TData>::GetGeometricFactorSize();
-        // Array<OneD, Array<OneD, TData>> derivFac =
-        //     Operator<TData>::SetDerivativeFactor(jacSize);
-
-        size_t dfSize = Operator<TData>::GetGeometricFactorSize(blocks);
+        size_t dfSize =
+            Operator<TData>::GetGeometricFactorSize(blocks, vec_t::width);
         std::shared_ptr<VecVec_t> derivFac =
             Operator<TData>::SetDerivativeFactor(dfSize, blocks);
 
@@ -145,7 +142,7 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.num_elmt_groups;
+            m_nElmtGroup = inblock.GetNumElmtGroups(vec_t::width);
 
             // Fetch basis key for the current element type.
             m_basisKeys.clear();

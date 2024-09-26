@@ -57,4 +57,37 @@ AddTraceIntegralKernel(const unsigned int nsize,
     });
 }
 
+template <typename ExecSpace>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
+{
+    // sort the trace map and get the permutation
+    std::vector<int> permutation(nsize);
+    std::iota(permutation.begin(), permutation.end(), 0);
+    std::sort(permutation.begin(), permutation.end(), [&](int i, int j) {
+        return traceCoeffsToElmtTracePtr[i] < traceCoeffsToElmtTracePtr[j];
+    });
+    // apply the permutation to the map and sign
+    std::vector<int> tempMap(nsize);
+    std::vector<int> tempSign(nsize);
+    std::vector<int> tempTrace(nsize);
+    for (size_t i = 0; i < nsize; i++)
+    {
+        tempMap[i]   = traceCoeffsToElmtMapPtr[permutation[i]];
+        tempSign[i]  = traceCoeffsToElmtSignPtr[permutation[i]];
+        tempTrace[i] = traceCoeffsToElmtTracePtr[permutation[i]];
+    }
+    // copy back to the original map and sign
+    for (size_t i = 0; i < nsize; i++)
+    {
+        traceCoeffsToElmtMapPtr[i]   = tempMap[i];
+        traceCoeffsToElmtSignPtr[i]  = tempSign[i];
+        traceCoeffsToElmtTracePtr[i] = tempTrace[i];
+    }
+}
+
 } // namespace Nektar::Operators::detail

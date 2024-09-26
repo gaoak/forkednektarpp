@@ -44,13 +44,13 @@ namespace Nektar
 template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int metaBlockSize,
-           const unsigned int dataLen, TData *inout)
+interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
+           TData *inout)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * metaBlockSize;
+        sizeof(TData) * VectorWidth * numMetaBlocks * dataLen;
 
     TData *buffer = (TData *)
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -93,13 +93,12 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
-             const unsigned int metaBlockSize, const unsigned int dataLen,
-             TData *inout)
+             const unsigned int dataLen, TData *inout)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * metaBlockSize;
+        sizeof(TData) * VectorWidth * numMetaBlocks * dataLen;
 
     TData *buffer = (TData *)
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -132,6 +131,63 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
                     }
                 });
 
+            team.team_barrier();
+        });
+
+    Kokkos::kokkos_free(buffer);
+}
+
+template <typename ExecSpace>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
+                         const unsigned int ncoeff,
+                         const unsigned int newVecWidth,
+                         const unsigned int offset, int *deInterleaveMapPtr,
+                         int *interleaveMapPtr)
+{
+    typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
+    const unsigned int bufferSize =
+        sizeof(int) * newVecWidth * numMetaBlocks * ncoeff;
+    // allocate buffer for all teams
+    int *buffer = (int *)
+        Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
+            bufferSize);
+
+    // rewrite UtilsAVX.hpp BuildInterleaveMapKernel for Kokkos:
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(numMetaBlocks, Kokkos::AUTO),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            const unsigned int metaBlock  = team.league_rank();
+            const unsigned int teamOffset = newVecWidth * ncoeff * metaBlock;
+            // assign count+0, count+1, count+2, count+3, count+4, ....
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
+                [&](const unsigned int &i) {
+                    buffer[teamOffset + i] = offset + teamOffset + i;
+                });
+            team.team_barrier();
+            // get the deinterleave map
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, ncoeff),
+                [&](const unsigned int &n) {
+                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
+                         ++vecElem)
+                    {
+                        deInterleaveMapPtr[teamOffset + n * newVecWidth +
+                                           vecElem] =
+                            buffer[teamOffset + vecElem * ncoeff + n];
+                    }
+                });
+            team.team_barrier();
+            // get the interleave map
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
+                [&](const unsigned int &i) {
+                    interleaveMapPtr[deInterleaveMapPtr[teamOffset + i]] =
+                        offset + teamOffset + i;
+                });
             team.team_barrier();
         });
 

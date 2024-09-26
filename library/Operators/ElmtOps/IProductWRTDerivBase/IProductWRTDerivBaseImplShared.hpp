@@ -137,7 +137,7 @@ public:
         {
             // Block dependent
             const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_elmt_groups * block.width;
+            const auto nElmtsPad = block.num_padding_elements + nElmts;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);

@@ -40,13 +40,14 @@ namespace Nektar
 {
 
 template <size_t VectorWidth, typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-                            void>::type
-    interleave(const unsigned int numMetaBlocks,
-               const unsigned int metaBlockSize, const unsigned int dataLen,
-               TData *inout)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
+           TData *inout)
 {
+    const unsigned int metaBlockSize = dataLen * VectorWidth;
     Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
 
     for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
@@ -66,14 +67,14 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-                            void>::type
-    deInterleave(const unsigned int VectorWidth,
-                 const unsigned int numMetaBlocks,
-                 const unsigned int metaBlockSize, const unsigned int dataLen,
-                 TData *inout)
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+             const unsigned int dataLen, TData *inout)
 {
+    const unsigned int metaBlockSize = dataLen * VectorWidth;
     Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
 
     for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
@@ -89,6 +90,47 @@ inline
             }
         }
         inout += metaBlockSize;
+    }
+}
+
+template <typename ExecSpace>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
+                         const unsigned int ncoeff,
+                         const unsigned int newVecWidth,
+                         const unsigned int offset, int *deInterleaveMapPtr,
+                         int *interleaveMapPtr)
+{
+    auto MetaBlockSize = newVecWidth * ncoeff;
+    std::vector<int> tmp(MetaBlockSize);
+    int count = offset;
+
+    for (size_t metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
+    {
+        // assign count+0, count+1, count+2, count+3, count+4, ....
+        for (unsigned int i = 0; i < MetaBlockSize; i++)
+        {
+            tmp[i] = count + i;
+        }
+        // get the deinterleave map
+        for (unsigned int n = 0; n < ncoeff; n++)
+        {
+            for (unsigned int vecElem = 0; vecElem < newVecWidth; ++vecElem)
+            {
+                deInterleaveMapPtr[n * newVecWidth + vecElem] =
+                    tmp[vecElem * ncoeff + n];
+            }
+        }
+        // get the interleave map
+        for (unsigned int i = 0; i < MetaBlockSize; i++)
+        {
+            interleaveMapPtr[deInterleaveMapPtr[i]] = count + i;
+        }
+        deInterleaveMapPtr += MetaBlockSize;
+        count += MetaBlockSize;
     }
 }
 
