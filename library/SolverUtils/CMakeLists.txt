@@ -140,11 +140,6 @@ IF (NEKTAR_BUILD_PYTHON)
         Filters/FilterPython.cpp)
     SET(SOLVER_UTILS_HEADERS ${SOLVER_UTILS_HEADERS}
         Filters/FilterPython.h)
-    TARGET_LINK_LIBRARIES(SolverUtils LINK_PRIVATE
-        ${Boost_SYSTEM_LIBRARY}
-        ${BOOST_PYTHON_LIB}
-        ${BOOST_NUMPY_LIB}
-        ${PYTHON_LIBRARIES})
 ENDIF()
 
 IF (NEKTAR_BUILD_REDESIGN)
@@ -161,6 +156,14 @@ ELSE()
         DEPENDS FieldUtils
         SUMMARY "Nektar++ SolverUtils library"
         DESCRIPTION "This library provides support classes and routines for constructing complete spectral/hp element solvers.")
+ENDIF()
+
+IF (NEKTAR_BUILD_PYTHON)
+    TARGET_LINK_LIBRARIES(SolverUtils LINK_PRIVATE
+        ${Boost_SYSTEM_LIBRARY}
+        ${BOOST_PYTHON_LIB}
+        ${BOOST_NUMPY_LIB}
+        ${PYTHON_LIBRARIES})
 ENDIF()
 
 IF (NEKTAR_USE_VTK)
