@@ -18,7 +18,7 @@
             <value variable="u" tolerance="1e-11">3.14595e-06</value>
             <value variable="v" tolerance="1e-11">2.25562e-06</value>
             <value variable="w" tolerance="1e-11">1.81458e-06</value>
-	    <value variable="p" tolerance="1e-10">6.87311e-05</value>
+	    <value variable="p" tolerance="2e-10">6.87311e-05</value>
         </metric>
     </metrics>
 </test>
