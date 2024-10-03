@@ -108,9 +108,6 @@ public:
             cnt += nBndExpCoeff;
         }
 
-        m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
 
@@ -142,9 +139,9 @@ public:
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
             alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
+        Array<OneD, TData> alignedSign(m_nbndcoeff);
         if (m_signChange)
         {
-            Array<OneD, TData> alignedSign(m_nbndcoeff);
             for (int i = 0; i < m_nbndcoeff; i++)
             {
                 alignedSign[i] = sign[index[i]];
@@ -154,6 +151,59 @@ public:
                 alignedSign,
                 EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         }
+
+        // TODO: This is a temporary hack to fix the Dirichlet boundary
+        // condition
+        // -------------------------- BEGIN ------------------------------------
+        // Sort boundary coefficients by increasing order of "alignedMap[i]"
+        std::vector<std::tuple<int, int, double>> tmp;
+        for (int i = 0; i < m_nbndcoeff; i++)
+        {
+            tmp.push_back(std::make_tuple(i, alignedMap[i], bndcoeff[i]));
+        }
+        std::sort(std::begin(tmp), std::end(tmp),
+                  [](std::tuple<int, int, double> const &t1,
+                     std::tuple<int, int, double> const &t2) {
+                      return std::tie(get<1>(t1), get<0>(t1)) <
+                             std::tie(get<1>(t2), get<0>(t2));
+                  });
+
+        // Check if there is any mismatch of boundary coefficient, if so use the
+        // second value
+        for (int i = 0; i < m_nbndcoeff - 1; i++)
+        {
+            if (m_signChange)
+            {
+                if (get<1>(tmp[i]) == get<1>(tmp[i + 1]) &&
+                    std::abs(alignedSign[get<0>(tmp[i])] * get<2>(tmp[i]) -
+                             alignedSign[get<0>(tmp[i + 1])] *
+                                 get<2>(tmp[i + 1])) > 1.0E-06)
+                {
+                    tmp[i] = std::make_tuple(get<0>(tmp[i]), get<1>(tmp[i + 1]),
+                                             alignedSign[get<0>(tmp[i + 1])] *
+                                                 get<2>(tmp[i + 1]));
+                }
+            }
+            else
+            {
+                if (get<1>(tmp[i]) == get<1>(tmp[i + 1]) &&
+                    std::abs(get<2>(tmp[i]) - get<2>(tmp[i + 1])) > 1.0E-06)
+                {
+                    tmp[i] = std::make_tuple(get<0>(tmp[i]), get<1>(tmp[i + 1]),
+                                             get<2>(tmp[i + 1]));
+                }
+            }
+        }
+
+        // Overwritte data with corrected value
+        for (int i = 0; i < m_nbndcoeff; i++)
+        {
+            bndcoeff[get<0>(tmp[i])] = get<2>(tmp[i]);
+        }
+        // -------------------------- END ------------------------------------
+
+        m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         m_parallelDirBndSignSize = parallelDirBndSign.size();
         if (m_parallelDirBndSignSize > 0)
