@@ -2039,13 +2039,13 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
         for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
             // direction 2
-            for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+            for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u, mode_pq = 0u;
                  p < nm0; ++p)
             {
-                for (unsigned int q = 0u; q < p; ++q, ++mode_pq)
+                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
                 {
                     TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p;
+                    for (unsigned int r = 0u; r < nm2 - std::max(p, q);
                          ++r, ++mode2, ++mode_pqr)
                     {
                         tmp += in[nmTot * warpsize * iwarp +
@@ -2056,21 +2056,8 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
                         ilane] = tmp;
                 }
 
-                for (unsigned int q = p; q < nm1; ++q, ++mode2, ++mode_pq)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode_pqr)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * mode_pqr + ilane] *
-                               s_basis2[mode2 * nq2 + k];
-                    }
-                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
-                        ilane] = tmp;
-                }
-
                 // increment mode in case nm2>nm1
-                for (unsigned int q = nm1; q < nm2 - p; ++q)
+                for (unsigned int q = nm1; q < nm2; ++q)
                 {
                     mode2 += nm2 - q;
                 }
