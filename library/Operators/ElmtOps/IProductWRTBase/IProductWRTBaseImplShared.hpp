@@ -72,10 +72,8 @@ public:
             jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
-        m_basisMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_BASIS_DATA);
-        m_weightMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_WEIGHT_DATA);
+        m_basisMap  = GetBasisData<MemSpace, TData>(expansionList, eBasis);
+        m_weightMap = GetBasisData<MemSpace, TData>(expansionList, eWeights);
     }
 
     ~OperatorIProductWRTBaseImpl(void)

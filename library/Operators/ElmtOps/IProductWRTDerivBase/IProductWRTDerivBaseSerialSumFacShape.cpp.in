@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralKokkosKernels.hpp
+// File: IProductWRTDerivBaseSerialSumFac@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,46 +32,25 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialSumFac.hpp"
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include "Operators/Common/Spaces.hpp"
-
+// clang-format off
 namespace Nektar::Operators::detail
 {
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-AddTraceIntegralKernel(const unsigned int nsize,
-                       const int *traceCoeffsToElmtMapPtr,
-                       const int *traceCoeffsToElmtSignPtr,
-                       const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outPtr)
+template <>
+void OperatorIProductWRTDerivBaseImpl<NektarSpaces::Serial, Operators::SumFac,
+                                      double>::
+    @Shape@Block(const size_t inSize, const size_t dim, const double *&inPtr,
+                double *&outPtr,
+                std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
+                const size_t nElmts, const Array<OneD, const double> &m_jac,
+                size_t &jac_idx, const Array<OneD, const double> &m_derivFac,
+                size_t &df_idx)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
-
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
-        KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[i],
-                               traceCoeffsToElmtSignPtr[i] *
-                                   tracePtr[traceCoeffsToElmtTracePtr[i]]);
-        });
+    IProductWRTDerivBaseSumFac @Shape
+        @Kernel(inSize, dim, inPtr, outPtr, expPtr, nElmts, m_jac, jac_idx,
+                m_derivFac, df_idx);
 }
-
-// Launchers
-template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
-}
-
+// clang-format on
 } // namespace Nektar::Operators::detail
-
-#endif

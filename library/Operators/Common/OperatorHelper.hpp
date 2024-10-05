@@ -44,12 +44,15 @@ namespace Nektar::Operators
 
 enum BasisDataType
 {
-    BASIS_UNKNOWN_DATA          = 0,
-    BASIS_BASIS_DATA            = 1,
-    BASIS_BASIS_DERIVATIVE_DATA = 2,
-    BASIS_WEIGHT_DATA           = 3,
-    BASIS_POINT_DATA            = 4,
-    BASIS_DERIVATIVE_DATA       = 5,
+    eUnknown         = 0,
+    eBasis           = 1, // was BASIS_BASIS_DATA
+    eBasisDerivative = 2, // Was BASIS_BASIS_DERIVATIVE_DATA
+    eWeights         = 3, // Was BASIS_WEIGHT_DATA
+    eZeros           = 4, // Was BASIS_POINT_DATA
+    eDerivative      = 5, // Was BASIS_DERIVATIVE_DATA
+    eHalfMultOnePlusZero,
+    eTwoOverOneMinusZero
+
 };
 
 template <typename TData>
@@ -71,17 +74,21 @@ MemoryRegion<TDataOut> GetBasisData(
 {
     switch (basisDataType)
     {
-        case BASIS_BASIS_DATA:
+        case eBasis:
+        {
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetBdata(), alignment);
             break;
-        case BASIS_BASIS_DERIVATIVE_DATA:
+        }
+        case eBasisDerivative:
+        {
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetDbdata(), alignment);
             break;
-        case BASIS_WEIGHT_DATA:
+        }
+        case eWeights:
         {
             auto ndata = basis->GetW().size();
             Array<OneD, TDataIn> wTmp(ndata);
@@ -153,16 +160,51 @@ MemoryRegion<TDataOut> GetBasisData(
                 wTmp, alignment);
         }
         break;
-        case BASIS_POINT_DATA:
+        case eZeros:
+        {
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetZ(), alignment);
-            break;
-        case BASIS_DERIVATIVE_DATA:
+        }
+        break;
+        case eDerivative:
+        {
             return MemoryRegion<TDataOut>::template fromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetD()->GetPtr(), alignment);
-            break;
+        }
+        break;
+        case eHalfMultOnePlusZero:
+        {
+            const auto z = basis->GetZ();
+            Array<OneD, TDataIn> Tmp(z.size());
+
+            for (int i = 0; i < z.size(); ++i)
+            {
+                Tmp[i] = 0.5 * (1.0 + z[i]);
+            }
+
+            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+                                                              TDataIn>(
+                Tmp, alignment);
+        }
+        break;
+        case eTwoOverOneMinusZero:
+        {
+            const auto z = basis->GetZ();
+            auto n       = z.size();
+            Array<OneD, TDataIn> Tmp(n);
+
+            for (int i = 0; i < n; ++i)
+            {
+                Tmp[i] = 2 / (1.0 - z[i]);
+            }
+
+            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+                                                              TDataIn>(
+                Tmp, alignment);
+        }
+        break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
             return MemoryRegion<TDataOut>::template create<MemSpace>(0,

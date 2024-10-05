@@ -86,20 +86,20 @@ public:
 
         // Initialize the basis data.
         m_Bmap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_BASIS_DATA, vec_t::alignment);
+            expansionList, eBasis, vec_t::alignment);
         m_Wmap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_WEIGHT_DATA, vec_t::alignment);
+            expansionList, eWeights, vec_t::alignment);
         // Initialize the derivative matrix.
         m_Dmap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_DERIVATIVE_DATA, vec_t::alignment);
+            expansionList, eDerivative, vec_t::alignment);
 
         // Initialize the BD data
         m_BDmap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_BASIS_DERIVATIVE_DATA, vec_t::alignment);
+            expansionList, eBasisDerivative, vec_t::alignment);
 
         // Initialize the Z data.
         m_Zmap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_POINT_DATA, vec_t::alignment);
+            expansionList, eZeros, vec_t::alignment);
 
         auto nCoord = this->m_expansionList->GetCoordim(0);
         m_diffCoeff = Array<OneD, TData>(nCoord * (nCoord + 1) / 2, 0.0);

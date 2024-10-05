@@ -398,18 +398,13 @@ protected:
         return jac;
     }
 
-    Array<OneD, Array<OneD, TData>> SetDerivativeFactor(size_t dfSize)
+    Array<OneD, TData> SetDerivativeFactor(size_t dfSize)
     {
         // Allocate memory for the derivative factor
         size_t nDim   = this->m_expansionList->GetShapeDimension();
         size_t nCoord = this->m_expansionList->GetCoordim(0);
 
-        Array<OneD, Array<OneD, TData>> derivFac(nDim * nCoord);
-
-        for (size_t d = 0; d < nDim * nCoord; d++)
-        {
-            derivFac[d] = Array<OneD, TData>(dfSize);
-        }
+        Array<OneD, TData> derivFac(nDim * nCoord * dfSize);
 
         // Initialise derivative factor.
         size_t dfindex   = 0;
@@ -425,24 +420,20 @@ protected:
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                for (size_t d = 0; d < nDim * nCoord; d++)
+                for (size_t i = 0; i < nqTot; ++i)
                 {
-                    for (size_t i = 0; i < nqTot; ++i)
+                    for (size_t d = 0; d < nDim * nCoord; d++)
                     {
-                        derivFac[d][dfindex + i] = df[d][i];
+                        derivFac[dfindex++] = df[d][i];
                     }
                 }
-
-                dfindex += nqTot;
             }
             else
             {
                 for (size_t d = 0; d < nDim * nCoord; d++)
                 {
-                    derivFac[d][dfindex] = df[d][0];
+                    derivFac[dfindex++] = df[d][0];
                 }
-
-                dfindex += 1;
             }
         }
 

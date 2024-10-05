@@ -60,9 +60,9 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize();
-        m_jac          = Operator<TData>::SetJacobian(jacSize);
-        m_derivFac     = Operator<TData>::SetDerivativeFactor(jacSize);
+        size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        m_jac              = Operator<TData>::SetJacobian(geomFacSize);
+        m_derivFac         = Operator<TData>::SetDerivativeFactor(geomFacSize);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -145,22 +145,24 @@ public:
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nmTot  = expPtr->GetNcoeffs();
 
+            const auto ndf = dimension * nCoord;
             // calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2]
             if (deformed)
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_derivFac[d].get() + df_idx, 1,
-                                inPtr, 1, wspPtr + d * nStorage, 1);
+                    Vmath::Vmul(nqTot * nElmts, m_derivFac.data() + d + df_idx,
+                                ndf, inPtr, 1, wspPtr + d * nStorage, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
                         Vmath::Vvtvp(
                             nqTot * nElmts,
-                            m_derivFac[d + i * dimension].get() + df_idx, 1,
+                            m_derivFac.data() + d + i * dimension + df_idx, ndf,
                             inPtr + i * nSize, 1, wspPtr + d * nStorage, 1,
                             wspPtr + d * nStorage, 1);
                     }
                 }
+                df_idx += ndf * nqTot * nElmts;
             }
             else
             {
@@ -168,19 +170,19 @@ public:
                 {
                     for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, m_derivFac[d][df_idx + e],
+                        Vmath::Smul(nqTot, m_derivFac[d + df_idx],
                                     inPtr + e * nqTot, 1,
                                     wspPtr + d * nStorage + e * nqTot, 1);
                         for (size_t i = 1; i < nCoord; ++i)
                         {
-                            Vmath::Svtvp(
-                                nqTot,
-                                m_derivFac[d + i * dimension][df_idx + e],
-                                inPtr + i * nSize + e * nqTot, 1,
-                                wspPtr + d * nStorage + e * nqTot, 1,
-                                wspPtr + d * nStorage + e * nqTot, 1);
+                            Vmath::Svtvp(nqTot,
+                                         m_derivFac[d + i * dimension + df_idx],
+                                         inPtr + i * nSize + e * nqTot, 1,
+                                         wspPtr + d * nStorage + e * nqTot, 1,
+                                         wspPtr + d * nStorage + e * nqTot, 1);
                         }
                     }
+                    df_idx += ndf;
                 }
             }
 
@@ -227,7 +229,6 @@ public:
 
             // Increment pointer and index for next element type.
             jac_idx += deformed ? nqTot * nElmts : nElmts;
-            df_idx += deformed ? nqTot * nElmts : nElmts;
 
             wspPtr += nqTot * nElmts;
 
@@ -252,8 +253,7 @@ public:
 private:
     Array<OneD, TData> m_jac;
     Array<OneD, TData> m_wsp;
-    Array<OneD, Array<OneD, TData>> m_derivFac;
-
+    Array<OneD, TData> m_derivFac;
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;

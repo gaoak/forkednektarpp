@@ -2227,7 +2227,6 @@ void IProductWRTBaseTetKernel_QP_1D(
         {
             const unsigned int mode_pq = idx / nq2;
             const unsigned int p       = pindex1[mode_pq];
-            const unsigned int q       = qindex1[mode_pq];
             const unsigned int k       = idx % nq2;
             unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
 

@@ -70,6 +70,8 @@ ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
 # Serial SumFac
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_sumfac.cpp)
 
 # These AVX test do not work
 # AVX SumFac
@@ -237,6 +239,7 @@ SET_UNIT_TEST(PhysDeriv_serial_stdmat test_physderiv_serial_stdmat FALSE)
 
 # Serial SumFac
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
+SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase_serial_sumfac FALSE)
 
 # AVX SumFac
 IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)

@@ -52,7 +52,7 @@ MACRO(ADD_OPERATOR dir)
     SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
     # Add the main operator header to the list of headers.
-    # Does no seem to do abything     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
+    # Does no seem to do anything     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
 
     # These are variales used to determine the operator
     # implementation.
@@ -169,7 +169,7 @@ MACRO(ADD_OPERATOR dir)
             # execution space, and implementation.
             SET(CURRENT_HEADERS ${name}_${ExecSpace}_${Impl}_HEADERS)
             SET(CURRENT_SOURCES ${name}_${ExecSpace}_${Impl}_SOURCES)
-
+            
             # Get the headers matching the name, execution space, and
             # Implementation (specific and kernel).
             FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
