@@ -69,10 +69,10 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         // Initialise the jacobian and the derivative factor.
-        m_dfSize = Operator<TData>::GetGeometricFactorSize();
+        const auto dfSize = Operator<TData>::GetGeometricFactorSize();
 
-        auto jac      = Operator<TData>::SetJacobian(m_dfSize);
-        auto derivFac = Operator<TData>::SetDerivativeFactor(m_dfSize);
+        auto jac      = Operator<TData>::SetJacobian(dfSize);
+        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize);
 
         // Initialise the jacobian.
         m_jac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
@@ -83,16 +83,13 @@ public:
             derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
-        m_basisMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_BASIS_DATA);
-        m_dbasisMap = GetBasisData<MemSpace, TData>(
-            expansionList, BASIS_BASIS_DERIVATIVE_DATA);
-        m_weightMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_WEIGHT_DATA);
-        m_pointMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_POINT_DATA);
+        m_basisMap = GetBasisData<MemSpace, TData>(expansionList, eBasis);
+        m_dbasisMap =
+            GetBasisData<MemSpace, TData>(expansionList, eBasisDerivative);
+        m_weightMap = GetBasisData<MemSpace, TData>(expansionList, eWeights);
+        m_pointMap  = GetBasisData<MemSpace, TData>(expansionList, eZeros);
         m_derivativeMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_DERIVATIVE_DATA);
+            GetBasisData<MemSpace, TData>(expansionList, eDerivative);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -154,6 +151,8 @@ public:
             const auto nq1 = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
             const auto nm2 = (dimension > 2) ? expPtr->GetBasisNumModes(2) : 0;
             const auto nq2 = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
+            const auto ndf = nCoord * dimension;
+
             const auto basis0 = m_basisMap[expPtr->GetBasis(0)->GetBasisKey()]
                                     .template GetPtr<MemSpace, ReadOnly>();
             const auto basis1 =
@@ -213,8 +212,7 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase1DKernel<ExecSpace, TData, true>(
-                        nq0, nCoord, nElmts, nSize, m_dfSize, dfPtr, inPtr,
-                        tmpPtr);
+                        nq0, nCoord, nElmts, nSize, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
                                             true>(nm0, nq0, nElmtsPad, dbasis0,
                                                   w0, jacPtr, tmpPtr, outPtr);
@@ -222,8 +220,7 @@ public:
                 else
                 {
                     IProductWRTDerivBase1DKernel<ExecSpace, TData, false>(
-                        nq0, nCoord, nElmts, nSize, m_dfSize, dfPtr, inPtr,
-                        tmpPtr);
+                        nq0, nCoord, nElmts, nSize, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
                                             false>(nm0, nq0, nElmtsPad, dbasis0,
                                                    w0, jacPtr, tmpPtr, outPtr);
@@ -235,8 +232,8 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase2DKernel<ExecSpace, TData, true>(
-                        shapeType, nq0, nq1, nCoord, nElmts, nSize, m_dfSize,
-                        Z0, Z1, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nCoord, nElmts, nSize, Z0, Z1,
+                        dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             true>(shapeType, nm0, nm1, nq0, nq1,
                                                   nElmtsPad, correct, dbasis0,
@@ -251,8 +248,8 @@ public:
                 else
                 {
                     IProductWRTDerivBase2DKernel<ExecSpace, TData, false>(
-                        shapeType, nq0, nq1, nCoord, nElmts, nSize, m_dfSize,
-                        Z0, Z1, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nCoord, nElmts, nSize, Z0, Z1,
+                        dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             false>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
@@ -270,8 +267,8 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase3DKernel<ExecSpace, TData, true>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize,
-                        m_dfSize, Z0, Z1, Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize, Z0, Z1,
+                        Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             true>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -291,8 +288,8 @@ public:
                 else
                 {
                     IProductWRTDerivBase3DKernel<ExecSpace, TData, false>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize,
-                        m_dfSize, Z0, Z1, Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize, Z0, Z1,
+                        Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             false>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -313,7 +310,7 @@ public:
 
             // Increment pointer and index for next element type.
             jacPtr += deformed ? nqTot * nElmts : nElmts;
-            dfPtr += deformed ? nqTot * nElmts : nElmts;
+            dfPtr += deformed ? ndf * nqTot * nElmts : ndf * nElmts;
 
             tmpPtr += nqTot * nElmtsPad;
             inPtr += nqTot * nElmtsPad;
@@ -409,7 +406,6 @@ private:
     MemoryRegion<TData> m_wsp;
     MemoryRegion<TData> m_tmp;
 
-    size_t m_dfSize;
     size_t m_wspsize = 0;
     size_t m_tmpsize = 0;
 };

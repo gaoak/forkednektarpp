@@ -60,8 +60,8 @@ public:
         : OperatorBwdTrans<TData>(expansionList)
     {
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_BASIS_DATA, vec_t::alignment);
+        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eBasis,
+                                                          vec_t::alignment);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

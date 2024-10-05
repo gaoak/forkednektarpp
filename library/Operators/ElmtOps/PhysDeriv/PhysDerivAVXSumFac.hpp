@@ -74,13 +74,13 @@ public:
         m_derivFac = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
             *derivFac, vec_t::alignment);
 
-        // Initialize the points.
-        m_pointMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_POINT_DATA, vec_t::alignment);
+        // Initialize the zeros
+        m_zeroMap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eZeros,
+                                                         vec_t::alignment);
 
         // Initialize the derivative matrix.
         m_derivativeMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_DERIVATIVE_DATA, vec_t::alignment);
+            expansionList, eDerivative, vec_t::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -190,7 +190,7 @@ private:
     int m_nElmtGroup, m_jac_idx, m_exp_idx;
 
     MemoryRegion<vec_t> m_derivFac;
-    BasisDataMap<vec_t> m_pointMap;
+    BasisDataMap<vec_t> m_zeroMap;
     BasisDataMap<vec_t> m_derivativeMap;
     // std::array<LibUtilities::BasisKey, 3> m_basisKeys;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
@@ -219,7 +219,7 @@ private:
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
-        // const auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace,
+        // const auto Z0 = m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace,
         // ReadOnly>();
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -271,7 +271,7 @@ private:
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
-        // const auto Z0 = m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace,
+        // const auto Z0 = m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace,
         // ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
@@ -331,9 +331,9 @@ private:
         const auto D1 = m_derivativeMap[m_basisKeys[1]]
                             .template GetPtr<MemSpace, ReadOnly>();
         const auto Z0 =
-            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z1 =
-            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -386,9 +386,9 @@ private:
         const auto D1 = m_derivativeMap[m_basisKeys[1]]
                             .template GetPtr<MemSpace, ReadOnly>();
         const auto Z0 =
-            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z1 =
-            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -453,11 +453,11 @@ private:
         const auto D2 = m_derivativeMap[m_basisKeys[2]]
                             .template GetPtr<MemSpace, ReadOnly>();
         const auto Z0 =
-            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z1 =
-            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z2 =
-            m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -516,11 +516,11 @@ private:
         const auto D2 = m_derivativeMap[m_basisKeys[2]]
                             .template GetPtr<MemSpace, ReadOnly>();
         const auto Z0 =
-            m_pointMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z1 =
-            m_pointMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         const auto Z2 =
-            m_pointMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);

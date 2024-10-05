@@ -64,7 +64,7 @@ NEK_FORCE_INLINE static void IProduct2DWorkspace(
     [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nm1,
     [[maybe_unused]] const size_t nq0, const size_t nq1, size_t &wsp0Size)
 {
-    wsp0Size = std::max(wsp0Size, std::max(nq1, nq0));
+    wsp0Size = std::max(wsp0Size, nq1);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE>

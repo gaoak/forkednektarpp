@@ -62,20 +62,19 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         // Initialise the derivative factor.
-        m_dfSize = Operator<TData>::GetGeometricFactorSize();
+        auto dfSize = Operator<TData>::GetGeometricFactorSize();
 
-        auto derivFac = Operator<TData>::SetDerivativeFactor(m_dfSize);
+        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize);
 
         m_derivFac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
             derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the points.
-        m_pointMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_POINT_DATA);
+        m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);
 
         // Initialize the derivative matrix.
         m_derivativeMap =
-            GetBasisData<MemSpace, TData>(expansionList, BASIS_DERIVATIVE_DATA);
+            GetBasisData<MemSpace, TData>(expansionList, eDerivative);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -112,6 +111,8 @@ public:
             const auto nq0    = expPtr->GetNumPoints(0);
             const auto nq1    = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
             const auto nq2    = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
+            const auto ndf    = nCoord * dimension;
+
             const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
                                 .template GetPtr<MemSpace, ReadOnly>();
             const auto D1 =
@@ -124,14 +125,14 @@ public:
                     ? m_derivativeMap[expPtr->GetBasis(2)->GetBasisKey()]
                           .template GetPtr<MemSpace, ReadOnly>()
                     : nullptr;
-            const auto Z0 = m_pointMap[expPtr->GetBasis(0)->GetBasisKey()]
+            const auto Z0 = m_zeroMap[expPtr->GetBasis(0)->GetBasisKey()]
                                 .template GetPtr<MemSpace, ReadOnly>();
             const auto Z1 = (dimension > 1)
-                                ? m_pointMap[expPtr->GetBasis(1)->GetBasisKey()]
+                                ? m_zeroMap[expPtr->GetBasis(1)->GetBasisKey()]
                                       .template GetPtr<MemSpace, ReadOnly>()
                                 : nullptr;
             const auto Z2 = (dimension > 2)
-                                ? m_pointMap[expPtr->GetBasis(2)->GetBasisKey()]
+                                ? m_zeroMap[expPtr->GetBasis(2)->GetBasisKey()]
                                       .template GetPtr<MemSpace, ReadOnly>()
                                 : nullptr;
 
@@ -141,14 +142,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, true>(
-                        nq0, nCoord, nElmtsPad, nSize, m_dfSize, D0, dfPtr,
-                        inPtr, outPtr);
+                        nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
+                        outPtr);
                 }
                 else
                 {
                     PhysDeriv1DKernel<ExecSpace, TData, false>(
-                        nq0, nCoord, nElmtsPad, nSize, m_dfSize, D0, dfPtr,
-                        inPtr, outPtr);
+                        nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
+                        outPtr);
                 }
             }
             else if (dimension == 2)
@@ -156,14 +157,14 @@ public:
                 if (deformed)
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, true>(
-                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, m_dfSize, D0,
-                        D1, Z0, Z1, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
+                        Z1, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv2DKernel<ExecSpace, TData, false>(
-                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, m_dfSize, D0,
-                        D1, Z0, Z1, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
+                        Z1, dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 3)
@@ -171,19 +172,19 @@ public:
                 if (deformed)
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, true>(
-                        shape, nq0, nq1, nq2, nElmtsPad, nSize, m_dfSize, D0,
-                        D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
+                        Z1, Z2, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     PhysDeriv3DKernel<ExecSpace, TData, false>(
-                        shape, nq0, nq1, nq2, nElmtsPad, nSize, m_dfSize, D0,
-                        D1, D2, Z0, Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
+                        Z1, Z2, dfPtr, inPtr, outPtr);
                 }
             }
 
             // Increment pointer and index for next element type.
-            dfPtr += deformed ? nqTot * nElmts : nElmts;
+            dfPtr += deformed ? ndf * nqTot * nElmts : ndf * nElmts;
             inPtr += nElmtsPad * nqTot;
             outPtr += nElmtsPad * nqTot;
             exp_idx += nElmts;
@@ -203,10 +204,9 @@ public:
     }
 
 private:
-    BasisDataMap<TData> m_pointMap;
+    BasisDataMap<TData> m_zeroMap;
     BasisDataMap<TData> m_derivativeMap;
     MemoryRegion<TData> m_derivFac;
-    size_t m_dfSize;
 };
 
 } // namespace Nektar::Operators::detail

@@ -46,7 +46,6 @@ namespace Nektar::Operators::detail
 template <typename TData, bool DEFORMED>
 void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                        const unsigned int nelmt, const unsigned int nsize,
-                       const unsigned int dfsize,
                        const TData *KOKKOS_RESTRICT D0,
                        const TData *KOKKOS_RESTRICT df,
                        const TData *KOKKOS_RESTRICT in,
@@ -68,7 +67,8 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
             {
                 const unsigned int index =
                     nq0 * warpsize * iwarp + warpsize * i + ilane;
-                const unsigned int dfindex = DEFORMED ? index : e;
+                const unsigned int dfindex =
+                    DEFORMED ? ncoord * index : ncoord * e;
 
                 // Compute tensorial derivative.
                 TData d0 = 0.0;
@@ -81,7 +81,7 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nsize + index] = d0 * df[d * dfsize + dfindex];
+                    out[d * nsize + index] = d0 * df[d + dfindex];
                 }
             }
         });
@@ -90,7 +90,6 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
 template <typename TData, bool DEFORMED>
 void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
                           const unsigned int nelmt, const unsigned int nsize,
-                          const unsigned int dfsize,
                           const TData *KOKKOS_RESTRICT D0,
                           const TData *KOKKOS_RESTRICT df,
                           const TData *KOKKOS_RESTRICT in,
@@ -106,8 +105,9 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nq0), [&](const unsigned int &i) {
-                    const unsigned int index   = offset + i;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int index = offset + i;
+                    const unsigned int dfindex =
+                        DEFORMED ? ncoord * index : ncoord * e;
 
                     // Compute tensorial derivative.
                     TData d0 = 0.0;
@@ -119,7 +119,7 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
                     // Multiply by derivative factors.
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
-                        out[d * nsize + index] = d0 * df[d * dfsize + dfindex];
+                        out[d * nsize + index] = d0 * df[d + dfindex];
                     }
                 });
         });
@@ -130,17 +130,17 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv2DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const unsigned int dfsize,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int nsize, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1;
+    const unsigned int ndf   = 2 * ncoord;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -200,7 +200,8 @@ void PhysDeriv2DKernel(
                 {
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
 
                     // Compute tensorial derivative.
                     // Direction 0
@@ -232,8 +233,8 @@ void PhysDeriv2DKernel(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(2u * d) * dfsize + dfindex] +
-                            d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                            d0 * df[(2u * d) + dfindex] +
+                            d1 * df[(2u * d + 1u) + dfindex];
                     }
                 }
             }
@@ -245,15 +246,15 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv2DKernel_QP(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const unsigned int dfsize,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int nsize, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1;
+    const unsigned int ndf   = 2 * ncoord;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -299,9 +300,10 @@ void PhysDeriv2DKernel_QP(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
                     team, nq0, nq1),
                 [&](const unsigned int &i, const unsigned int &j) {
-                    const unsigned int cnt_ji  = nq0 * j + i;
-                    const unsigned int index   = offset + cnt_ji;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int cnt_ji = nq0 * j + i;
+                    const unsigned int index  = offset + cnt_ji;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
                     TData xfrm0, xfrm1;
 
                     // Compute tensorial derivative.
@@ -332,8 +334,8 @@ void PhysDeriv2DKernel_QP(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(2u * d) * dfsize + dfindex] +
-                            d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                            d0 * df[(2u * d) + dfindex] +
+                            d1 * df[(2u * d + 1u) + dfindex];
                     }
                 });
 
@@ -346,15 +348,15 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv2DKernel_QP_1D(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const unsigned int dfsize,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int nsize, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1;
+    const unsigned int ndf   = 2 * ncoord;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -399,10 +401,11 @@ void PhysDeriv2DKernel_QP_1D(
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nqTot),
                 [&](const unsigned int &idx) {
-                    const unsigned int i       = idx % nq0;
-                    const unsigned int j       = idx / nq0;
-                    const unsigned int index   = offset + idx;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int i     = idx % nq0;
+                    const unsigned int j     = idx / nq0;
+                    const unsigned int index = offset + idx;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
                     TData xfrm0, xfrm1;
 
                     // Compute tensorial derivative.
@@ -433,8 +436,8 @@ void PhysDeriv2DKernel_QP_1D(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(2u * d) * dfsize + dfindex] +
-                            d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                            d0 * df[(2u * d) + dfindex] +
+                            d1 * df[(2u * d + 1u) + dfindex];
                     }
                 });
 
@@ -447,11 +450,11 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv3DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int ncoord   = 3u;
     constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
@@ -459,6 +462,7 @@ void PhysDeriv3DKernel(
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int ndf   = 9u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -582,7 +586,8 @@ void PhysDeriv3DKernel(
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
-                        const unsigned int dfindex = DEFORMED ? index : e;
+                        const unsigned int dfindex =
+                            DEFORMED ? ndf * index : ndf * e;
 
                         // Compute tensorial derivative.
                         // Direction 0
@@ -642,9 +647,9 @@ void PhysDeriv3DKernel(
                         for (unsigned int d = 0u; d < ncoord; d++)
                         {
                             out[d * nsize + index] =
-                                d0 * df[(3u * d) * dfsize + dfindex] +
-                                d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                                d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                                d0 * df[(3u * d) + dfindex] +
+                                d1 * df[(3u * d + 1u) + dfindex] +
+                                d2 * df[(3u * d + 2u) + dfindex];
                         }
                     }
                 }
@@ -657,17 +662,18 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv3DKernel_QP(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     constexpr unsigned int ncoord = 3u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int ndf   = 9u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
@@ -722,7 +728,8 @@ void PhysDeriv3DKernel_QP(
                     const unsigned int &k) {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
                     TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
                     // Direction 0
@@ -786,9 +793,9 @@ void PhysDeriv3DKernel_QP(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                            d0 * df[(3u * d) + dfindex] +
+                            d1 * df[(3u * d + 1u) + dfindex] +
+                            d2 * df[(3u * d + 2u) + dfindex];
                     }
                 });
 
@@ -801,15 +808,16 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 void PhysDeriv3DKernel_QP_1D(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *KOKKOS_RESTRICT D0,
-    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
+    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     constexpr unsigned int ncoord = 3u;
+    const unsigned int ndf        = 3 * ncoord;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -861,11 +869,12 @@ void PhysDeriv3DKernel_QP_1D(
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nqTot),
                 [&](const unsigned int &idx) {
-                    const unsigned int i       = idx % nq0;
-                    const unsigned int j       = (idx / nq0) % nq1;
-                    const unsigned int k       = idx / (nq0 * nq1);
-                    unsigned int index         = offset + idx;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+                    unsigned int index   = offset + idx;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
                     TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
                     // Compute tensorial derivative.
@@ -930,9 +939,9 @@ void PhysDeriv3DKernel_QP_1D(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                            d0 * df[(3u * d) + dfindex] +
+                            d1 * df[(3u * d + 1u) + dfindex] +
+                            d2 * df[(3u * d + 2u) + dfindex];
                     }
                 });
 
@@ -947,18 +956,17 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                   const unsigned int nelmts, const unsigned int nsize,
-                  const unsigned int dfsize, const TData *D0, const TData *df,
-                  const TData *in, TData *out)
+                  const TData *D0, const TData *df, const TData *in, TData *out)
 {
     if constexpr (MULTILEVEL)
     {
-        PhysDeriv1DKernel_QP<TData, DEFORMED>(nq0, ncoord, nelmts, nsize,
-                                              dfsize, D0, df, in, out);
+        PhysDeriv1DKernel_QP<TData, DEFORMED>(nq0, ncoord, nelmts, nsize, D0,
+                                              df, in, out);
     }
     else
     {
-        PhysDeriv1DKernel<TData, DEFORMED>(nq0, ncoord, nelmts, nsize, dfsize,
-                                           D0, df, in, out);
+        PhysDeriv1DKernel<TData, DEFORMED>(nq0, ncoord, nelmts, nsize, D0, df,
+                                           in, out);
     }
 }
 
@@ -969,9 +977,8 @@ inline typename std::enable_if<
 PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const unsigned int nq1, const unsigned int ncoord,
                   const unsigned int nelmts, const unsigned int nsize,
-                  const unsigned int dfsize, const TData *D0, const TData *D1,
-                  const TData *Z0, const TData *Z1, const TData *df,
-                  const TData *in, TData *out)
+                  const TData *D0, const TData *D1, const TData *Z0,
+                  const TData *Z1, const TData *df, const TData *in, TData *out)
 {
     unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 : 0u;
 
@@ -981,14 +988,14 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1;
             PhysDeriv2DKernel_QP<TData, LibUtilities::Quad, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
-                nullptr, nullptr, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, nullptr,
+                nullptr, df, in, out);
         }
         else
         {
             PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1,
-                nullptr, nullptr, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, nullptr,
+                nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -997,15 +1004,15 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1;
             PhysDeriv2DKernel_QP<TData, LibUtilities::Tri, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, Z0,
-                Z1, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
+                in, out);
         }
         else
         {
             nshared += nq0 * nq1;
             PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, Z0,
-                Z1, df, in, out);
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
+                in, out);
         }
     }
 }
@@ -1017,9 +1024,9 @@ inline typename std::enable_if<
 PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const unsigned int nq1, const unsigned int nq2,
                   const unsigned int nelmts, const unsigned int nsize,
-                  const unsigned int dfsize, const TData *D0, const TData *D1,
-                  const TData *D2, const TData *Z0, const TData *Z1,
-                  const TData *Z2, const TData *df, const TData *in, TData *out)
+                  const TData *D0, const TData *D1, const TData *D2,
+                  const TData *Z0, const TData *Z1, const TData *Z2,
+                  const TData *df, const TData *in, TData *out)
 {
     unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 + nq2 * nq2 : 0u;
 
@@ -1029,14 +1036,14 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1 * nq2;
             PhysDeriv3DKernel_QP<TData, LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
-                nullptr, nullptr, nullptr, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, nullptr,
+                nullptr, nullptr, df, in, out);
         }
         else
         {
             PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2,
-                nullptr, nullptr, nullptr, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, nullptr,
+                nullptr, nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -1045,15 +1052,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1 * nq2;
             PhysDeriv3DKernel_QP<TData, LibUtilities::Tet, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                Z1, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
         }
         else
         {
             nshared += nq0 + 2u * nq1 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                Z1, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -1062,15 +1069,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1 * nq2;
             PhysDeriv3DKernel_QP<TData, LibUtilities::Prism, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                nullptr, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, nullptr,
+                Z2, df, in, out);
         }
         else
         {
             nshared += nq0 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                nullptr, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, nullptr,
+                Z2, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -1079,15 +1086,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         {
             nshared += nq0 * nq1 * nq2;
             PhysDeriv3DKernel_QP<TData, LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                Z1, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
         }
         else
         {
             nshared += nq0 + nq1 + nq2;
             PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                Z1, Z2, df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
         }
     }
 }

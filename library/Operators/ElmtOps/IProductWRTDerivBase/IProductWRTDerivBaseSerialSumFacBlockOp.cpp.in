@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralKokkosKernels.hpp
+// File: IProductWRTDerivBaseSerialSumFac@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,50 +28,40 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Cmake configuration for boilerplate code to generate block
+// operator code wrapped in a 2 level switch statement
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
-
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include "Operators/Common/Spaces.hpp"
+#include "Common/SwitchLevel2Defs.h"
+// Update this include file to the appropriate operator class definition if
+// using for another operator
+#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
+// clang-format off
 
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-AddTraceIntegralKernel(const unsigned int nsize,
-                       const int *traceCoeffsToElmtMapPtr,
-                       const int *traceCoeffsToElmtSignPtr,
-                       const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outPtr)
+// Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
+template <>
+void OperatorIProductWRTDerivBaseImpl<NektarSpaces::Serial, Operators::SumFac,
+                                      NekDouble>::@Shape@Block
+                (const NekDouble *input, NekDouble *output)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
+    // The following will use predefined code found in the Operators/Common
+    // directory to import boost_pp code to make wrapper code to call
+    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
+    // Operator3D otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+    
+#define SHAPE_TYPE_@Shape@
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
 
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
-        KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + traceCoeffsToElmtMapPtr[i],
-                               traceCoeffsToElmtSignPtr[i] *
-                                   tracePtr[traceCoeffsToElmtTracePtr[i]]);
-        });
 }
-
-// Launchers
-template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
-}
+// clang-format on
 
 } // namespace Nektar::Operators::detail
-
-#endif

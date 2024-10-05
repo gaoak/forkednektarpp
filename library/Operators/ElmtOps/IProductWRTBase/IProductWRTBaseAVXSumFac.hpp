@@ -87,10 +87,10 @@ public:
             *jac, ExecSpace::alignment);
 
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_BASIS_DATA, ExecSpace::alignment);
+        m_basisMap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eBasis,
+                                                          ExecSpace::alignment);
         m_weightMap = GetBasisData<MemSpace, TData, vec_t>(
-            expansionList, BASIS_WEIGHT_DATA, ExecSpace::alignment);
+            expansionList, eWeights, ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -350,15 +350,13 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0;
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nqTot),
-        //     tmpOut(m_nmTot);
         std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(wsp0Size);
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -385,8 +383,8 @@ private:
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, bPtr0, bPtr1, wPtr0, wPtr1,
-                jacPtr, wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
+                wPtr1, jacPtr, wsp0, tmpOut);
 
             tmpIn += nqTot;
             tmpOut += nmTot * vec_t::width;
@@ -405,15 +403,13 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
         size_t wsp0Size = 0;
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nmTot),
-        //     tmpOut(nqTot);
         std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(wsp0Size);
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
@@ -444,8 +440,8 @@ private:
             // load_interleave(inPtr, nqTot, tmpIn);
 
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nq0, nq1, correct, tmpIn, bPtr0, bPtr1, wPtr0, wPtr1,
-                jacPtr, wsp0, tmpOut);
+                nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
+                wPtr1, jacPtr, wsp0, tmpOut);
 
             // de-interleave and store data
             // deinterleave_store(tmpOut, m_nmTot, outPtr);
@@ -474,7 +470,7 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -517,7 +513,7 @@ private:
             // load_interleave(inPtr, nqTot, tmpIn);
 
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, bPtr0, bPtr1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
 
             // de-interleave and store data
@@ -540,7 +536,7 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
-        const bool correct =
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions
@@ -583,7 +579,7 @@ private:
             // load_interleave(inPtr, nqTot, tmpIn);
 
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, correct, tmpIn, bPtr0, bPtr1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
 
             // de-interleave and store data

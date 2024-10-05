@@ -46,9 +46,9 @@ namespace Nektar::Operators::detail
 template <typename TData, bool DEFORMED>
 __global__ void PhysDeriv1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const unsigned int dfsize,
-    const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const unsigned int nsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
@@ -63,7 +63,7 @@ __global__ void PhysDeriv1DKernel(
         {
             const unsigned int index =
                 nq0 * warpsize * iwarp + warpsize * i + ilane;
-            const unsigned int dfindex = DEFORMED ? index : e;
+            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
 
             // Compute tensorial derivative.
             TData d0 = 0.0;
@@ -76,7 +76,7 @@ __global__ void PhysDeriv1DKernel(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] = d0 * df[d * dfsize + dfindex];
+                out[d * nsize + index] = d0 * df[d + dfindex];
             }
         }
 
@@ -87,9 +87,9 @@ __global__ void PhysDeriv1DKernel(
 template <typename TData, bool DEFORMED>
 __global__ void PhysDeriv1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const unsigned int dfsize,
-    const TData *__restrict__ D0, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const unsigned int nsize, const TData *__restrict__ D0,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 
@@ -100,7 +100,7 @@ __global__ void PhysDeriv1DKernel_QP(
         for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
         {
             const unsigned int index   = offset + i;
-            const unsigned int dfindex = DEFORMED ? index : e;
+            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
 
             // Compute tensorial derivative.
             TData d0 = 0.0;
@@ -112,7 +112,7 @@ __global__ void PhysDeriv1DKernel_QP(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] = d0 * df[d * dfsize + dfindex];
+                out[d * nsize + index] = d0 * df[d + dfindex];
             }
         }
 
@@ -125,18 +125,20 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_D0              = SHMEM ? shared : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    const unsigned int ndf   = 2 * ncoord;
+
+    TData *s_D0 = SHMEM ? shared : (TData *)D0;
+    TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_xfrm0, *s_xfrm1;
 
     // Copy to shared memory.
@@ -188,7 +190,7 @@ __global__ void PhysDeriv2DKernel(
             {
                 const unsigned int index =
                     nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
-                const unsigned int dfindex = DEFORMED ? index : e;
+                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
 
                 // Compute tensorial derivative.
                 // Direction 0
@@ -219,9 +221,8 @@ __global__ void PhysDeriv2DKernel(
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nsize + index] =
-                        d0 * df[(2u * d) * dfsize + dfindex] +
-                        d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                    out[d * nsize + index] = d0 * df[(2u * d) + dfindex] +
+                                             d1 * df[(2u * d + 1u) + dfindex];
                 }
             }
         }
@@ -235,17 +236,19 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    const unsigned int ndf   = 2 * ncoord;
+
+    TData *s_wsp = shared;
+    TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
+    TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData xfrm0, xfrm1;
 
     // Copy to shared memory.
@@ -286,7 +289,7 @@ __global__ void PhysDeriv2DKernel_QP(
             {
                 const unsigned int cnt_ji  = nq0 * j + i;
                 const unsigned int index   = offset + cnt_ji;
-                const unsigned int dfindex = DEFORMED ? index : e;
+                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
 
                 // Compute tensorial derivative.
                 // Direction 0
@@ -315,9 +318,8 @@ __global__ void PhysDeriv2DKernel_QP(
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nsize + index] =
-                        d0 * df[(2u * d) * dfsize + dfindex] +
-                        d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                    out[d * nsize + index] = d0 * df[(2u * d) + dfindex] +
+                                             d1 * df[(2u * d + 1u) + dfindex];
                 }
             }
         }
@@ -333,17 +335,19 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    const unsigned int ndf   = 2 * ncoord;
+
+    TData *s_wsp = shared;
+    TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
+    TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData xfrm0, xfrm1;
 
     // Copy to shared memory.
@@ -379,7 +383,7 @@ __global__ void PhysDeriv2DKernel_QP_1D(
             const unsigned int i       = idx % nq0;
             const unsigned int j       = idx / nq0;
             const unsigned int index   = offset + idx;
-            const unsigned int dfindex = DEFORMED ? index : e;
+            const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
 
             // Compute tensorial derivative.
             // Direction 0
@@ -408,9 +412,8 @@ __global__ void PhysDeriv2DKernel_QP_1D(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] =
-                    d0 * df[(2u * d) * dfsize + dfindex] +
-                    d1 * df[(2u * d + 1u) * dfsize + dfindex];
+                out[d * nsize + index] = d0 * df[(2u * d) + dfindex] +
+                                         d1 * df[(2u * d + 1u) + dfindex];
             }
         }
 
@@ -425,21 +428,22 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
-    constexpr unsigned int ncoord   = 3u;
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_D0              = SHMEM ? shared : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
+
+    TData *s_D0 = SHMEM ? shared : (TData *)D0;
+    TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+    TData *s_D2 = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
     TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
 
     // Copy to shared memory.
@@ -531,6 +535,8 @@ __global__ void PhysDeriv3DKernel(
         __syncthreads();
     }
 
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
     while (e < nelmt)
@@ -546,7 +552,8 @@ __global__ void PhysDeriv3DKernel(
                 {
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
 
                     // Compute tensorial derivative.
                     // Direction 0
@@ -606,9 +613,9 @@ __global__ void PhysDeriv3DKernel(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                            d0 * df[(3u * d) + dfindex] +
+                            d1 * df[(3u * d + 1u) + dfindex] +
+                            d2 * df[(3u * d + 2u) + dfindex];
                     }
                 }
             }
@@ -623,15 +630,16 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
     constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_wsp             = shared;
@@ -688,7 +696,8 @@ __global__ void PhysDeriv3DKernel_QP(
                 {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex = DEFORMED ? index : e;
+                    const unsigned int dfindex =
+                        DEFORMED ? ndf * index : ndf * e;
 
                     // Direction 0
                     TData d0 = 0.0;
@@ -751,9 +760,9 @@ __global__ void PhysDeriv3DKernel_QP(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                            d0 * df[(3u * d) + dfindex] +
+                            d1 * df[(3u * d + 1u) + dfindex] +
+                            d2 * df[(3u * d + 2u) + dfindex];
                     }
                 }
             }
@@ -770,15 +779,16 @@ template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
 __global__ void PhysDeriv3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nsize,
-    const unsigned int dfsize, const TData *__restrict__ D0,
-    const TData *__restrict__ D1, const TData *__restrict__ D2,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const TData *__restrict__ D0, const TData *__restrict__ D1,
+    const TData *__restrict__ D2, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ TData shared[];
 
     constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_wsp             = shared;
@@ -886,10 +896,9 @@ __global__ void PhysDeriv3DKernel_QP_1D(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] =
-                    d0 * df[(3u * d) * dfsize + dfindex] +
-                    d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                    d2 * df[(3u * d + 2u) * dfsize + dfindex];
+                out[d * nsize + index] = d0 * df[(3u * d) + dfindex] +
+                                         d1 * df[(3u * d + 1u) + dfindex] +
+                                         d2 * df[(3u * d + 2u) + dfindex];
             }
         }
 
@@ -907,8 +916,8 @@ inline
                             void>::type
     PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                       const unsigned int nelmts, const unsigned int nsize,
-                      const unsigned int dfsize, const TData *D0,
-                      const TData *df, const TData *in, TData *out)
+                      const TData *D0, const TData *df, const TData *in,
+                      TData *out)
 {
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
@@ -921,12 +930,12 @@ inline
     {
         PhysDeriv1DKernel_QP<TData, DEFORMED>
             <<<gridsize, dim3(NektarSpaces::CUDA::width)>>>(
-                nq0, ncoord, nelmts, nsize, dfsize, D0, df, in, out);
+                nq0, ncoord, nelmts, nsize, D0, df, in, out);
     }
     else
     {
         PhysDeriv1DKernel<TData, DEFORMED><<<gridsize, blocksize>>>(
-            nq0, ncoord, nelmts, nsize, dfsize, D0, df, in, out);
+            nq0, ncoord, nelmts, nsize, D0, df, in, out);
     }
 }
 
@@ -938,9 +947,9 @@ inline
     PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                       const unsigned int nq1, const unsigned int ncoord,
                       const unsigned int nelmts, const unsigned int nsize,
-                      const unsigned int dfsize, const TData *D0,
-                      const TData *D1, const TData *Z0, const TData *Z1,
-                      const TData *df, const TData *in, TData *out)
+                      const TData *D0, const TData *D1, const TData *Z0,
+                      const TData *Z1, const TData *df, const TData *in,
+                      TData *out)
 {
     const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
@@ -958,16 +967,16 @@ inline
         {
             nshared += sizeof(TData) * (nq0 * nq1);
             PhysDeriv2DKernel_QP<TData, LibUtilities::Quad, DEFORMED, SHMEM>
-                <<<gridsize, blocksize2d, nshared>>>(
-                    nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, nullptr,
-                    nullptr, df, in, out);
+                <<<gridsize, blocksize2d, nshared>>>(nq0, nq1, ncoord, nelmts,
+                                                     nsize, D0, D1, nullptr,
+                                                     nullptr, df, in, out);
         }
         else
         {
             PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nq0, nq1, ncoord, nelmts, nsize, dfsize, D0, D1, nullptr,
-                    nullptr, df, in, out);
+                <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmts,
+                                                   nsize, D0, D1, nullptr,
+                                                   nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -977,16 +986,16 @@ inline
             nshared += sizeof(TData) * (nq0 * nq1);
             PhysDeriv2DKernel_QP<TData, LibUtilities::Tri, DEFORMED, SHMEM>
                 <<<gridsize, blocksize2d, nshared>>>(nq0, nq1, ncoord, nelmts,
-                                                     nsize, dfsize, D0, D1, Z0,
-                                                     Z1, df, in, out);
+                                                     nsize, D0, D1, Z0, Z1, df,
+                                                     in, out);
         }
         else
         {
             nshared += sizeof(TData) * (nq0 + nq1);
             PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED, SHMEM>
                 <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmts,
-                                                   nsize, dfsize, D0, D1, Z0,
-                                                   Z1, df, in, out);
+                                                   nsize, D0, D1, Z0, Z1, df,
+                                                   in, out);
         }
     }
 }
@@ -999,10 +1008,9 @@ inline
     PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                       const unsigned int nq1, const unsigned int nq2,
                       const unsigned int nelmts, const unsigned int nsize,
-                      const unsigned int dfsize, const TData *D0,
-                      const TData *D1, const TData *D2, const TData *Z0,
-                      const TData *Z1, const TData *Z2, const TData *df,
-                      const TData *in, TData *out)
+                      const TData *D0, const TData *D1, const TData *D2,
+                      const TData *Z0, const TData *Z1, const TData *Z2,
+                      const TData *df, const TData *in, TData *out)
 {
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
@@ -1024,15 +1032,15 @@ inline
             nshared += sizeof(TData) * (nq0 * nq1 * nq2);
             PhysDeriv3DKernel_QP<TData, LibUtilities::Hex, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(
-                    nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, nullptr,
-                    nullptr, nullptr, df, in, out);
+                    nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, nullptr, nullptr,
+                    nullptr, df, in, out);
         }
         else
         {
             PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, nullptr,
-                    nullptr, nullptr, df, in, out);
+                <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, nelmts, nsize,
+                                                   D0, D1, D2, nullptr, nullptr,
+                                                   nullptr, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tet)
@@ -1042,16 +1050,16 @@ inline
             nshared += sizeof(TData) * (nq0 * nq1 * nq2);
             PhysDeriv3DKernel_QP<TData, LibUtilities::Tet, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(nq0, nq1, nq2, nelmts,
-                                                     nsize, dfsize, D0, D1, D2,
-                                                     Z0, Z1, Z2, df, in, out);
+                                                     nsize, D0, D1, D2, Z0, Z1,
+                                                     Z2, df, in, out);
         }
         else
         {
             nshared += sizeof(TData) * (nq0 + 2u * nq1 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED, SHMEM>
                 <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, nelmts, nsize,
-                                                   dfsize, D0, D1, D2, Z0, Z1,
-                                                   Z2, df, in, out);
+                                                   D0, D1, D2, Z0, Z1, Z2, df,
+                                                   in, out);
         }
     }
     else if (shapetype == LibUtilities::Prism)
@@ -1060,17 +1068,17 @@ inline
         {
             nshared += sizeof(TData) * (nq0 * nq1 * nq2);
             PhysDeriv3DKernel_QP<TData, LibUtilities::Prism, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nq0, nq1, nq2, nelmts, nsize, dfsize, D0, D1, D2, Z0,
-                    nullptr, Z2, df, in, out);
+                <<<gridsize, blocksize3d, nshared>>>(nq0, nq1, nq2, nelmts,
+                                                     nsize, D0, D1, D2, Z0,
+                                                     nullptr, Z2, df, in, out);
         }
         else
         {
             nshared += sizeof(TData) * (nq0 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED, SHMEM>
                 <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, nelmts, nsize,
-                                                   dfsize, D0, D1, D2, Z0,
-                                                   nullptr, Z2, df, in, out);
+                                                   D0, D1, D2, Z0, nullptr, Z2,
+                                                   df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
@@ -1080,16 +1088,16 @@ inline
             nshared += sizeof(TData) * (nq0 * nq1 * nq2);
             PhysDeriv3DKernel_QP<TData, LibUtilities::Pyr, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(nq0, nq1, nq2, nelmts,
-                                                     nsize, dfsize, D0, D1, D2,
-                                                     Z0, Z1, Z2, df, in, out);
+                                                     nsize, D0, D1, D2, Z0, Z1,
+                                                     Z2, df, in, out);
         }
         else
         {
             nshared += sizeof(TData) * (nq0 + nq1 + nq2);
             PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED, SHMEM>
                 <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, nelmts, nsize,
-                                                   dfsize, D0, D1, D2, Z0, Z1,
-                                                   Z2, df, in, out);
+                                                   D0, D1, D2, Z0, Z1, Z2, df,
+                                                   in, out);
         }
     }
 }

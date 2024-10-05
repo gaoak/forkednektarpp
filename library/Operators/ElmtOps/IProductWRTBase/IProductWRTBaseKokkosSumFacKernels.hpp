@@ -2997,6 +2997,7 @@ void IProductWRTBasePyrKernel(
                                      });
 
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
+
                                      [&](const unsigned int &idx) {
                                          s_basis1[idx] = basis1[idx];
                                      });

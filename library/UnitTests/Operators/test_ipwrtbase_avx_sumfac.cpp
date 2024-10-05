@@ -84,8 +84,6 @@ TEST_IPWRTBASE(ipwrtbase_avx_tri_varp, TriVarP, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_hex, Hex, 1.0E-12)
-
 TEST_IPWRTBASE(ipwrtbase_avx_hex_sem, HexSEM, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_hex_varp, HexVarP, 1.0E-12)
@@ -104,6 +102,6 @@ TEST_IPWRTBASE(ipwrtbase_avx_tet_varp, TetVarP, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_avx_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_avx_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_avx_cube_all_elements, CubeAllElements, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()

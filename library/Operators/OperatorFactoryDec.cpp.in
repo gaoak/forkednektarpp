@@ -43,6 +43,7 @@
 // These defines must be before the operator header file as they are
 // used in the header files.
 
+// clang-format off
 @KERNEL_HEADER@
 @COMMON_HEADER@
 @GENERIC_HEADER@
@@ -62,3 +63,4 @@ std::string Operator@OPERATOR@Impl@BASE@<@EXEC_MEM_SPACE_TAG@,
         "...");
 
 } // namespace Nektar::Operators::detail
+// clang-format on

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_ipwrtderivbase_kokkos_sumfac.cpp
+// File: test_ipwrtderivbase_serial_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,80 +32,78 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestIProductWRTDerivBaseKokkos
-
-#include "init_ipwrtderivbasefields.hpp"
-
+#define BOOST_TEST_MODULE TestIProductWRTDerivBase
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "init_ipwrtderivbasefields.hpp"
+
 #define TEST_IPWRTDERIVBASE(test_name, test, dim, tol)                         \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::KOKKOS;                                \
+        using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure(dim, 1);                                                     \
-        SetTestCase(                                                           \
-            fixt_kokkos_in->GetBlocks(),                                       \
-            fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
+        SetTestCase(fixt_in->GetBlocks(),                                      \
+                    fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
         IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist) \
-            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
+            ->apply(*fixt_in, *fixt_out);                                      \
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
+        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             OutputIfNotMatch(                                                  \
-                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),  \
+                fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),         \
                 fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
                 tol);                                                          \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseKokkos)
-#if 0 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_seg, Seg, 1, 1.0E-12)
+BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBase)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_seg_sem, SegSEM, 1, 1.0E-12)
-#endif
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_quad, Quad, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_seg, Seg, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_quad_sem, QuadSEM, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_seg_sem, SegSEM, 1, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_quad_varp, QuadVarP, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_quad, Quad, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tri, Tri, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_sem, QuadSEM, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tri_varp, TriVarP, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_quad_varp, QuadVarP, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_square_all_elements,
-                    SquareAllElements, 2, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tri, Tri, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_hex, Hex, 3, 1.0E-12)
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tri_varp, TriVarP, 2, 1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_hex_sem, HexSEM, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_hex_varp, HexVarP, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_prism, Prism, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_prism_varp, PrismVarP, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_pyr, Pyr, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_pyr_varp, PyrVarP, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tet, Tet, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_tet_varp, TetVarP, 3, 1.0E-12)
-
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_cube_prism_hex, CubePrismHex, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_square_all_elements, SquareAllElements, 2,
                     1.0E-12)
 
-TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_cube_all_elements, CubeAllElements, 3,
+TEST_IPWRTDERIVBASE(ipwrtderivbase_hex, Hex, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_hex_sem, HexSEM, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_hex_varp, HexVarP, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tet, Tet, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_tet_varp, TetVarP, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr, Pyr, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_pyr_varp, PyrVarP, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_prism, Prism, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_prism_varp, PrismVarP, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
+
+TEST_IPWRTDERIVBASE(ipwrtderivbase_cube_all_elements, CubeAllElements, 3,
                     1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()
