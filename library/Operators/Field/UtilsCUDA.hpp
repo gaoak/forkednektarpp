@@ -47,12 +47,10 @@ template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
-    interleave(const unsigned int numMetaBlocks,
-               const unsigned int metaBlockSize, const unsigned int dataLen,
+    interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
                TData *inout)
 {
-    interleaveCUDAlauncher(VectorWidth, numMetaBlocks, metaBlockSize, dataLen,
-                           inout);
+    interleaveCUDAlauncher(VectorWidth, numMetaBlocks, dataLen, inout);
 }
 
 template <typename ExecSpace, typename TData>
@@ -60,12 +58,10 @@ inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     deInterleave(const unsigned int VectorWidth,
-                 const unsigned int numMetaBlocks,
-                 const unsigned int metaBlockSize, const unsigned int dataLen,
+                 const unsigned int numMetaBlocks, const unsigned int dataLen,
                  TData *inout)
 {
-    deInterleaveCUDAlauncher(VectorWidth, numMetaBlocks, metaBlockSize, dataLen,
-                             inout);
+    deInterleaveCUDAlauncher(VectorWidth, numMetaBlocks, dataLen, inout);
 }
 
 template <typename ExecSpace>
