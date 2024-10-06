@@ -53,27 +53,37 @@ void IProductWRTDerivBase1DKernel(
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize),
+        Kokkos::TeamPolicy<>(gridsize, blocksize),
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int i = 0u; i < nq0; ++i)
+            while (e < nelmt)
             {
-                const unsigned int index =
-                    nq0 * warpsize * iwarp + warpsize * i + ilane;
-                const unsigned int dfindex =
-                    DEFORMED ? ncoord * index : ncoord * e;
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
 
-                TData sum = 0.0;
-                for (unsigned int d = 0u; d < ncoord; ++d)
+                for (unsigned int i = 0u; i < nq0; ++i)
                 {
-                    sum += df[d + dfindex] * in[d * nsize + index];
+                    const unsigned int index =
+                        nq0 * warpsize * iwarp + warpsize * i + ilane;
+                    const unsigned int dfindex =
+                        DEFORMED ? ncoord * index : ncoord * e;
+
+                    TData sum = 0.0;
+                    for (unsigned int d = 0u; d < ncoord; ++d)
+                    {
+                        sum += df[d + dfindex] * in[d * nsize + index];
+                    }
+                    out[index] = sum;
                 }
-                out[index] = sum;
+
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -129,8 +139,12 @@ void IProductWRTDerivBase2DKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -155,42 +169,50 @@ void IProductWRTDerivBase2DKernel(
                                      [&](const unsigned int &idx) {
                                          s_f1[idx] = 0.5 * (1.0 + Z0[idx]);
                                      });
+
+                team.team_barrier();
             }
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+            while (e < nelmt)
             {
-                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+
+                for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
                 {
-                    const unsigned int index =
-                        nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
-                    const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                    for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                    {
+                        const unsigned int index = nqTot * warpsize * iwarp +
+                                                   warpsize * cnt_ji + ilane;
+                        const unsigned int dfindex =
+                            DEFORMED ? ndf * index : ndf * e;
 
-                    TData sum1 = 0.0, sum2 = 0.0;
-                    for (unsigned int d = 0; d < ncoord; ++d)
-                    {
-                        TData tmp = in[d * nsize + index];
-                        sum1 += df[(2u * d) + dfindex] * tmp;
-                        sum2 += df[(2u * d + 1u) + dfindex] * tmp;
-                    }
+                        TData sum1 = 0.0, sum2 = 0.0;
+                        for (unsigned int d = 0; d < ncoord; ++d)
+                        {
+                            TData tmp = in[d * nsize + index];
+                            sum1 += df[(2u * d) + dfindex] * tmp;
+                            sum2 += df[(2u * d + 1u) + dfindex] * tmp;
+                        }
 
-                    // Moving from standard to collapsed coordinates.
-                    if (SHAPETYPE == LibUtilities::Quad)
-                    {
-                        out[index]         = sum1;
-                        out[nsize + index] = sum2;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Tri)
-                    {
-                        out[index]         = (sum1 + sum2 * s_f1[i]) * s_f0[j];
-                        out[nsize + index] = sum2;
+                        // Moving from standard to collapsed coordinates.
+                        if (SHAPETYPE == LibUtilities::Quad)
+                        {
+                            out[index]         = sum1;
+                            out[nsize + index] = sum2;
+                        }
+                        else if (SHAPETYPE == LibUtilities::Tri)
+                        {
+                            out[index] = (sum1 + sum2 * s_f1[i]) * s_f0[j];
+                            out[nsize + index] = sum2;
+                        }
                     }
                 }
+
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -336,8 +358,12 @@ void IProductWRTDerivBase3DKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -374,6 +400,8 @@ void IProductWRTDerivBase3DKernel(
                                      [&](const unsigned int &idx) {
                                          s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
                                      });
+
+                team.team_barrier();
             }
             else if (SHAPETYPE == LibUtilities::Prism)
             {
@@ -389,6 +417,8 @@ void IProductWRTDerivBase3DKernel(
                                      [&](const unsigned int &idx) {
                                          s_f2[idx] = 2.0 / (1.0 - Z2[idx]);
                                      });
+
+                team.team_barrier();
             }
             else if (SHAPETYPE == LibUtilities::Pyr)
             {
@@ -410,62 +440,71 @@ void IProductWRTDerivBase3DKernel(
                                      [&](const unsigned int &idx) {
                                          s_f3[idx] = 0.5 * (1.0 + Z1[idx]);
                                      });
+
+                team.team_barrier();
             }
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+            while (e < nelmt)
             {
-                for (unsigned int j = 0u; j < nq1; ++j)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+
+                for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
                 {
-                    for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                    for (unsigned int j = 0u; j < nq1; ++j)
                     {
-                        const unsigned int index = nqTot * warpsize * iwarp +
-                                                   warpsize * cnt_kji + ilane;
-                        const unsigned int dfindex =
-                            DEFORMED ? ndf * index : ndf * e;
+                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                        {
+                            const unsigned int index =
+                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
+                                ilane;
+                            const unsigned int dfindex =
+                                DEFORMED ? ndf * index : ndf * e;
 
-                        TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-                        for (unsigned int d = 0u; d < ncoord; ++d)
-                        {
-                            TData tmp = in[d * nsize + index];
-                            sum1 += df[(3u * d) + dfindex] * tmp;
-                            sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                            sum3 += df[(3u * d + 2u) + dfindex] * tmp;
-                        }
+                            TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
+                            for (unsigned int d = 0u; d < ncoord; ++d)
+                            {
+                                TData tmp = in[d * nsize + index];
+                                sum1 += df[(3u * d) + dfindex] * tmp;
+                                sum2 += df[(3u * d + 1u) + dfindex] * tmp;
+                                sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                            }
 
-                        if (SHAPETYPE == LibUtilities::Hex)
-                        {
-                            out[index]              = sum1;
-                            out[nsize + index]      = sum2;
-                            out[2u * nsize + index] = sum3;
-                        }
-                        else if (SHAPETYPE == LibUtilities::Tet)
-                        {
-                            out[index] =
-                                (sum1 + (sum2 + sum3) * s_f1[i]) * s_f0[j];
-                            out[nsize + index] =
-                                (sum2 + sum3 * s_f3[j]) * s_f2[k];
-                            out[2u * nsize + index] = sum3;
-                        }
-                        else if (SHAPETYPE == LibUtilities::Prism)
-                        {
-                            out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
-                            out[nsize + index]      = sum2;
-                            out[2u * nsize + index] = sum3;
-                        }
-                        else if (SHAPETYPE == LibUtilities::Pyr)
-                        {
-                            out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
-                            out[nsize + index] =
-                                (sum2 + sum3 * s_f3[j]) * s_f2[k];
-                            out[2u * nsize + index] = sum3;
+                            if (SHAPETYPE == LibUtilities::Hex)
+                            {
+                                out[index]              = sum1;
+                                out[nsize + index]      = sum2;
+                                out[2u * nsize + index] = sum3;
+                            }
+                            else if (SHAPETYPE == LibUtilities::Tet)
+                            {
+                                out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
+                                             s_f0[j] * s_f2[k];
+                                out[nsize + index] =
+                                    (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                                out[2u * nsize + index] = sum3;
+                            }
+                            else if (SHAPETYPE == LibUtilities::Prism)
+                            {
+                                out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                                out[nsize + index]      = sum2;
+                                out[2u * nsize + index] = sum3;
+                            }
+                            else if (SHAPETYPE == LibUtilities::Pyr)
+                            {
+                                out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                                out[nsize + index] =
+                                    (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                                out[2u * nsize + index] = sum3;
+                            }
                         }
                     }
                 }
+
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -514,7 +553,7 @@ void IProductWRTDerivBase3DKernel_QP(
 
                     if (SHAPETYPE == LibUtilities::Tet)
                     {
-                        f0 = 2.0 * f2 / (1.0 - Z1[j]);
+                        f0 = 2.0 / (1.0 - Z1[j]);
                     }
 
                     const unsigned int index =
@@ -539,8 +578,8 @@ void IProductWRTDerivBase3DKernel_QP(
                     }
                     else if (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index]         = (sum1 + (sum2 + sum3) * f1) * f0;
-                        out[nsize + index] = (sum2 + sum3 * f3) * f2;
+                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
+                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                         out[2u * nsize + index] = sum3;
                     }
                     else if (SHAPETYPE == LibUtilities::Prism)
@@ -607,7 +646,7 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 
                     if (SHAPETYPE == LibUtilities::Tet)
                     {
-                        f0 = 2.0 * f2 / (1.0 - Z1[j]);
+                        f0 = 2.0 / (1.0 - Z1[j]);
                     }
 
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
@@ -627,8 +666,8 @@ void IProductWRTDerivBase3DKernel_QP_1D(
                     }
                     else if (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index]         = (sum1 + (sum2 + sum3) * f1) * f0;
-                        out[nsize + index] = (sum2 + sum3 * f3) * f2;
+                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
+                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                         out[2u * nsize + index] = sum3;
                     }
                     else if (SHAPETYPE == LibUtilities::Prism)

@@ -378,7 +378,8 @@ void IProductWRTDerivBase3DKernel(
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) * s_f0[j];
+                        out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
+                                     s_f0[j] * s_f2[k];
                         out[nsize + index] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
                         out[2u * nsize + index] = sum3;
                     }
@@ -441,7 +442,7 @@ void IProductWRTDerivBase3DKernel_QP(
                 }
                 if constexpr (SHAPETYPE == LibUtilities::Tet)
                 {
-                    f0 = 2.0 * f2 / (1.0 - Z1[j]);
+                    f0 = 2.0 / (1.0 - Z1[j]);
                 }
 
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
@@ -476,8 +477,8 @@ void IProductWRTDerivBase3DKernel_QP(
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        out[index]         = (sum1 + (sum2 + sum3) * f1) * f0;
-                        out[nsize + index] = (sum2 + sum3 * f3) * f2;
+                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
+                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                         out[2u * nsize + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
@@ -541,7 +542,7 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 
             if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
-                f0 = 2.0 * f2 / (1.0 - Z1[j]);
+                f0 = 2.0 / (1.0 - Z1[j]);
             }
 
             if constexpr (SHAPETYPE == LibUtilities::Tet ||
@@ -571,7 +572,7 @@ void IProductWRTDerivBase3DKernel_QP_1D(
             }
             else if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
-                out[index]              = (sum1 + (sum2 + sum3) * f1) * f0;
+                out[index]              = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
                 out[nsize + index]      = (sum2 + sum3 * f3) * f2;
                 out[2u * nsize + index] = sum3;
             }

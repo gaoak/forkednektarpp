@@ -63,8 +63,12 @@ void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -90,36 +94,42 @@ void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int p = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                TData sum = 0.0;
-                for (unsigned int i = 0u; i < nq0; ++i)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+
+                for (unsigned int p = 0u; p < nm0; ++p)
                 {
+                    TData sum = 0.0;
+                    for (unsigned int i = 0u; i < nq0; ++i)
+                    {
+                        const unsigned int index =
+                            nq0 * warpsize * iwarp + warpsize * i + ilane;
+                        const unsigned int jacindex = DEFORMED ? index : e;
+                        sum += in[index] * s_basis0[p * nq0 + i] *
+                               jac[jacindex] * s_w0[i];
+                    }
+
+                    if (SCALE)
+                    {
+                        sum *= scale;
+                    }
+
                     const unsigned int index =
-                        nq0 * warpsize * iwarp + warpsize * i + ilane;
-                    const unsigned int jacindex = DEFORMED ? index : e;
-                    sum += in[index] * s_basis0[p * nq0 + i] * jac[jacindex] *
-                           s_w0[i];
+                        nm0 * warpsize * iwarp + warpsize * p + ilane;
+                    if (APPEND)
+                    {
+                        out[index] += sum;
+                    }
+                    else
+                    {
+                        out[index] = sum;
+                    }
                 }
 
-                if (SCALE)
-                {
-                    sum *= scale;
-                }
-
-                const unsigned int index =
-                    nm0 * warpsize * iwarp + warpsize * p + ilane;
-                if (APPEND)
-                {
-                    out[index] += sum;
-                }
-                else
-                {
-                    out[index] = sum;
-                }
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -229,8 +239,12 @@ void IProductWRTBaseQuadKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -267,51 +281,60 @@ void IProductWRTBaseQuadKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int p = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+
+                for (unsigned int p = 0u; p < nm0; ++p)
                 {
-                    TData sum = 0.0;
-                    for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
                     {
-                        const unsigned int index = nqTot * warpsize * iwarp +
-                                                   warpsize * cnt_ji + ilane;
-                        const unsigned int jacindex = DEFORMED ? index : e;
-                        sum += in[index] * s_basis0[p * nq0 + i] *
-                               jac[jacindex] * s_w0[i];
+                        TData sum = 0.0;
+                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                        {
+                            const unsigned int index =
+                                nqTot * warpsize * iwarp + warpsize * cnt_ji +
+                                ilane;
+                            const unsigned int jacindex = DEFORMED ? index : e;
+                            sum += in[index] * s_basis0[p * nq0 + i] *
+                                   jac[jacindex] * s_w0[i];
+                        }
+                        wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] =
+                            sum;
                     }
-                    wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
+
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        TData sum = 0.0;
+                        for (unsigned int j = 0u; j < nq1; ++j)
+                        {
+                            sum += wsp[nq1 * warpsize * iwarp + warpsize * j +
+                                       ilane] *
+                                   s_basis1[q * nq1 + j] * s_w1[j];
+                        }
+
+                        if (SCALE)
+                        {
+                            sum *= scale;
+                        }
+
+                        const unsigned int index = nmTot * warpsize * iwarp +
+                                                   warpsize * (nm0 * q + p) +
+                                                   ilane;
+                        if (APPEND)
+                        {
+                            out[index] += sum;
+                        }
+                        else
+                        {
+                            out[index] = sum;
+                        }
+                    }
                 }
 
-                for (unsigned int q = 0u; q < nm1; ++q)
-                {
-                    TData sum = 0.0;
-                    for (unsigned int j = 0u; j < nq1; ++j)
-                    {
-                        sum +=
-                            wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                            s_basis1[q * nq1 + j] * s_w1[j];
-                    }
-
-                    if (SCALE)
-                    {
-                        sum *= scale;
-                    }
-
-                    const unsigned int index = nmTot * warpsize * iwarp +
-                                               warpsize * (nm0 * q + p) + ilane;
-                    if (APPEND)
-                    {
-                        out[index] += sum;
-                    }
-                    else
-                    {
-                        out[index] = sum;
-                    }
-                }
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -583,8 +606,12 @@ void IProductWRTBaseTriKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -621,95 +648,105 @@ void IProductWRTBaseTriKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
 
-            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+
+                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
                 {
-                    TData sum = 0.0;
-                    for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
                     {
-                        const unsigned int index = nqTot * warpsize * iwarp +
-                                                   warpsize * cnt_ji + ilane;
-                        const unsigned int jacindex = DEFORMED ? index : e;
-                        sum += in[index] * s_basis0[p * nq0 + i] *
-                               jac[jacindex] * s_w0[i];
+                        TData sum = 0.0;
+                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                        {
+                            const unsigned int index =
+                                nqTot * warpsize * iwarp + warpsize * cnt_ji +
+                                ilane;
+                            const unsigned int jacindex = DEFORMED ? index : e;
+                            sum += in[index] * s_basis0[p * nq0 + i] *
+                                   jac[jacindex] * s_w0[i];
+                        }
+                        wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] =
+                            sum;
                     }
-                    wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
+
+                    for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+                    {
+                        TData sum = 0.0;
+                        for (unsigned int j = 0u; j < nq1; ++j)
+                        {
+                            sum += wsp[nq1 * warpsize * iwarp + warpsize * j +
+                                       ilane] *
+                                   s_basis1[mode_pq * nq1 + j] * s_w1[j];
+                        }
+
+                        if (SCALE)
+                        {
+                            sum *= scale;
+                        }
+
+                        const unsigned int index = nmTot * warpsize * iwarp +
+                                                   warpsize * mode_pq + ilane;
+                        if (APPEND)
+                        {
+                            out[index] += sum;
+                        }
+                        else
+                        {
+                            out[index] = sum;
+                        }
+                    }
                 }
 
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+                // Correction for singular vertex in collpased coordinates.
+                // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
+                // With contributions from every quadrature point
+                if (correct)
                 {
-                    TData sum = 0.0;
-                    for (unsigned int j = 0u; j < nq1; ++j)
+                    TData iprod_01 = 0.0;
+                    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
                     {
-                        sum +=
-                            wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                            s_basis1[mode_pq * nq1 + j] * s_w1[j];
-                    }
+                        const unsigned int index =
+                            nqTot * warpsize * iwarp + ilane;
+                        const unsigned int jacindex = DEFORMED ? index : e;
 
-                    if (SCALE)
-                    {
-                        sum *= scale;
+                        TData tmp = s_w1[j] * s_basis1[nq1 + j];
+                        if constexpr (!DEFORMED)
+                        {
+                            tmp *= jac[jacindex];
+                        }
+
+                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+                        {
+                            const unsigned int index =
+                                nqTot * warpsize * iwarp + warpsize * cnt_ji +
+                                ilane;
+                            const unsigned int jacindex = DEFORMED ? index : e;
+
+                            TData prod = in[index] * tmp * s_w0[i];
+                            if (DEFORMED)
+                            {
+                                prod *= jac[jacindex];
+                            }
+                            iprod_01 += prod * s_basis0[nq0 + i];
+                        }
                     }
 
                     const unsigned int index =
-                        nmTot * warpsize * iwarp + warpsize * mode_pq + ilane;
-                    if (APPEND)
+                        nmTot * warpsize * iwarp + warpsize + ilane;
+                    if (SCALE)
                     {
-                        out[index] += sum;
+                        out[index] += iprod_01 * scale;
                     }
                     else
                     {
-                        out[index] = sum;
-                    }
-                }
-            }
-
-            // Correction for singular vertex in collpased coordinates.
-            // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
-            // With contributions from every quadrature point
-            if (correct)
-            {
-                TData iprod_01 = 0.0;
-                for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
-                {
-                    const unsigned int index = nqTot * warpsize * iwarp + ilane;
-                    const unsigned int jacindex = DEFORMED ? index : e;
-
-                    TData tmp = s_w1[j] * s_basis1[nq1 + j];
-                    if constexpr (!DEFORMED)
-                    {
-                        tmp *= jac[jacindex];
-                    }
-
-                    for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
-                    {
-                        const unsigned int index = nqTot * warpsize * iwarp +
-                                                   warpsize * cnt_ji + ilane;
-                        const unsigned int jacindex = DEFORMED ? index : e;
-
-                        TData prod = in[index] * tmp * s_w0[i];
-                        if (DEFORMED)
-                        {
-                            prod *= jac[jacindex];
-                        }
-                        iprod_01 += prod * s_basis0[nq0 + i];
+                        out[index] += iprod_01;
                     }
                 }
 
-                const unsigned int index =
-                    nmTot * warpsize * iwarp + warpsize + ilane;
-                if (SCALE)
-                {
-                    out[index] += iprod_01 * scale;
-                }
-                else
-                {
-                    out[index] += iprod_01;
-                }
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -1072,8 +1109,12 @@ void IProductWRTBaseHexKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -1121,78 +1162,86 @@ void IProductWRTBaseHexKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
-            TData *wsp0              = wsp;
-            TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
 
-            for (unsigned int p = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2;
-                     ++k)
-                {
-                    for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
-                    {
-                        TData sum_kj = 0.0;
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                        {
-                            const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-                            const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * s_basis0[i + nq0 * p] *
-                                      jac[jacindex] * s_w0[i];
-                        }
-                        wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
-                             ilane] = sum_kj;
-                    }
-                }
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+                TData *wsp0              = wsp;
+                TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
 
-                for (unsigned int q = 0u; q < nm1; ++q)
+                for (unsigned int p = 0u; p < nm0; ++p)
                 {
-                    for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                    for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u;
+                         k < nq2; ++k)
                     {
-                        TData sum_k = 0.0;
                         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                         {
-                            sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
-                                          warpsize * cnt_kj + ilane] *
-                                     s_basis1[q * nq1 + j] * s_w1[j];
+                            TData sum_kj = 0.0;
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+                                const unsigned int jacindex =
+                                    DEFORMED ? index : e;
+                                sum_kj += in[index] * s_basis0[i + nq0 * p] *
+                                          jac[jacindex] * s_w0[i];
+                            }
+                            wsp0[nq1 * nq2 * warpsize * iwarp +
+                                 warpsize * cnt_kj + ilane] = sum_kj;
                         }
-                        wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
-                            sum_k;
                     }
 
-                    for (unsigned int r = 0u; r < nm2; ++r)
+                    for (unsigned int q = 0u; q < nm1; ++q)
                     {
-                        const unsigned int cnt_rqp =
-                            nm0 * nm1 * r + nm0 * q + p;
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * cnt_rqp + ilane;
-
-                        TData sum = 0.0;
-                        for (unsigned int k = 0u; k < nq2; ++k)
+                        for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
                         {
-                            sum += wsp1[nq2 * warpsize * iwarp + warpsize * k +
-                                        ilane] *
-                                   s_basis2[r * nq2 + k] * s_w2[k];
+                            TData sum_k = 0.0;
+                            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                            {
+                                sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
+                                              warpsize * cnt_kj + ilane] *
+                                         s_basis1[q * nq1 + j] * s_w1[j];
+                            }
+                            wsp1[nq2 * warpsize * iwarp + warpsize * k +
+                                 ilane] = sum_k;
                         }
 
-                        if (SCALE)
+                        for (unsigned int r = 0u; r < nm2; ++r)
                         {
-                            sum *= scale;
-                        }
+                            const unsigned int cnt_rqp =
+                                nm0 * nm1 * r + nm0 * q + p;
+                            const unsigned int index =
+                                nmTot * warpsize * iwarp + warpsize * cnt_rqp +
+                                ilane;
 
-                        if (APPEND)
-                        {
-                            out[index] += sum;
-                        }
-                        else
-                        {
-                            out[index] = sum;
+                            TData sum = 0.0;
+                            for (unsigned int k = 0u; k < nq2; ++k)
+                            {
+                                sum += wsp1[nq2 * warpsize * iwarp +
+                                            warpsize * k + ilane] *
+                                       s_basis2[r * nq2 + k] * s_w2[k];
+                            }
+
+                            if (SCALE)
+                            {
+                                sum *= scale;
+                            }
+
+                            if (APPEND)
+                            {
+                                out[index] += sum;
+                            }
+                            else
+                            {
+                                out[index] = sum;
+                            }
                         }
                     }
                 }
+
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -1542,8 +1591,12 @@ void IProductWRTBaseTetKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -1592,173 +1645,187 @@ void IProductWRTBaseTetKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
-            TData *wsp0              = wsp;
-            TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
-            TData *prod              = wsp1 + nq2 * nelmt;
 
-            for (unsigned int p = 0u, mode_pq = 0u, mode_pqr = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2;
-                     ++k)
-                {
-                    for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
-                    {
-                        TData sum_kj = 0.0;
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                        {
-                            const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-                            const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * s_basis0[i + nq0 * p] *
-                                      jac[jacindex] * s_w0[i];
-                        }
-                        wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
-                             ilane] = sum_kj;
-                    }
-                }
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+                TData *wsp0              = wsp;
+                TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
+                TData *prod              = wsp1 + nq2 * nelmt;
 
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+                for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u,
+                                  mode_pqr = 0u;
+                     p < nm0; ++p)
                 {
-                    for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                    for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u;
+                         k < nq2; ++k)
                     {
-                        TData sum_k = 0.0;
                         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                         {
-                            sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
-                                          warpsize * cnt_kj + ilane] *
-                                     s_basis1[mode_pq * nq1 + j] * s_w1[j];
+                            TData sum_kj = 0.0;
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+                                const unsigned int jacindex =
+                                    DEFORMED ? index : e;
+                                sum_kj += in[index] * s_basis0[i + nq0 * p] *
+                                          jac[jacindex] * s_w0[i];
+                            }
+                            wsp0[nq1 * nq2 * warpsize * iwarp +
+                                 warpsize * cnt_kj + ilane] = sum_kj;
                         }
-                        wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
-                            sum_k;
                     }
 
-                    for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode_pqr)
+                    for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
                     {
-                        TData tmp = 0.0;
-                        for (unsigned int k = 0u; k < nq2; ++k)
+                        for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
                         {
-                            tmp += wsp1[nq2 * warpsize * iwarp + warpsize * k +
-                                        ilane] *
-                                   s_basis2[mode_pqr * nq2 + k] * s_w2[k];
+                            TData sum_k = 0.0;
+                            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                            {
+                                sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
+                                              warpsize * cnt_kj + ilane] *
+                                         s_basis1[mode_pq * nq1 + j] * s_w1[j];
+                            }
+                            wsp1[nq2 * warpsize * iwarp + warpsize * k +
+                                 ilane] = sum_k;
                         }
 
-                        if (SCALE)
+                        for (unsigned int r = 0u; r < nm2 - p - q;
+                             ++r, ++mode2, ++mode_pqr)
                         {
-                            tmp *= scale;
-                        }
+                            TData tmp = 0.0;
+                            for (unsigned int k = 0u; k < nq2; ++k)
+                            {
+                                tmp += wsp1[nq2 * warpsize * iwarp +
+                                            warpsize * k + ilane] *
+                                       s_basis2[mode2 * nq2 + k] * s_w2[k];
+                            }
 
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * mode_pqr + ilane;
-                        if (APPEND)
-                        {
-                            out[index] += tmp;
+                            if (SCALE)
+                            {
+                                tmp *= scale;
+                            }
+
+                            const unsigned int index =
+                                nmTot * warpsize * iwarp + warpsize * mode_pqr +
+                                ilane;
+                            if (APPEND)
+                            {
+                                out[index] += tmp;
+                            }
+                            else
+                            {
+                                out[index] = tmp;
+                            }
                         }
-                        else
-                        {
-                            out[index] = tmp;
-                        }
+                    }
+
+                    // increment mode in case order1!=order2
+                    for (int q = nm1 - p; q < nm2 - p; ++q)
+                    {
+                        mode2 += nm2 - p - q;
                     }
                 }
 
-                // increment mode in case order1!=order2
-                for (int q = nm1 - p; q < nm2 - p; ++q)
+                // Add correction for collapsed coordinate.
+                if (correct)
                 {
-                    mode_pqr += nm2 - p - q;
-                }
-            }
-
-            // Add correction for collapsed coordinate.
-            if (correct)
-            {
-                for (unsigned int r = 0u; r < nm2; ++r)
-                {
-                    prod[nm2 * warpsize * iwarp + warpsize * r + ilane] = 0.0;
-                }
-
-                for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-                {
-                    TData tmpQ2 = s_w2[k];
-                    if constexpr (!DEFORMED)
+                    for (unsigned int r = 0u; r < nm2; ++r)
                     {
-                        tmpQ2 *= jac[e];
+                        prod[nm2 * warpsize * iwarp + warpsize * r + ilane] =
+                            0.0;
                     }
 
-                    for (unsigned int j = 0u; j < nq1; ++j)
+                    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
                     {
-                        TData tmpQ1 = tmpQ2 * s_w1[j];
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                        TData tmpQ2 = s_w2[k];
+                        if constexpr (!DEFORMED)
+                        {
+                            tmpQ2 *= jac[e];
+                        }
+
+                        for (unsigned int j = 0u; j < nq1; ++j)
+                        {
+                            TData tmpQ1 = tmpQ2 * s_w1[j];
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+
+                                // Store jac * quadrature weight
+                                TData tmpQ = tmpQ1 * s_w0[i];
+                                if constexpr (DEFORMED)
+                                {
+                                    tmpQ *= jac[index];
+                                }
+
+                                // top vertex
+                                TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                                tmp += s_basis0[nq0 + i] * s_basis1[j];
+                                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                                tmp *= s_basis2[nq2 + k];
+                                tmp *= in[index] * tmpQ;
+                                prod[nm2 * warpsize * iwarp +
+                                     warpsize * (nm2 - 1) + ilane] += tmp;
+
+                                // bottom vertex
+                                tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
+                                      s_basis2[k] * in[index] * tmpQ;
+                                prod[nm2 * warpsize * iwarp + ilane] += tmp;
+
+                                // singular edge
+                                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                                {
+                                    tmp = s_basis2[(r + 1) * nq2 + k] *
+                                          s_basis1[nq1 + j] *
+                                          s_basis0[nq0 + i] * in[index] * tmpQ;
+                                    prod[nm2 * warpsize * iwarp + warpsize * r +
+                                         ilane] += tmp;
+                                }
+                            }
+                        }
+                    }
+
+                    if (SCALE)
+                    {
+                        const unsigned int index =
+                            nmTot * warpsize * iwarp + warpsize + ilane;
+                        out[index] += prod[nm2 * warpsize * iwarp +
+                                           warpsize * (nm2 - 1) + ilane] *
+                                      scale;
+                        for (unsigned int r = 0u; r < nm2 - 1u; ++r)
                         {
                             const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-
-                            // Store jac * quadrature weight
-                            TData tmpQ = tmpQ1 * s_w0[i];
-                            if constexpr (DEFORMED)
-                            {
-                                tmpQ *= jac[index];
-                            }
-
-                            // top vertex
-                            TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                            tmp += s_basis0[nq0 + i] * s_basis1[j];
-                            tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                            tmp *= s_basis2[nq2 + k];
-                            tmp *= in[index] * tmpQ;
-                            prod[nm2 * warpsize * iwarp + warpsize * (nm2 - 1) +
-                                 ilane] += tmp;
-
-                            // bottom vertex
-                            tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
-                                  s_basis2[k] * in[index] * tmpQ;
-                            prod[nm2 * warpsize * iwarp + ilane] += tmp;
-
-                            // singular edge
-                            for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-                            {
-                                tmp = s_basis2[(r + 1) * nq2 + k] *
-                                      s_basis1[nq1 + j] * s_basis0[nq0 + i] *
-                                      in[index] * tmpQ;
-                                prod[nm2 * warpsize * iwarp + warpsize * r +
-                                     ilane] += tmp;
-                            }
+                                nmTot * warpsize * iwarp +
+                                warpsize * (nm2 + r) + ilane;
+                            out[index] += prod[nm2 * warpsize * iwarp +
+                                               warpsize * r + ilane] *
+                                          scale;
+                        }
+                    }
+                    else
+                    {
+                        const unsigned int index =
+                            nmTot * warpsize * iwarp + warpsize + ilane;
+                        out[index] += prod[nm2 * warpsize * iwarp +
+                                           warpsize * (nm2 - 1) + ilane];
+                        for (unsigned int r = 0u; r < nm2 - 1u; ++r)
+                        {
+                            const unsigned int index =
+                                nmTot * warpsize * iwarp +
+                                warpsize * (nm2 + r) + ilane;
+                            out[index] += prod[nm2 * warpsize * iwarp +
+                                               warpsize * r + ilane];
                         }
                     }
                 }
 
-                if (SCALE)
-                {
-                    const unsigned int index =
-                        nmTot * warpsize * iwarp + warpsize + ilane;
-                    out[index] += prod[nm2 * warpsize * iwarp +
-                                       warpsize * (nm2 - 1) + ilane] *
-                                  scale;
-                    for (unsigned int r = 0u; r < nm2 - 1u; ++r)
-                    {
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * (nm2 + r) + ilane;
-                        out[index] += prod[nm2 * warpsize * iwarp +
-                                           warpsize * r + ilane] *
-                                      scale;
-                    }
-                }
-                else
-                {
-                    const unsigned int index =
-                        nmTot * warpsize * iwarp + warpsize + ilane;
-                    out[index] += prod[nm2 * warpsize * iwarp +
-                                       warpsize * (nm2 - 1) + ilane];
-                    for (unsigned int r = 0u; r < nm2 - 1u; ++r)
-                    {
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * (nm2 + r) + ilane;
-                        out[index] +=
-                            prod[nm2 * warpsize * iwarp + warpsize * r + ilane];
-                    }
-                }
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -2316,8 +2383,12 @@ void IProductWRTBasePrismKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -2365,139 +2436,148 @@ void IProductWRTBasePrismKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
-            TData *wsp0              = wsp;
-            TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
-            TData *wsp2              = wsp1 + nq2 * nelmt;
 
-            for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2;
-                     ++k)
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+                TData *wsp0              = wsp;
+                TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
+                TData *wsp2              = wsp1 + nq2 * nelmt;
+
+                for (unsigned int p = 0u, mode_pqr = 0u; p < nm0; ++p)
                 {
-                    for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                    for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u;
+                         k < nq2; ++k)
                     {
-                        TData sum_kj = 0.0;
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                        {
+                            TData sum_kj = 0.0;
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+                                const unsigned int jacindex =
+                                    DEFORMED ? index : e;
+                                sum_kj += in[index] * s_basis0[nq0 * p + i] *
+                                          jac[jacindex] * s_w0[i];
+                            }
+                            wsp0[nq1 * nq2 * warpsize * iwarp +
+                                 warpsize * cnt_kj + ilane] = sum_kj;
+                        }
+                    }
+
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                        {
+                            TData sum_k = 0.0;
+                            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                            {
+                                sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
+                                              warpsize * cnt_kj + ilane] *
+                                         s_basis1[q * nq1 + j] * s_w1[j];
+                            }
+                            wsp1[nq2 * warpsize * iwarp + warpsize * k +
+                                 ilane] = sum_k;
+                        }
+
+                        for (int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                         {
                             const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
+                                nmTot * warpsize * iwarp + warpsize * mode_pqr +
                                 ilane;
-                            const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * s_basis0[nq0 * p + i] *
-                                      jac[jacindex] * s_w0[i];
+                            unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
+
+                            TData sum_k = 0.0;
+                            for (unsigned int k = 0u; k < nq2; ++k)
+                            {
+                                sum_k += wsp1[nq2 * warpsize * iwarp +
+                                              warpsize * k + ilane] *
+                                         s_basis2[(mode_pr + r) * nq2 + k] *
+                                         s_w2[k];
+                            }
+
+                            if (SCALE)
+                            {
+                                sum_k *= scale;
+                            }
+
+                            if (APPEND)
+                            {
+                                out[index] += sum_k;
+                            }
+                            else
+                            {
+                                out[index] = sum_k;
+                            }
                         }
-                        wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
-                             ilane] = sum_kj;
                     }
                 }
 
-                for (unsigned int q = 0u; q < nm1; ++q)
+                // Add correction for collapsed coordinate.
+                if (correct)
                 {
-                    for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                    for (unsigned int q = 0u; q < nm1; ++q)
                     {
-                        TData sum_k = 0.0;
-                        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
-                        {
-                            sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
-                                          warpsize * cnt_kj + ilane] *
-                                     s_basis1[q * nq1 + j] * s_w1[j];
-                        }
-                        wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
-                            sum_k;
+                        wsp2[nm1 * warpsize * iwarp + warpsize * q + ilane] =
+                            0.0;
                     }
 
-                    for (int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
+                    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+                    {
+                        TData k_weight = s_w2[k];
+                        if constexpr (!DEFORMED)
+                        {
+                            k_weight *= jac[e];
+                        }
+
+                        for (unsigned int j = 0u; j < nq1; ++j)
+                        {
+                            TData kj_weight = k_weight * s_w1[j];
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+                                TData prod = kj_weight * s_w0[i] * in[index];
+                                if constexpr (DEFORMED)
+                                {
+                                    prod *= jac[index];
+                                }
+
+                                for (unsigned int q = 0u; q < nm1; ++q)
+                                {
+                                    wsp2[nm1 * warpsize * iwarp + warpsize * q +
+                                         ilane] += prod * s_basis2[nq2 + k] *
+                                                   s_basis1[q * nq1 + j] *
+                                                   s_basis0[nq0 + i];
+                                }
+                            }
+                        }
+                    }
+
+                    for (unsigned int q = 0u; q < nm1; ++q)
                     {
                         const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * mode_pqr + ilane;
-                        unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
-
-                        TData sum_k = 0.0;
-                        for (unsigned int k = 0u; k < nq2; ++k)
-                        {
-                            sum_k += wsp1[nq2 * warpsize * iwarp +
-                                          warpsize * k + ilane] *
-                                     s_basis2[(mode_pr + r) * nq2 + k] *
-                                     s_w2[k];
-                        }
-
+                                                   warpsize * (nm2 * q + 1u) +
+                                                   ilane;
                         if (SCALE)
                         {
-                            sum_k *= scale;
-                        }
-
-                        if (APPEND)
-                        {
-                            out[index] += sum_k;
+                            out[index] += wsp2[nm1 * warpsize * iwarp +
+                                               warpsize * q + ilane] *
+                                          scale;
                         }
                         else
                         {
-                            out[index] = sum_k;
-                        }
-                    }
-                }
-            }
-
-            // Add correction for collapsed coordinate.
-            if (correct)
-            {
-                for (unsigned int q = 0u; q < nm1; ++q)
-                {
-                    wsp2[nm1 * warpsize * iwarp + warpsize * q + ilane] = 0.0;
-                }
-
-                for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-                {
-                    TData k_weight = s_w2[k];
-                    if constexpr (!DEFORMED)
-                    {
-                        k_weight *= jac[e];
-                    }
-
-                    for (unsigned int j = 0u; j < nq1; ++j)
-                    {
-                        TData kj_weight = k_weight * s_w1[j];
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                        {
-                            const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-                            TData prod = kj_weight * s_w0[i] * in[index];
-                            if constexpr (DEFORMED)
-                            {
-                                prod *= jac[index];
-                            }
-
-                            for (unsigned int q = 0u; q < nm1; ++q)
-                            {
-                                wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                     ilane] += prod * s_basis2[nq2 + k] *
-                                               s_basis1[q * nq1 + j] *
-                                               s_basis0[nq0 + i];
-                            }
+                            out[index] += wsp2[nm1 * warpsize * iwarp +
+                                               warpsize * q + ilane];
                         }
                     }
                 }
 
-                for (unsigned int q = 0u; q < nm1; ++q)
-                {
-                    const unsigned int index = nmTot * warpsize * iwarp +
-                                               warpsize * (nm2 * q + 1u) +
-                                               ilane;
-                    if (SCALE)
-                    {
-                        out[index] += wsp2[nm1 * warpsize * iwarp +
-                                           warpsize * q + ilane] *
-                                      scale;
-                    }
-                    else
-                    {
-                        out[index] +=
-                            wsp2[nm1 * warpsize * iwarp + warpsize * q + ilane];
-                    }
-                }
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -2972,8 +3052,12 @@ void IProductWRTBasePyrKernel(
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
 
+    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+    const unsigned int gridsize =
+        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, NektarSpaces::KOKKOS::defaultBlockSize)
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
             .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
@@ -2997,7 +3081,6 @@ void IProductWRTBasePyrKernel(
                                      });
 
                 Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm1 * nq1),
-
                                      [&](const unsigned int &idx) {
                                          s_basis1[idx] = basis1[idx];
                                      });
@@ -3023,178 +3106,188 @@ void IProductWRTBasePyrKernel(
 
             unsigned int e =
                 team.league_rank() * team.team_size() + team.team_rank();
-            const unsigned int iwarp = e / warpsize;
-            const unsigned int ilane = e % warpsize;
-            TData *wsp0              = wsp;
-            TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
 
-            for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0; ++p)
+            while (e < nelmt)
             {
-                for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u; k < nq2;
-                     ++k)
-                {
-                    for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
-                    {
-                        TData sum_kj = 0.0;
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                        {
-                            const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-                            const unsigned int jacindex = DEFORMED ? index : e;
-                            sum_kj += in[index] * s_basis0[nq0 * p + i] *
-                                      jac[jacindex] * s_w0[i];
-                        }
-                        wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
-                             ilane] = sum_kj;
-                    }
-                }
+                const unsigned int iwarp = e / warpsize;
+                const unsigned int ilane = e % warpsize;
+                TData *wsp0              = wsp;
+                TData *wsp1              = wsp0 + nq2 * nq1 * nelmt;
 
-                for (unsigned int q = 0u; q < p; ++q)
+                for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u; p < nm0;
+                     ++p)
                 {
-                    for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                    for (unsigned int k = 0u, cnt_kj = 0u, cnt_kji = 0u;
+                         k < nq2; ++k)
                     {
-                        TData sum_k = 0.0;
                         for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
                         {
-                            sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
-                                          warpsize * cnt_kj + ilane] *
-                                     s_basis1[q * nq1 + j] * s_w1[j];
-                        }
-                        wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
-                            sum_k;
-                    }
-
-                    for (unsigned int r = 0u; r < nm2 - p;
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        TData sum_k = 0.0;
-                        for (unsigned int k = 0u; k < nq2; ++k)
-                        {
-                            sum_k += wsp1[nq2 * warpsize * iwarp +
-                                          warpsize * k + ilane] *
-                                     s_basis2[mode2 * nq2 + k] * s_w2[k];
-                        }
-
-                        if (SCALE)
-                        {
-                            sum_k *= scale;
-                        }
-
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * mode_pqr + ilane;
-                        if (APPEND)
-                        {
-                            out[index] += sum_k;
-                        }
-                        else
-                        {
-                            out[index] = sum_k;
-                        }
-                    }
-                }
-
-                for (unsigned int q = p; q < nm1; ++q)
-                {
-                    for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
-                    {
-                        TData sum_k = 0.0;
-                        for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
-                        {
-                            sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
-                                          warpsize * cnt_kj + ilane] *
-                                     s_basis1[q * nq1 + j] * s_w1[j];
-                        }
-                        wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] =
-                            sum_k;
-                    }
-
-                    for (unsigned int r = 0u; r < nm2 - q;
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        TData sum_k = 0.0;
-                        for (unsigned int k = 0u; k < nq2; ++k)
-                        {
-                            sum_k += wsp1[nq2 * warpsize * iwarp +
-                                          warpsize * k + ilane] *
-                                     s_basis2[mode2 * nq2 + k] * s_w2[k];
-                        }
-
-                        if (SCALE)
-                        {
-                            sum_k *= scale;
-                        }
-
-                        const unsigned int index = nmTot * warpsize * iwarp +
-                                                   warpsize * mode_pqr + ilane;
-                        if (APPEND)
-                        {
-                            out[index] += sum_k;
-                        }
-                        else
-                        {
-                            out[index] = sum_k;
-                        }
-                    }
-                }
-
-                // increment mode in case order1!=order2
-                for (int q = nm1; q < nm2; ++q)
-                {
-                    mode_pqr += nm2 - q;
-                }
-            }
-
-            // Add correction for collapsed coordinate.
-            if (correct)
-            {
-                TData prod = 0.0;
-                for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
-                {
-                    TData tmpQ2 = s_w2[k];
-                    if constexpr (!DEFORMED)
-                    {
-                        tmpQ2 *= jac[e];
-                    }
-
-                    for (unsigned int j = 0u; j < nq1; ++j)
-                    {
-                        TData tmpQ1 = tmpQ2 * s_w1[j];
-                        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                        {
-                            const unsigned int index =
-                                nqTot * warpsize * iwarp + warpsize * cnt_kji +
-                                ilane;
-
-                            // Store jac * quadrature weight
-                            TData tmpQ = tmpQ1 * s_w0[i];
-                            if constexpr (DEFORMED)
+                            TData sum_kj = 0.0;
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                             {
-                                tmpQ *= jac[index];
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+                                const unsigned int jacindex =
+                                    DEFORMED ? index : e;
+                                sum_kj += in[index] * s_basis0[nq0 * p + i] *
+                                          jac[jacindex] * s_w0[i];
+                            }
+                            wsp0[nq1 * nq2 * warpsize * iwarp +
+                                 warpsize * cnt_kj + ilane] = sum_kj;
+                        }
+                    }
+
+                    for (unsigned int q = 0u; q < p; ++q)
+                    {
+                        for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                        {
+                            TData sum_k = 0.0;
+                            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                            {
+                                sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
+                                              warpsize * cnt_kj + ilane] *
+                                         s_basis1[q * nq1 + j] * s_w1[j];
+                            }
+                            wsp1[nq2 * warpsize * iwarp + warpsize * k +
+                                 ilane] = sum_k;
+                        }
+
+                        for (unsigned int r = 0u; r < nm2 - p;
+                             ++r, ++mode2, ++mode_pqr)
+                        {
+                            TData sum_k = 0.0;
+                            for (unsigned int k = 0u; k < nq2; ++k)
+                            {
+                                sum_k += wsp1[nq2 * warpsize * iwarp +
+                                              warpsize * k + ilane] *
+                                         s_basis2[mode2 * nq2 + k] * s_w2[k];
                             }
 
-                            // top vertex
-                            TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                            tmp += s_basis0[nq0 + i] * s_basis1[j];
-                            tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                            tmp *= s_basis2[nq2 + k];
-                            tmp *= in[index] * tmpQ;
-                            prod += tmp;
+                            if (SCALE)
+                            {
+                                sum_k *= scale;
+                            }
+
+                            const unsigned int index =
+                                nmTot * warpsize * iwarp + warpsize * mode_pqr +
+                                ilane;
+                            if (APPEND)
+                            {
+                                out[index] += sum_k;
+                            }
+                            else
+                            {
+                                out[index] = sum_k;
+                            }
                         }
+                    }
+
+                    for (unsigned int q = p; q < nm1; ++q)
+                    {
+                        for (unsigned int k = 0u, cnt_kj = 0u; k < nq2; ++k)
+                        {
+                            TData sum_k = 0.0;
+                            for (unsigned int j = 0u; j < nq1; ++j, ++cnt_kj)
+                            {
+                                sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
+                                              warpsize * cnt_kj + ilane] *
+                                         s_basis1[q * nq1 + j] * s_w1[j];
+                            }
+                            wsp1[nq2 * warpsize * iwarp + warpsize * k +
+                                 ilane] = sum_k;
+                        }
+
+                        for (unsigned int r = 0u; r < nm2 - q;
+                             ++r, ++mode2, ++mode_pqr)
+                        {
+                            TData sum_k = 0.0;
+                            for (unsigned int k = 0u; k < nq2; ++k)
+                            {
+                                sum_k += wsp1[nq2 * warpsize * iwarp +
+                                              warpsize * k + ilane] *
+                                         s_basis2[mode2 * nq2 + k] * s_w2[k];
+                            }
+
+                            if (SCALE)
+                            {
+                                sum_k *= scale;
+                            }
+
+                            const unsigned int index =
+                                nmTot * warpsize * iwarp + warpsize * mode_pqr +
+                                ilane;
+                            if (APPEND)
+                            {
+                                out[index] += sum_k;
+                            }
+                            else
+                            {
+                                out[index] = sum_k;
+                            }
+                        }
+                    }
+
+                    // increment mode in case order1!=order2
+                    for (int q = nm1; q < nm2; ++q)
+                    {
+                        mode2 += nm2 - q;
                     }
                 }
 
-                // add to existing entry
-                const unsigned int index =
-                    nmTot * warpsize * iwarp + warpsize + ilane;
-                if (SCALE)
+                // Add correction for collapsed coordinate.
+                if (correct)
                 {
-                    out[index] += prod * scale;
+                    TData prod = 0.0;
+                    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+                    {
+                        TData tmpQ2 = s_w2[k];
+                        if constexpr (!DEFORMED)
+                        {
+                            tmpQ2 *= jac[e];
+                        }
+
+                        for (unsigned int j = 0u; j < nq1; ++j)
+                        {
+                            TData tmpQ1 = tmpQ2 * s_w1[j];
+                            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+                            {
+                                const unsigned int index =
+                                    nqTot * warpsize * iwarp +
+                                    warpsize * cnt_kji + ilane;
+
+                                // Store jac * quadrature weight
+                                TData tmpQ = tmpQ1 * s_w0[i];
+                                if constexpr (DEFORMED)
+                                {
+                                    tmpQ *= jac[index];
+                                }
+
+                                // top vertex
+                                TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                                tmp += s_basis0[nq0 + i] * s_basis1[j];
+                                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                                tmp *= s_basis2[nq2 + k];
+                                tmp *= in[index] * tmpQ;
+                                prod += tmp;
+                            }
+                        }
+                    }
+
+                    // add to existing entry
+                    const unsigned int index =
+                        nmTot * warpsize * iwarp + warpsize + ilane;
+                    if (SCALE)
+                    {
+                        out[index] += prod * scale;
+                    }
+                    else
+                    {
+                        out[index] += prod;
+                    }
                 }
-                else
-                {
-                    out[index] += prod;
-                }
+
+                e += team.team_size() * team.league_size();
             }
         });
 }
@@ -3923,11 +4016,10 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
-            /*IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED,
-               SHMEM>( nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-               correct, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-               scale);*/
-            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
+            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
+            /*unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));
             unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
@@ -3937,7 +4029,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
                                            SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac, in,
-                out, scale);
+                out, scale);*/
         }
         else
         {

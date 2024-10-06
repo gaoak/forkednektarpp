@@ -158,24 +158,24 @@ void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
         {
             s_D1[idx] = D1[idx];
         }
-    }
 
-    // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tri)
-    {
-        s_xfrm0 = SHMEM ? s_D1 + nq1 * nq1 : shared;
-        s_xfrm1 = s_xfrm0 + nq1;
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
+        // Precompute geometric factors.
+        if constexpr (SHAPETYPE == LibUtilities::Tri)
         {
-            s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
-        }
+            s_xfrm0 = s_D1 + nq1 * nq1;
+            s_xfrm1 = s_xfrm0 + nq1;
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
         }
     }
 
@@ -222,8 +222,16 @@ void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
                 // Moving from standard to collapsed coordinates.
                 if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    d0 *= s_xfrm0[j];
-                    d1 += d0 * s_xfrm1[i];
+                    if constexpr (SHMEM)
+                    {
+                        d0 *= s_xfrm0[j];
+                        d1 += d0 * s_xfrm1[i];
+                    }
+                    else
+                    {
+                        d0 *= 2.0 / (1.0 - Z1[j]);
+                        d1 += d0 * 0.5 * (1.0 + Z0[i]);
+                    }
                 }
 
                 // Multiply by derivative factors.
@@ -483,79 +491,79 @@ void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
         {
             s_D2[idx] = D2[idx];
         }
-    }
 
-    // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tet)
-    {
-        s_xfrm_eta0  = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta1  = s_xfrm_eta0 + nq0;
-        s_xfrm_eta1m = s_xfrm_eta1 + nq1;
-        s_xfrm_eta2  = s_xfrm_eta1m + nq1;
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
+        // Precompute geometric factors.
+        if constexpr (SHAPETYPE == LibUtilities::Tet)
         {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            s_xfrm_eta0  = s_D2 + nq2 * nq2;
+            s_xfrm_eta1  = s_xfrm_eta0 + nq0;
+            s_xfrm_eta1m = s_xfrm_eta1 + nq1;
+            s_xfrm_eta2  = s_xfrm_eta1m + nq1;
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
+        else if constexpr (SHAPETYPE == LibUtilities::Prism)
         {
-            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            s_xfrm_eta0 = s_D2 + nq2 * nq2;
+            s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
+        else if constexpr (SHAPETYPE == LibUtilities::Pyr)
         {
-            s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
-        }
+            s_xfrm_eta0 = s_D2 + nq2 * nq2;
+            s_xfrm_eta1 = s_xfrm_eta0 + nq0;
+            s_xfrm_eta2 = s_xfrm_eta1 + nq1;
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-        }
-    }
-    else if constexpr (SHAPETYPE == LibUtilities::Prism)
-    {
-        s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-        }
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-        }
-    }
-    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
-    {
-        s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta1 = s_xfrm_eta0 + nq0;
-        s_xfrm_eta2 = s_xfrm_eta1 + nq1;
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+                 idx += item_ct1.get_local_range(2))
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
     }
 
@@ -617,24 +625,56 @@ void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
                     // Moving from standard to collapsed coordinates.
                     if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
-                        TData tmp0 = xfrm * d0;
-                        TData tmp1 = s_xfrm_eta0[i] * tmp0;
-                        TData tmp2 = s_xfrm_eta2[k] * d1;
-                        d0         = tmp0;
-                        d1         = tmp1 + tmp2;
-                        d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
+                        if constexpr (SHMEM)
+                        {
+                            TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
+                            TData tmp0 = xfrm * d0;
+                            TData tmp1 = s_xfrm_eta0[i] * tmp0;
+                            TData tmp2 = s_xfrm_eta2[k] * d1;
+                            d0         = tmp0;
+                            d1         = tmp1 + tmp2;
+                            d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
+                        }
+                        else
+                        {
+                            TData xfrm =
+                                2.0 / (1.0 - Z1[j]) * 2.0 / (1.0 - Z2[k]);
+                            TData tmp0 = xfrm * d0;
+                            TData tmp1 = 0.5 * (1.0 + Z0[i]) * tmp0;
+                            TData tmp2 = 2.0 / (1.0 - Z2[k]) * d1;
+                            d0         = tmp0;
+                            d1         = tmp1 + tmp2;
+                            d2 += tmp1 + 0.5 * (1.0 + Z1[j]) * tmp2;
+                        }
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
                     {
-                        d0 *= s_xfrm_eta2[k];
-                        d2 += s_xfrm_eta0[i] * d0;
+                        if constexpr (SHMEM)
+                        {
+                            d0 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0;
+                        }
+                        else
+                        {
+                            d0 *= 2.0 / (1.0 - Z2[k]);
+                            d2 += 0.5 * (1.0 + Z0[i]) * d0;
+                        }
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        d0 *= s_xfrm_eta2[k];
-                        d1 *= s_xfrm_eta2[k];
-                        d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
+                        if constexpr (SHMEM)
+                        {
+                            d0 *= s_xfrm_eta2[k];
+                            d1 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
+                        }
+                        else
+                        {
+                            d0 *= 2.0 / (1.0 - Z2[k]);
+                            d1 *= 2.0 / (1.0 - Z2[k]);
+                            d2 += 0.5 * (1.0 + Z0[i]) * d0 +
+                                  0.5 * (1.0 + Z1[j]) * d1;
+                        }
                     }
 
                     // Multiply by derivative factors.
@@ -992,18 +1032,14 @@ inline
     else
     {
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nq0 * nq0),
-                                                   cgh);
-
              const sycl::range<3> localSize(1, 1, blocksize);
              const sycl::range<3> globalSize(1, 1, gridsize * blocksize);
 
              cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
                               [=](sycl::nd_item<3> item) {
-                                  TData *shmPtr = shared.get_pointer();
                                   PhysDeriv1DKernel<TData, DEFORMED>(
                                       nq0, ncoord, nelmts, nsize, D0, df, in,
-                                      out, shmPtr, item);
+                                      out, item);
                               });
          }).wait();
     }

@@ -153,22 +153,22 @@ __global__ void PhysDeriv2DKernel(
         {
             s_D1[idx] = D1[idx];
         }
-    }
 
-    // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tri)
-    {
-        s_xfrm0 = SHMEM ? s_D1 + nq1 * nq1 : shared;
-        s_xfrm1 = s_xfrm0 + nq1;
-
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        // Precompute geometric factors.
+        if constexpr (SHAPETYPE == LibUtilities::Tri)
         {
-            s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
-        }
+            s_xfrm0 = s_D1 + nq1 * nq1;
+            s_xfrm1 = s_xfrm0 + nq1;
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-        {
-            s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            {
+                s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
+            }
+
+            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            {
+                s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
         }
     }
 
@@ -214,8 +214,16 @@ __global__ void PhysDeriv2DKernel(
                 // Moving from standard to collapsed coordinates.
                 if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    d0 *= s_xfrm0[j];
-                    d1 += d0 * s_xfrm1[i];
+                    if constexpr (SHMEM)
+                    {
+                        d0 *= s_xfrm0[j];
+                        d1 += d0 * s_xfrm1[i];
+                    }
+                    else
+                    {
+                        d0 *= 2.0 / (1.0 - Z1[j]);
+                        d1 += d0 * 0.5 * (1.0 + Z0[i]);
+                    }
                 }
 
                 // Multiply by derivative factors.
@@ -436,6 +444,8 @@ __global__ void PhysDeriv3DKernel(
 {
     extern __shared__ TData shared[];
 
+    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+
     constexpr unsigned int ncoord = 3u;
     constexpr unsigned int ndf    = 9u;
 
@@ -463,70 +473,70 @@ __global__ void PhysDeriv3DKernel(
         {
             s_D2[idx] = D2[idx];
         }
-    }
 
-    // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tet)
-    {
-        s_xfrm_eta0  = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta1  = s_xfrm_eta0 + nq0;
-        s_xfrm_eta1m = s_xfrm_eta1 + nq1;
-        s_xfrm_eta2  = s_xfrm_eta1m + nq1;
-
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        // Precompute geometric factors.
+        if constexpr (SHAPETYPE == LibUtilities::Tet)
         {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            s_xfrm_eta0  = s_D2 + nq2 * nq2;
+            s_xfrm_eta1  = s_xfrm_eta0 + nq0;
+            s_xfrm_eta1m = s_xfrm_eta1 + nq1;
+            s_xfrm_eta2  = s_xfrm_eta1m + nq1;
+
+            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
+
+            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            {
+                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            }
+
+            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            {
+                s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
+            }
+
+            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
-
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        else if constexpr (SHAPETYPE == LibUtilities::Prism)
         {
-            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            s_xfrm_eta0 = s_D2 + nq2 * nq2;
+            s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+
+            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
+
+            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
-
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        else if constexpr (SHAPETYPE == LibUtilities::Pyr)
         {
-            s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
-        }
+            s_xfrm_eta0 = s_D2 + nq2 * nq2;
+            s_xfrm_eta1 = s_xfrm_eta0 + nq0;
+            s_xfrm_eta2 = s_xfrm_eta1 + nq1;
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-        }
-    }
-    else if constexpr (SHAPETYPE == LibUtilities::Prism)
-    {
-        s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+            {
+                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+            }
 
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-        {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-        }
+            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+            {
+                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+            }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-        }
-    }
-    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
-    {
-        s_xfrm_eta0 = SHMEM ? s_D2 + nq2 * nq2 : shared;
-        s_xfrm_eta1 = s_xfrm_eta0 + nq0;
-        s_xfrm_eta2 = s_xfrm_eta1 + nq1;
-
-        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-        {
-            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-        }
-
-        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
-        {
-            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
-        }
-
-        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-        {
-            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+            {
+                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+            }
         }
     }
 
@@ -534,8 +544,6 @@ __global__ void PhysDeriv3DKernel(
     {
         __syncthreads();
     }
-
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     unsigned int e = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -589,24 +597,56 @@ __global__ void PhysDeriv3DKernel(
                     // Moving from standard to collapsed coordinates.
                     if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
-                        TData tmp0 = xfrm * d0;
-                        TData tmp1 = s_xfrm_eta0[i] * tmp0;
-                        TData tmp2 = s_xfrm_eta2[k] * d1;
-                        d0         = tmp0;
-                        d1         = tmp1 + tmp2;
-                        d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
+                        if constexpr (SHMEM)
+                        {
+                            TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
+                            TData tmp0 = xfrm * d0;
+                            TData tmp1 = s_xfrm_eta0[i] * tmp0;
+                            TData tmp2 = s_xfrm_eta2[k] * d1;
+                            d0         = tmp0;
+                            d1         = tmp1 + tmp2;
+                            d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
+                        }
+                        else
+                        {
+                            TData xfrm =
+                                2.0 / (1.0 - Z1[j]) * 2.0 / (1.0 - Z2[k]);
+                            TData tmp0 = xfrm * d0;
+                            TData tmp1 = 0.5 * (1.0 + Z0[i]) * tmp0;
+                            TData tmp2 = 2.0 / (1.0 - Z2[k]) * d1;
+                            d0         = tmp0;
+                            d1         = tmp1 + tmp2;
+                            d2 += tmp1 + 0.5 * (1.0 + Z1[j]) * tmp2;
+                        }
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
                     {
-                        d0 *= s_xfrm_eta2[k];
-                        d2 += s_xfrm_eta0[i] * d0;
+                        if constexpr (SHMEM)
+                        {
+                            d0 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0;
+                        }
+                        else
+                        {
+                            d0 *= 2.0 / (1.0 - Z2[k]);
+                            d2 += 0.5 * (1.0 + Z0[i]) * d0;
+                        }
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        d0 *= s_xfrm_eta2[k];
-                        d1 *= s_xfrm_eta2[k];
-                        d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
+                        if constexpr (SHMEM)
+                        {
+                            d0 *= s_xfrm_eta2[k];
+                            d1 *= s_xfrm_eta2[k];
+                            d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
+                        }
+                        else
+                        {
+                            d0 *= 2.0 / (1.0 - Z2[k]);
+                            d1 *= 2.0 / (1.0 - Z2[k]);
+                            d2 += 0.5 * (1.0 + Z0[i]) * d0 +
+                                  0.5 * (1.0 + Z1[j]) * d1;
+                        }
                     }
 
                     // Multiply by derivative factors.
