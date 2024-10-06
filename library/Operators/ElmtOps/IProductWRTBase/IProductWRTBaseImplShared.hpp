@@ -76,10 +76,6 @@ public:
         m_weightMap = GetBasisData<MemSpace, TData>(expansionList, eWeights);
     }
 
-    ~OperatorIProductWRTBaseImpl(void)
-    {
-    }
-
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
@@ -281,8 +277,9 @@ public:
     }
 
     size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmts, size_t nq0, size_t nq1,
-                                  size_t nq2, size_t nm1, size_t nm2)
+                                  size_t nElmts, [[maybe_unused]] size_t nq0,
+                                  size_t nq1, size_t nq2, size_t nm1,
+                                  size_t nm2)
     {
         size_t wspsize = 0;
 
@@ -292,7 +289,7 @@ public:
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = nq0 * nElmts;
+            wspsize = nq1 * nElmts;
         }
         else if (shapeType == LibUtilities::Hex)
         {
