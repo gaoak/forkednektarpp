@@ -48,24 +48,20 @@ __global__ void interleave(const unsigned int VectorWidth,
     const unsigned int metaBlock = blockIdx.x;
     const unsigned int offset    = dataLen * VectorWidth * metaBlock;
 
-    for (size_t idx = threadIdx.x; idx < dataLen; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < dataLen * VectorWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-        {
-            buffer[offset + vecElem * dataLen + idx] =
-                inout[offset + vecElem * dataLen + idx];
-        }
+        buffer[offset + idx] = inout[offset + idx];
     }
 
     __syncthreads();
 
-    for (size_t idx = threadIdx.x; idx < dataLen; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < dataLen * VectorWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-        {
-            inout[offset + idx * VectorWidth + vecElem] =
-                buffer[offset + vecElem * dataLen + idx];
-        }
+        unsigned int vecElem = idx % VectorWidth;
+        unsigned int iElem   = idx / VectorWidth;
+        inout[offset + idx]  = buffer[offset + vecElem * dataLen + iElem];
     }
 }
 
@@ -78,24 +74,20 @@ __global__ void deInterleave(const unsigned int VectorWidth,
     const unsigned int metaBlock = blockIdx.x;
     const unsigned int offset    = dataLen * VectorWidth * metaBlock;
 
-    for (size_t idx = threadIdx.x; idx < dataLen; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < dataLen * VectorWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-        {
-            buffer[offset + vecElem * dataLen + idx] =
-                inout[offset + vecElem * dataLen + idx];
-        }
+        buffer[offset + idx] = inout[offset + idx];
     }
 
     __syncthreads();
 
-    for (size_t idx = threadIdx.x; idx < dataLen; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < dataLen * VectorWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-        {
-            inout[offset + vecElem * dataLen + idx] =
-                buffer[offset + idx * VectorWidth + vecElem];
-        }
+        unsigned int vecElem = idx / dataLen;
+        unsigned int iElem   = idx % dataLen;
+        inout[offset + idx]  = buffer[offset + iElem * VectorWidth + vecElem];
     }
 }
 
@@ -110,36 +102,30 @@ __global__ void BuildInterleaveMap(const unsigned int numMetaBlocks,
     const unsigned int metaBlock   = blockIdx.x;
     const unsigned int groupOffset = ncoeff * newVecWidth * metaBlock;
 
-    for (size_t idx = threadIdx.x; idx < ncoeff; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < ncoeff * newVecWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < newVecWidth; ++vecElem)
-        {
-            buffer[groupOffset + newVecWidth * idx + vecElem] =
-                offset + groupOffset + newVecWidth * idx + vecElem;
-        }
+        buffer[groupOffset + idx] = offset + groupOffset + idx;
     }
 
     __syncthreads();
 
-    for (size_t idx = threadIdx.x; idx < ncoeff; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < ncoeff * newVecWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < newVecWidth; ++vecElem)
-        {
-            deInterleaveMapPtr[groupOffset + idx * newVecWidth + vecElem] =
-                buffer[groupOffset + newVecWidth * ncoeff + idx];
-        }
+        unsigned int vecElem = idx % newVecWidth;
+        unsigned int iElem   = idx / newVecWidth;
+        deInterleaveMapPtr[groupOffset + idx] =
+            buffer[groupOffset + newVecWidth * ncoeff + iElem];
     }
 
     __syncthreads();
 
-    for (size_t idx = threadIdx.x; idx < ncoeff; idx += blockDim.x)
+    for (unsigned int idx = threadIdx.x; idx < ncoeff * newVecWidth;
+         idx += blockDim.x)
     {
-        for (size_t vecElem = 0; vecElem < newVecWidth; ++vecElem)
-        {
-            interleaveMapPtr[deInterleaveMapPtr[groupOffset +
-                                                idx * newVecWidth + vecElem]] =
-                groupOffset + newVecWidth * idx + vecElem;
-        }
+        interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
+            groupOffset + idx;
     }
 }
 
