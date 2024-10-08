@@ -36,12 +36,6 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-namespace Nektar::Operators::detail
-{
-
-using namespace tinysimd;
-using vec_t = simd<NekDouble>;
-
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
 NEK_FORCE_INLINE void PhysDeriv1DKernel(const int nq0, const size_t ndf,
                                         const vec_t *df_ptr,
@@ -182,8 +176,10 @@ NEK_FORCE_INLINE void PhysDeriv3DKernel(
     const int nq0, const int nq1, const int nq2,
     [[maybe_unused]] const vec_t *Z0, [[maybe_unused]] const vec_t *Z1,
     [[maybe_unused]] const vec_t *Z2, const vec_t *df_ptr,
-    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &wsp0, // Tets only
-    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &wsp1, // Tets only
+    [[maybe_unused]] std::vector<vec_t, tinysimd::allocator<vec_t>>
+        &wsp0, // Tets only
+    [[maybe_unused]] std::vector<vec_t, tinysimd::allocator<vec_t>>
+        &wsp1, // Tets only
     vec_t::scalarType *out_d0, vec_t::scalarType *out_d1,
     vec_t::scalarType *out_d2)
 {
@@ -493,22 +489,9 @@ NEK_FORCE_INLINE static void PhysDeriv3DWorkspace(
     [[maybe_unused]] const size_t nq2, [[maybe_unused]] size_t &wsp1Size,
     [[maybe_unused]] size_t &wsp2Size)
 {
-    // Check preconditions
-    ASSERTL1((SHAPE_TYPE == LibUtilities::ShapeType::Hex && nq0 == nq1 &&
-              nq0 == nq2) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Tet &&
-                  nq0 == nq1 + 1 && nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Prism && nq0 == nq1 &&
-                  nq0 == nq2 + 1) ||
-                 (SHAPE_TYPE == LibUtilities::ShapeType::Pyr && nq0 == nq1 &&
-                  nq0 == nq2 + 1),
-             "PhysDeriv3DWorkspace: Requires homogenous points.");
-
     if constexpr (SHAPE_TYPE == LibUtilities::ShapeType::Tet)
     {
         wsp1Size = std::max(wsp1Size, nq0 * nq1 * nq2);
         wsp2Size = std::max(wsp2Size, nq0 * nq1 * nq2);
     }
 }
-
-} // namespace Nektar::Operators::detail

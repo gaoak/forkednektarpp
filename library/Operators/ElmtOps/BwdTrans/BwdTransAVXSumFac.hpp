@@ -36,21 +36,30 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorBwdTrans.hpp"
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 
-#include "ElmtOps/BwdTrans/BwdTransAVXSumFacKernels.hpp"
-
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <LibUtilities/Foundations/Basis.h>
 
 namespace Nektar::Operators::detail
 {
+using namespace tinysimd;
+#ifdef IS_SERIAL
+using vec_t = scalarT<double>;
+#else
+using vec_t = simd<double>;
+#endif
+
+#include "ElmtOps/BwdTrans/BwdTransAVXSumFacKernels.hpp"
 
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
-              std::is_same<Implementation, Operators::SumFac>::value>::type>
+              (std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -67,19 +76,15 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+
         // check alignment
-        if (in.GetAlignment() != vec_t::alignment)
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "Input Field are not aligned to the required alignment "
-                     "for the SIMD vector type.");
-        }
-        if (out.GetAlignment() != vec_t::alignment)
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "Output Field are not aligned to the required alignment "
-                     "for the SIMD vector type.");
-        }
+        WARNINGL1(in.GetAlignment() == vec_t::alignment,
+                  "Input Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+        WARNINGL1(out.GetAlignment() == vec_t::alignment,
+                  "Output Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+
         // Reshape into vec_t::width. If the Field is already
         // interleaved, this method returns.
         in.template ReshapeStorage<ExecSpace, vec_t::width>();
@@ -149,9 +154,6 @@ private:
     {
         constexpr auto nqTot = nq0;
         constexpr auto nmTot = nm0;
-        // constexpr auto nqBlocks = nqTot * vec_t::width;
-        // constexpr auto nmBlocks = nmTot * vec_t::width;
-        // const auto nElmtGroup = this->m_nElmtGroup;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
@@ -244,7 +246,8 @@ private:
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nmTot),
+        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size),
+        // tmpIn(nmTot),
         //     tmpOut(nqTot);
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size);
         const vec_t::vectorType *tmpIn =
@@ -300,7 +303,8 @@ private:
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), tmpIn(nmTot),
+        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size),
+        // tmpIn(nmTot),
         //     tmpOut(nqTot);
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size);
         const vec_t::vectorType *tmpIn =
@@ -352,7 +356,8 @@ private:
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
+        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size),
+        // wsp1(wsp1Size),
         //     tmpIn(nmTot), tmpOut(nqTot);
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
         const vec_t::vectorType *tmpIn =
@@ -414,7 +419,8 @@ private:
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
 
-        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size),
+        // std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size),
+        // wsp1(wsp1Size),
         //     tmpIn(nmTot), tmpOut(nqTot);
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
         const vec_t::vectorType *tmpIn =

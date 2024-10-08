@@ -62,12 +62,15 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         // Initialise the derivative factor.
+        auto width  = 1u;
         auto dfSize = Operator<TData>::GetGeometricFactorSize();
+        auto locblocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        auto derivFac =
+            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
 
-        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize);
-
-        m_derivFac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            *derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the points.
         m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);

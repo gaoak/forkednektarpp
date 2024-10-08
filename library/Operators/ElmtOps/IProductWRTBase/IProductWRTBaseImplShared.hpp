@@ -65,11 +65,14 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise the jacobian.
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize();
-        auto jac       = Operator<TData>::SetJacobian(jacSize);
+        const auto geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        auto width             = 1u;
+        auto locblocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        auto jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
 
-        m_jac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            *jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
         m_basisMap  = GetBasisData<MemSpace, TData>(expansionList, eBasis);

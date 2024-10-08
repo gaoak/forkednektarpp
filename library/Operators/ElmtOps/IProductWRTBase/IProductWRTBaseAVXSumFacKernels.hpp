@@ -35,10 +35,6 @@
 #pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-// namespace Nektar::Operators::detail
-//{
-//  using namespace tinysimd;
-//  using vec_t = simd<double>;
 #include "StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
@@ -150,4 +146,3 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
             w0, w1, w2, jac, wsp0, wsp1, out, scale);
     }
 }
-//} // namespace Nektar::Operators::detail

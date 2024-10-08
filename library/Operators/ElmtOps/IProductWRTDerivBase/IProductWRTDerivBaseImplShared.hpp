@@ -69,18 +69,20 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         // Initialise the jacobian and the derivative factor.
-        const auto dfSize = Operator<TData>::GetGeometricFactorSize();
-
-        auto jac      = Operator<TData>::SetJacobian(dfSize);
-        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize);
+        const auto geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        auto width             = 1u;
+        auto locblocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        auto jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        auto derivFac =
+            Operator<TData>::SetDerivativeFactor(geomFacSize, locblocks, width);
 
         // Initialise the jacobian.
-        m_jac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-
+        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            *jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
         // Initialise the derivative factor.
-        m_derivFac = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            *derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
 
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, TData>(expansionList, eBasis);

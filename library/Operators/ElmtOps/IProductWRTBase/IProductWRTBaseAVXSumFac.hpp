@@ -52,7 +52,6 @@ using vec_t = scalarT<double>;
 #else
 using vec_t = simd<double>;
 #endif
-typedef std::vector<vec_t, tinysimd::allocator<vec_t>> VecVec_t;
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseAVXSumFacKernels.hpp"
 
 // Matrix-free implementation
@@ -81,8 +80,6 @@ public:
         std::shared_ptr<std::vector<TData>> jac =
             Operator<TData>::SetJacobian(jacSize, locblocks, vec_t::width);
 
-        // To integrate with GPU versiosn  we need to transform it to
-        // MemoryRegion<TData>.
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
 
@@ -265,9 +262,9 @@ private:
         {
             jacSize *= nqTot;
         }
+
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto wPtr0 =
@@ -311,7 +308,6 @@ private:
         }
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto wPtr0 =
@@ -371,7 +367,6 @@ private:
         }
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -424,7 +419,6 @@ private:
         }
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -493,7 +487,6 @@ private:
         }
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -559,7 +552,6 @@ private:
         }
         const vec_t *jacPtr = reinterpret_cast<const vec_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
-
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =

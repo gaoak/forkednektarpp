@@ -36,20 +36,11 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-namespace Nektar::Operators::detail
-{
-
-using namespace tinysimd;
-using vec_t = simd<NekDouble>;
-
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
 // operators. HOWEVER, they are forced to be INLINED. The inlining is
 // critical so that when used in the templated version of the operator
 // that loop unrolling occurs.
-
-// The seven shape kernels where the work gets done.
-// #if defined(SHAPE_TYPE_SEG)
 
 NEK_FORCE_INLINE static void BwdTransSegKernel(const size_t nm0,
                                                const size_t nq0,
@@ -71,12 +62,10 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(const size_t nm0,
     }
 }
 
-// #elif defined(SHAPE_TYPE_TRI)
-
 NEK_FORCE_INLINE static void BwdTransTriKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
     const bool correct, const vec_t *basis0, const vec_t *basis1,
-    std::vector<vec_t, allocator<vec_t>> &p_sums, // nm0
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &p_sums, // nm0
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int eta1 = 0, eta_idx = 0; eta1 < nq1; ++eta1)
@@ -117,12 +106,10 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_QUAD)
-
 NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
     const vec_t *basis0, const vec_t *basis1,
-    std::vector<vec_t, allocator<vec_t>> &wsp, // nq0 * nm1
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp, // nq0 * nm1
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int i = 0, cnt_iq = 0; i < nq0; ++i)
@@ -155,14 +142,12 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_HEX)
-
 NEK_FORCE_INLINE static void BwdTransHexKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const vec_t *basis0,
     const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, allocator<vec_t>> &sum_irq, // nq0 * nm2 * nm1
-    std::vector<vec_t, allocator<vec_t>> &sum_jir, // nq1 * nq0 * nm2
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &sum_irq, // nq0 * nm2 * nm1
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &sum_jir, // nq1 * nq0 * nm2
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int i = 0, cnt_irq = 0; i < nq0; ++i)
@@ -224,14 +209,12 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_TET)
-
 NEK_FORCE_INLINE static void BwdTransTetKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool correct, const vec_t *basis0,
     const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, allocator<vec_t>> &fpq, // nm0 * nm1
-    std::vector<vec_t, allocator<vec_t>> &fp,  // nm0
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fpq, // nm0 * nm1
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fp,  // nm0
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int k = 0, cnt_kji = 0; k < nq2; ++k)
@@ -334,14 +317,12 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_PRISM)
-
 NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool correct, const vec_t *basis0,
     const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, allocator<vec_t>> &fpq, // nm0 * nm1
-    std::vector<vec_t, allocator<vec_t>> &fp,  // nm0
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fpq, // nm0 * nm1
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fp,  // nm0
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int k = 0, cnt_kji = 0; k < nq2; ++k)
@@ -404,14 +385,12 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_PYR)
-
 NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool correct, const vec_t *basis0,
     const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, allocator<vec_t>> &fpq, // nm0 * nm1
-    std::vector<vec_t, allocator<vec_t>> &fp,  // nm0
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fpq, // nm0 * nm1
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &fp,  // nm0
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
     for (int k = 0, cnt_kji = 0; k < nq2; ++k)
@@ -493,20 +472,12 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     }
 }
 
-// #endif // SHAPE_TYPE
-
-// Workspace - used to dynamically get the workspace size needed for
-// temporary memory.
-// #if defined(SHAPE_DIMENSION_1D)
-
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans1DWorkspace(
     [[maybe_unused]] const size_t nm0, [[maybe_unused]] const size_t nq0)
 
 {
 }
-
-// #elif defined(SHAPE_DIMENSION_2D)
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
@@ -523,8 +494,6 @@ NEK_FORCE_INLINE static void BwdTrans2DWorkspace(
         wsp0Size = std::max(wsp0Size, nm1 * nq0);
     }
 }
-
-// #elif defined(SHAPE_DIMENSION_3D)
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
@@ -545,11 +514,6 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     }
 }
 
-// #endif // SHAPE_DIMENSION
-
-// The dimension kernels which select the shape kernel.
-// #if defined(SHAPE_DIMENSION_1D)
-
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nm0,
                                               const size_t nq0,
@@ -557,64 +521,51 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nm0,
                                               const vec_t::vectorType *in,
                                               vec_t::scalarType *out)
 {
-    // #if defined(SHAPE_TYPE_SEG)
     BwdTransSegKernel(nm0, nq0, basis0, in, out);
-    // #endif
 }
-
-// #elif defined(SHAPE_DIMENSION_2D)
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
     [[maybe_unused]] const bool correct, const vec_t *basis0,
-    const vec_t *basis1, std::vector<vec_t, allocator<vec_t>> &wsp0,
+    const vec_t *basis1, std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
     const vec_t::vectorType *in, vec_t::scalarType *out)
 {
-    // #if defined(SHAPE_TYPE_TRI)
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
         BwdTransTriKernel(nm0, nm1, nq0, nq1, correct, basis0, basis1, wsp0, in,
                           out);
     }
-    // #elif defined(SHAPE_TYPE_QUAD)
     else
     {
         BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp0, in, out);
     }
-    // #endif
 }
-
-// #elif defined(SHAPE_DIMENSION_3D)
 
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, [[maybe_unused]] const bool correct,
     const vec_t *basis0, const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, allocator<vec_t>> &wsp0,
-    std::vector<vec_t, allocator<vec_t>> &wsp1, const vec_t::vectorType *in,
-    vec_t::scalarType *out)
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
+    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp1,
+    const vec_t::vectorType *in, vec_t::scalarType *out)
 {
-    // #if defined(SHAPE_TYPE_HEX)
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1, basis2,
                           wsp0, wsp1, in, out);
     }
-    // #elif defined(SHAPE_TYPE_TET)
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
         BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0, basis1,
                           basis2, wsp0, wsp1, in, out);
     }
-    // #elif defined(SHAPE_TYPE_PRISM)
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0,
                             basis1, basis2, wsp0, wsp1, in, out);
     }
-    // #elif defined(SHAPE_TYPE_PYR)
     else
     {
         BwdTransPyrKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0, basis1,
@@ -622,7 +573,3 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     }
     // #endif
 }
-
-// #endif // SHAPE_DIMENSION
-
-} // namespace Nektar::Operators::detail

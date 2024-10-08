@@ -68,14 +68,19 @@ ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_stdmat
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_stdmat.cpp)
 
 # Serial SumFac
+ADD_NEKTAR_EXECUTABLE(test_bwdtrans_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_serial_sumfac.cpp)
 
-# These AVX test do not work
 # AVX SumFac
-IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
+#IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
     ADD_NEKTAR_EXECUTABLE(test_addtraceintegral_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_addtraceintegral_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_math_avx
@@ -84,11 +89,13 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_bwdtrans_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_avx_sumfac.cpp)
-ENDIF()
+#ENDIF()
 
 # CUDA
 IF(NEKTAR_ENABLE_CUDA)
