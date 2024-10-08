@@ -81,8 +81,9 @@ __global__ void RobBndCond2DKernel(
     const int *__restrict__ signPtr, const TData *__restrict__ incoeffPtr,
     TData *__restrict__ coeffPtr)
 {
-    extern __shared__ TData vEdgeCoeffs[];
-    unsigned int j = blockIdx.x;
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    TData *vEdgeCoeffs = (TData *)shared;
+    unsigned int j     = blockIdx.x;
 
     while (j < nsize)
     {
