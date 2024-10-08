@@ -130,14 +130,14 @@ __global__ void PhysDeriv2DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
 
-    TData *s_D0 = SHMEM ? shared : (TData *)D0;
+    TData *s_D0 = SHMEM ? (TData *)shared : (TData *)D0;
     TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_xfrm0, *s_xfrm1;
 
@@ -249,12 +249,12 @@ __global__ void PhysDeriv2DKernel_QP(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
 
-    TData *s_wsp = shared;
+    TData *s_wsp = (TData *)shared;
     TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
     TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData xfrm0, xfrm1;
@@ -348,12 +348,12 @@ __global__ void PhysDeriv2DKernel_QP_1D(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
 
-    TData *s_wsp = shared;
+    TData *s_wsp = (TData *)shared;
     TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
     TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData xfrm0, xfrm1;
@@ -442,7 +442,7 @@ __global__ void PhysDeriv3DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
@@ -451,7 +451,7 @@ __global__ void PhysDeriv3DKernel(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_D0 = SHMEM ? shared : (TData *)D0;
+    TData *s_D0 = SHMEM ? (TData *)shared : (TData *)D0;
     TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_D2 = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
     TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
@@ -676,13 +676,13 @@ __global__ void PhysDeriv3DKernel_QP(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int ncoord = 3u;
     constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp             = shared;
+    TData *s_wsp             = (TData *)shared;
     TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
     TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
@@ -825,13 +825,13 @@ __global__ void PhysDeriv3DKernel_QP_1D(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int ncoord = 3u;
     constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp             = shared;
+    TData *s_wsp             = (TData *)shared;
     TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
     TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;

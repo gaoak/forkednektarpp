@@ -51,11 +51,11 @@ __global__ void BwdTransSegKernel(const unsigned int nm0,
                                   const TData *__restrict__ in,
                                   TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -98,9 +98,9 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
                                      const TData *__restrict__ in,
                                      TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = (TData *)shared;
     TData *s_basis0 = SHMEM ? s_wsp0 + nm0 : (TData *)basis0;
 
     // Copy to shared memory.
@@ -151,12 +151,12 @@ __global__ void BwdTransQuadKernel(
     TData *__restrict__ wsp, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -222,10 +222,10 @@ __global__ void BwdTransQuadKernel_QP(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -312,10 +312,10 @@ __global__ void BwdTransQuadKernel_QP_1D(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -395,12 +395,12 @@ __global__ void BwdTransTriKernel(
     const TData *__restrict__ basis1, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -474,10 +474,10 @@ __global__ void BwdTransTriKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -571,10 +571,10 @@ __global__ void BwdTransTriKernel_QP_1D(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -662,12 +662,12 @@ __global__ void BwdTransHexKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -764,10 +764,10 @@ __global__ void BwdTransHexKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
@@ -893,10 +893,10 @@ __global__ void BwdTransHexKernel_QP_1D(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
@@ -1006,7 +1006,7 @@ __global__ void BwdTransTetKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
@@ -1014,7 +1014,7 @@ __global__ void BwdTransTetKernel(
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
@@ -1148,20 +1148,20 @@ __global__ void BwdTransTetKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
+    // Copy to (TData *)shared memory.
     if constexpr (SHMEM)
     {
         const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
@@ -1317,13 +1317,13 @@ __global__ void BwdTransTetKernel_QP_1D(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1480,12 +1480,12 @@ __global__ void BwdTransPrismKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -1599,10 +1599,10 @@ __global__ void BwdTransPrismKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1742,10 +1742,10 @@ __global__ void BwdTransPrismKernel_QP_1D(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
+    TData *s_wsp0            = (TData *)shared;
     TData *s_wsp1            = s_wsp0 + nmTot;
     TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1869,14 +1869,14 @@ __global__ void BwdTransPyrKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -1994,12 +1994,12 @@ __global__ void BwdTransPyrKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -2163,12 +2163,12 @@ __global__ void BwdTransPyrKernel_QP_1D(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
