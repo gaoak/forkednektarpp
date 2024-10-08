@@ -60,9 +60,13 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
+        auto width         = 1u;
         size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
-        m_jac              = Operator<TData>::SetJacobian(geomFacSize);
-        m_derivFac         = Operator<TData>::SetDerivativeFactor(geomFacSize);
+        auto locblocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        m_jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        m_derivFac =
+            Operator<TData>::SetDerivativeFactor(geomFacSize, locblocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -151,14 +155,14 @@ public:
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_derivFac.data() + d + df_idx,
+                    Vmath::Vmul(nqTot * nElmts, m_derivFac->data() + d + df_idx,
                                 ndf, inPtr, 1, wspPtr + d * nStorage, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
                         Vmath::Vvtvp(
                             nqTot * nElmts,
-                            m_derivFac.data() + d + i * dimension + df_idx, ndf,
-                            inPtr + i * nSize, 1, wspPtr + d * nStorage, 1,
+                            m_derivFac->data() + d + i * dimension + df_idx,
+                            ndf, inPtr + i * nSize, 1, wspPtr + d * nStorage, 1,
                             wspPtr + d * nStorage, 1);
                     }
                 }
@@ -170,16 +174,17 @@ public:
                 {
                     for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, m_derivFac[d + df_idx],
+                        Vmath::Smul(nqTot, (*m_derivFac)[d + df_idx],
                                     inPtr + e * nqTot, 1,
                                     wspPtr + d * nStorage + e * nqTot, 1);
                         for (size_t i = 1; i < nCoord; ++i)
                         {
-                            Vmath::Svtvp(nqTot,
-                                         m_derivFac[d + i * dimension + df_idx],
-                                         inPtr + i * nSize + e * nqTot, 1,
-                                         wspPtr + d * nStorage + e * nqTot, 1,
-                                         wspPtr + d * nStorage + e * nqTot, 1);
+                            Vmath::Svtvp(
+                                nqTot,
+                                (*m_derivFac)[d + i * dimension + df_idx],
+                                inPtr + i * nSize + e * nqTot, 1,
+                                wspPtr + d * nStorage + e * nqTot, 1,
+                                wspPtr + d * nStorage + e * nqTot, 1);
                         }
                     }
                     df_idx += ndf;
@@ -191,7 +196,7 @@ public:
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_jac.get() + jac_idx, 1,
+                    Vmath::Vmul(nqTot * nElmts, m_jac->data() + jac_idx, 1,
                                 wspPtr + d * nStorage, 1, wspPtr + d * nStorage,
                                 1);
                 }
@@ -202,7 +207,7 @@ public:
                 {
                     for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, m_jac[jac_idx + e],
+                        Vmath::Smul(nqTot, (*m_jac)[jac_idx + e],
                                     wspPtr + d * nStorage + e * nqTot, 1,
                                     wspPtr + d * nStorage + e * nqTot, 1);
                     }
@@ -251,9 +256,9 @@ public:
     }
 
 private:
-    Array<OneD, TData> m_jac;
+    std::shared_ptr<std::vector<TData>> m_jac;
+    std::shared_ptr<std::vector<TData>> m_derivFac;
     Array<OneD, TData> m_wsp;
-    Array<OneD, TData> m_derivFac;
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;

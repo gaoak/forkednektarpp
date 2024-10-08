@@ -33,27 +33,34 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
-
-#include "ElmtOps/PhysDeriv/PhysDerivAVXSumFacKernels.hpp"
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 namespace Nektar::Operators::detail
 {
+using namespace tinysimd;
+#ifdef IS_SERIAL
+using vec_t = scalarT<double>;
+#else
+using vec_t = simd<double>;
+#endif
 
-typedef std::vector<vec_t, tinysimd::allocator<vec_t>> VecVec_t;
+#include "ElmtOps/PhysDeriv/PhysDerivAVXSumFacKernels.hpp"
 
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
-              std::is_same<Implementation, Operators::SumFac>::value>::type>
+              (std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
+               std::is_same<Implementation, Operators::SumFac>::value)>::type>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -68,10 +75,10 @@ public:
 
         size_t dfSize =
             Operator<TData>::GetGeometricFactorSize(blocks, vec_t::width);
-        std::shared_ptr<VecVec_t> derivFac =
-            Operator<TData>::SetDerivativeFactor(dfSize, blocks);
+        std::shared_ptr<std::vector<TData>> derivFac =
+            Operator<TData>::SetDerivativeFactor(dfSize, blocks, vec_t::width);
 
-        m_derivFac = MemoryRegion<vec_t>::template fromVector<MemSpace, vec_t>(
+        m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, vec_t::alignment);
 
         // Initialize the zeros
@@ -87,18 +94,13 @@ public:
                Field<TData, FieldState::Phys> &out) override
     {
         // check alignment
-        if (in.GetAlignment() != vec_t::alignment)
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "Input Field are not aligned to the required alignment "
-                     "for the SIMD vector type.");
-        }
-        if (out.GetAlignment() != vec_t::alignment)
-        {
-            NEKERROR(ErrorUtil::efatal,
-                     "Output Field are not aligned to the required alignment "
-                     "for the SIMD vector type.");
-        }
+        WARNINGL1(in.GetAlignment() == vec_t::alignment,
+                  "Input Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+        WARNINGL1(out.GetAlignment() == vec_t::alignment,
+                  "Output Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+
         // Reshape into vec_t::width. If the Field is already
         // interleaved, this method returns.
         in.template ReshapeStorage<ExecSpace, vec_t::width>();
@@ -124,7 +126,7 @@ public:
         }
 
         m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
-        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+        m_df_idx  = 0; // accumulates over blocks, accessed in operatorND()
 
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
@@ -164,11 +166,11 @@ public:
 
             if (deformed)
             {
-                m_jac_idx += nqTot * m_nElmtGroup;
+                m_df_idx += nqTot * m_nElmtGroup * vec_t::width;
             }
             else
             {
-                m_jac_idx += m_nElmtGroup;
+                m_df_idx += m_nElmtGroup * vec_t::width;
             }
             m_exp_idx += nElmts;
         }
@@ -187,9 +189,9 @@ public:
     }
 
 private:
-    int m_nElmtGroup, m_jac_idx, m_exp_idx;
+    int m_nElmtGroup, m_df_idx, m_exp_idx;
 
-    MemoryRegion<vec_t> m_derivFac;
+    MemoryRegion<TData> m_derivFac;
     BasisDataMap<vec_t> m_zeroMap;
     BasisDataMap<vec_t> m_derivativeMap;
     // std::array<LibUtilities::BasisKey, 3> m_basisKeys;
@@ -214,8 +216,8 @@ private:
         }
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -236,11 +238,10 @@ private:
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
             // Calculate physical derivative
-            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, df_ptr,
-                                                    tmpOut);
+            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d)
             {
@@ -266,8 +267,8 @@ private:
         }
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -289,11 +290,10 @@ private:
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
             // Calculate physical derivative
-            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, df_ptr,
-                                                    tmpOut);
+            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
             {
@@ -323,8 +323,8 @@ private:
         }
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -351,9 +351,9 @@ private:
                                     tmpOut[1]);
             // Calculate physical derivative
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
-                                                    df_ptr, tmpOut);
+                                                    dfPtr, tmpOut);
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
             {
@@ -378,8 +378,8 @@ private:
         }
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -406,9 +406,9 @@ private:
                                     tmpOut[1]);
             // Calculate physical derivative
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
-                                                    df_ptr, tmpOut);
+                                                    dfPtr, tmpOut);
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
             {
@@ -443,8 +443,8 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -473,11 +473,11 @@ private:
                                     tmpOut[1], tmpOut[2]);
             // Calculate physical derivative
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, Z0, Z1, Z2, df_ptr, wsp0, wsp1, tmpOut[0],
+                nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
 
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;
             tmpOut[1] += nqBlocks;
@@ -506,8 +506,8 @@ private:
         std::vector<vec_t, allocator<vec_t>> wsp0(wsp0Size), wsp1(wsp1Size);
 
         // Get derivative factor pointer
-        const vec_t *dfPtr  = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-        const vec_t *df_ptr = &(dfPtr[m_jac_idx * ndf]);
+        const vec_t *dfPtr = reinterpret_cast<const vec_t *>(&(
+            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -536,11 +536,11 @@ private:
                                     tmpOut[1], tmpOut[2]);
             // Calculate physical derivative
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, Z0, Z1, Z2, df_ptr, wsp0, wsp1, tmpOut[0],
+                nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
 
             // Increment pointers
-            df_ptr += dfsize;
+            dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;
             tmpOut[1] += nqBlocks;

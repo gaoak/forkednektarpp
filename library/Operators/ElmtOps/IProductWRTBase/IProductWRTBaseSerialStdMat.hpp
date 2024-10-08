@@ -59,8 +59,11 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize();
-        m_jac          = Operator<TData>::SetJacobian(jacSize);
+        auto width         = 1u;
+        size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        auto locblocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        m_jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -135,7 +138,7 @@ public:
             {
                 for (size_t i = 0; i < nElmts * nqTot; ++i)
                 {
-                    wsp[i] = m_jac[jac_idx++] * inPtr[i];
+                    wsp[i] = (*m_jac)[jac_idx++] * inPtr[i];
                 }
             }
             else
@@ -145,7 +148,7 @@ public:
                     for (size_t i = 0; i < nqTot; ++i)
                     {
                         wsp[e * nqTot + i] =
-                            m_jac[jac_idx] * inPtr[e * nqTot + i];
+                            (*m_jac)[jac_idx] * inPtr[e * nqTot + i];
                     }
 
                     jac_idx++;
@@ -185,7 +188,7 @@ public:
     }
 
 private:
-    Array<OneD, TData> m_jac;
+    std::shared_ptr<std::vector<TData>> m_jac;
     std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_matPtr;
 };
 

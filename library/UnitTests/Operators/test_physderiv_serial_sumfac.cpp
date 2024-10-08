@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_helmholtz_avx_sumfac.cpp
+// File: test_physderiv_serial_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,29 +32,28 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestHelmholtzAVX
+#define BOOST_TEST_MODULE TestPhysDeriv
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-#include "init_helmholtzfields.hpp"
+#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
+#include "init_physderivfields.hpp"
 
-#define TEST_HELMHOLTZ(test_name, test, tol)                                   \
+#define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::AVX;                                   \
+        using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::SumFac;                                   \
-        Configure();                                                           \
+        Configure(1, dim);                                                     \
         SetTestCase(fixt_in->GetBlocks(),                                      \
                     fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
-        Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist)            \
-            ->apply(*fixt_in, *fixt_out);                                      \
-        ExpectedSolution(                                                      \
+        NektarSolution(                                                        \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
+        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
+            ->apply(*fixt_in, *fixt_out);                                      \
         BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -65,44 +64,45 @@
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestHelmholtz)
+BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
 
-TEST_HELMHOLTZ(helmholtz_avx_seg, Seg, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_seg, Seg, 1, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_seg_sem, SegSEM, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_seg_sem, SegSEM, 1, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_quad, Quad, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_quad, Quad, 2, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_quad_sem, QuadSEM, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_quad_sem, QuadSEM, 2, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_quad_varp, QuadVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_quad_varp, QuadVarP, 2, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_tri, Tri, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_tri, Tri, 2, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_tri_varp, TriVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_tri_varp, TriVarP, 2, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_square_all_elements, SquareAllElements, 2,
+               1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_hex, Hex, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_hex, Hex, 3, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_hex_sem, HexSEM, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_hex_sem, HexSEM, 3, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_hex_varp, HexVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_hex_varp, HexVarP, 3, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_prism, Prism, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_prism, Prism, 3, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_prism_varp, PrismVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_prism_varp, PrismVarP, 3, 2.5E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_pyr, Pyr, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_pyr, Pyr, 3, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_pyr_varp, PyrVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_pyr_varp, PyrVarP, 3, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_tet, Tet, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_tet, Tet, 3, 1.0E-12)
 
-// TEST_HELMHOLTZ(helmholtz_avx_tet_varp, TetVarP, 1.0E-12)
+// TEST_PHYSDERIV(physderiv_serial_tet_varp, TetVarP, 3, 2.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_avx_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_cube_all_elements, CubeAllElements, 3, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

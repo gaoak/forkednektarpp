@@ -58,8 +58,12 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise derivative factor.
+        auto width         = 1u;
         size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
-        m_derivFac         = Operator<TData>::SetDerivativeFactor(geomFacSize);
+        auto blocks =
+            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        m_derivFac =
+            Operator<TData>::SetDerivativeFactor(geomFacSize, blocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -162,14 +166,14 @@ public:
                 for (size_t i = 0; i < nCoord; i++)
                 {
                     Vmath::Vmul(nqTot * nElmts,
-                                m_derivFac.data() + i * dimension + df_idx, ndf,
-                                deriv[0].get(), 1, outPtr + i * nSize, 1);
+                                m_derivFac->data() + i * dimension + df_idx,
+                                ndf, deriv[0].get(), 1, outPtr + i * nSize, 1);
                     for (size_t d = 1; d < dimension; d++)
                     {
                         Vmath::Vvtvp(
                             nqTot * nElmts,
-                            m_derivFac.data() + i * dimension + d + df_idx, ndf,
-                            deriv[d].data(), 1, outPtr + i * nSize, 1,
+                            m_derivFac->data() + i * dimension + d + df_idx,
+                            ndf, deriv[d].data(), 1, outPtr + i * nSize, 1,
                             outPtr + i * nSize, 1);
                     }
                 }
@@ -183,13 +187,15 @@ public:
                 {
                     for (size_t i = 0; i < nCoord; i++)
                     {
-                        Vmath::Smul(nqTot, m_derivFac[i * dimension + df_idx],
+                        Vmath::Smul(nqTot,
+                                    (*m_derivFac)[i * dimension + df_idx],
                                     deriv[0].get() + e * nqTot, 1,
                                     outPtr + i * nSize, 1);
                         for (size_t d = 1; d < dimension; d++)
                         {
                             Vmath::Svtvp(
-                                nqTot, m_derivFac[i * dimension + d + df_idx],
+                                nqTot,
+                                (*m_derivFac)[i * dimension + d + df_idx],
                                 deriv[d].get() + e * nqTot, 1,
                                 outPtr + i * nSize, 1, outPtr + i * nSize, 1);
                         }
@@ -222,7 +228,7 @@ public:
     }
 
 private:
-    Array<OneD, TData> m_derivFac;
+    std::shared_ptr<std::vector<TData>> m_derivFac;
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseSerialSumFac.hpp
+// File: HelmholtzSerialSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,4 +36,4 @@
 #define IS_SERIAL
 
 // use AVX code
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseAVXSumFac.hpp"
+#include "ElmtOps/Helmholtz/HelmholtzAVXSumFac.hpp"

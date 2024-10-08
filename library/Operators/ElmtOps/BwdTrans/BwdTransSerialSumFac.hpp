@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseSerialSumFac.hpp
+// File: BwdTransSerialSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -31,9 +31,10 @@
 // Description: Wrapper file to reuse AVX implementation in serial
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
 #define IS_SERIAL
 
 // use AVX code
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseAVXSumFac.hpp"
+#include "ElmtOps/BwdTrans/BwdTransAVXSumFac.hpp"

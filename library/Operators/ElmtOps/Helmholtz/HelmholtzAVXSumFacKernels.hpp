@@ -35,20 +35,111 @@
 #pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-namespace Nektar::Operators::detail
+template <bool DEFORMED>
+NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
+    const size_t nq0, const bool isConstVarDiff,
+    const Array<OneD, NekDouble> &constVarDiff, const bool isVarDiff,
+    const Array<OneD, NekDouble> &varD00, const vec_t *df_ptr,
+    vec_t::scalarType *deriv0)
 {
+    constexpr auto ndf = 1;
 
-using namespace tinysimd;
-using vec_t = simd<NekDouble>;
+    const auto nqTot = nq0;
 
-// The dimension and shape kernels. NOTE: They are NOT duplicate
-// templated version based on the array size like the
-// operators. HOWEVER, they are forced to be INLINED. The inlining is
-// critical so that when used in the templated version of the operator
-// that loop unrolling occurs.
+    vec_t d00 = {1.0};
+    vec_t df0;
+    vec_t metric00;
 
-// The seven shape kernels where the work gets done.
-// #if defined(SHAPE_TYPE_TRI)
+    if (isConstVarDiff)
+    {
+        d00 = constVarDiff[0];
+    }
+
+    // Precompute Laplacian metricsp
+    if constexpr (!DEFORMED)
+    {
+        df0 = df_ptr[0];
+
+        if (!isConstVarDiff && !isVarDiff)
+        {
+            metric00 = df0 * df0;
+        }
+        else if (isConstVarDiff)
+        {
+            metric00 = df0 * df0 * d00;
+        }
+    }
+
+    // Step 4: Apply Laplacian metrics & inner product
+    if (!isVarDiff)
+    {
+        if constexpr (DEFORMED)
+        {
+            for (size_t i = 0; i < nq0; ++i)
+            {
+                df0 = df_ptr[i * ndf];
+
+                if (!isConstVarDiff)
+                {
+                    metric00 = df0 * df0;
+                }
+                else
+                {
+                    metric00 = df0 * df0 * d00;
+                }
+
+                vec_t d0;
+                d0.load(deriv0 + i * vec_t::width);
+
+                vec_t tmp = metric00 * d0;
+                tmp.store(deriv0 + i * vec_t::width);
+            }
+        }
+        else
+        {
+            for (int i = 0; i < nqTot; ++i)
+            {
+                vec_t d0;
+                d0.load(deriv0 + i * vec_t::width);
+
+                vec_t tmp = metric00 * d0;
+                tmp.store(deriv0 + i * vec_t::width);
+            }
+        }
+    }
+    else
+    {
+        if constexpr (DEFORMED)
+        {
+            for (size_t i = 0; i < nq0; ++i)
+            {
+                df0      = df_ptr[i * ndf];
+                d00      = varD00[i];
+                metric00 = df0 * df0 * d00;
+
+                vec_t d0;
+                d0.load(deriv0 + i * vec_t::width);
+
+                vec_t tmp = metric00 * d0;
+                tmp.store(deriv0 + i * vec_t::width);
+            }
+        }
+        else
+        {
+            for (size_t i = 0; i < nq0; ++i)
+            {
+                d00      = varD00[i];
+                metric00 = df0 * df0 * d00;
+
+                vec_t d0;
+                d0.load(deriv0 + i * vec_t::width);
+
+                vec_t tmp = metric00 * d0;
+                tmp.store(deriv0 + i * vec_t::width);
+            }
+        }
+    }
+}
 
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
@@ -720,8 +811,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_TET)
-
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
@@ -941,8 +1030,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_PRISM)
-
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
@@ -1146,8 +1233,6 @@ NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
     }
 }
 
-// #elif defined(SHAPE_TYPE_PYR)
-
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
@@ -1271,6 +1356,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
                         d11 = varD11[cnt];
                         d02 = varD02[cnt];
                         d12 = varD12[cnt];
+
                         d22 = varD22[cnt];
                     }
 
@@ -1384,8 +1470,6 @@ NEK_FORCE_INLINE static void GetHelmholtz2DHalfSpace(
     }
 }
 
-// #elif defined(SHAPE_TYPE_TET) || defined(SHAPE_TYPE_PRISM) ||
-// defined(SHAPE_TYPE_PYR)
 template <LibUtilities::ShapeType SHAPE_TYPE>
 NEK_FORCE_INLINE static void GetHelmholtz3DHalfSpace(
     const size_t nq0, [[maybe_unused]] const size_t nq1, const size_t nq2,
@@ -1459,10 +1543,6 @@ NEK_FORCE_INLINE static void GetHelmholtz3DHalfSpace(
         }
     }
 }
-// #endif
-
-// The dimension kernels which select the shape kernel.
-// #if defined(SHAPE_DIMENSION_2D)
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeff2DKernel(
@@ -1489,8 +1569,6 @@ NEK_FORCE_INLINE static void DiffusionCoeff2DKernel(
     }
 }
 
-// #elif defined(SHAPE_DIMENSION_3D)
-
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
 NEK_FORCE_INLINE static void DiffusionCoeff3DKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
@@ -1506,28 +1584,27 @@ NEK_FORCE_INLINE static void DiffusionCoeff3DKernel(
     vec_t::scalarType *deriv0, vec_t::scalarType *deriv1,
     vec_t::scalarType *deriv2)
 {
-    // #if defined(SHAPE_TYPE_HEX)
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
         DiffusionCoeffHexKernel<DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, df_ptr, deriv0, deriv1,
             deriv2);
-    } // #elif defined(SHAPE_TYPE_TET)
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
         DiffusionCoeffTetKernel<DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, df_ptr, h0, h1, h2, h3,
             deriv0, deriv1, deriv2);
-    } // #elif defined(SHAPE_TYPE_PRISM)
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         DiffusionCoeffPrismKernel<DEFORMED>(
             nq0, nq1, nq2, isConstVarDiff, constVarDiff, isVarDiff, varD00,
             varD01, varD11, varD02, varD12, varD22, df_ptr, h0, h1, deriv0,
             deriv1, deriv2);
-    } // #elif defined(SHAPE_TYPE_PYR)
+    }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
         DiffusionCoeffPyrKernel<DEFORMED>(
@@ -1536,6 +1613,3 @@ NEK_FORCE_INLINE static void DiffusionCoeff3DKernel(
             deriv1, deriv2);
     }
 }
-// #endif // SHAPE_DIMENSION
-
-} // namespace Nektar::Operators::detail
