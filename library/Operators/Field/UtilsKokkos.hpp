@@ -62,25 +62,19 @@ interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
             const unsigned int metaBlock = team.league_rank();
             const unsigned int offset    = dataLen * VectorWidth * metaBlock;
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen),
+                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
                 [&](const unsigned int &idx) {
-                    for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-                    {
-                        buffer[offset + vecElem * dataLen + idx] =
-                            inout[offset + vecElem * dataLen + idx];
-                    }
+                    buffer[idx] = inout[offset + idx];
                 });
 
             team.team_barrier();
 
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen),
+                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
                 [&](const unsigned int &idx) {
-                    for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-                    {
-                        inout[offset + idx * VectorWidth + vecElem] =
-                            buffer[offset + vecElem * dataLen + idx];
-                    }
+                    unsigned int vecElem = idx % VectorWidth;
+                    unsigned int iElem   = idx / VectorWidth;
+                    inout[offset + idx]  = buffer[vecElem * dataLen + iElem];
                 });
 
             team.team_barrier();
@@ -110,25 +104,19 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
             const unsigned int metaBlock = team.league_rank();
             const unsigned int offset    = dataLen * VectorWidth * metaBlock;
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen),
+                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
                 [&](const unsigned int &idx) {
-                    for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-                    {
-                        buffer[offset + vecElem * dataLen + idx] =
-                            inout[offset + vecElem * dataLen + idx];
-                    }
+                    buffer[idx] = inout[offset + idx];
                 });
 
             team.team_barrier();
 
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen),
+                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
                 [&](const unsigned int &idx) {
-                    for (size_t vecElem = 0; vecElem < VectorWidth; ++vecElem)
-                    {
-                        inout[offset + vecElem * dataLen + idx] =
-                            buffer[offset + idx * VectorWidth + vecElem];
-                    }
+                    unsigned int vecElem = idx / dataLen;
+                    unsigned int iElem   = idx % dataLen;
+                    inout[offset + idx] = buffer[iElem * VectorWidth + vecElem];
                 });
 
             team.team_barrier();
@@ -164,29 +152,26 @@ BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
             // assign count+0, count+1, count+2, count+3, count+4, ....
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
-                [&](const unsigned int &i) {
-                    buffer[teamOffset + i] = offset + teamOffset + i;
+                [&](const unsigned int &idx) {
+                    buffer[teamOffset + idx] = offset + teamOffset + idx;
                 });
             team.team_barrier();
             // get the deinterleave map
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, ncoeff),
-                [&](const unsigned int &n) {
-                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
-                         ++vecElem)
-                    {
-                        deInterleaveMapPtr[teamOffset + n * newVecWidth +
-                                           vecElem] =
-                            buffer[teamOffset + vecElem * ncoeff + n];
-                    }
+                [&](const unsigned int &idx) {
+                    unsigned int vecElem = idx % newVecWidth;
+                    unsigned int iElem   = idx / newVecWidth;
+                    deInterleaveMapPtr[teamOffset + idx] =
+                        buffer[teamOffset + vecElem * ncoeff + iElem];
                 });
             team.team_barrier();
             // get the interleave map
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
-                [&](const unsigned int &i) {
-                    interleaveMapPtr[deInterleaveMapPtr[teamOffset + i]] =
-                        offset + teamOffset + i;
+                [&](const unsigned int &idx) {
+                    interleaveMapPtr[deInterleaveMapPtr[teamOffset + idx]] =
+                        offset + teamOffset + idx;
                 });
             team.team_barrier();
         });

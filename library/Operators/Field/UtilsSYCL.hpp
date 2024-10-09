@@ -63,28 +63,22 @@ inline
                 const unsigned int metaBlock = indx.get_group(0);
                 const unsigned int offset = dataLen * VectorWidth * metaBlock;
 
-                for (unsigned int idx = indx.get_local_id(0); idx < dataLen;
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < dataLen * VectorWidth;
                      idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < VectorWidth;
-                         ++vecElem)
-                    {
-                        buffer[offset + vecElem * dataLen + idx] =
-                            inout[offset + vecElem * dataLen + idx];
-                    }
+                    buffer[idx] = inout[offset + idx];
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                for (unsigned int idx = indx.get_local_id(0); idx < dataLen;
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < dataLen * VectorWidth;
                      idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < VectorWidth;
-                         ++vecElem)
-                    {
-                        inout[offset + idx * VectorWidth + vecElem] =
-                            buffer[offset + vecElem * dataLen + idx];
-                    }
+                    unsigned int vecElem = idx % VectorWidth;
+                    unsigned int iElem   = idx / VectorWidth;
+                    inout[offset + idx]  = buffer[vecElem * dataLen + iElem];
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
@@ -117,28 +111,22 @@ inline
                 const unsigned int metaBlock = indx.get_group(0);
                 const unsigned int offset = dataLen * VectorWidth * metaBlock;
 
-                for (unsigned int idx = indx.get_local_id(0); idx < dataLen;
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < dataLen * VectorWidth;
                      idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < VectorWidth;
-                         ++vecElem)
-                    {
-                        buffer[offset + vecElem * dataLen + idx] =
-                            inout[offset + vecElem * dataLen + idx];
-                    }
+                    buffer[idx] = inout[offset + idx];
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                for (unsigned int idx = indx.get_local_id(0); idx < dataLen;
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < dataLen * VectorWidth;
                      idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < VectorWidth;
-                         ++vecElem)
-                    {
-                        inout[offset + vecElem * dataLen + idx] =
-                            buffer[offset + idx * VectorWidth + vecElem];
-                    }
+                    unsigned int vecElem = idx / dataLen;
+                    unsigned int iElem   = idx % dataLen;
+                    inout[offset + idx] = buffer[iElem * VectorWidth + vecElem];
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
@@ -174,44 +162,34 @@ inline
                 const unsigned int groupOffset =
                     ncoeff * newVecWidth * metaBlock;
 
-                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
-                     i += indx.get_local_range(0))
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < ncoeff * newVecWidth; idx += indx.get_local_range(0))
                 {
                     for (unsigned int vecElem = 0; vecElem < newVecWidth;
                          ++vecElem)
                     {
-                        buffer[groupOffset + i * newVecWidth + vecElem] =
-                            offset + groupOffset + i * newVecWidth + vecElem;
+                        buffer[groupOffset + idx] = offset + groupOffset + idx;
                     }
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
-                     i += indx.get_local_range(0))
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < ncoeff * newVecWidth; idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
-                         ++vecElem)
-                    {
-                        deInterleaveMapPtr[groupOffset + i * newVecWidth +
-                                           vecElem] =
-                            buffer[groupOffset + vecElem * ncoeff + i];
-                    }
+                    unsigned int vecElem = idx % newVecWidth;
+                    unsigned int iElem   = idx / newVecWidth;
+                    deInterleaveMapPtr[groupOffset + idx] =
+                        buffer[groupOffset + vecElem * ncoeff + iElem];
                 }
 
                 indx.barrier(sycl::access::fence_space::local_space);
 
-                for (unsigned int i = indx.get_local_id(0); i < ncoeff;
-                     i += indx.get_local_range(0))
+                for (unsigned int idx = indx.get_local_id(0);
+                     idx < ncoeff * newVecWidth; idx += indx.get_local_range(0))
                 {
-                    for (unsigned int vecElem = 0; vecElem < newVecWidth;
-                         ++vecElem)
-                    {
-                        interleaveMapPtr[deInterleaveMapPtr[groupOffset +
-                                                            i * newVecWidth +
-                                                            vecElem]] =
-                            offset + groupOffset + i * newVecWidth + vecElem;
-                    }
+                    interleaveMapPtr[deInterleaveMapPtr[groupOffset + idx]] =
+                        offset + groupOffset + idx;
                 }
             });
     });
