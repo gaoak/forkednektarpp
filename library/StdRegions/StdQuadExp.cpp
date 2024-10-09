@@ -44,6 +44,7 @@ namespace Nektar::StdRegions
 {
 // Declaration of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 /** \brief Constructor using BasisKey class for quadrature
@@ -137,77 +138,80 @@ void StdQuadExp::v_StdPhysDeriv(const int dir,
 void StdQuadExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                             Array<OneD, NekDouble> &outarray)
 {
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+
     if (m_base[0]->Collocation() && m_base[1]->Collocation())
     {
-        Vmath::Vcopy(m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints(),
-                     inarray, 1, outarray, 1);
+        std::memcpy(outarray.data(), inarray.data(),
+                    nquad0 * nquad1 * sizeof(NekDouble));
     }
     else
     {
-        StdQuadExp::v_BwdTrans_SumFac(inarray, outarray);
-    }
-}
+        const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+        const Array<OneD, const NekDouble> base1 = m_base[1]->GetBdata();
 
-void StdQuadExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                   Array<OneD, NekDouble> &outarray)
-{
-    Array<OneD, NekDouble> wsp(m_base[0]->GetNumPoints() *
-                               m_base[1]->GetNumModes());
+        int nmodes0 = m_base[0]->GetNumModes();
+        int nmodes1 = m_base[1]->GetNumModes();
 
-    BwdTrans_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(), inarray,
-                          outarray, wsp, true, true);
-}
+        std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nmodes1 * nquad0);
 
-// The arguments doCheckCollDir0 and doCheckCollDir1 allow you to specify
-// whether to check if the basis has collocation properties (i.e. for the
-// classical spectral element basis, In this case the 1D 'B' matrix is equal to
-// the identity matrix which can be exploited to speed up the calculations).
-// However, as this routine also allows to pass the matrix 'DB' (derivative of
-// the basis), the collocation property cannot always be used. Therefor follow
-// this rule: if base0 == m_base[0]->GetBdata() --> set doCheckCollDir0 == true;
-//    base1 == m_base[1]->GetBdata() --> set doCheckCollDir1 == true;
-//    base0 == m_base[0]->GetDbdata() --> set doCheckCollDir0 == false;
-//    base1 == m_base[1]->GetDbdata() --> set doCheckCollDir1 == false;
-void StdQuadExp::v_BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    bool doCheckCollDir0, bool doCheckCollDir1)
-{
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nmodes0 = m_base[0]->GetNumModes();
-    int nmodes1 = m_base[1]->GetNumModes();
+        // Switch statment using boost_pp and macros. This unfolls intwo a
+        // nested swtich statement where the outer swtich statement runs
+        // from SMIN to SMAX for modal order and the inner switch
+        // statemets run from the outer value of the case to 2*SMAX for
+        // the quadrature order. If you want to see it unwrapped compile
+        // in verbose mode and add --preprocess to the c++ command.
+        // Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransQuadKernel(                                                        \
+        nmodes0, nmodes1, nquad0, nquad1, (const vec_t *)base0.data(),         \
+        (const vec_t *)base1.data(), wsp0, inarray.data(), outarray.data())
 
-    bool colldir0 = doCheckCollDir0 ? (m_base[0]->Collocation()) : false;
-    bool colldir1 = doCheckCollDir1 ? (m_base[1]->Collocation()) : false;
+        // Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransQuadKernel(NM(i), NM(i), NQ(i), NQ(i),                         \
+                           (const vec_t *)base0.data(),                        \
+                           (const vec_t *)base1.data(), wsp0, inarray.data(),  \
+                           outarray.data());                                   \
+        break;
 
-    if (colldir0 && colldir1)
-    {
-        Vmath::Vcopy(m_ncoeffs, inarray.get(), 1, outarray.get(), 1);
-    }
-    else if (colldir0)
-    {
-        Blas::Dgemm('N', 'T', nquad0, nquad1, nmodes1, 1.0, &inarray[0], nquad0,
-                    base1.get(), nquad1, 0.0, &outarray[0], nquad0);
-    }
-    else if (colldir1)
-    {
-        Blas::Dgemm('N', 'N', nquad0, nmodes1, nmodes0, 1.0, base0.get(),
-                    nquad0, &inarray[0], nmodes0, 0.0, &outarray[0], nquad0);
-    }
-    else
-    {
-        ASSERTL1(wsp.size() >= nquad0 * nmodes1,
-                 "Workspace size is not sufficient");
+        // outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
 
-        // Those two calls correpsond to the operation
-        // out = B0*in*Transpose(B1);
-        Blas::Dgemm('N', 'N', nquad0, nmodes1, nmodes0, 1.0, base0.get(),
-                    nquad0, &inarray[0], nmodes0, 0.0, &wsp[0], nquad0);
-        Blas::Dgemm('N', 'T', nquad0, nquad1, nmodes1, 1.0, &wsp[0], nquad0,
-                    base1.get(), nquad1, 0.0, &outarray[0], nquad0);
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to 2(*mode
+        // order)
+        if ((nmodes0 == nmodes1) && (nquad0 == nquad1))
+        {
+            switch (nmodes0)
+            {
+                BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                             BWDTRANS_M)
+                default:
+                    BWDTRANS_DEF;
+                    break;
+            }
+        }
+        else
+        {
+            BWDTRANS_DEF;
+        }
     }
 }
 

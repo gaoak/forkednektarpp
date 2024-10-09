@@ -43,6 +43,7 @@ namespace Nektar::StdRegions
 {
 // Declaretion of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 StdTetExp::StdTetExp(const LibUtilities::BasisKey &Ba,
@@ -291,138 +292,83 @@ void StdTetExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                  (m_base[2]->GetBasisType() != LibUtilities::eModified_C),
              "Basis[2] is not a general tensor type");
 
-    if (m_base[0]->Collocation() && m_base[1]->Collocation() &&
-        m_base[2]->Collocation())
-    {
-        Vmath::Vcopy(m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints() *
-                         m_base[2]->GetNumPoints(),
-                     inarray, 1, outarray, 1);
-    }
-    else
-    {
-        StdTetExp::v_BwdTrans_SumFac(inarray, outarray);
-    }
-}
+    const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+    const Array<OneD, const NekDouble> base1 = m_base[1]->GetBdata();
+    const Array<OneD, const NekDouble> base2 = m_base[2]->GetBdata();
 
-/**
- * Sum-factorisation implementation of the BwdTrans operation.
- */
-void StdTetExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-    int order0 = m_base[0]->GetNumModes();
-    int order1 = m_base[1]->GetNumModes();
-
-    Array<OneD, NekDouble> wsp(nquad2 * order0 * (2 * order1 - order0 + 1) / 2 +
-                               nquad2 * nquad1 * order0);
-
-    BwdTrans_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetBdata(), inarray, outarray, wsp, true,
-                          true, true);
-}
-
-/**
- * @param   base0       x-dirn basis matrix
- * @param   base1       y-dirn basis matrix
- * @param   base2       z-dirn basis matrix
- * @param   inarray     Input vector of modes.
- * @param   outarray    Output vector of physical space data.
- * @param   wsp         Workspace of size Q_x*P_z*(P_y+Q_y)
- * @param   doCheckCollDir0     Check for collocation of basis.
- * @param   doCheckCollDir1     Check for collocation of basis.
- * @param   doCheckCollDir2     Check for collocation of basis.
- * @todo    Account for some directions being collocated. See
- *          StdQuadExp as an example.
- */
-void StdTetExp::v_BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &base2,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1,
-    [[maybe_unused]] bool doCheckCollDir2)
-{
     int nquad0 = m_base[0]->GetNumPoints();
     int nquad1 = m_base[1]->GetNumPoints();
     int nquad2 = m_base[2]->GetNumPoints();
 
-    int order0 = m_base[0]->GetNumModes();
-    int order1 = m_base[1]->GetNumModes();
-    int order2 = m_base[2]->GetNumModes();
+    int nmodes0 = m_base[0]->GetNumModes();
+    int nmodes1 = m_base[1]->GetNumModes();
+    int nmodes2 = m_base[2]->GetNumModes();
 
-    Array<OneD, NekDouble> tmp = wsp;
-    Array<OneD, NekDouble> tmp1 =
-        tmp + nquad2 * order0 * (2 * order1 - order0 + 1) / 2;
+    bool isModified = (m_base[0]->GetBasisType() == LibUtilities::eModified_A);
 
-    int i, j, mode, mode1, cnt;
+    std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nmodes0 * nmodes1),
+        wsp1(nmodes0);
 
-    // Perform summation over '2' direction
-    mode = mode1 = cnt = 0;
-    for (i = 0; i < order0; ++i)
+    // Switch statment using boost_pp and macros. This unfolls intwo a
+    // nested swtich statement where the outer swtich statement runs
+    // from SMIN to SMAX for modal order and the inner switch
+    // statemets run from the outer value of the case to 2*SMAX for
+    // the quadrature order. If you want to see it unwrapped compile
+    // in verbose mode and add --preprocess to the c++ command.
+    // Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransTetKernel(nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,       \
+                      isModified, (const vec_t *)base0.data(),                 \
+                      (const vec_t *)base1.data(),                             \
+                      (const vec_t *)base2.data(), wsp0, wsp1, inarray.data(), \
+                      outarray.data())
+
+    // Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransTetKernel(NM(i), NM(i), NM(i), NQ(i), NQ_M1(i), NQ_M1(i),      \
+                          isModified, (const vec_t *)base0.data(),             \
+                          (const vec_t *)base1.data(),                         \
+                          (const vec_t *)base2.data(), wsp0, wsp1,             \
+                          inarray.data(), outarray.data());                    \
+        break;
+
+    // outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+    // templated cases on equi-ordered modes and standard quad
+    // usage where quad order goes from mode order to 2(*mode
+    // order)
+    if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
+        (nquad0 == nquad1 + 1) && (nquad1 == nquad2))
     {
-        for (j = 0; j < order1 - i; ++j, ++cnt)
+        switch (nmodes0)
         {
-            Blas::Dgemv('N', nquad2, order2 - i - j, 1.0,
-                        base2.get() + mode * nquad2, nquad2,
-                        inarray.get() + mode1, 1, 0.0, tmp.get() + cnt * nquad2,
-                        1);
-            mode += order2 - i - j;
-            mode1 += order2 - i - j;
-        }
-        // increment mode in case order1!=order2
-        for (j = order1 - i; j < order2 - i; ++j)
-        {
-            mode += order2 - i - j;
-        }
-    }
-
-    // fix for modified basis by adding split of top singular
-    // vertex mode - currently (1+c)/2 x (1-b)/2 x (1-a)/2
-    // component is evaluated
-    if (m_base[0]->GetBasisType() == LibUtilities::eModified_A)
-    {
-        // top singular vertex - (1+c)/2 x (1+b)/2 x (1-a)/2 component
-        Blas::Daxpy(nquad2, inarray[1], base2.get() + nquad2, 1,
-                    &tmp[0] + nquad2, 1);
-
-        // top singular vertex - (1+c)/2 x (1-b)/2 x (1+a)/2 component
-        Blas::Daxpy(nquad2, inarray[1], base2.get() + nquad2, 1,
-                    &tmp[0] + order1 * nquad2, 1);
-    }
-
-    // Perform summation over '1' direction
-    mode = 0;
-    for (i = 0; i < order0; ++i)
-    {
-        Blas::Dgemm('N', 'T', nquad1, nquad2, order1 - i, 1.0,
-                    base1.get() + mode * nquad1, nquad1,
-                    tmp.get() + mode * nquad2, nquad2, 0.0,
-                    tmp1.get() + i * nquad1 * nquad2, nquad1);
-        mode += order1 - i;
-    }
-
-    // fix for modified basis by adding additional split of
-    // top and base singular vertex modes as well as singular
-    // edge
-    if (m_base[0]->GetBasisType() == LibUtilities::eModified_A)
-    {
-        // use tmp to sort out singular vertices and
-        // singular edge components with (1+b)/2 (1+a)/2 form
-        for (i = 0; i < nquad2; ++i)
-        {
-            Blas::Daxpy(nquad1, tmp[nquad2 + i], base1.get() + nquad1, 1,
-                        &tmp1[nquad1 * nquad2] + i * nquad1, 1);
+            BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                         BWDTRANS_M)
+            default:
+                BWDTRANS_DEF;
+                break;
         }
     }
-
-    // Perform summation over '0' direction
-    Blas::Dgemm('N', 'T', nquad0, nquad1 * nquad2, order0, 1.0, base0.get(),
-                nquad0, tmp1.get(), nquad1 * nquad2, 0.0, outarray.get(),
-                nquad0);
+    else
+    {
+        BWDTRANS_DEF;
+    }
 }
 
 /**

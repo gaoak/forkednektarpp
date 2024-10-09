@@ -42,6 +42,7 @@ namespace Nektar::StdRegions
 {
 // Declaration of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 StdTriExp::StdTriExp(const LibUtilities::BasisKey &Ba,
@@ -230,57 +231,78 @@ void StdTriExp::v_StdPhysDeriv(const int dir,
 void StdTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                            Array<OneD, NekDouble> &outarray)
 {
-    v_BwdTrans_SumFac(inarray, outarray);
-}
+    ASSERTL2((m_base[1]->GetBasisType() != LibUtilities::eOrtho_B) ||
+                 (m_base[1]->GetBasisType() != LibUtilities::eModified_B),
+             "Basis[1] is not of general tensor type");
 
-void StdTriExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    Array<OneD, NekDouble> wsp(m_base[1]->GetNumPoints() *
-                               m_base[0]->GetNumModes());
+    const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+    const Array<OneD, const NekDouble> base1 = m_base[1]->GetBdata();
 
-    BwdTrans_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(), inarray,
-                          outarray, wsp);
-}
-
-void StdTriExp::v_BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1)
-{
-    int i;
-    int mode;
     int nquad0  = m_base[0]->GetNumPoints();
     int nquad1  = m_base[1]->GetNumPoints();
     int nmodes0 = m_base[0]->GetNumModes();
     int nmodes1 = m_base[1]->GetNumModes();
 
-    ASSERTL1(wsp.size() >= nquad1 * nmodes0,
-             "Workspace size is not sufficient");
-    ASSERTL2((m_base[1]->GetBasisType() != LibUtilities::eOrtho_B) ||
-                 (m_base[1]->GetBasisType() != LibUtilities::eModified_B),
-             "Basis[1] is not of general tensor type");
+    std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nmodes0);
+    bool isModified = (m_base[0]->GetBasisType() == LibUtilities::eModified_A);
 
-    for (i = mode = 0; i < nmodes0; ++i)
+// Swith statment using boost_pp and macros. This unfolls intwo a
+// nested swtich statement where the outer swtich statement runs
+// from SMIN to SMAX for modal order and the inner switch
+// statemets run from the outer value of the case to 2*SMAX for
+// the quadrature order. If you want to see it unwrapped compile
+// in verbose mode and add --preprocess to the c++ command.
+// Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransTriKernel(nmodes0, nmodes1, nquad0, nquad1, isModified,            \
+                      (const vec_t *)base0.data(),                             \
+                      (const vec_t *)base1.data(), wsp0, inarray.data(),       \
+                      outarray.data())
+
+// Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransTriKernel(NM(i), NM(i), NQ(i), NQ_M1(i), isModified,           \
+                          (const vec_t *)base0.data(),                         \
+                          (const vec_t *)base1.data(), wsp0, inarray.data(),   \
+                          outarray.data());                                    \
+        break;
+
+// outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+    // templated cases on equi-ordered modes and standard quad
+    // usage where quad order goes from mode order to 2(*mode
+    // order)
+    if ((nmodes0 == nmodes1) && (nquad0 == nquad1 + 1))
     {
-        Blas::Dgemv('N', nquad1, nmodes1 - i, 1.0, base1.get() + mode * nquad1,
-                    nquad1, &inarray[0] + mode, 1, 0.0, &wsp[0] + i * nquad1,
-                    1);
-        mode += nmodes1 - i;
+        switch (nmodes0)
+        {
+            BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                         BWDTRANS_M)
+            default:
+                BWDTRANS_DEF;
+                break;
+        }
     }
-
-    // fix for modified basis by splitting top vertex mode
-    if (m_base[0]->GetBasisType() == LibUtilities::eModified_A)
+    else
     {
-        Blas::Daxpy(nquad1, inarray[1], base1.get() + nquad1, 1,
-                    &wsp[0] + nquad1, 1);
+        BWDTRANS_DEF;
     }
-
-    Blas::Dgemm('N', 'T', nquad0, nquad1, nmodes0, 1.0, base0.get(), nquad0,
-                &wsp[0], nquad1, 0.0, &outarray[0], nquad0);
 }
 
 void StdTriExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,

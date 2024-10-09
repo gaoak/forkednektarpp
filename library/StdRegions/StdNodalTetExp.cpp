@@ -158,16 +158,9 @@ DNekMatSharedPtr StdNodalTetExp::GenNBasisTransMatrix()
 void StdNodalTetExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray)
 {
-    v_BwdTrans_SumFac(inarray, outarray);
-}
-
-void StdNodalTetExp::v_BwdTrans_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
     Array<OneD, NekDouble> tmp(m_ncoeffs);
     NodalToModal(inarray, tmp);
-    StdTetExp::v_BwdTrans_SumFac(tmp, outarray);
+    StdTetExp::v_BwdTrans(tmp, outarray);
 }
 
 void StdNodalTetExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,

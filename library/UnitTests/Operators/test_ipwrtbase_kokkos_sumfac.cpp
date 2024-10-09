@@ -85,9 +85,9 @@ TEST_IPWRTBASE(ipwrtbase_kokkos_square_all_elements, SquareAllElements, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_kokkos_hex, Hex, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_kokkos_hex_sem, HexSEM, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_kokkos_hex_varP, HexVarP, 1.0E-12)
 
-TEST_IPWRTBASE(ipwrtbase_kokkos_hex_varp, HexVarP, 1.0E-12)
+TEST_IPWRTBASE(ipwrtbase_kokkos_hex_sem, HexSEM, 1.0E-12)
 
 TEST_IPWRTBASE(ipwrtbase_kokkos_prism, Prism, 1.0E-12)
 

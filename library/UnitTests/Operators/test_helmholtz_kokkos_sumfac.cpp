@@ -64,7 +64,6 @@
                 tol);                                                          \
         }                                                                      \
     }
-
 BOOST_AUTO_TEST_SUITE(TestHelmholtzKokkos)
 
 TEST_HELMHOLTZ(helmholtz_kokkos_seg, Seg, 1.0E-12)

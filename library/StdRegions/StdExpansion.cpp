@@ -312,7 +312,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
                 Vmath::Zero(m_ncoeffs, tmpin, 1);
                 tmpin[i] = 1.0;
 
-                BwdTrans_SumFac(tmpin, tmpout);
+                BwdTrans(tmpin, tmpout);
 
                 Vmath::Vcopy(nq, tmpout.get(), 1,
                              returnval->GetRawPtr() + i * nq, 1);
