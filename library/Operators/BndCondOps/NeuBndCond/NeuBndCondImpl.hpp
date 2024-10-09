@@ -111,7 +111,7 @@ public:
         }
 
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            bndcoeff, ExecSpace::alignment, true);
 
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
@@ -142,7 +142,7 @@ public:
         }
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            alignedMap, ExecSpace::alignment, true);
 
         if (m_signChange)
         {
@@ -153,8 +153,7 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                alignedSign, ExecSpace::alignment, true);
         }
     }
 

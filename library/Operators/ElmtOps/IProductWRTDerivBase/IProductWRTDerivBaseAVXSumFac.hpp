@@ -69,8 +69,6 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
-        auto alignment = EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>();
-
         // Initialise jacobian with paddings if appropriate
         auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
@@ -80,13 +78,13 @@ public:
         auto jac =
             Operator<TData>::SetJacobian(gFacSize, locblocks, vec_t::width);
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *jac, alignment);
+            *jac, ExecSpace::alignment);
 
         auto derivFac = Operator<TData>::SetDerivativeFactor(
             gFacSize, locblocks, vec_t::width);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *derivFac, alignment);
+            *derivFac, ExecSpace::alignment);
 
         // Initialize the basis data.
         m_Bmap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eBasis,

@@ -71,40 +71,6 @@ template <class T> struct const_if<true, T>
 };
 
 /**
- * @brief This function will return an alignment based on the memory type.
- *
- * When running on a device temporary memeory may be need that is only
- * on the device. Passing __EXECSPACE_MEMORY_REGION_ONLY__ will create
- * such memory. However, when code is common to both the host and the
- * device and when running on the host and requiring memeory
- * __STDCPP_DEFAULT_NEW_ALIGNMENT__ should be passed.
- *
- * @return - alignment
- */
-template <typename MemSpace, typename ExecSpace>
-inline size_t EXECSPACE_MEMORY_REGION_ONLY()
-{
-    if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
-    {
-        return ExecSpace::alignment;
-    }
-    else if constexpr (std::is_same<MemSpace, NektarSpaces::DeviceSpace>::value)
-    {
-        return __EXECSPACE_MEMORY_REGION_ONLY__;
-    }
-    else
-    {
-        std::string msg("EXECSPACE_MEMORY_REGION_ONLY - "
-                        "invalid memory space: ");
-        msg += Nektar::demangleTypeName(typeid(MemSpace));
-
-        NEKERROR(Nektar::ErrorUtil::efatal, msg);
-    }
-
-    return __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-}
-
-/**
  * @brief A MemoryRegion represents a memory region
  * @tparam TData  The floating-point representation used by the MemoryRegion.
  */
@@ -271,7 +237,8 @@ public:
      */
     template <typename MemSpace>
     static MemoryRegion<TData> create(std::string name, size_t size,
-                                      size_t alignment)
+                                      size_t alignment,
+                                      bool device_only = false)
     {
         auto mr = MemoryRegion();
 
@@ -279,14 +246,14 @@ public:
         // MemoryRegionHost.
         if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
-            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(name, size,
-                                                                     alignment);
+            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
+                name, size, alignment, false);
         }
         else if constexpr (std::is_same<MemSpace,
                                         NektarSpaces::DeviceSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, size, alignment);
+                name, size, alignment, device_only);
         }
         else
         {
@@ -310,10 +277,11 @@ public:
      * @return MemoryRegion<TData>
      */
     template <typename MemSpace>
-    static MemoryRegion<TData> create(size_t size, size_t alignment)
+    static MemoryRegion<TData> create(size_t size, size_t alignment,
+                                      bool device_only = false)
     {
-        return MemoryRegion<TData>::template create<MemSpace>("", size,
-                                                              alignment);
+        return MemoryRegion<TData>::template create<MemSpace>(
+            "", size, alignment, device_only);
     }
 
     /**
@@ -328,7 +296,8 @@ public:
      */
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromData(std::string name, const TDataIn *src,
-                                        const size_t size, size_t alignment)
+                                        const size_t size, size_t alignment,
+                                        bool device_only)
     {
         auto mr = MemoryRegion();
 
@@ -337,13 +306,13 @@ public:
         if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, src, size, alignment);
+                name, src, size, alignment, false);
         }
         else if constexpr (std::is_same<MemSpace,
                                         NektarSpaces::DeviceSpace>::value)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, src, size, alignment);
+                name, src, size, alignment, device_only);
         }
         else
         {
@@ -371,10 +340,10 @@ public:
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
         std::string name, std::vector<TDataIn, Alloc> const &array,
-        size_t alignment)
+        size_t alignment, bool device_only = false)
     {
         return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
-            name, array.data(), array.size(), alignment);
+            name, array.data(), array.size(), alignment, device_only);
     }
 
     /**
@@ -389,10 +358,11 @@ public:
     template <typename MemSpace, typename TDataIn,
               class Alloc = std::allocator<TDataIn>>
     static MemoryRegion<TData> fromVector(
-        std::vector<TDataIn, Alloc> const &array, size_t alignment)
+        std::vector<TDataIn, Alloc> const &array, size_t alignment,
+        bool device_only = false)
     {
         return MemoryRegion<TData>::template fromVector<MemSpace, TDataIn>(
-            "", array, alignment);
+            "", array, alignment, device_only);
     }
 
     /**
@@ -409,10 +379,10 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
         std::string name, Nektar::Array<Nektar::OneD, TDataIn> const &array,
-        size_t alignment)
+        size_t alignment, bool device_only = false)
     {
         return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
-            name, array.data(), array.size(), alignment);
+            name, array.data(), array.size(), alignment, device_only);
     }
 
     /**
@@ -426,10 +396,11 @@ public:
      */
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromArray(
-        Nektar::Array<Nektar::OneD, TDataIn> const &array, size_t alignment)
+        Nektar::Array<Nektar::OneD, TDataIn> const &array, size_t alignment,
+        bool device_only = false)
     {
         return MemoryRegion<TData>::template fromArray<MemSpace, TDataIn>(
-            "", array, alignment);
+            "", array, alignment, device_only);
     }
 
     /**
@@ -448,7 +419,7 @@ public:
         std::string name,
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
-        size_t alignment)
+        size_t alignment, bool device_only = false)
     {
         size_t size = 0;
         for (auto i = 0; i < array.size(); ++i)
@@ -468,7 +439,7 @@ public:
         }
 
         return MemoryRegion<TData>::template fromData<MemSpace, TDataIn>(
-            name, tmp.data(), tmp.size(), alignment);
+            name, tmp.data(), tmp.size(), alignment, device_only);
     }
 
     /**
@@ -485,10 +456,10 @@ public:
     static MemoryRegion<TData> fromArray(
         Nektar::Array<Nektar::OneD, Nektar::Array<Nektar::OneD, TDataIn>> const
             &array,
-        size_t alignment)
+        size_t alignment, bool device_only = false)
     {
         return MemoryRegion<TData>::template fromArray<MemSpace, TDataIn>(
-            "", array, alignment);
+            "", array, alignment, device_only);
     }
 
     /**

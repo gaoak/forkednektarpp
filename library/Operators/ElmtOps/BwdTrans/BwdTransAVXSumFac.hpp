@@ -68,11 +68,9 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
-        auto alignment = EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>();
-
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eBasis,
-                                                          alignment);
+                                                          ExecSpace::alignment);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

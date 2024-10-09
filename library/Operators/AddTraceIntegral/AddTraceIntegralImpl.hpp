@@ -136,18 +136,15 @@ public:
         // Assign map to memory region
         m_traceCoeffsToElmtMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtMap,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                alignedTraceCoeffsToElmtMap, ExecSpace::alignment, true);
 
         m_traceCoeffsToElmtSign =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                TraceCoeffsToElmtSign,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                TraceCoeffsToElmtSign, ExecSpace::alignment, true);
 
         m_traceCoeffsToElmtTrace =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtTrace,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                alignedTraceCoeffsToElmtTrace, ExecSpace::alignment, true);
 
         // Reorder the map and sign arrays to let trace data be accessed
         // contiguously
@@ -168,7 +165,7 @@ public:
         }
         m_deInterleaveFieldMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                tmpArray, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                tmpArray, ExecSpace::alignment, true);
 
         // reuse Array for trace
         tmpArray = Array<OneD, int>(m_trace.GetFieldSize());
@@ -178,7 +175,7 @@ public:
         }
         m_deInterleaveTraceMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                tmpArray, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                tmpArray, ExecSpace::alignment, true);
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
                           locTraceToTraceMap->GetNBwdCoeffs();

@@ -129,16 +129,11 @@ public:
             }
 
             m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_map =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_offset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    offset,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                mat, ExecSpace::alignment, true);
+            m_map = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(map, ExecSpace::alignment, true);
+            m_offset = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(offset, ExecSpace::alignment, true);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
         {
@@ -229,33 +224,19 @@ public:
             }
 
             m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                mat, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_map =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                mat, ExecSpace::alignment, true);
+            m_map = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(map, ExecSpace::alignment, true);
             m_sign = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_nEdgeCoeff =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    nEdgeCoeff,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_offset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    offset,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_matOffset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    matOffset,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
-            m_mapOffset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
-                    mapOffset,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                sign, ExecSpace::alignment, true);
+            m_nEdgeCoeff = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(nEdgeCoeff, ExecSpace::alignment, true);
+            m_offset = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(offset, ExecSpace::alignment, true);
+            m_matOffset = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(matOffset, ExecSpace::alignment, true);
+            m_mapOffset = MemoryRegion<unsigned int>::template fromArray<
+                MemSpace, unsigned int>(mapOffset, ExecSpace::alignment, true);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)
         {

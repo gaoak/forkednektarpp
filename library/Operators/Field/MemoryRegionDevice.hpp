@@ -116,8 +116,9 @@ public:
      * @param size      - size of memory
      * @param alignment - memory alignment
      */
-    MemoryRegionDevice(std::string name, size_t size, size_t alignment)
-        : MemoryRegionHost<TData>(name, size, alignment)
+    MemoryRegionDevice(std::string name, size_t size, size_t alignment,
+                       bool device_only)
+        : MemoryRegionHost<TData>(name, size, alignment, device_only)
     {
         createMemory();
     }
@@ -160,8 +161,8 @@ public:
      */
     template <typename TDataIn>
     MemoryRegionDevice(std::string name, [[maybe_unused]] const TDataIn *src,
-                       const size_t size, size_t alignment)
-        : MemoryRegionHost<TData>(name, size, alignment)
+                       const size_t size, size_t alignment, bool device_only)
+        : MemoryRegionHost<TData>(name, size, alignment, device_only)
     {
         createMemory();
 
@@ -284,9 +285,9 @@ public:
         msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
             << " initialize: " << mr.m_initialize << " ";
 
-        if (mr.m_alignment == __EXECSPACE_MEMORY_REGION_ONLY__)
+        if (mr.m_device_only)
         {
-            msg << "EXECSPACE_MEMORY_REGION_ONLY ";
+            msg << "MemoryRegion is only allocated on device! ";
         }
         else
         {
@@ -606,8 +607,7 @@ protected:
         // Because the host pointer is used directly the device data may
         // be marked as valid as such the force can be used to assure
         // the copy occurs regardles.
-        if (this->m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__ &&
-            (force || !m_device_valid))
+        if (!this->m_device_only && (force || !m_device_valid))
         {
             if (this->m_host == nullptr)
             {
@@ -672,8 +672,7 @@ protected:
         // Because the device pointer is used directly the host data may
         // be marked as valid as such the force can be used to assure
         // the copy occurs regardles.
-        if ( // this->m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__ &&
-            (force || !this->m_host_valid))
+        if (!this->m_device_only && (force || !this->m_host_valid))
         {
             if (this->m_host == nullptr)
             {
