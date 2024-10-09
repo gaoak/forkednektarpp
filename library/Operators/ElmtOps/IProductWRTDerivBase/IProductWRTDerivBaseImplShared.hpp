@@ -79,10 +79,11 @@ public:
 
         // Initialise the jacobian.
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *jac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            *jac, ExecSpace::alignment, true);
+
         // Initialise the derivative factor.
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            *derivFac, ExecSpace::alignment, true);
 
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, TData>(expansionList, eBasis);
@@ -371,8 +372,7 @@ public:
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                    m_wspsize, ExecSpace::alignment, true);
             }
 
             if (m_wspsize > 0)

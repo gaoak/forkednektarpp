@@ -46,10 +46,6 @@
 
 template <typename TData> class MemoryRegion;
 
-// If the host alignment is set to this macro value then no host memory
-// will be allocated.
-#define __EXECSPACE_MEMORY_REGION_ONLY__ 0
-
 /**
  * @brief Stores underlying data for a Field on the host.
  *
@@ -77,9 +73,11 @@ public:
      * @param size      - size of memory
      * @param alignment - memory alignment
      */
-    MemoryRegionHost(std::string name, size_t size, size_t alignment)
+    MemoryRegionHost(std::string name, size_t size, size_t alignment,
+                     bool device_only)
     {
-        m_size = size;
+        m_size        = size;
+        m_device_only = device_only;
 
         createMemory(name, alignment);
     }
@@ -91,19 +89,21 @@ public:
      */
     MemoryRegionHost(MemoryRegionHost &&rhs)
     {
-        m_host       = rhs.m_host;
-        m_size       = rhs.m_size;
-        m_alignment  = rhs.m_alignment;
-        m_host_valid = rhs.m_host_valid;
-        m_initialize = rhs.m_initialize;
-        m_name       = rhs.m_name;
+        m_host        = rhs.m_host;
+        m_size        = rhs.m_size;
+        m_alignment   = rhs.m_alignment;
+        m_host_valid  = rhs.m_host_valid;
+        m_initialize  = rhs.m_initialize;
+        m_device_only = rhs.m_device_only;
+        m_name        = rhs.m_name;
 
-        rhs.m_host       = nullptr;
-        rhs.m_size       = 0;
-        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_host_valid = false;
-        rhs.m_initialize = true;
-        rhs.m_name       = "";
+        rhs.m_host        = nullptr;
+        rhs.m_size        = 0;
+        rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_host_valid  = false;
+        rhs.m_initialize  = true;
+        rhs.m_device_only = false;
+        rhs.m_name        = "";
     }
 
     /**
@@ -117,13 +117,14 @@ public:
      */
     template <typename TDataIn>
     MemoryRegionHost(std::string name, const TDataIn *src, const size_t size,
-                     size_t alignment)
+                     size_t alignment, bool device_only)
     {
-        m_size = size;
+        m_size        = size;
+        m_device_only = device_only;
 
         createMemory(name, alignment);
 
-        if (alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
+        if (!m_device_only)
         {
             if constexpr (std::is_same<TDataIn, TData>::value)
             {
@@ -151,12 +152,13 @@ public:
             operator delete[](m_host, std::align_val_t(m_alignment));
         }
 
-        m_host       = nullptr;
-        m_size       = 0;
-        m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        m_host_valid = false;
-        m_initialize = true;
-        m_name       = "";
+        m_host        = nullptr;
+        m_size        = 0;
+        m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        m_host_valid  = false;
+        m_initialize  = true;
+        m_device_only = false;
+        m_name        = "";
     }
 
     /**
@@ -173,19 +175,21 @@ public:
             operator delete[](m_host, std::align_val_t(m_alignment));
         }
 
-        m_host       = rhs.m_host;
-        m_size       = rhs.m_size;
-        m_alignment  = rhs.m_alignment;
-        m_host_valid = rhs.m_host_valid;
-        m_initialize = rhs.m_initialize;
-        m_name       = rhs.m_name;
+        m_host        = rhs.m_host;
+        m_size        = rhs.m_size;
+        m_alignment   = rhs.m_alignment;
+        m_host_valid  = rhs.m_host_valid;
+        m_initialize  = rhs.m_initialize;
+        m_device_only = rhs.m_device_only;
+        m_name        = rhs.m_name;
 
-        rhs.m_host       = nullptr;
-        rhs.m_size       = 0;
-        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-        rhs.m_host_valid = false;
-        rhs.m_initialize = true;
-        rhs.m_name       = "";
+        rhs.m_host        = nullptr;
+        rhs.m_size        = 0;
+        rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_host_valid  = false;
+        rhs.m_initialize  = true;
+        rhs.m_device_only = false;
+        rhs.m_name        = "";
 
         return *this;
     }
@@ -204,9 +208,9 @@ public:
         msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
             << " initialize: " << mr.m_initialize << " ";
 
-        if (mr.m_alignment == __EXECSPACE_MEMORY_REGION_ONLY__)
+        if (mr.m_device_only)
         {
-            msg << "EXECSPACE_MEMORY_REGION_ONLY ";
+            msg << "MemoryRegion is only allocated on device! ";
         }
         else
         {
@@ -257,7 +261,7 @@ protected:
         // C++17 aligned new
         m_alignment = alignment;
 
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
+        if (!m_device_only)
         {
             m_host = static_cast<TData *>(::operator new[](
                 m_size * sizeof(TData), std::align_val_t(m_alignment)));
@@ -379,7 +383,7 @@ protected:
     void copyFrom(const TDataIn *src, const size_t size,
                   const size_t offset = 0)
     {
-        if (m_alignment != __EXECSPACE_MEMORY_REGION_ONLY__)
+        if (!m_device_only)
         {
             TData *dst = m_host + offset;
 
@@ -424,9 +428,11 @@ protected:
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid = false; // Flag indicating that the host data is valid
-    bool m_initialize = true;  // Flag indicating that the data needs
-                               // to be initialize and is neeeded for
-                               // host device transfers.
+    bool m_host_valid = false;  // Flag indicating that the host data is valid
+    bool m_initialize = true;   // Flag indicating that the data needs
+                                // to be initialize and is needed for
+                                // host device transfers.
+    bool m_device_only = false; // Flag indicating that the data is only
+                                // initialized on the device.
     std::string m_name{""};
 };

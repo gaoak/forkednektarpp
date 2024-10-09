@@ -180,7 +180,8 @@ public:
     static Field<TData, TState> create(std::string name,
                                        std::vector<BlockAttributes> blocks,
                                        std::vector<std::string> components,
-                                       size_t alignment)
+                                       size_t alignment,
+                                       bool device_only = false)
     {
         int num_components = components.size();
         auto field         = Field(std::move(blocks), components);
@@ -198,13 +199,13 @@ public:
         if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, size, alignment);
+                name, size, alignment, false);
         }
         else if constexpr (std::is_same<MemSpace,
                                         NektarSpaces::DeviceSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, size, alignment);
+                name, size, alignment, device_only);
         }
         else
         {
@@ -236,10 +237,11 @@ public:
     template <typename MemSpace>
     static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
                                        std::vector<std::string> components,
-                                       size_t alignment)
+                                       size_t alignment,
+                                       bool device_only = false)
     {
         return Field<TData, TState>::template create<MemSpace>(
-            blocks, components, alignment);
+            blocks, components, alignment, device_only);
     }
 
     /**
@@ -258,7 +260,8 @@ public:
     template <typename MemSpace>
     static Field<TData, TState> create(std::string name,
                                        std::vector<BlockAttributes> blocks,
-                                       int num_components, size_t alignment)
+                                       int num_components, size_t alignment,
+                                       bool device_only = false)
     {
         auto field = Field(std::move(blocks), num_components);
 
@@ -275,13 +278,13 @@ public:
         if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, size, alignment);
+                name, size, alignment, false);
         }
         else if constexpr (std::is_same<MemSpace,
                                         NektarSpaces::DeviceSpace>::value)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, size, alignment);
+                name, size, alignment, device_only);
         }
         else
         {
@@ -312,10 +315,11 @@ public:
      */
     template <typename MemSpace>
     static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
-                                       int num_components, size_t alignment)
+                                       int num_components, size_t alignment,
+                                       bool device_only = false)
     {
         return Field<TData, TState>::template create<MemSpace>(
-            "", blocks, num_components, alignment);
+            "", blocks, num_components, alignment, device_only);
     }
 
     /**
@@ -836,7 +840,7 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
 
     // temporary storage for the map
     MemoryRegion<int> temp = MemoryRegion<int>::template create<MemSpace>(
-        map.size(), EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+        map.size(), ExecSpace::alignment, true);
     // copy map to temp
     temp.template copyMemoryRegion<MemSpace>(map);
 

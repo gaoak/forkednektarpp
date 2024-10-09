@@ -83,7 +83,7 @@ public:
         auto map = assmbMap->GetLocalToGlobalMap();
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            map, ExecSpace::alignment, true);
 
         m_assmbScatrOp =
             AssmbScatr<TData>::template create<ExecSpace, Implementation>(

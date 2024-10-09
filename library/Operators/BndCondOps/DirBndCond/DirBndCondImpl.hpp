@@ -137,7 +137,7 @@ public:
         }
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            alignedMap, ExecSpace::alignment, true);
 
         Array<OneD, TData> alignedSign(m_nbndcoeff);
         if (m_signChange)
@@ -148,8 +148,7 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign,
-                EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                alignedSign, ExecSpace::alignment, true);
         }
 
         // TODO: This is a temporary hack to fix the Dirichlet boundary
@@ -203,7 +202,7 @@ public:
         // -------------------------- END ------------------------------------
 
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            bndcoeff, ExecSpace::alignment, true);
 
         m_parallelDirBndSignSize = parallelDirBndSign.size();
         if (m_parallelDirBndSignSize > 0)
@@ -217,8 +216,7 @@ public:
 
             m_parallelDirBndSign =
                 MemoryRegion<int>::template fromArray<MemSpace, int>(
-                    alignedParallelDirBndSign,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                    alignedParallelDirBndSign, ExecSpace::alignment, true);
         }
 
         // local
@@ -239,13 +237,12 @@ public:
             }
 
             m_locid0 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locid0, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                locid0, ExecSpace::alignment, true);
             m_locid1 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locid1, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                locid1, ExecSpace::alignment, true);
             m_locsign =
                 MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                    locsign,
-                    EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                    locsign, ExecSpace::alignment, true);
         }
     }
 

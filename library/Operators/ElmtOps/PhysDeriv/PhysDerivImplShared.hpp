@@ -70,7 +70,7 @@ public:
             Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *derivFac, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            *derivFac, ExecSpace::alignment, true);
 
         // Initialize the points.
         m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);

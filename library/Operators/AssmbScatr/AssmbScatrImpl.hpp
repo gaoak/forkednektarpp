@@ -76,7 +76,7 @@ public:
         auto map = assmbMap->GetLocalToGlobalMap();
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            map, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+            map, ExecSpace::alignment, true);
 
         // Memory allocation for sign pointer
         if (m_signChange)
@@ -84,7 +84,7 @@ public:
             auto sign = assmbMap->GetLocalToGlobalSign();
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                sign, EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>());
+                sign, ExecSpace::alignment, true);
         }
     }
 
