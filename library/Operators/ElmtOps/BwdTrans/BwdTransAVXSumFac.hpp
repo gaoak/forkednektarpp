@@ -68,9 +68,11 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
+        auto alignment = EXECSPACE_MEMORY_REGION_ONLY<MemSpace, ExecSpace>();
+
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, TData, vec_t>(expansionList, eBasis,
-                                                          vec_t::alignment);
+                                                          alignment);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -118,7 +120,54 @@ public:
                 m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
             }
 
-#include "Common/SwitchLevel2NoDeformed.h"
+            switch (shapeType)
+            {
+                    // Segment
+                case LibUtilities::Seg:
+                {
+                    SegBlock(inPtr, outPtr);
+                    break;
+                }
+                // Quads
+                case LibUtilities::Quad:
+                {
+                    QuadBlock(inPtr, outPtr);
+                    break;
+                }
+                // Triangles
+                case LibUtilities::Tri:
+                {
+                    TriBlock(inPtr, outPtr);
+                    break;
+                }
+                // Hexes
+                case LibUtilities::Hex:
+                {
+                    HexBlock(inPtr, outPtr);
+                    break;
+                }
+                    // Tet
+                case LibUtilities::Tet:
+                {
+                    TetBlock(inPtr, outPtr);
+                    break;
+                }
+                // Pyr
+                case LibUtilities::Pyr:
+                {
+                    PyrBlock(inPtr, outPtr);
+                    break;
+                }
+                    // Prism
+                case LibUtilities::Prism:
+                {
+                    PrismBlock(inPtr, outPtr);
+                    break;
+                }
+                default:
+                    std::cout << "shapetype not implemented" << std::endl;
+            }
+            // #include "Common/SwitchLevel2NoDeformed.h"
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
@@ -141,23 +190,30 @@ public:
 
 private:
     BasisDataMap<vec_t> m_basisMap;
-    // std::array<LibUtilities::BasisKey, 3> m_basisKeys;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
 
     int m_nElmtGroup, m_exp_idx;
 
+    void SegBlock(const TData *inPtr, TData *outPtr);
+    void TriBlock(const TData *inPtr, TData *outPtr);
+    void QuadBlock(const TData *inPtr, TData *outPtr);
+    void HexBlock(const TData *inPtr, TData *outPtr);
+    void PrismBlock(const TData *inPtr, TData *outPtr);
+    void PyrBlock(const TData *inPtr, TData *outPtr);
+    void TetBlock(const TData *inPtr, TData *outPtr);
+
     // templated operator(), which is instantiated by SwitchNodesPoints.h
     // and used in apply().
     // size based template version
-    template <LibUtilities::ShapeType SHAPE_TYPE, int nm0, int nq0>
-    void operator1D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nq0>
+    void Operator1D(const NekDouble *input, NekDouble *output)
     {
         constexpr auto nqTot = nq0;
         constexpr auto nmTot = nm0;
         // Workspace for kernels - also checks preconditions
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
-        // std::vector<vec_t, allocator<vec_t>> tmpIn(nmTot), tmpOut(nqTot);
         const vec_t::vectorType *tmpIn =
             reinterpret_cast<const vec_t::vectorType *>(input);
         vec_t::scalarType *tmpOut =
@@ -165,7 +221,7 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
+            // Load and transpose data
             // copy_to_vec_t(input, nmTot, tmpIn);
             // load_interleave(input, nmTot, tmpIn);
 
@@ -174,7 +230,7 @@ private:
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
-            // // de-interleave and store data
+            // de-interleave and store data
             // copy_from_vec_t(tmpOut, nqTot, output);
             // deinterleave_store(tmpOut, nqTot, output);
 
@@ -184,8 +240,8 @@ private:
     }
 
     // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE>
-    void operator1D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator1D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -227,9 +283,9 @@ private:
     }
 
     // size based template version
-    template <LibUtilities::ShapeType SHAPE_TYPE, int nm0, int nm1, int nq0,
-              int nq1>
-    void operator2D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nm1, int nq0, int nq1>
+    void Operator2D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -279,8 +335,8 @@ private:
     }
 
     // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE>
-    void operator2D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator2D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -336,9 +392,9 @@ private:
     }
 
     // size based template version
-    template <LibUtilities::ShapeType SHAPE_TYPE, int nm0, int nm1, int nm2,
-              int nq0, int nq1, int nq2>
-    void operator3D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nm1, int nm2, int nq0, int nq1, int nq2>
+    void Operator3D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -392,8 +448,8 @@ private:
     }
 
     // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE>
-    void operator3D(const NekDouble *input, NekDouble *output)
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(const NekDouble *input, NekDouble *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 

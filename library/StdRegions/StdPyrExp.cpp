@@ -44,6 +44,7 @@ namespace Nektar::StdRegions
 {
 // Declaretion of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 StdPyrExp::StdPyrExp(const LibUtilities::BasisKey &Ba,
@@ -242,118 +243,83 @@ void StdPyrExp::v_StdPhysDeriv(const int dir,
 void StdPyrExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                            Array<OneD, NekDouble> &outarray)
 {
-    if (m_base[0]->Collocation() && m_base[1]->Collocation() &&
-        m_base[2]->Collocation())
+    const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+    const Array<OneD, const NekDouble> base1 = m_base[1]->GetBdata();
+    const Array<OneD, const NekDouble> base2 = m_base[2]->GetBdata();
+
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nquad2 = m_base[2]->GetNumPoints();
+
+    int nmodes0 = m_base[0]->GetNumModes();
+    int nmodes1 = m_base[1]->GetNumModes();
+    int nmodes2 = m_base[2]->GetNumModes();
+
+    bool isModified = (m_base[0]->GetBasisType() == LibUtilities::eModified_A);
+
+    std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nmodes0 * nmodes1),
+        wsp1(nmodes0);
+
+    // Switch statment using boost_pp and macros. This unfolls intwo a
+    // nested swtich statement where the outer swtich statement runs
+    // from SMIN to SMAX for modal order and the inner switch
+    // statemets run from the outer value of the case to 2*SMAX for
+    // the quadrature order. If you want to see it unwrapped compile
+    // in verbose mode and add --preprocess to the c++ command.
+    // Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransPyrKernel(nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,       \
+                      isModified, (const vec_t *)base0.data(),                 \
+                      (const vec_t *)base1.data(),                             \
+                      (const vec_t *)base2.data(), wsp0, wsp1, inarray.data(), \
+                      outarray.data())
+
+    // Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransPyrKernel(NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ_M1(i),         \
+                          isModified, (const vec_t *)base0.data(),             \
+                          (const vec_t *)base1.data(),                         \
+                          (const vec_t *)base2.data(), wsp0, wsp1,             \
+                          inarray.data(), outarray.data());                    \
+        break;
+
+    // outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+    // templated cases on equi-ordered modes and standard quad
+    // usage where quad order goes from mode order to 2(*mode
+    // order)
+    if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) && (nquad0 == nquad1) &&
+        (nquad1 == nquad2 + 1))
     {
-        Vmath::Vcopy(m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints() *
-                         m_base[2]->GetNumPoints(),
-                     inarray, 1, outarray, 1);
+        switch (nmodes0)
+        {
+            BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                         BWDTRANS_M)
+            default:
+                BWDTRANS_DEF;
+                break;
+        }
     }
     else
     {
-        StdPyrExp::v_BwdTrans_SumFac(inarray, outarray);
+        BWDTRANS_DEF;
     }
-}
-
-/**
- * Sum-factorisation implementation of the BwdTrans operation.
- */
-void StdPyrExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-    int order0 = m_base[0]->GetNumModes();
-    int order1 = m_base[1]->GetNumModes();
-
-    Array<OneD, NekDouble> wsp(nquad2 * order0 * order1 +
-                               nquad2 * nquad1 * nquad0);
-
-    v_BwdTrans_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                            m_base[2]->GetBdata(), inarray, outarray, wsp, true,
-                            true, true);
-}
-
-void StdPyrExp::v_BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &base2,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1,
-    [[maybe_unused]] bool doCheckCollDir2)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-    int nquad2 = m_base[2]->GetNumPoints();
-
-    int order0 = m_base[0]->GetNumModes();
-    int order1 = m_base[1]->GetNumModes();
-    int order2 = m_base[2]->GetNumModes();
-
-    Array<OneD, NekDouble> tmp  = wsp;
-    Array<OneD, NekDouble> tmp1 = tmp + nquad2 * order0 * order1;
-
-    int i, j, mode, mode1, cnt;
-
-    // Perform summation over '2' direction
-    mode = mode1 = cnt = 0;
-    for (i = 0; i < order0; ++i)
-    {
-        for (j = 0; j < order1; ++j, ++cnt)
-        {
-            int ijmax = max(i, j);
-            Blas::Dgemv('N', nquad2, order2 - ijmax, 1.0,
-                        base2.get() + mode * nquad2, nquad2,
-                        inarray.get() + mode1, 1, 0.0, tmp.get() + cnt * nquad2,
-                        1);
-            mode += order2 - ijmax;
-            mode1 += order2 - ijmax;
-        }
-        // increment mode in case order1!=order2
-        for (j = order1; j < order2; ++j)
-        {
-            int ijmax = max(i, j);
-            mode += order2 - ijmax;
-        }
-    }
-
-    // fix for modified basis by adding split of top singular
-    // vertex mode - currently (1+c)/2 x (1-b)/2 x (1-a)/2
-    // component is evaluated
-    if (m_base[0]->GetBasisType() == LibUtilities::eModified_A)
-    {
-
-        // Not sure why we could not use basis as 1.0
-        // top singular vertex - (1+c)/2 x (1+b)/2 x (1-a)/2 component
-        Blas::Daxpy(nquad2, inarray[1], base2.get() + nquad2, 1,
-                    &tmp[0] + nquad2, 1);
-
-        // top singular vertex - (1+c)/2 x (1-b)/2 x (1+a)/2 component
-        Blas::Daxpy(nquad2, inarray[1], base2.get() + nquad2, 1,
-                    &tmp[0] + order1 * nquad2, 1);
-
-        // top singular vertex - (1+c)/2 x (1+b)/2 x (1+a)/2 component
-        Blas::Daxpy(nquad2, inarray[1], base2.get() + nquad2, 1,
-                    &tmp[0] + order1 * nquad2 + nquad2, 1);
-    }
-
-    // Perform summation over '1' direction
-    mode = 0;
-    for (i = 0; i < order0; ++i)
-    {
-        Blas::Dgemm('N', 'T', nquad1, nquad2, order1, 1.0, base1.get(), nquad1,
-                    tmp.get() + mode * nquad2, nquad2, 0.0,
-                    tmp1.get() + i * nquad1 * nquad2, nquad1);
-        mode += order1;
-    }
-
-    // Perform summation over '0' direction
-    Blas::Dgemm('N', 'T', nquad0, nquad1 * nquad2, order0, 1.0, base0.get(),
-                nquad0, tmp1.get(), nquad1 * nquad2, 0.0, outarray.get(),
-                nquad0);
 }
 
 /** \brief Forward transform from physical quadrature space

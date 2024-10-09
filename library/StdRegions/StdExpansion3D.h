@@ -100,14 +100,6 @@ public:
         Array<OneD, NekDouble> &outarray_d2,
         Array<OneD, NekDouble> &outarray_d3);
 
-    STD_REGIONS_EXPORT void BwdTrans_SumFacKernel(
-        const Array<OneD, const NekDouble> &base0,
-        const Array<OneD, const NekDouble> &base1,
-        const Array<OneD, const NekDouble> &base2,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2);
-
     STD_REGIONS_EXPORT void IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,
         const Array<OneD, const NekDouble> &base1,
@@ -181,14 +173,6 @@ protected:
     v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
                    const Array<OneD, const NekDouble> &inarray,
                    std::array<NekDouble, 3> &firstOrderDerivs) override;
-
-    STD_REGIONS_EXPORT virtual void v_BwdTrans_SumFacKernel(
-        const Array<OneD, const NekDouble> &base0,
-        const Array<OneD, const NekDouble> &base1,
-        const Array<OneD, const NekDouble> &base2,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2) = 0;
 
     STD_REGIONS_EXPORT virtual void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,

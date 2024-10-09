@@ -226,17 +226,11 @@ private:
     std::vector<LibUtilities::BasisKey> m_basisKeys;
 
     void SegBlock(const TData *inPtr, TData *outPtr);
-
     void TriBlock(const TData *inPtr, TData *outPtr);
-
     void QuadBlock(const TData *inPtr, TData *outPtr);
-
     void HexBlock(const TData *inPtr, TData *outPtr);
-
     void PrismBlock(const TData *inPtr, TData *outPtr);
-
     void PyrBlock(const TData *inPtr, TData *outPtr);
-
     void TetBlock(const TData *inPtr, TData *outPtr);
 
     // Non-size based operator.

@@ -153,16 +153,9 @@ DNekMatSharedPtr StdNodalPrismExp::GenNBasisTransMatrix()
 void StdNodalPrismExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                                   Array<OneD, NekDouble> &outarray)
 {
-    v_BwdTrans_SumFac(inarray, outarray);
-}
-
-void StdNodalPrismExp::v_BwdTrans_SumFac(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray)
-{
     Array<OneD, NekDouble> tmp(m_ncoeffs);
     NodalToModal(inarray, tmp);
-    StdPrismExp::v_BwdTrans_SumFac(tmp, outarray);
+    StdPrismExp::v_BwdTrans(tmp, outarray);
 }
 
 void StdNodalPrismExp::v_FwdTrans(const Array<OneD, const NekDouble> &inarray,

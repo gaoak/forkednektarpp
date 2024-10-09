@@ -277,12 +277,6 @@ private:
         return m_staticCondMatrixManager[mkey];
     }
 
-    void v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                           Array<OneD, NekDouble> &outarray) override
-    {
-        StdNodalTriExp::v_BwdTrans_SumFac(inarray, outarray);
-    }
-
     void v_AlignVectorToCollapsedDir(
         const int dir, const Array<OneD, const NekDouble> &inarray,
         Array<OneD, Array<OneD, NekDouble>> &outarray) override;

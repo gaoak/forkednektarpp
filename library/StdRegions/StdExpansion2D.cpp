@@ -185,17 +185,6 @@ NekDouble StdExpansion2D::Integral(const Array<OneD, const NekDouble> &inarray,
     return Int;
 }
 
-void StdExpansion2D::BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    bool doCheckCollDir0, bool doCheckCollDir1)
-{
-    v_BwdTrans_SumFacKernel(base0, base1, inarray, outarray, wsp,
-                            doCheckCollDir0, doCheckCollDir1);
-}
-
 void StdExpansion2D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,
@@ -269,9 +258,6 @@ void StdExpansion2D::v_LaplacianMatrixOp_MatFree(
         int wspsize =
             max(max(max(nqtot, m_ncoeffs), nquad1 * nmodes0), nquad0 * nmodes1);
 
-        const Array<OneD, const NekDouble> &base0 = m_base[0]->GetBdata();
-        const Array<OneD, const NekDouble> &base1 = m_base[1]->GetBdata();
-
         // Allocate temporary storage
         Array<OneD, NekDouble> wsp0(4 * wspsize);    // size wspsize
         Array<OneD, NekDouble> wsp1(wsp0 + wspsize); // size 3*wspsize
@@ -282,8 +268,7 @@ void StdExpansion2D::v_LaplacianMatrixOp_MatFree(
             // wsp0 = u       = B   * u_hat
             // wsp1 = du_dxi1 = D_xi1 * wsp0 = D_xi1 * u
             // wsp2 = du_dxi2 = D_xi2 * wsp0 = D_xi2 * u
-            BwdTrans_SumFacKernel(base0, base1, inarray, wsp0, wsp1, true,
-                                  true);
+            BwdTrans(inarray, wsp0);
             LaplacianMatrixOp_MatFree_Kernel(wsp0, outarray, wsp1);
         }
         else
@@ -317,9 +302,6 @@ void StdExpansion2D::v_HelmholtzMatrixOp_MatFree(
             max(max(max(nqtot, m_ncoeffs), nquad1 * nmodes0), nquad0 * nmodes1);
         NekDouble lambda = mkey.GetConstFactor(StdRegions::eFactorLambda);
 
-        const Array<OneD, const NekDouble> &base0 = m_base[0]->GetBdata();
-        const Array<OneD, const NekDouble> &base1 = m_base[1]->GetBdata();
-
         // Allocate temporary storage
         Array<OneD, NekDouble> wsp0(5 * wspsize);        // size wspsize
         Array<OneD, NekDouble> wsp1(wsp0 + wspsize);     // size wspsize
@@ -332,8 +314,7 @@ void StdExpansion2D::v_HelmholtzMatrixOp_MatFree(
             // wsp0     = B   * u_hat = u
             // wsp1     = W   * wsp0
             // outarray = B^T * wsp1  = B^T * W * B * u_hat = M * u_hat
-            BwdTrans_SumFacKernel(base0, base1, inarray, wsp0, wsp2, true,
-                                  true);
+            BwdTrans(inarray, wsp0);
             IProductWRTBase(wsp0, outarray);
             LaplacianMatrixOp_MatFree_Kernel(wsp0, wsp1, wsp2);
         }

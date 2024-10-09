@@ -92,18 +92,6 @@ void StdExpansion3D::PhysTensorDeriv(
                     nquad0 * nquad1);
     }
 }
-// !! Should be removed when all shapes are implemented
-void StdExpansion3D::BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &base2,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2)
-{
-    v_BwdTrans_SumFacKernel(base0, base1, base2, inarray, outarray, wsp,
-                            doCheckCollDir0, doCheckCollDir1, doCheckCollDir2);
-}
 
 void StdExpansion3D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
@@ -268,10 +256,6 @@ void StdExpansion3D::v_LaplacianMatrixOp_MatFree(
         // coefficients associated to the Laplacian operator
         int nqtot = GetTotPoints();
 
-        const Array<OneD, const NekDouble> &base0 = m_base[0]->GetBdata();
-        const Array<OneD, const NekDouble> &base1 = m_base[1]->GetBdata();
-        const Array<OneD, const NekDouble> &base2 = m_base[2]->GetBdata();
-
         // Allocate temporary storage
         Array<OneD, NekDouble> wsp0(7 * nqtot);
         Array<OneD, NekDouble> wsp1(wsp0 + nqtot);
@@ -283,8 +267,7 @@ void StdExpansion3D::v_LaplacianMatrixOp_MatFree(
             // wsp0 = u       = B   * u_hat
             // wsp1 = du_dxi1 = D_xi1 * wsp0 = D_xi1 * u
             // wsp2 = du_dxi2 = D_xi2 * wsp0 = D_xi2 * u
-            BwdTrans_SumFacKernel(base0, base1, base2, inarray, wsp0, wsp1,
-                                  true, true, true);
+            BwdTrans(inarray, wsp0);
             LaplacianMatrixOp_MatFree_Kernel(wsp0, outarray, wsp1);
         }
         else
@@ -320,9 +303,6 @@ void StdExpansion3D::v_HelmholtzMatrixOp_MatFree(
 
         NekDouble lambda = mkey.GetConstFactor(StdRegions::eFactorLambda);
 
-        const Array<OneD, const NekDouble> &base0 = m_base[0]->GetBdata();
-        const Array<OneD, const NekDouble> &base1 = m_base[1]->GetBdata();
-        const Array<OneD, const NekDouble> &base2 = m_base[2]->GetBdata();
         Array<OneD, NekDouble> wsp0(8 * wspsize);
         Array<OneD, NekDouble> wsp1(wsp0 + 1 * wspsize);
         Array<OneD, NekDouble> wsp2(wsp0 + 2 * wspsize);
@@ -335,8 +315,7 @@ void StdExpansion3D::v_HelmholtzMatrixOp_MatFree(
             // wsp0     = B   * u_hat = u
             // wsp1     = W   * wsp0
             // outarray = B^T * wsp1  = B^T * W * B * u_hat = M * u_hat
-            BwdTrans_SumFacKernel(base0, base1, base2, inarray, wsp0, wsp2,
-                                  true, true, true);
+            BwdTrans(inarray, wsp0);
             IProductWRTBase(wsp0, outarray);
             LaplacianMatrixOp_MatFree_Kernel(wsp0, wsp1, wsp2);
         }

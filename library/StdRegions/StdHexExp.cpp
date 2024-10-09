@@ -46,6 +46,7 @@ namespace Nektar::StdRegions
 {
 // Declaretion of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 StdHexExp::StdHexExp(const LibUtilities::BasisKey &Ba,
@@ -167,100 +168,90 @@ void StdHexExp::v_StdPhysDeriv(const int dir,
 void StdHexExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                            Array<OneD, NekDouble> &outarray)
 {
-    ASSERTL1((m_base[1]->GetBasisType() != LibUtilities::eOrtho_B) ||
-                 (m_base[1]->GetBasisType() != LibUtilities::eModified_B),
-             "Basis[1] is not a general tensor type");
-
-    ASSERTL1((m_base[2]->GetBasisType() != LibUtilities::eOrtho_C) ||
-                 (m_base[2]->GetBasisType() != LibUtilities::eModified_C),
-             "Basis[2] is not a general tensor type");
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nquad2 = m_base[2]->GetNumPoints();
 
     if (m_base[0]->Collocation() && m_base[1]->Collocation() &&
         m_base[2]->Collocation())
     {
-        Vmath::Vcopy(m_base[0]->GetNumPoints() * m_base[1]->GetNumPoints() *
-                         m_base[2]->GetNumPoints(),
-                     inarray, 1, outarray, 1);
+        std::memcpy(outarray.data(), inarray.data(),
+                    nquad0 * nquad1 * nquad2 * sizeof(NekDouble));
     }
     else
     {
-        StdHexExp::BwdTrans_SumFac(inarray, outarray);
-    }
-}
+        const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+        const Array<OneD, const NekDouble> base1 = m_base[1]->GetBdata();
+        const Array<OneD, const NekDouble> base2 = m_base[2]->GetBdata();
 
-/**
- *
- */
-void StdHexExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    Array<OneD, NekDouble> wsp(
-        m_base[0]->GetNumPoints() * m_base[2]->GetNumModes() *
-        (m_base[1]->GetNumModes() + m_base[1]->GetNumPoints())); // FIX THIS
+        int nmodes0 = m_base[0]->GetNumModes();
+        int nmodes1 = m_base[1]->GetNumModes();
+        int nmodes2 = m_base[2]->GetNumModes();
 
-    BwdTrans_SumFacKernel(m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                          m_base[2]->GetBdata(), inarray, outarray, wsp, true,
-                          true, true);
-}
+        std::vector<vec_t, tinysimd::allocator<vec_t>> wsp0(nmodes1 * nmodes2 *
+                                                            nquad0),
+            wsp1(nquad1 * nquad0 * nmodes2);
 
-/**
- * @param   base0       x-dirn basis matrix
- * @param   base1       y-dirn basis matrix
- * @param   base2       z-dirn basis matrix
- * @param   inarray     Input vector of modes.
- * @param   outarray    Output vector of physical space data.
- * @param   wsp         Workspace of size Q_x*P_z*(P_y+Q_y)
- * @param   doCheckCollDir0     Check for collocation of basis.
- * @param   doCheckCollDir1     Check for collocation of basis.
- * @param   doCheckCollDir2     Check for collocation of basis.
- * @todo    Account for some directions being collocated. See
- *          StdQuadExp as an example.
- */
-void StdHexExp::v_BwdTrans_SumFacKernel(
-    const Array<OneD, const NekDouble> &base0,
-    const Array<OneD, const NekDouble> &base1,
-    const Array<OneD, const NekDouble> &base2,
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-    bool doCheckCollDir0, bool doCheckCollDir1, bool doCheckCollDir2)
-{
-    int nquad0  = m_base[0]->GetNumPoints();
-    int nquad1  = m_base[1]->GetNumPoints();
-    int nquad2  = m_base[2]->GetNumPoints();
-    int nmodes0 = m_base[0]->GetNumModes();
-    int nmodes1 = m_base[1]->GetNumModes();
-    int nmodes2 = m_base[2]->GetNumModes();
+        // Switch statment using boost_pp and macros. This unfolls intwo a
+        // nested swtich statement where the outer swtich statement runs
+        // from SMIN to SMAX for modal order and the inner switch
+        // statemets run from the outer value of the case to 2*SMAX for
+        // the quadrature order. If you want to see it unwrapped compile
+        // in verbose mode and add --preprocess to the c++ command.
+        // Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransHexKernel(nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,       \
+                      (const vec_t *)base0.data(),                             \
+                      (const vec_t *)base1.data(),                             \
+                      (const vec_t *)base2.data(), wsp0, wsp1, inarray.data(), \
+                      outarray.data())
 
-    // Check if using collocation, if requested.
-    bool colldir0 = doCheckCollDir0 ? (m_base[0]->Collocation()) : false;
-    bool colldir1 = doCheckCollDir1 ? (m_base[1]->Collocation()) : false;
-    bool colldir2 = doCheckCollDir2 ? (m_base[2]->Collocation()) : false;
+        // Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransHexKernel(NM(i), NM(i), NM(i), NQ(i), NQ(i), NQ(i),            \
+                          (const vec_t *)base0.data(),                         \
+                          (const vec_t *)base1.data(),                         \
+                          (const vec_t *)base2.data(), wsp0, wsp1,             \
+                          inarray.data(), outarray.data());                    \
+        break;
 
-    // If collocation in all directions, Physical values at quadrature
-    // points is just a copy of the modes.
-    if (colldir0 && colldir1 && colldir2)
-    {
-        Vmath::Vcopy(m_ncoeffs, inarray.get(), 1, outarray.get(), 1);
-    }
-    else
-    {
-        // Check sufficiently large workspace.
-        ASSERTL1(wsp.size() >= nquad0 * nmodes2 * (nmodes1 + nquad1),
-                 "Workspace size is not sufficient");
+        // outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
 
-        // Assign second half of workspace for 2nd DGEMM operation.
-        Array<OneD, NekDouble> wsp2 = wsp + nquad0 * nmodes1 * nmodes2;
-
-        // BwdTrans in each direction using DGEMM
-        Blas::Dgemm('T', 'T', nmodes1 * nmodes2, nquad0, nmodes0, 1.0,
-                    &inarray[0], nmodes0, base0.get(), nquad0, 0.0, &wsp[0],
-                    nmodes1 * nmodes2);
-        Blas::Dgemm('T', 'T', nquad0 * nmodes2, nquad1, nmodes1, 1.0, &wsp[0],
-                    nmodes1, base1.get(), nquad1, 0.0, &wsp2[0],
-                    nquad0 * nmodes2);
-        Blas::Dgemm('T', 'T', nquad0 * nquad1, nquad2, nmodes2, 1.0, &wsp2[0],
-                    nmodes2, base2.get(), nquad2, 0.0, &outarray[0],
-                    nquad0 * nquad1);
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to 2(*mode
+        // order)
+        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
+            (nquad0 == nquad1) && (nquad1 == nquad2))
+        {
+            switch (nmodes0)
+            {
+                BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                             BWDTRANS_M)
+                default:
+                    BWDTRANS_DEF;
+                    break;
+            }
+        }
+        else
+        {
+            BWDTRANS_DEF;
+        }
     }
 }
 

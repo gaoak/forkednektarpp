@@ -7,17 +7,18 @@
         <processes> 1 </processes>
     </segment>
     <segment type="sequential">
-        <executable>../../solvers/IncNavierStokesSolver/IncNavierStokesSolver</executable>
-        <parameters>peralign_double_periodic_hybrid.xml peralign_hybrid_session.xml</parameters>
+        <executable>../../solvers/ADRSolver/ADRSolver</executable>
+        <parameters> --use-opt-file peralign_hybrid.opt peralign_double_periodic_hybrid.xml peralign_hybrid_session.xml</parameters>
         <processes> 1 </processes>
     </segment>
     <files>
-        <file description="Input File">peralign_hybrid.xml</file>
-        <file description="Input File">peralign_hybrid_session.xml</file>
+      <file description="Opt File">peralign_hybrid.opt</file>
+      <file description="Input File">peralign_hybrid.xml</file>
+      <file description="Input File">peralign_hybrid_session.xml</file>
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-1">0.55</value>
+            <value variable="u" tolerance="1e-2">0.183094</value>
         </metric>
     </metrics>
 </test>

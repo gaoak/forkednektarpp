@@ -43,6 +43,7 @@ namespace Nektar::StdRegions
 {
 // Declaration of scalar routine
 using vec_t = tinysimd::scalarT<double>;
+#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
 #include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
 
 /** \brief Constructor using BasisKey class for quadrature points and
@@ -185,17 +186,65 @@ void StdSegExp::v_StdPhysDeriv([[maybe_unused]] const int dir,
 void StdSegExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                            Array<OneD, NekDouble> &outarray)
 {
-    int nquad = m_base[0]->GetNumPoints();
+    int nquad0 = m_base[0]->GetNumPoints();
 
     if (m_base[0]->Collocation())
     {
-        Vmath::Vcopy(nquad, inarray, 1, outarray, 1);
+        std::memcpy(outarray.data(), inarray.data(),
+                    nquad0 * sizeof(NekDouble));
     }
     else
     {
-        Blas::Dgemv('N', nquad, m_base[0]->GetNumModes(), 1.0,
-                    (m_base[0]->GetBdata()).get(), nquad, &inarray[0], 1, 0.0,
-                    &outarray[0], 1);
+        const Array<OneD, const NekDouble> base0 = m_base[0]->GetBdata();
+
+        int nmodes0 = m_base[0]->GetNumModes();
+
+        // Switch statment using boost_pp and macros. This unfolls intwo a
+        // nested swtich statement where the outer swtich statement runs
+        // from SMIN to SMAX for modal order and the inner switch
+        // statemets run from the outer value of the case to 2*SMAX for
+        // the quadrature order. If you want to see it unwrapped compile
+        // in verbose mode and add --preprocess to the c++ command.
+        // Default case
+#undef BWDTRANS_DEF
+#define BWDTRANS_DEF                                                           \
+    BwdTransSegKernel(nmodes0, nquad0, (const vec_t *)base0.data(),            \
+                      inarray.data(), outarray.data())
+
+        // Inner loop case over quarature points
+#undef BWDTRANS_Q
+#define BWDTRANS_Q(r, i)                                                       \
+    case NQ(i):                                                                \
+        BwdTransSegKernel(NM(i), NQ(i), (const vec_t *)base0.data(),           \
+                          inarray.data(), outarray.data());                    \
+        break;
+
+        // outer loop case over modes
+#undef BWDTRANS_M
+#define BWDTRANS_M(r, i)                                                       \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             STDLEV2TEST1, STDLEV2UPDATE1, BWDTRANS_Q) default \
+                : BWDTRANS_DEF;                                                \
+            break;                                                             \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to 2(*mode
+        // order)
+        switch (nmodes0)
+        {
+            BOOST_PP_FOR((SMIN, 0, SMAX), STDLEV2TEST, STDLEV2UPDATE,
+                         BWDTRANS_M)
+            default:
+                BWDTRANS_DEF;
+                break;
+        }
     }
 }
 
@@ -342,12 +391,6 @@ void StdSegExp::v_FwdTransBndConstrained(
             StdSegExp::v_FwdTrans(inarray, outarray);
         }
     }
-}
-
-void StdSegExp::v_BwdTrans_SumFac(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
-{
-    v_BwdTrans(inarray, outarray);
 }
 
 //---------------------------------------------------------------------
