@@ -38,14 +38,16 @@
 
 using namespace std;
 #include <LibUtilities/BasicUtils/NekInline.hpp>
+#include <StdRegions/Operators/SwitchLevel1.h>
 #include <StdRegions/Operators/SwitchLevel2.h>
 
 namespace Nektar::StdRegions
 {
 // Declaretion of scalar routine
 using vec_t = tinysimd::scalarT<double>;
-#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
-#include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
+#include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
+#include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
+#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 StdPyrExp::StdPyrExp(const LibUtilities::BasisKey &Ba,
                      const LibUtilities::BasisKey &Bb,
@@ -81,6 +83,74 @@ StdPyrExp::StdPyrExp(const LibUtilities::BasisKey &Ba,
 //---------------------------------------
 // Differentiation/integration Methods
 //---------------------------------------
+void StdPyrExp::PhysTensorDeriv(const Array<OneD, const NekDouble> &inarray,
+                                Array<OneD, NekDouble> &out_d0,
+                                Array<OneD, NekDouble> &out_d1,
+                                Array<OneD, NekDouble> &out_d2)
+{
+    const int nquad0 = m_base[0]->GetNumPoints();
+    const int nquad1 = m_base[1]->GetNumPoints();
+    const int nquad2 = m_base[2]->GetNumPoints();
+
+    bool Deriv0         = (out_d0.size() > 0);
+    bool Deriv1         = (out_d1.size() > 0);
+    bool Deriv2         = (out_d2.size() > 0);
+    const NekDouble *D0 = m_base[0]->GetD()->GetRawPtr();
+    const NekDouble *D1 = m_base[1]->GetD()->GetRawPtr();
+    const NekDouble *D2 = m_base[2]->GetD()->GetRawPtr();
+
+    Array<OneD, const NekDouble> intmp;
+    // copy inarray data if inarray and outarray are the same.
+    if ((inarray.data() == out_d0.data()) ||
+        (inarray.data() == out_d1.data()) || (inarray.data() == out_d2.data()))
+    {
+        Array<OneD, NekDouble> wsp(nquad0 * nquad1 * nquad2);
+        CopyArray(inarray, wsp);
+        intmp = wsp;
+    }
+    else
+    {
+        intmp = inarray;
+    }
+
+    // Switch statment using boost_pp and macros. This unfolls into a
+    // nested switch statement which runs from SMIN to SMAX for quadratrure
+    // order. If you want to see it unwrapped compile in verbose mode and add
+    // --preprocess to the c++ command. Default case
+#undef PHYSDERIV_DEF
+#define PHYSDERIV_DEF                                                          \
+    PhysDerivTensor3DKernel(nquad0, nquad1, nquad2, intmp.data(),              \
+                            (const vec_t *)D0, (const vec_t *)D1,              \
+                            (const vec_t *)D2, out_d0.data(), out_d1.data(),   \
+                            out_d2.data(), Deriv0, Deriv1, Deriv2)
+
+    // Loop case over quarature points
+#undef PHYSDERIV_Q
+#define PHYSDERIV_Q(r, i)                                                      \
+    case NQ1(i):                                                               \
+        PhysDerivTensor3DKernel(                                               \
+            NQ1(i), NQ1(i), NQ1_M1(i), intmp.data(), (const vec_t *)D0,        \
+            (const vec_t *)D1, (const vec_t *)D2, out_d0.data(),               \
+            out_d1.data(), out_d2.data(), Deriv0, Deriv1, Deriv2);             \
+        break;
+
+    // templated cases on  standard quadrature
+    // usage where quad order goes from SMIN to SMAX
+    if ((nquad0 == nquad1) && (nquad1 == nquad2 + 1))
+    {
+        switch (nquad0)
+        {
+            BOOST_PP_FOR((SMIN, SMAX), STDLEV1TEST, STDLEV1UPDATE, PHYSDERIV_Q);
+            default:
+                PHYSDERIV_DEF;
+                break;
+        }
+    }
+    else
+    {
+        PHYSDERIV_DEF;
+    }
+}
 
 /**
  * \brief Calculate the derivative of the physical points
@@ -206,13 +276,6 @@ void StdPyrExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
                                Array<OneD, NekDouble> &out_d2)
 {
     StdPyrExp::v_PhysDeriv(inarray, out_d0, out_d1, out_d2);
-}
-
-void StdPyrExp::v_StdPhysDeriv(const int dir,
-                               const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray)
-{
-    StdPyrExp::v_PhysDeriv(dir, inarray, outarray);
 }
 
 //---------------------------------------

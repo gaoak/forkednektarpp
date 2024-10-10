@@ -9,28 +9,28 @@
     {
 
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator1D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(input, output); \
         break;
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -40,38 +40,38 @@
             switch (nmodes0)
         {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                         IPRODUCTWRTDERIVBASE_M)
+                         OPERATOR_M)
             default:
-                IPRODUCTWRTDERIVBASE_DEF
+                OPERATOR_DEF
                 break;
         }
     }
     else
     {
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator1D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points Shape dependent
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(input,         \
                                                                 output);       \
         break;
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -81,9 +81,9 @@
         switch (nmodes0)
         {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                         IPRODUCTWRTDERIVBASE_M)
+                         OPERATOR_M)
             default:
-                IPRODUCTWRTDERIVBASE_DEF
+                OPERATOR_DEF
                 break;
         }
     }
@@ -99,21 +99,21 @@
     if (Deformed == SpatialDomains::eDeformed)
     {
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator2D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),          \
                    NQ(i)>(input, output);                                   \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),          \
                    NQ_M1(i)>(input, output);                                   \
@@ -121,16 +121,16 @@
 #endif
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -146,35 +146,35 @@
             switch (nmodes0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             IPRODUCTWRTDERIVBASE_M)
+                             OPERATOR_M)
                 default:
-                    IPRODUCTWRTDERIVBASE_DEF
+                    OPERATOR_DEF
                     break;
             }
         }
         else
         {
-            IPRODUCTWRTDERIVBASE_DEF
+            OPERATOR_DEF
         }
     }
     else
     {
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator2D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),         \
                    NQ(i)>(input, output);                                   \
         break;
 #elif defined(SHAPE_TYPE_Tri)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),         \
                    NQ_M1(i)>(input, output);                                   \
@@ -182,16 +182,16 @@
 #endif
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -207,15 +207,15 @@
             switch (nmodes0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             IPRODUCTWRTDERIVBASE_M)
+                             OPERATOR_M)
                 default:
-                    IPRODUCTWRTDERIVBASE_DEF
+                    OPERATOR_DEF
                     break;
             }
         }
         else
         {
-            IPRODUCTWRTDERIVBASE_DEF
+            OPERATOR_DEF
         }
     }
 #else
@@ -232,28 +232,28 @@
     if (Deformed == SpatialDomains::eDeformed)
     {
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator3D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
                    NQ(i), NQ(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
                    NQ(i), NQ_M1(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
                    NQ_M1(i), NQ_M1(i)>(input, output);                         \
@@ -261,16 +261,16 @@
 #endif
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -291,42 +291,42 @@
             switch (nmodes0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             IPRODUCTWRTDERIVBASE_M)
+                             OPERATOR_M)
                 default:
-                    IPRODUCTWRTDERIVBASE_DEF
+                    OPERATOR_DEF
                     break;
             }
         }
         else
         {
-            IPRODUCTWRTDERIVBASE_DEF
+            OPERATOR_DEF
         }
     }
     else
     {
         // Default case
-#undef IPRODUCTWRTDERIVBASE_DEF
-#define IPRODUCTWRTDERIVBASE_DEF                                               \
+#undef OPERATOR_DEF
+#define OPERATOR_DEF                                               \
     Operator3D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points
 #if defined(SHAPE_TYPE_Hex)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
                    NQ(i), NQ(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
                    NQ(i), NQ_M1(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet)
-#undef IPRODUCTWRTDERIVBASE_Q
-#define IPRODUCTWRTDERIVBASE_Q(r, i)                                           \
+#undef OPERATOR_Q
+#define OPERATOR_Q(r, i)                                           \
     case NQ(i):                                                                \
         Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
                    NQ_M1(i), NQ_M1(i)>(input, output);                         \
@@ -334,16 +334,16 @@
 #endif
 
         // outer loop case over modes
-#undef IPRODUCTWRTDERIVBASE_M
-#define IPRODUCTWRTDERIVBASE_M(r, i)                                           \
+#undef OPERATOR_M
+#define OPERATOR_M(r, i)                                           \
     case NM(i):                                                                \
     {                                                                          \
         switch (nquad0)                                                        \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             IPRODUCTWRTDERIVBASE_Q) default                   \
-                : IPRODUCTWRTDERIVBASE_DEF break;                              \
+                             OPERATOR_Q) default                   \
+                : OPERATOR_DEF break;                              \
         }                                                                      \
     }                                                                          \
     break;
@@ -364,15 +364,15 @@
             switch (nmodes0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
-                             IPRODUCTWRTDERIVBASE_M)
+                             OPERATOR_M)
                 default:
-                    IPRODUCTWRTDERIVBASE_DEF
+                    OPERATOR_DEF
                     break;
             }
         }
         else
         {
-            IPRODUCTWRTDERIVBASE_DEF
+            OPERATOR_DEF
         }
     }
 #endif

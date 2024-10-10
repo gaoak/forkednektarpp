@@ -95,9 +95,19 @@ MACRO(ADD_OPERATOR dir)
         ENDFOREACH()
     ENDIF()
 
+    if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
+    ELSE()
+        SET(ShapeIncludeName "Common/BlockOpSwitch1DCoordsCode.h.in")
+        FOREACH (Shape IN LISTS Shapes)
+            SET(ShapeIncName BlockOpSwitch1DCoordsCode${Shape}.h)
+            message("Generating block header  file file: " "${ShapeIncName}")
+            configure_file(${ShapeIncludeName} ${ShapeIncName})
+        ENDFOREACH()
+    ENDIF()
+
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
-
+    
         # Look for file ${name}${ExexSpace}SumFacBlockOp.cpp.in file
         # when using Serial or AVX This loop will then generate a
         # shape specific cpp file containing the shape block method in
@@ -114,7 +124,7 @@ MACRO(ADD_OPERATOR dir)
                      SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
                  ENDFOREACH()
              ENDIF()
-        ENDIF()
+         ENDIF()
 
         # CUDA has cu and cuh extentions
         IF("${ExecSpace}" STREQUAL "CUDA")

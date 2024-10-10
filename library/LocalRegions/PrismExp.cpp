@@ -1128,7 +1128,7 @@ void PrismExp::v_LaplacianMatrixOp_MatFree_Kernel(
     // wsp1 = du_dxi1 = D_xi1 * wsp0 = D_xi1 * u
     // wsp2 = du_dxi2 = D_xi2 * wsp0 = D_xi2 * u
     // wsp3 = du_dxi3 = D_xi3 * wsp0 = D_xi3 * u
-    StdExpansion3D::PhysTensorDeriv(inarray, wsp1, wsp2, wsp3);
+    PhysTensorDeriv(inarray, wsp1, wsp2, wsp3);
 
     const Array<TwoD, const NekDouble> &df =
         m_metricinfo->GetDerivFactors(GetPointsKeys());

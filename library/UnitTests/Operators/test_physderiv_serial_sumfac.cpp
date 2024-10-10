@@ -68,17 +68,21 @@ BOOST_AUTO_TEST_SUITE(TestPhysDeriv)
 
 TEST_PHYSDERIV(physderiv_serial_seg, Seg, 1, 1.0E-12)
 
+TEST_PHYSDERIV(physderiv_serial_seg_dim3, Seg3D, 3, 1.0E-12)
+
 TEST_PHYSDERIV(physderiv_serial_seg_sem, SegSEM, 1, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_quad, Quad, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_quad_sem, QuadSEM, 2, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_quad_varp, QuadVarP, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_quad_varp, QuadVarP, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_tri, Tri, 2, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_tri_varp, TriVarP, 2, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_tri_dim3, Tri3D, 3, 1.0E-12)
+
+TEST_PHYSDERIV(physderiv_serial_tri_varp, TriVarP, 2, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_square_all_elements, SquareAllElements, 2,
                1.0E-12)
@@ -87,19 +91,19 @@ TEST_PHYSDERIV(physderiv_serial_hex, Hex, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_hex_sem, HexSEM, 3, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_hex_varp, HexVarP, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_hex_varp, HexVarP, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_prism, Prism, 3, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_prism_varp, PrismVarP, 3, 2.5E-12)
+TEST_PHYSDERIV(physderiv_serial_prism_varp, PrismVarP, 3, 2.5E-12)
 
 TEST_PHYSDERIV(physderiv_serial_pyr, Pyr, 3, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_pyr_varp, PyrVarP, 3, 1.0E-12)
+TEST_PHYSDERIV(physderiv_serial_pyr_varp, PyrVarP, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_tet, Tet, 3, 1.0E-12)
 
-// TEST_PHYSDERIV(physderiv_serial_tet_varp, TetVarP, 3, 2.0E-12)
+TEST_PHYSDERIV(physderiv_serial_tet_varp, TetVarP, 3, 2.0E-12)
 
 TEST_PHYSDERIV(physderiv_serial_cube_prism_hex, CubePrismHex, 3, 1.0E-12)
 

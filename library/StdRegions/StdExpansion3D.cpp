@@ -51,48 +51,6 @@ StdExpansion3D::StdExpansion3D(
 {
 }
 
-void StdExpansion3D::PhysTensorDeriv(
-    const Array<OneD, const NekDouble> &inarray, Array<OneD, NekDouble> &out_dx,
-    Array<OneD, NekDouble> &out_dy, Array<OneD, NekDouble> &out_dz)
-{
-    const int nquad0 = m_base[0]->GetNumPoints();
-    const int nquad1 = m_base[1]->GetNumPoints();
-    const int nquad2 = m_base[2]->GetNumPoints();
-
-    Array<OneD, NekDouble> wsp(nquad0 * nquad1 * nquad2);
-
-    // copy inarray to wsp in case inarray is used as outarray
-    Vmath::Vcopy(nquad0 * nquad1 * nquad2, &inarray[0], 1, &wsp[0], 1);
-
-    if (out_dx.size() > 0)
-    {
-        NekDouble *D0 = &((m_base[0]->GetD())->GetPtr())[0];
-
-        Blas::Dgemm('N', 'N', nquad0, nquad1 * nquad2, nquad0, 1.0, D0, nquad0,
-                    &wsp[0], nquad0, 0.0, &out_dx[0], nquad0);
-    }
-
-    if (out_dy.size() > 0)
-    {
-        NekDouble *D1 = &((m_base[1]->GetD())->GetPtr())[0];
-        for (int j = 0; j < nquad2; ++j)
-        {
-            Blas::Dgemm('N', 'T', nquad0, nquad1, nquad1, 1.0,
-                        &wsp[j * nquad0 * nquad1], nquad0, D1, nquad1, 0.0,
-                        &out_dy[j * nquad0 * nquad1], nquad0);
-        }
-    }
-
-    if (out_dz.size() > 0)
-    {
-        NekDouble *D2 = &((m_base[2]->GetD())->GetPtr())[0];
-
-        Blas::Dgemm('N', 'T', nquad0 * nquad1, nquad2, nquad2, 1.0, &wsp[0],
-                    nquad0 * nquad1, D2, nquad2, 0.0, &out_dz[0],
-                    nquad0 * nquad1);
-    }
-}
-
 void StdExpansion3D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base0,
     const Array<OneD, const NekDouble> &base1,

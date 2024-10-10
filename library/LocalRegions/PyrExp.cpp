@@ -1273,7 +1273,7 @@ void PyrExp::v_LaplacianMatrixOp_MatFree_Kernel(
     // wsp1 = du_dxi1 = D_xi1 * inarray = D_xi1 * u
     // wsp2 = du_dxi2 = D_xi2 * inarray = D_xi2 * u
     // wsp2 = du_dxi3 = D_xi3 * inarray = D_xi3 * u
-    StdExpansion3D::PhysTensorDeriv(inarray, wsp0, wsp1, wsp2);
+    PhysTensorDeriv(inarray, wsp0, wsp1, wsp2);
 
     // wsp0 = k = g0 * wsp1 + g1 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2
     // wsp2 = l = g1 * wsp1 + g2 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2

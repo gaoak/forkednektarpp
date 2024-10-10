@@ -593,7 +593,7 @@ public:
         Array<OneD, NekDouble> tmp0, tmp1, tmp2;
 
         // calculate local derivatives
-        switch (m_expList[0]->GetShapeDimension())
+        switch (m_expList[0]->GetCoordim())
         {
             case 1:
             {

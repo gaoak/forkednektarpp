@@ -41,7 +41,9 @@ StdPointExp.h
 StdTetExp.h
 StdTriExp.h
 StdRegions.hpp
-Operators/IProductWRTBaseAVXSumFacStdKernels.hpp
+Operators/BwdTransSumFacStdKernels.hpp
+Operators/IProductWRTBaseSumFacStdKernels.hpp
+Operators/PhysDerivSumFacStdKernels.hpp
 #${CMAKE_BINARY_DIR}/library/StdRegions/Operators/SwitchLimits.h
 )
 

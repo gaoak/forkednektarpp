@@ -53,51 +53,6 @@ StdExpansion2D::StdExpansion2D(
 //----------------------------
 // Differentiation Methods
 //----------------------------
-void StdExpansion2D::PhysTensorDeriv(
-    const Array<OneD, const NekDouble> &inarray,
-    Array<OneD, NekDouble> &outarray_d0, Array<OneD, NekDouble> &outarray_d1)
-{
-    int nquad0 = m_base[0]->GetNumPoints();
-    int nquad1 = m_base[1]->GetNumPoints();
-
-    if (outarray_d0.size() > 0) // calculate du/dx_0
-    {
-        DNekMatSharedPtr D0 = m_base[0]->GetD();
-        if (inarray.data() == outarray_d0.data())
-        {
-            Array<OneD, NekDouble> wsp(nquad0 * nquad1);
-            Vmath::Vcopy(nquad0 * nquad1, inarray.get(), 1, wsp.get(), 1);
-            Blas::Dgemm('N', 'N', nquad0, nquad1, nquad0, 1.0,
-                        &(D0->GetPtr())[0], nquad0, &wsp[0], nquad0, 0.0,
-                        &outarray_d0[0], nquad0);
-        }
-        else
-        {
-            Blas::Dgemm('N', 'N', nquad0, nquad1, nquad0, 1.0,
-                        &(D0->GetPtr())[0], nquad0, &inarray[0], nquad0, 0.0,
-                        &outarray_d0[0], nquad0);
-        }
-    }
-
-    if (outarray_d1.size() > 0) // calculate du/dx_1
-    {
-        DNekMatSharedPtr D1 = m_base[1]->GetD();
-        if (inarray.data() == outarray_d1.data())
-        {
-            Array<OneD, NekDouble> wsp(nquad0 * nquad1);
-            Vmath::Vcopy(nquad0 * nquad1, inarray.get(), 1, wsp.get(), 1);
-            Blas::Dgemm('N', 'T', nquad0, nquad1, nquad1, 1.0, &wsp[0], nquad0,
-                        &(D1->GetPtr())[0], nquad1, 0.0, &outarray_d1[0],
-                        nquad0);
-        }
-        else
-        {
-            Blas::Dgemm('N', 'T', nquad0, nquad1, nquad1, 1.0, &inarray[0],
-                        nquad0, &(D1->GetPtr())[0], nquad1, 0.0,
-                        &outarray_d1[0], nquad0);
-        }
-    }
-}
 
 NekDouble StdExpansion2D::v_PhysEvaluate(
     const Array<OneD, const NekDouble> &coords,

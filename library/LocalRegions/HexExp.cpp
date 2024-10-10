@@ -1357,7 +1357,7 @@ void HexExp::v_LaplacianMatrixOp_MatFree_Kernel(
     Array<OneD, NekDouble> wsp4(wsp + 4 * nqtot);
     Array<OneD, NekDouble> wsp5(wsp + 5 * nqtot);
 
-    StdExpansion3D::PhysTensorDeriv(inarray, wsp0, wsp1, wsp2);
+    PhysTensorDeriv(inarray, wsp0, wsp1, wsp2);
 
     // wsp0 = k = g0 * wsp1 + g1 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2
     // wsp2 = l = g1 * wsp1 + g2 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2

@@ -35,7 +35,7 @@
 #pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-#include "StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp"
+#include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the

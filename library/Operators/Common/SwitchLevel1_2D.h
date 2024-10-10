@@ -81,6 +81,10 @@
                         break;
                 }
             }
+            else
+            {
+                OPERATOR2D_DEF_TRI;
+            }
             break;
         case LibUtilities::eQuadrilateral:
             if (nq0 == nq1)
@@ -93,6 +97,10 @@
                         OPERATOR2D_DEF_QUAD;
                         break;
                 }
+            }
+            else
+            {
+                OPERATOR2D_DEF_QUAD;
             }
             break;
         default:

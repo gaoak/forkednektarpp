@@ -165,7 +165,6 @@ public:
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
             }
-            // #include "Common/SwitchLevel2NoDeformed.h"
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;

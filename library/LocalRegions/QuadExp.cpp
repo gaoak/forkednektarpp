@@ -1505,7 +1505,7 @@ void QuadExp::v_LaplacianMatrixOp_MatFree_Kernel(
     Array<OneD, NekDouble> wsp1(wsp + wspsize);
     Array<OneD, NekDouble> wsp2(wsp + 2 * wspsize);
 
-    StdExpansion2D::PhysTensorDeriv(inarray, wsp1, wsp2);
+    PhysTensorDeriv(inarray, wsp1, wsp2);
 
     // wsp0 = k = g0 * wsp1 + g1 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2
     // wsp2 = l = g1 * wsp1 + g2 * wsp2 = g0 * du_dxi1 + g1 * du_dxi2
