@@ -107,23 +107,18 @@ public:
         out.template ReshapeStorage<ExecSpace, vec_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outOrig     = out.template GetPtr<MemSpace, ReadWrite>();
+        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
+#if 0
         const auto Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
         ASSERTL0(Coordim <= out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
-        // WARNINGL0(Coordim == out.GetNumComponents(),
-        //           "Output field has more components than the coordinate!");
-
-        std::vector<TData *> outPtr;
-        outPtr.resize(Coordim);
-
-        size_t scalar_field_size = out.size() / out.GetNumComponents();
-
-        for (int d = 0; d < Coordim; ++d)
-        {
-            outPtr[d] = outOrig + d * scalar_field_size;
-        }
+#else
+        m_coordDim = this->m_expansionList->GetExp(0)->GetCoordim();
+        ASSERTL0(m_coordDim <= out.GetNumComponents(),
+                 "Output field has fewer components than the coordinate!");
+#endif
+        m_outSize = out.GetFieldSize();
 
         m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
         m_df_idx  = 0; // accumulates over blocks, accessed in operatorND()
@@ -154,15 +149,58 @@ public:
                 m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
             }
 
-#include "Operators/Common/SwitchLevel1DeformedCoord.h"
+            switch (shapeType)
+            {
+                // Segment
+                case LibUtilities::Seg:
+                {
+                    SegBlock(inPtr, outPtr);
+                    break;
+                }
+                // Quads
+                case LibUtilities::Quad:
+                {
+                    QuadBlock(inPtr, outPtr);
+                    break;
+                }
+                // Triangles
+                case LibUtilities::Tri:
+                {
+                    TriBlock(inPtr, outPtr);
+                    break;
+                }
+                // Hexes
+                case LibUtilities::Hex:
+                {
+                    HexBlock(inPtr, outPtr);
+                    break;
+                }
+                    // Tet
+                case LibUtilities::Tet:
+                {
+                    TetBlock(inPtr, outPtr);
+                    break;
+                }
+                // Pyr
+                case LibUtilities::Pyr:
+                {
+                    PyrBlock(inPtr, outPtr);
+                    break;
+                }
+                    // Prism
+                case LibUtilities::Prism:
+                {
+                    PrismBlock(inPtr, outPtr);
+                    break;
+                }
+                default:
+                    std::cout << "shapetype not implemented" << std::endl;
+            }
+            // #include "Operators/Common/SwitchLevel1DeformedCoord.h"
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
-
-            for (int d = 0; d < Coordim; ++d)
-            {
-                outPtr[d] += outblock.block_size;
-            }
+            outPtr += outblock.block_size;
 
             if (deformed)
             {
@@ -190,26 +228,35 @@ public:
 
 private:
     int m_nElmtGroup, m_df_idx, m_exp_idx;
+    size_t m_outSize;
+    size_t m_coordDim;
 
     MemoryRegion<TData> m_derivFac;
     BasisDataMap<vec_t> m_zeroMap;
     BasisDataMap<vec_t> m_derivativeMap;
-    // std::array<LibUtilities::BasisKey, 3> m_basisKeys;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
+
+    void SegBlock(const TData *inPtr, TData *outPtr);
+    void TriBlock(const TData *inPtr, TData *outPtr);
+    void QuadBlock(const TData *inPtr, TData *outPtr);
+    void HexBlock(const TData *inPtr, TData *outPtr);
+    void PrismBlock(const TData *inPtr, TData *outPtr);
+    void PyrBlock(const TData *inPtr, TData *outPtr);
+    void TetBlock(const TData *inPtr, TData *outPtr);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator1D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator1D(const TData *input, TData *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nCoord = this->m_expansionList->GetCoordim(0);
 
         const auto nq0     = expPtr->GetNumPoints(0);
         const auto nqTot   = nq0;
         const auto nqBlock = nqTot * vec_t::width;
 
-        const auto nCoord = output.size();
-        const auto ndf    = nCoord;
-        int dfsize        = ndf;
+        const auto ndf = nCoord;
+        int dfsize     = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
@@ -229,7 +276,8 @@ private:
         vec_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
-            tmpOut[d] = reinterpret_cast<vec_t::scalarType *>(output[d]);
+            tmpOut[d] =
+                reinterpret_cast<vec_t::scalarType *>(output + d * m_outSize);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -253,7 +301,7 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nCoord,
               int nq0>
-    void operator1D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator1D(const TData *input, TData *output)
     {
         constexpr auto nqTot   = nq0;
         constexpr auto nqBlock = nqTot * vec_t::width;
@@ -281,7 +329,8 @@ private:
         vec_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
-            tmpOut[d] = reinterpret_cast<vec_t::scalarType *>(output[d]);
+            tmpOut[d] =
+                reinterpret_cast<vec_t::scalarType *>(output + d * m_outSize);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -304,9 +353,10 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator2D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator2D(const TData *input, TData *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nCoord = this->m_expansionList->GetCoordim(0);
 
         const auto nq0 = expPtr->GetNumPoints(0);
         const auto nq1 = expPtr->GetNumPoints(1);
@@ -314,9 +364,8 @@ private:
         const auto nqTot   = nq0 * nq1;
         const auto nqBlock = nqTot * vec_t::width;
 
-        const auto nCoord = output.size();
-        const auto ndf    = 2 * nCoord;
-        int dfsize        = ndf;
+        const auto ndf = 2 * nCoord;
+        int dfsize     = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
@@ -341,7 +390,8 @@ private:
         vec_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
-            tmpOut[d] = reinterpret_cast<vec_t::scalarType *>(output[d]);
+            tmpOut[d] =
+                reinterpret_cast<vec_t::scalarType *>(output + d * m_outSize);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -365,7 +415,7 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nCoord,
               int nq0, int nq1>
-    void operator2D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator2D(const TData *input, TData *output)
     {
         constexpr auto nqTot   = nq0 * nq1;
         constexpr auto nqBlock = nqTot * vec_t::width;
@@ -396,7 +446,8 @@ private:
         vec_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
-            tmpOut[d] = reinterpret_cast<vec_t::scalarType *>(output[d]);
+            tmpOut[d] =
+                reinterpret_cast<vec_t::scalarType *>(output + d * m_outSize);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -419,7 +470,7 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void operator3D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator3D(const TData *input, TData *output)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -430,7 +481,7 @@ private:
         const auto nqTot    = nq0 * nq1 * nq2;
         const auto nqBlocks = nqTot * vec_t::width;
 
-        constexpr auto ndf = 9;
+        constexpr auto ndf = 9u;
         int dfsize         = ndf;
         if constexpr (DEFORMED)
         {
@@ -463,9 +514,10 @@ private:
             reinterpret_cast<const vec_t::vectorType *>(input);
 
         vec_t::scalarType *tmpOut[3];
-        tmpOut[0] = reinterpret_cast<vec_t::scalarType *>(output[0]);
-        tmpOut[1] = reinterpret_cast<vec_t::scalarType *>(output[1]);
-        tmpOut[2] = reinterpret_cast<vec_t::scalarType *>(output[2]);
+        tmpOut[0] = reinterpret_cast<vec_t::scalarType *>(output);
+        tmpOut[1] = reinterpret_cast<vec_t::scalarType *>(output + m_outSize);
+        tmpOut[2] =
+            reinterpret_cast<vec_t::scalarType *>(output + 2 * m_outSize);
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -488,12 +540,12 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nq0,
               int nq1, int nq2>
-    void operator3D(const NekDouble *input, std::vector<NekDouble *> output)
+    void Operator3D(const TData *input, TData *output)
     {
         constexpr auto nqTot    = nq0 * nq1 * nq2;
         constexpr auto nqBlocks = nqTot * vec_t::width;
 
-        constexpr auto ndf = 9;
+        constexpr auto ndf = 9u;
         int dfsize         = ndf;
         if constexpr (DEFORMED)
         {
@@ -526,9 +578,10 @@ private:
             reinterpret_cast<const vec_t::vectorType *>(input);
 
         vec_t::scalarType *tmpOut[3];
-        tmpOut[0] = reinterpret_cast<vec_t::scalarType *>(output[0]);
-        tmpOut[1] = reinterpret_cast<vec_t::scalarType *>(output[1]);
-        tmpOut[2] = reinterpret_cast<vec_t::scalarType *>(output[2]);
+        tmpOut[0] = reinterpret_cast<vec_t::scalarType *>(output);
+        tmpOut[1] = reinterpret_cast<vec_t::scalarType *>(output + m_outSize);
+        tmpOut[2] =
+            reinterpret_cast<vec_t::scalarType *>(output + 2 * m_outSize);
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {

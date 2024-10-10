@@ -35,7 +35,7 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-#include "StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp"
+#include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
 template <bool DEFORMED>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(

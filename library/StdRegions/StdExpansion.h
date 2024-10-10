@@ -929,13 +929,6 @@ public:
         v_StdPhysDeriv(inarray, out_d0, out_d1, out_d2);
     }
 
-    void StdPhysDeriv(const int dir,
-                      const Array<OneD, const NekDouble> &inarray,
-                      Array<OneD, NekDouble> &outarray)
-    {
-        v_StdPhysDeriv(dir, inarray, outarray);
-    }
-
     /** \brief This function evaluates the expansion at a single
      *  (arbitrary) point of the domain
      *

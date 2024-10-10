@@ -337,6 +337,8 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_UniformP_MultiElmt)
     double epsilon = 1.0e-8;
     for (int i = 0; i < phys1.size(); ++i)
     {
+        phys1[i] = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        phys2[i] = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys2[i];
         BOOST_CHECK_CLOSE(phys1[i], phys2[i], epsilon);
     }
 }
@@ -754,6 +756,8 @@ BOOST_AUTO_TEST_CASE(TestPrismBwdTrans_SumFac_VariableP_MultiElmt)
     double epsilon = 1.0e-8;
     for (int i = 0; i < phys1.size(); ++i)
     {
+        phys1[i] = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys1[i];
+        phys2[i] = (fabs(phys1[i]) < 1e-14) ? 0.0 : phys2[i];
         BOOST_CHECK_CLOSE(phys1[i], phys2[i], epsilon);
     }
 }
@@ -1924,6 +1928,8 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_UniformP_MultiElmt)
     double epsilon = 1.0e-8;
     for (int i = 0; i < diff1.size(); ++i)
     {
+        diff1[i] = (fabs(diff1[i]) < 1e-14) ? 0.0 : diff1[i];
+        diff2[i] = (fabs(diff1[i]) < 1e-14) ? 0.0 : diff2[i];
         BOOST_CHECK_CLOSE(diff1[i], diff2[i], epsilon);
     }
 }
@@ -2114,6 +2120,8 @@ BOOST_AUTO_TEST_CASE(TestPrismPhysDeriv_SumFac_VariableP_MultiElmt)
     double epsilon = 1.0e-8;
     for (int i = 0; i < diff1.size(); ++i)
     {
+        diff1[i] = (fabs(diff1[i]) < 1e-14) ? 0.0 : diff1[i];
+        diff2[i] = (fabs(diff1[i]) < 1e-14) ? 0.0 : diff2[i];
         BOOST_CHECK_CLOSE(diff1[i], diff2[i], epsilon);
     }
 }

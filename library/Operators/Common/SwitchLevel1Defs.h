@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: SwitchLevel2.h
+// File: SwitchLevel1Defs.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,52 +28,44 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Boost preprocessing macro for two level switch
+// Description: One level switch statement with definable bounds default
+// definitions
 //
 ///////////////////////////////////////////////////////////////////////////////
-#pragma once
-
 #include <boost/preprocessor/arithmetic/inc.hpp>
 #include <boost/preprocessor/arithmetic/mul.hpp>
 #include <boost/preprocessor/comparison/not_equal.hpp>
 #include <boost/preprocessor/repetition/for.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 
-#include "Operators/SwitchLimits.h"
+/* The following code sets up a two-level switch where the outer range
+   of the number of modes goes from MINXD to MAXXD which can be set
+   from CMake Parameter NEKTAR_SWITCH_MIN and NEKTAR_SWITCH_MAX. The
+   inner switch (typically on quadrature order) runs from the number
+   of modes at each level to twice the number of modes at each level.
+   Additional macros that needto be provided which are OPERATORXD_Q
+   and OPERATORXD_M_SHAPE giving details of the switch case for the
+   Quadrature case and the outer switch cases for each mode and
+   OPERATORXD_DEF_SHAPE which are the default, non-templated function
+   call */
 
-/* Switch macros for two level switch over modes and then quadrature
-   orders wrapped around a Deformed check */
-#undef NM
-#define NM(i) BOOST_PP_TUPLE_ELEM(0, i)
-#undef NM_P1
-#define NM_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))
-#undef NQ
-#define NQ(i) BOOST_PP_TUPLE_ELEM(1, i)
-#undef NQ_M1
-#define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(1, i))
-
-/** Macro tests the values of the tuple 'state' to see if the first
-   element, given by BOOST_PP_TUPLE_ELEM(0, state), is not equal to
-   the second element plus one, given by
-   BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)) and returns 1 if not
-   equal otherwise zero */
-#define STDLEV2TEST(r, state)                                                  \
+/** This macro tests the values of the tuple 'state' to see if the
+    first element, given by BOOST_PP_TUPLE_ELEM(0, state), is not
+    equal to the second element plus one, given by
+    BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)) and returns 1 if not
+    equal otherwise returns zero. */
+#define LEV1TEST(r, state)                                                     \
     BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(0, state),                          \
-                       BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
+                       BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)))
 
-#define STDLEV2TEST1(r, state)                                                 \
-    BOOST_PP_NOT_EQUAL(BOOST_PP_TUPLE_ELEM(1, state),                          \
-                       BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(2, state)))
+/** This macro returns an updated tuple where the first element, given
+    by BOOST_PP_TUPLE_ELEM(0, state), is incremented by one and the
+    second element, given by BOOST_PP_TUPLE_ELEM(1, state) remains the
+    same. */
+#define LEV1UPDATE(r, state)                                                   \
+    (BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, state)), BOOST_PP_TUPLE_ELEM(1, state))
 
-/** Macro returns an updated tuple where the first element, given by
-   BOOST_PP_TUPLE_ELEM(0, state), is incremented by one and the
-   second element, given by BOOST_PP_TUPLE_ELEM(1, state) remains
-   the same*/
-#define STDLEV2UPDATE(r, state)                                                \
-    (BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, state)),                              \
-     BOOST_PP_TUPLE_ELEM(1, state), BOOST_PP_TUPLE_ELEM(2, state))
+#define NQ(i) BOOST_PP_TUPLE_ELEM(0, i)
+#define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(0, i))
 
-#define STDLEV2UPDATE1(r, state)                                               \
-    (BOOST_PP_TUPLE_ELEM(0, state),                                            \
-     BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(1, state)),                              \
-     BOOST_PP_TUPLE_ELEM(2, state))
+#include "SwitchLimits.h"

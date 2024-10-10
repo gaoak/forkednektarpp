@@ -31,6 +31,7 @@
 // Description: One level switch statement with definable bounds for 3D elmts
 //
 ///////////////////////////////////////////////////////////////////////////////
+#pragma once
 
 #include <boost/preprocessor/arithmetic/inc.hpp>
 #include <boost/preprocessor/comparison/not_equal.hpp>
@@ -40,8 +41,7 @@
 #include "Operators/SwitchLimits.h"
 
 /* The following code provide BOOST_PP macrros to sets up a switch
-   statement that goes from  SMIN
-   to SMAX */
+   statement that goes from  SMIN to SMAX */
 
 /** this macro tests the values of the tuple 'state' to see if the
     first element, given by BOOST_PP_TUPLE_ELEM(0, state), is not
@@ -59,6 +59,9 @@
 #define STDLEV1UPDATE(r, state)                                                \
     (BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, state)), BOOST_PP_TUPLE_ELEM(1, state))
 
-#define NQ(i) BOOST_PP_TUPLE_ELEM(0, i)
-#define NQ_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(0, i))
-#define NQ_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))
+#undef NQ1
+#define NQ1(i) BOOST_PP_TUPLE_ELEM(0, i)
+#undef NQ1_M1
+#define NQ1_M1(i) BOOST_PP_DEC(BOOST_PP_TUPLE_ELEM(0, i))
+#undef NQ1_P1
+#define NQ1_P1(i) BOOST_PP_INC(BOOST_PP_TUPLE_ELEM(0, i))

@@ -83,6 +83,10 @@
                         break;
                 }
             }
+            else
+            {
+                OPERATOR3D_DEF_HEX;
+            }
             break;
         case LibUtilities::eTetrahedron:
             if (nq0 == nq1 + 1 && nq0 == nq2 + 1)
@@ -97,6 +101,10 @@
                         break;
                 }
             }
+            else
+            {
+                OPERATOR3D_DEF_TET;
+            }
             break;
         case LibUtilities::ePrism:
             if (nq0 == nq1 && nq0 == nq2 + 1)
@@ -110,6 +118,10 @@
                         break;
                 }
             }
+            else
+            {
+                OPERATOR3D_DEF_PRISM;
+            }
             break;
         case LibUtilities::ePyramid:
             if (nq0 == nq1 && nq0 == nq2 + 1)
@@ -122,6 +134,10 @@
                         OPERATOR3D_DEF_PYR;
                         break;
                 }
+            }
+            else
+            {
+                OPERATOR3D_DEF_PYR;
             }
             break;
         default:

@@ -258,6 +258,7 @@ IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
 ENDIF()
 
+
 # CUDA SumFac
 IF(NEKTAR_ENABLE_CUDA)
     SET_UNIT_TEST(Math_cuda test_math_cuda FALSE)

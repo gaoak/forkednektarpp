@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseAVXSumFacStdKernels.hpp
+// File: IProductWRTBaseSumFacStdKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

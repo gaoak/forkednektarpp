@@ -43,8 +43,9 @@ namespace Nektar::StdRegions
 {
 // Declaration of scalar routine
 using vec_t = tinysimd::scalarT<double>;
-#include <StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp>
-#include <StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp>
+#include <StdRegions/Operators/BwdTransSumFacStdKernels.hpp>
+#include <StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp>
+#include <StdRegions/Operators/PhysDerivSumFacStdKernels.hpp>
 
 /** \brief Constructor using BasisKey class for quadrature points and
  *  order definition
@@ -150,14 +151,6 @@ void StdSegExp::v_StdPhysDeriv(const Array<OneD, const NekDouble> &inarray,
                                [[maybe_unused]] Array<OneD, NekDouble> &out_d2)
 {
     PhysTensorDeriv(inarray, out_d0);
-}
-
-void StdSegExp::v_StdPhysDeriv([[maybe_unused]] const int dir,
-                               const Array<OneD, const NekDouble> &inarray,
-                               Array<OneD, NekDouble> &outarray)
-{
-    ASSERTL1(dir == 0, "input dir is out of range");
-    PhysTensorDeriv(inarray, outarray);
 }
 
 //---------------------------------------------------------------------

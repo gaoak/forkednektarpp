@@ -36,7 +36,7 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-#include "StdRegions/Operators/BwdTransAVXSumFacStdKernels.hpp"
+#include "StdRegions/Operators/BwdTransSumFacStdKernels.hpp"
 
 // The dimension and shape kernels. NOTE: They are NOT duplicate
 // templated version based on the array size like the
