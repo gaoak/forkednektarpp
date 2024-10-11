@@ -62,10 +62,11 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         // Initialise the derivative factor.
-        auto width  = 1u;
-        auto dfSize = Operator<TData>::GetGeometricFactorSize();
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
+        auto width     = 1u;
+        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
+                                            ExecSpace::width);
+        auto dfSize    = Operator<TData>::GetGeometricFactorSize(locblocks,
+                                                                 ExecSpace::width);
         auto derivFac =
             Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
 
@@ -187,7 +188,7 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            dfPtr += deformed ? ndf * nqTot * nElmts : ndf * nElmts;
+            dfPtr += deformed ? ndf * nqTot * nElmtsPad : ndf * nElmtsPad;
             inPtr += nElmtsPad * nqTot;
             outPtr += nElmtsPad * nqTot;
             exp_idx += nElmts;

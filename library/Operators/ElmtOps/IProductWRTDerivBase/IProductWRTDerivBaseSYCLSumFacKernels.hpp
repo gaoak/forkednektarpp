@@ -65,12 +65,15 @@ void IProductWRTDerivBase1DKernel(
         {
             const unsigned int index =
                 nq0 * warpsize * iwarp + warpsize * i + ilane;
-            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
+            const unsigned int dfindex =
+                DEFORMED ? nq0 * ncoord * warpsize * iwarp +
+                               warpsize * i * ncoord + ilane
+                         : ncoord * warpsize * iwarp + ilane;
 
             TData sum = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                sum += df[d + dfindex] * in[d * nsize + index];
+                sum += df[d * warpsize + dfindex] * in[d * nsize + index];
             }
             out[index] = sum;
         }
@@ -161,14 +164,17 @@ void IProductWRTDerivBase2DKernel(
             {
                 const unsigned int index =
                     nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
-                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+                const unsigned int dfindex =
+                    DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                   warpsize * cnt_ji * ndf + ilane
+                             : ndf * warpsize * iwarp + ilane;
 
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0; d < ncoord; ++d)
                 {
                     TData tmp = in[d * nsize + index];
-                    sum1 += df[(2u * d) + dfindex] * tmp;
-                    sum2 += df[(2u * d + 1u) + dfindex] * tmp;
+                    sum1 += df[(2u * d) * warpsize + dfindex] * tmp;
+                    sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
                 }
 
                 if constexpr (SHAPETYPE == LibUtilities::Quad)
@@ -359,15 +365,17 @@ void IProductWRTDerivBase3DKernel(
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                       warpsize * cnt_kji * ndf + ilane
+                                 : ndf * warpsize * iwarp + ilane;
 
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(3u * d) + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                        sum1 += df[(3u * d) * warpsize + dfindex] * tmp;
+                        sum2 += df[(3u * d + 1u) * warpsize + dfindex] * tmp;
+                        sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
                     }
 
                     if constexpr (SHAPETYPE == LibUtilities::Hex)

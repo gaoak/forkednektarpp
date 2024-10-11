@@ -339,33 +339,6 @@ public:
     }
 
 protected:
-    // Standard Get/Set methods
-    size_t GetGeometricFactorSize(void)
-    {
-        size_t gfSize    = 0;
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
-
-        // Calculate the jacobian array size
-        for (size_t e = 0; e < nTotElmts; ++e)
-        {
-            // Determine shape and type of the element
-            const auto expPtr = this->m_expansionList->GetExp(e);
-
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                gfSize += expPtr->GetTotPoints();
-            }
-            else
-            {
-                gfSize++;
-            }
-        }
-
-        return gfSize;
-    }
-
-    // Vectorized Get/Set methods
     size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks,
                                   const size_t width)
     {
@@ -391,7 +364,7 @@ protected:
             exp_id += blocks[blk].num_elements;
         }
 
-        return gfSize;
+        return gfSize * width;
     }
 
     std::shared_ptr<std::vector<TData>> SetJacobian(
@@ -399,15 +372,15 @@ protected:
     {
         // Allocate memory for the jacobian
         std::vector<TData> jac;
-        jac.resize(jacSize * width);
+        jac.resize(jacSize);
 
         size_t exp_id = 0;
         size_t jac_id = 0;
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_padding_elements = blocks[blk].num_padding_elements;
-            size_t num_elmt_groups      = blocks[blk].GetNumElmtGroups(width);
+            size_t num_elements    = blocks[blk].num_elements;
+            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 
@@ -416,74 +389,56 @@ protected:
             {
                 Array<OneD, Array<OneD, NekDouble>> jacArray(width);
 
-                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
+                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
-                    for (size_t i = 0; i < width; ++i)
+                    for (size_t i = 0; i < width; ++i, ++el)
                     {
-                        jacArray[i] = this->m_expansionList->GetExp(exp_id++)
-                                          ->GetMetricInfo()
-                                          ->GetJac(expPtr->GetPointsKeys());
+                        if (el < num_elements)
+                        {
+                            jacArray[i] =
+                                this->m_expansionList->GetExp(exp_id++)
+                                    ->GetMetricInfo()
+                                    ->GetJac(expPtr->GetPointsKeys());
+                        }
+                        else
+                        {
+                            jacArray[i] = Array<OneD, NekDouble>(
+                                expPtr->GetTotPoints(), 0.0);
+                        }
                     }
 
                     for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                     {
-                        for (size_t i = 0; i < width; ++i)
+                        for (size_t i = 0; i < width; ++i, ++jac_id)
                         {
-                            jac[jac_id++] = jacArray[i][pt];
+                            jac[jac_id] = jacArray[i][pt];
                         }
-                    }
-                }
-
-                // Last block: may have padding elements
-                for (size_t i = 0; i < width - num_padding_elements; ++i)
-                {
-                    jacArray[i] = this->m_expansionList->GetExp(exp_id++)
-                                      ->GetMetricInfo()
-                                      ->GetJac(expPtr->GetPointsKeys());
-                }
-
-                for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
-                {
-                    for (size_t i = 0; i < width - num_padding_elements; ++i)
-                    {
-                        jac[jac_id++] = jacArray[i][pt];
-                    }
-
-                    for (size_t i = width - num_padding_elements; i < width;
-                         ++i)
-                    {
-                        jac[jac_id++] = 0.0;
                     }
                 }
             }
             else // regular geometry
             {
-                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
+                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
-                    for (size_t i = 0; i < width; ++i)
+                    for (size_t i = 0; i < width; ++i, ++el, ++jac_id)
                     {
-                        auto &auxJac = this->m_expansionList->GetExp(exp_id++)
-                                           ->GetMetricInfo()
-                                           ->GetJac(expPtr->GetPointsKeys());
-                        jac[jac_id++] = auxJac[0];
+                        if (el < num_elements)
+                        {
+                            auto &auxJac =
+                                this->m_expansionList->GetExp(exp_id++)
+                                    ->GetMetricInfo()
+                                    ->GetJac(expPtr->GetPointsKeys());
+                            jac[jac_id] = auxJac[0];
+                        }
+                        else
+                        {
+                            jac[jac_id] = 0.0;
+                        }
                     }
-                }
-
-                // last block: may have padding elements
-                for (size_t i = 0; i < width - num_padding_elements; ++i)
-                {
-                    auto &auxJac = this->m_expansionList->GetExp(exp_id++)
-                                       ->GetMetricInfo()
-                                       ->GetJac(expPtr->GetPointsKeys());
-                    jac[jac_id++] = auxJac[0];
-                }
-
-                for (size_t i = width - num_padding_elements; i < width; ++i)
-                {
-                    jac[jac_id++] = 0.0;
                 }
             }
         }
+
         return MemoryManager<std::vector<TData>>::AllocateSharedPtr(jac);
     }
 
@@ -495,109 +450,88 @@ protected:
         size_t nCoord = this->m_expansionList->GetCoordim(0);
 
         std::vector<TData> derivFac;
-        derivFac.resize(nDim * nCoord * dfSize * width);
+        derivFac.resize(nDim * nCoord * dfSize);
 
         size_t exp_id = 0;
         size_t df_id  = 0;
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_padding_elements = blocks[blk].num_padding_elements;
-            size_t num_elmt_groups      = blocks[blk].GetNumElmtGroups(width);
-            auto expPtr                 = this->m_expansionList->GetExp(exp_id);
+            size_t num_elements    = blocks[blk].num_elements;
+            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
+            auto expPtr            = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                Array<OneD, NekDouble> tmp(width);
-
-                // loop over meta-blocks: except last one
-                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
+                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
                     for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                     {
                         for (size_t d = 0; d < nDim * nCoord; ++d)
                         {
-                            for (size_t i = 0; i < width; ++i)
+                            for (size_t i = 0; i < width; ++i, ++df_id)
+                            {
+                                if (el + i < num_elements)
+                                {
+                                    auto &df = this->m_expansionList
+                                                   ->GetExp(exp_id + i)
+                                                   ->GetMetricInfo()
+                                                   ->GetDerivFactors(
+                                                       expPtr->GetPointsKeys());
+                                    derivFac[df_id] = df[d][pt];
+                                }
+                                else
+                                {
+                                    derivFac[df_id] = 0.0;
+                                }
+                            }
+                        }
+                    }
+
+                    for (size_t i = 0; i < width; ++i)
+                    {
+                        if (el + i < num_elements)
+                        {
+                            exp_id++;
+                        }
+                    }
+                    el += width;
+                }
+            }
+            else
+            {
+                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+                {
+                    for (size_t d = 0; d < nDim * nCoord; ++d)
+                    {
+                        for (size_t i = 0; i < width; ++i, ++df_id)
+                        {
+                            if (el + i < num_elements)
                             {
                                 auto &df =
                                     this->m_expansionList->GetExp(exp_id + i)
                                         ->GetMetricInfo()
                                         ->GetDerivFactors(
                                             expPtr->GetPointsKeys());
-                                derivFac[df_id++] = df[d][pt];
+                                derivFac[df_id] = df[d][0];
+                            }
+                            else
+                            {
+                                derivFac[df_id] = 0.0;
                             }
                         }
                     }
-                    exp_id += width;
-                }
 
-                // Last block: may have padding elements
-                for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
-                {
-                    for (size_t d = 0; d < nDim * nCoord; ++d)
+                    for (size_t i = 0; i < width; ++i)
                     {
-                        for (size_t i = 0; i < width - num_padding_elements;
-                             ++i)
+                        if (el + i < num_elements)
                         {
-                            auto &df =
-                                this->m_expansionList->GetExp(exp_id + i)
-                                    ->GetMetricInfo()
-                                    ->GetDerivFactors(expPtr->GetPointsKeys());
-                            derivFac[df_id++] = df[d][pt];
-                        }
-
-                        for (size_t i = width - num_padding_elements; i < width;
-                             ++i)
-                        {
-                            derivFac[df_id++] = 0.0;
+                            exp_id++;
                         }
                     }
+                    el += width;
                 }
-                exp_id += width - num_padding_elements;
-            }
-            else
-            {
-                Array<OneD, NekDouble> tmp(width);
-
-                // loop over meta-blocks: except last one
-                for (size_t e = 0; e < num_elmt_groups - 1; ++e)
-                {
-                    for (size_t d = 0; d < nDim * nCoord; ++d)
-                    {
-                        for (size_t i = 0; i < width; ++i)
-                        {
-                            auto &df =
-                                this->m_expansionList->GetExp(exp_id + i)
-                                    ->GetMetricInfo()
-                                    ->GetDerivFactors(expPtr->GetPointsKeys());
-                            derivFac[df_id++] = df[d][0];
-                        }
-                    }
-
-                    exp_id += width;
-                }
-
-                // Last block: may have padding elements
-                for (size_t d = 0; d < nDim * nCoord; ++d)
-                {
-                    for (size_t i = 0; i < width - num_padding_elements; ++i)
-                    {
-                        auto &df =
-                            this->m_expansionList->GetExp(exp_id + i)
-                                ->GetMetricInfo()
-                                ->GetDerivFactors(expPtr->GetPointsKeys());
-                        derivFac[df_id++] = df[d][0];
-                    }
-
-                    for (size_t i = width - num_padding_elements; i < width;
-                         ++i)
-                    {
-                        derivFac[df_id++] = 0.0;
-                    }
-                }
-
-                exp_id += width - num_padding_elements;
             }
         }
 

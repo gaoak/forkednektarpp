@@ -60,13 +60,14 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        auto width         = 1u;
-        size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        auto width = 1u;
         auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, width);
-        m_jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        size_t gFacSize =
+            Operator<TData>::GetGeometricFactorSize(locblocks, width);
+        m_jac = Operator<TData>::SetJacobian(gFacSize, locblocks, width);
         m_derivFac =
-            Operator<TData>::SetDerivativeFactor(geomFacSize, locblocks, width);
+            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
