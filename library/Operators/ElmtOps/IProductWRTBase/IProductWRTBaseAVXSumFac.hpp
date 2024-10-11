@@ -73,11 +73,9 @@ public:
         // Initialise jacobian with paddings if appropriate
         auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
-
-        // This jac is interleaved and ready to use.
-        size_t jacSize =
+        auto jacSize =
             Operator<TData>::GetGeometricFactorSize(locblocks, vec_t::width);
-        std::shared_ptr<std::vector<TData>> jac =
+        auto jac =
             Operator<TData>::SetJacobian(jacSize, locblocks, vec_t::width);
 
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(

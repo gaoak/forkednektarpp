@@ -258,10 +258,10 @@ public:
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(std::string name,
-                                       std::vector<BlockAttributes> blocks,
-                                       int num_components, size_t alignment,
-                                       bool device_only = false)
+    static Field<TData, TState> create(
+        std::string name, std::vector<BlockAttributes> blocks,
+        int num_components, size_t alignment,
+        [[maybe_unused]] bool device_only = false)
     {
         auto field = Field(std::move(blocks), num_components);
 

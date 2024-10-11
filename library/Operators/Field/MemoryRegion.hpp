@@ -238,7 +238,7 @@ public:
     template <typename MemSpace>
     static MemoryRegion<TData> create(std::string name, size_t size,
                                       size_t alignment,
-                                      bool device_only = false)
+                                      [[maybe_unused]] bool device_only = false)
     {
         auto mr = MemoryRegion();
 
@@ -297,7 +297,7 @@ public:
     template <typename MemSpace, typename TDataIn>
     static MemoryRegion<TData> fromData(std::string name, const TDataIn *src,
                                         const size_t size, size_t alignment,
-                                        bool device_only)
+                                        [[maybe_unused]] bool device_only)
     {
         auto mr = MemoryRegion();
 

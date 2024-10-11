@@ -72,16 +72,15 @@ public:
         // Initialise jacobian with paddings if appropriate
         auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
-
         size_t gFacSize =
             Operator<TData>::GetGeometricFactorSize(locblocks, vec_t::width);
         auto jac =
             Operator<TData>::SetJacobian(gFacSize, locblocks, vec_t::width);
-        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *jac, ExecSpace::alignment);
-
         auto derivFac = Operator<TData>::SetDerivativeFactor(
             gFacSize, locblocks, vec_t::width);
+
+        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            *jac, ExecSpace::alignment);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, ExecSpace::alignment);

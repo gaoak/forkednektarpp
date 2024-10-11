@@ -90,6 +90,8 @@ void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq0),
                     [&](const unsigned int &idx) { s_w0[idx] = w0[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -277,6 +279,8 @@ void IProductWRTBaseQuadKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq1),
                     [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -644,6 +648,8 @@ void IProductWRTBaseTriKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq1),
                     [&](const unsigned int &idx) { s_w1[idx] = w1[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -1158,6 +1164,8 @@ void IProductWRTBaseHexKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq2),
                     [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -1641,6 +1649,8 @@ void IProductWRTBaseTetKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq2),
                     [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -2432,6 +2442,8 @@ void IProductWRTBasePrismKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq2),
                     [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =
@@ -3102,6 +3114,8 @@ void IProductWRTBasePyrKernel(
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadRange(team, nq2),
                     [&](const unsigned int &idx) { s_w2[idx] = w2[idx]; });
+
+                team.team_barrier();
             }
 
             unsigned int e =

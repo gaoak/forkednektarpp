@@ -69,13 +69,14 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         // Initialise the jacobian and the derivative factor.
-        const auto geomFacSize = Operator<TData>::GetGeometricFactorSize();
-        auto width             = 1u;
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
-        auto jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        auto width     = 1u;
+        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
+                                            ExecSpace::width);
+        const auto gFacSize = Operator<TData>::GetGeometricFactorSize(
+            locblocks, ExecSpace::width);
+        auto jac = Operator<TData>::SetJacobian(gFacSize, locblocks, width);
         auto derivFac =
-            Operator<TData>::SetDerivativeFactor(geomFacSize, locblocks, width);
+            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks, width);
 
         // Initialise the jacobian.
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
@@ -206,8 +207,8 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr =
-                SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2, nm1, nm2);
+            TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2,
+                                         nm0, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -215,7 +216,7 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase1DKernel<ExecSpace, TData, true>(
-                        nq0, nCoord, nElmts, nSize, dfPtr, inPtr, tmpPtr);
+                        nq0, nCoord, nElmtsPad, nSize, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
                                             true>(nm0, nq0, nElmtsPad, dbasis0,
                                                   w0, jacPtr, tmpPtr, outPtr);
@@ -223,7 +224,7 @@ public:
                 else
                 {
                     IProductWRTDerivBase1DKernel<ExecSpace, TData, false>(
-                        nq0, nCoord, nElmts, nSize, dfPtr, inPtr, tmpPtr);
+                        nq0, nCoord, nElmtsPad, nSize, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, TData, false, true,
                                             false>(nm0, nq0, nElmtsPad, dbasis0,
                                                    w0, jacPtr, tmpPtr, outPtr);
@@ -235,7 +236,7 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase2DKernel<ExecSpace, TData, true>(
-                        shapeType, nq0, nq1, nCoord, nElmts, nSize, Z0, Z1,
+                        shapeType, nq0, nq1, nCoord, nElmtsPad, nSize, Z0, Z1,
                         dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             true>(shapeType, nm0, nm1, nq0, nq1,
@@ -251,7 +252,7 @@ public:
                 else
                 {
                     IProductWRTDerivBase2DKernel<ExecSpace, TData, false>(
-                        shapeType, nq0, nq1, nCoord, nElmts, nSize, Z0, Z1,
+                        shapeType, nq0, nq1, nCoord, nElmtsPad, nSize, Z0, Z1,
                         dfPtr, inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, TData, false, true,
                                             false>(
@@ -270,8 +271,8 @@ public:
                 if (deformed)
                 {
                     IProductWRTDerivBase3DKernel<ExecSpace, TData, true>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize, Z0, Z1,
-                        Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, nSize, Z0,
+                        Z1, Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             true>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -291,8 +292,8 @@ public:
                 else
                 {
                     IProductWRTDerivBase3DKernel<ExecSpace, TData, false>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmts, nSize, Z0, Z1,
-                        Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, nSize, Z0,
+                        Z1, Z2, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, TData, false, true,
                                             false>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -312,8 +313,8 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            jacPtr += deformed ? nqTot * nElmts : nElmts;
-            dfPtr += deformed ? ndf * nqTot * nElmts : ndf * nElmts;
+            jacPtr += deformed ? nqTot * nElmtsPad : nElmtsPad;
+            dfPtr += deformed ? ndf * nqTot * nElmtsPad : ndf * nElmtsPad;
 
             tmpPtr += nqTot * nElmtsPad;
             inPtr += nqTot * nElmtsPad;
@@ -323,8 +324,10 @@ public:
     }
 
     size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmts, size_t nq0, size_t nq1,
-                                  size_t nq2, size_t nm1, size_t nm2)
+                                  size_t nElmts, [[maybe_unused]] size_t nq0,
+                                  size_t nq1, size_t nq2,
+                                  [[maybe_unused]] size_t nm0, size_t nm1,
+                                  size_t nm2)
     {
         size_t wspsize = 0;
 
@@ -334,7 +337,7 @@ public:
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = nq0 * nElmts;
+            wspsize = nq1 * nElmts;
         }
         else if (shapeType == LibUtilities::Hex)
         {
@@ -357,15 +360,15 @@ public:
     }
 
     TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
-                        size_t nq0, size_t nq1, size_t nq2, size_t nm1,
-                        size_t nm2)
+                        size_t nq0, size_t nq1, size_t nq2, size_t nm0,
+                        size_t nm1, size_t nm2)
     {
         TData *wspptr = nullptr;
 
         if constexpr (!FLAG_QP)
         {
             size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
-                                                    nq2, nm1, nm2);
+                                                    nq2, nm0, nm1, nm2);
 
             if (m_wspsize < wspsize)
             {

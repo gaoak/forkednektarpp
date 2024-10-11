@@ -75,7 +75,9 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                     const unsigned int index =
                         nq0 * warpsize * iwarp + warpsize * i + ilane;
                     const unsigned int dfindex =
-                        DEFORMED ? ncoord * index : ncoord * e;
+                        DEFORMED ? nq0 * ncoord * warpsize * iwarp +
+                                       warpsize * i * ncoord + ilane
+                                 : ncoord * warpsize * iwarp + ilane;
 
                     // Compute tensorial derivative.
                     TData d0 = 0.0;
@@ -88,7 +90,8 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                     // Multiply by derivative factors.
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
-                        out[d * nsize + index] = d0 * df[d + dfindex];
+                        out[d * nsize + index] =
+                            d0 * df[d * warpsize + dfindex];
                     }
                 }
 
@@ -225,7 +228,9 @@ void PhysDeriv2DKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_ji + ilane;
                         const unsigned int dfindex =
-                            DEFORMED ? ndf * index : ndf * e;
+                            DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                           warpsize * cnt_ji * ndf + ilane
+                                     : ndf * warpsize * iwarp + ilane;
 
                         // Compute tensorial derivative.
                         // Direction 0
@@ -265,8 +270,8 @@ void PhysDeriv2DKernel(
                         for (unsigned int d = 0u; d < ncoord; d++)
                         {
                             out[d * nsize + index] =
-                                d0 * df[(2u * d) + dfindex] +
-                                d1 * df[(2u * d + 1u) + dfindex];
+                                d0 * df[(2u * d) * warpsize + dfindex] +
+                                d1 * df[(2u * d + 1u) * warpsize + dfindex];
                         }
                     }
                 }
@@ -635,7 +640,9 @@ void PhysDeriv3DKernel(
                                 nqTot * warpsize * iwarp + warpsize * cnt_kji +
                                 ilane;
                             const unsigned int dfindex =
-                                DEFORMED ? ndf * index : ndf * e;
+                                DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                               warpsize * cnt_kji * ndf + ilane
+                                         : ndf * warpsize * iwarp + ilane;
 
                             // Compute tensorial derivative.
                             // Direction 0
@@ -732,9 +739,10 @@ void PhysDeriv3DKernel(
                             for (unsigned int d = 0u; d < ncoord; d++)
                             {
                                 out[d * nsize + index] =
-                                    d0 * df[(3u * d) + dfindex] +
-                                    d1 * df[(3u * d + 1u) + dfindex] +
-                                    d2 * df[(3u * d + 2u) + dfindex];
+                                    d0 * df[(3u * d) * warpsize + dfindex] +
+                                    d1 *
+                                        df[(3u * d + 1u) * warpsize + dfindex] +
+                                    d2 * df[(3u * d + 2u) * warpsize + dfindex];
                             }
                         }
                     }

@@ -59,11 +59,12 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        auto width         = 1u;
-        size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
+        auto width = 1u;
         auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, width);
-        m_jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        size_t jacSize =
+            Operator<TData>::GetGeometricFactorSize(locblocks, width);
+        m_jac = Operator<TData>::SetJacobian(jacSize, locblocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(

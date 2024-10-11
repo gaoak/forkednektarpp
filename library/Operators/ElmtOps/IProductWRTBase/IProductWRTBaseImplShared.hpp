@@ -65,11 +65,12 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise the jacobian.
-        const auto geomFacSize = Operator<TData>::GetGeometricFactorSize();
-        auto width             = 1u;
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
-        auto jac = Operator<TData>::SetJacobian(geomFacSize, locblocks, width);
+        auto width         = 1u;
+        auto locblocks     = GetBlockAttributes(FieldState::Phys, expansionList,
+                                                ExecSpace::width);
+        const auto jacSize = Operator<TData>::GetGeometricFactorSize(
+            locblocks, ExecSpace::width);
+        auto jac = Operator<TData>::SetJacobian(jacSize, locblocks, width);
 
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment, true);
@@ -147,8 +148,8 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr =
-                SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2, nm1, nm2);
+            TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2,
+                                         nm0, nm1, nm2);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -272,7 +273,7 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            jacPtr += deformed ? nqTot * nElmts : nElmts;
+            jacPtr += deformed ? nqTot * nElmtsPad : nElmtsPad;
             inPtr += nqTot * nElmtsPad;
             outPtr += nmTot * nElmtsPad;
             exp_idx += nElmts;
@@ -281,7 +282,8 @@ public:
 
     size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
                                   size_t nElmts, [[maybe_unused]] size_t nq0,
-                                  size_t nq1, size_t nq2, size_t nm1,
+                                  size_t nq1, size_t nq2,
+                                  [[maybe_unused]] size_t nm0, size_t nm1,
                                   size_t nm2)
     {
         size_t wspsize = 0;
@@ -315,15 +317,15 @@ public:
     }
 
     TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
-                        size_t nq0, size_t nq1, size_t nq2, size_t nm1,
-                        size_t nm2)
+                        size_t nq0, size_t nq1, size_t nq2, size_t nm0,
+                        size_t nm1, size_t nm2)
     {
         TData *wspptr = nullptr;
 
         if constexpr (!FLAG_QP)
         {
             size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
-                                                    nq2, nm1, nm2);
+                                                    nq2, nm0, nm1, nm2);
 
             if (m_wspsize < wspsize)
             {

@@ -44,13 +44,13 @@ namespace Nektar
 template <size_t VectorWidth, typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
+interleave(const unsigned int numMetaBlocks, const unsigned int npts,
            TData *inout)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * dataLen;
+        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer = (TData *)
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -60,24 +60,23 @@ interleave(const unsigned int numMetaBlocks, const unsigned int dataLen,
         Kokkos::TeamPolicy<>(numMetaBlocks, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
             const unsigned int metaBlock = team.league_rank();
-            const unsigned int offset    = dataLen * VectorWidth * metaBlock;
+            const unsigned int offset    = npts * VectorWidth * metaBlock;
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
+                Kokkos::TeamThreadRange(team, npts * VectorWidth),
                 [&](const unsigned int &idx) {
-                    buffer[idx] = inout[offset + idx];
+                    buffer[offset + idx] = inout[offset + idx];
                 });
 
             team.team_barrier();
 
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
+                Kokkos::TeamThreadRange(team, npts * VectorWidth),
                 [&](const unsigned int &idx) {
                     unsigned int vecElem = idx % VectorWidth;
                     unsigned int iElem   = idx / VectorWidth;
-                    inout[offset + idx]  = buffer[vecElem * dataLen + iElem];
+                    inout[offset + idx] =
+                        buffer[offset + vecElem * npts + iElem];
                 });
-
-            team.team_barrier();
         });
 
     Kokkos::kokkos_free(buffer);
@@ -87,12 +86,12 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
-             const unsigned int dataLen, TData *inout)
+             const unsigned int npts, TData *inout)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int bufferSize =
-        sizeof(TData) * VectorWidth * numMetaBlocks * dataLen;
+        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
     TData *buffer = (TData *)
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -102,24 +101,23 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
         Kokkos::TeamPolicy<>(numMetaBlocks, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
             const unsigned int metaBlock = team.league_rank();
-            const unsigned int offset    = dataLen * VectorWidth * metaBlock;
+            const unsigned int offset    = npts * VectorWidth * metaBlock;
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
+                Kokkos::TeamThreadRange(team, npts * VectorWidth),
                 [&](const unsigned int &idx) {
-                    buffer[idx] = inout[offset + idx];
+                    buffer[offset + idx] = inout[offset + idx];
                 });
 
             team.team_barrier();
 
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, dataLen * VectorWidth),
+                Kokkos::TeamThreadRange(team, npts * VectorWidth),
                 [&](const unsigned int &idx) {
-                    unsigned int vecElem = idx / dataLen;
-                    unsigned int iElem   = idx % dataLen;
-                    inout[offset + idx] = buffer[iElem * VectorWidth + vecElem];
+                    unsigned int vecElem = idx / npts;
+                    unsigned int iElem   = idx % npts;
+                    inout[offset + idx] =
+                        buffer[offset + iElem * VectorWidth + vecElem];
                 });
-
-            team.team_barrier();
         });
 
     Kokkos::kokkos_free(buffer);
@@ -129,7 +127,7 @@ template <typename ExecSpace>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
-                         const unsigned int ncoeff,
+                         const unsigned int npts,
                          const unsigned int newVecWidth,
                          const unsigned int offset, int *deInterleaveMapPtr,
                          int *interleaveMapPtr)
@@ -137,7 +135,7 @@ BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int bufferSize =
-        sizeof(int) * newVecWidth * numMetaBlocks * ncoeff;
+        sizeof(int) * newVecWidth * numMetaBlocks * npts;
     // allocate buffer for all teams
     int *buffer = (int *)
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -148,32 +146,35 @@ BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
         Kokkos::TeamPolicy<>(numMetaBlocks, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
             const unsigned int metaBlock  = team.league_rank();
-            const unsigned int teamOffset = newVecWidth * ncoeff * metaBlock;
+            const unsigned int teamOffset = newVecWidth * npts * metaBlock;
             // assign count+0, count+1, count+2, count+3, count+4, ....
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
+                Kokkos::TeamThreadRange(team, npts * newVecWidth),
                 [&](const unsigned int &idx) {
                     buffer[teamOffset + idx] = offset + teamOffset + idx;
                 });
+
             team.team_barrier();
+
             // get the deinterleave map
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, ncoeff),
+                Kokkos::TeamThreadRange(team, npts),
                 [&](const unsigned int &idx) {
                     unsigned int vecElem = idx % newVecWidth;
                     unsigned int iElem   = idx / newVecWidth;
                     deInterleaveMapPtr[teamOffset + idx] =
-                        buffer[teamOffset + vecElem * ncoeff + iElem];
+                        buffer[teamOffset + vecElem * npts + iElem];
                 });
+
             team.team_barrier();
+
             // get the interleave map
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, ncoeff * newVecWidth),
+                Kokkos::TeamThreadRange(team, npts * newVecWidth),
                 [&](const unsigned int &idx) {
                     interleaveMapPtr[deInterleaveMapPtr[teamOffset + idx]] =
                         offset + teamOffset + idx;
                 });
-            team.team_barrier();
         });
 
     Kokkos::kokkos_free(buffer);

@@ -72,10 +72,9 @@ public:
         // Initialise jacobian with paddings
         auto blocks =
             GetBlockAttributes(FieldState::Phys, expansionList, vec_t::width);
-
-        size_t dfSize =
+        auto dfSize =
             Operator<TData>::GetGeometricFactorSize(blocks, vec_t::width);
-        std::shared_ptr<std::vector<TData>> derivFac =
+        auto derivFac =
             Operator<TData>::SetDerivativeFactor(dfSize, blocks, vec_t::width);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(

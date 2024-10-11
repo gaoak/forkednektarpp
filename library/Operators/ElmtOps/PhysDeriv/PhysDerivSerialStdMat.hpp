@@ -58,12 +58,13 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise derivative factor.
-        auto width         = 1u;
-        size_t geomFacSize = Operator<TData>::GetGeometricFactorSize();
-        auto blocks =
+        auto width = 1u;
+        auto locblocks =
             GetBlockAttributes(FieldState::Phys, expansionList, width);
+        size_t dfSize =
+            Operator<TData>::GetGeometricFactorSize(locblocks, width);
         m_derivFac =
-            Operator<TData>::SetDerivativeFactor(geomFacSize, blocks, width);
+            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(

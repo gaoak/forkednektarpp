@@ -62,12 +62,15 @@ __global__ void IProductWRTDerivBase1DKernel(
         {
             const unsigned int index =
                 nq0 * warpsize * iwarp + warpsize * i + ilane;
-            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
+            const unsigned int dfindex =
+                DEFORMED ? nq0 * ncoord * warpsize * iwarp +
+                               warpsize * i * ncoord + ilane
+                         : ncoord * warpsize * iwarp + ilane;
 
             TData sum = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                sum += df[d + dfindex] * in[d * nsize + index];
+                sum += df[d * warpsize + dfindex] * in[d * nsize + index];
             }
             out[index] = sum;
         }
@@ -113,7 +116,7 @@ __global__ void IProductWRTDerivBase2DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const auto ndf                  = ncoord * 2;
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
@@ -126,7 +129,7 @@ __global__ void IProductWRTDerivBase2DKernel(
     const unsigned int stride = blockDim.x;
     if constexpr (SHAPETYPE == LibUtilities::Tri)
     {
-        s_f0 = shared;
+        s_f0 = (TData *)shared;
         s_f1 = s_f0 + nq1;
 
         for (unsigned int idx = idx0; idx < nq1; idx += stride)
@@ -155,14 +158,17 @@ __global__ void IProductWRTDerivBase2DKernel(
             {
                 const unsigned int index =
                     nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
-                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+                const unsigned int dfindex =
+                    DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                   warpsize * cnt_ji * ndf + ilane
+                             : ndf * warpsize * iwarp + ilane;
 
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0; d < ncoord; ++d)
                 {
                     TData tmp = in[d * nsize + index];
-                    sum1 += df[(2u * d) + dfindex] * tmp;
-                    sum2 += df[(2u * d + 1u) + dfindex] * tmp;
+                    sum1 += df[(2u * d) * warpsize + dfindex] * tmp;
+                    sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
                 }
 
                 if constexpr (SHAPETYPE == LibUtilities::Quad)
@@ -313,7 +319,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ TData shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
 
@@ -326,7 +332,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     const unsigned int stride = blockDim.x;
     if constexpr (SHAPETYPE == LibUtilities::Tet)
     {
-        s_f0 = shared;
+        s_f0 = (TData *)shared;
         s_f1 = s_f0 + nq1;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
@@ -355,7 +361,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     }
     else if constexpr (SHAPETYPE == LibUtilities::Prism)
     {
-        s_f1 = shared;
+        s_f1 = (TData *)shared;
         s_f2 = s_f1 + nq0;
 
         for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -372,7 +378,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     }
     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
     {
-        s_f1 = shared;
+        s_f1 = (TData *)shared;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
 
@@ -410,15 +416,17 @@ __global__ void IProductWRTDerivBase3DKernel(
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? nqTot * ndf * warpsize * iwarp +
+                                       warpsize * cnt_kji * ndf + ilane
+                                 : ndf * warpsize * iwarp + ilane;
 
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(3u * d) + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                        sum1 += df[(3u * d) * warpsize + dfindex] * tmp;
+                        sum2 += df[(3u * d + 1u) * warpsize + dfindex] * tmp;
+                        sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
                     }
 
                     if constexpr (SHAPETYPE == LibUtilities::Hex)
