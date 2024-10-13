@@ -110,8 +110,10 @@ public:
             cnt += nBndExpCoeff;
         }
 
+        const bool device_only = true;
+
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, ExecSpace::alignment, true);
+            bndcoeff, ExecSpace::alignment, device_only);
 
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
@@ -142,7 +144,7 @@ public:
         }
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, ExecSpace::alignment, true);
+            alignedMap, ExecSpace::alignment, device_only);
 
         if (m_signChange)
         {
@@ -153,7 +155,7 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign, ExecSpace::alignment, true);
+                alignedSign, ExecSpace::alignment, device_only);
         }
     }
 

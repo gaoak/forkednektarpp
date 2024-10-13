@@ -26,7 +26,7 @@ IF(NEKTAR_ENABLE_KOKKOS)
 ENDIF()
 
 # Currently two primary implementation types.
-SET(Implementations StdMat SumFac)
+SET(Implementations StdMat SumFac SumFacQP)
 
 # Shape types for seperate code compilation
 SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)

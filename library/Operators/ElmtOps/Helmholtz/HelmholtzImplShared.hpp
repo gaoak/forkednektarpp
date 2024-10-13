@@ -55,10 +55,16 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

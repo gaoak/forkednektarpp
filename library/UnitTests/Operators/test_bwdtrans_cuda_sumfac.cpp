@@ -55,6 +55,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        fixt_cuda_out->ReshapeStorage<ExecSpace, 1>();                         \
         BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -67,42 +68,43 @@
 
 BOOST_AUTO_TEST_SUITE(TestBwdTransCUDA)
 
-TEST_BWDTRANS(bwdtrans_cuda_seg, Seg, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_seg, Seg, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_seg_sem, SegSEM, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_seg_sem, SegSEM, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_quad, Quad, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_quad, Quad, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_quad_sem, QuadSEM, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_quad_varp, QuadVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_tri, Tri, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_tri, Tri, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_tri_varp, TriVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_tri_varp, TriVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_square_all_elements, SquareAllElements,
+              1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_hex, Hex, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_hex, Hex, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_hex_sem, HexSEM, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_hex_sem, HexSEM, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_hex_varp, HexVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_hex_varp, HexVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_prism, Prism, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_prism, Prism, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_prism_varp, PrismVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_prism_varp, PrismVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_pyr, Pyr, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_pyr, Pyr, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_pyr_varp, PyrVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_tet, Tet, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_tet, Tet, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_tet_varp, TetVarP, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_tet_varp, TetVarP, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_BWDTRANS(bwdtrans_cuda_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_BWDTRANS(bwdtrans_cuda_sumfac_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

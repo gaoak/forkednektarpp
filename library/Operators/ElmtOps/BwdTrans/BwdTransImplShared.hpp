@@ -42,8 +42,6 @@
 #include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
 
-#define FLAG_QP false // TODO: to be removed
-
 namespace Nektar::Operators::detail
 {
 
@@ -52,10 +50,16 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -71,9 +75,11 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
-                 "Input and output widths are different but kernel is not "
-                 "setup for this (yet)");
+        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
+        {
+            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+        }
 
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
@@ -120,21 +126,23 @@ public:
             // Set workspace.
             TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2);
 
+            constexpr bool SharedMemory = true;
+
             // Function call to kernel functions.
             if (dimension == 1)
             {
-                BwdTrans1DKernel<ExecSpace>(nm0, nq0, nElmtsPad, basis0, inPtr,
-                                            outPtr);
+                BwdTrans1DKernel<ExecSpace, Implementation, SharedMemory>(
+                    nm0, nq0, nElmtsPad, basis0, inPtr, outPtr);
             }
             else if (dimension == 2)
             {
-                BwdTrans2DKernel<ExecSpace>(shapeType, nm0, nm1, nq0, nq1,
-                                            nElmtsPad, correct, basis0, basis1,
-                                            wspPtr, inPtr, outPtr);
+                BwdTrans2DKernel<ExecSpace, Implementation, SharedMemory>(
+                    shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct, basis0,
+                    basis1, wspPtr, inPtr, outPtr);
             }
             else if (dimension == 3)
             {
-                BwdTrans3DKernel<ExecSpace>(
+                BwdTrans3DKernel<ExecSpace, Implementation, SharedMemory>(
                     shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, correct,
                     basis0, basis1, basis2, wspPtr, inPtr, outPtr);
             }
@@ -185,8 +193,10 @@ public:
     {
         TData *wspptr = nullptr;
 
-        if constexpr (!FLAG_QP)
+        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
+            const bool device_only = true;
+
             size_t wspsize =
                 GetSharedWorkspaceSize(shapeType, nElmtsPad, nm0, nm1, nm2);
 
@@ -195,7 +205,7 @@ public:
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize, ExecSpace::alignment, true);
+                    m_wspsize, ExecSpace::alignment, device_only);
             }
 
             if (m_wspsize > 0)

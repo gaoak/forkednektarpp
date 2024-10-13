@@ -43,7 +43,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nsize, const TData *KOKKOS_RESTRICT df,
@@ -91,7 +91,7 @@ void IProductWRTDerivBase1DKernel(
         });
 }
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nsize, const TData *KOKKOS_RESTRICT df,
@@ -104,25 +104,27 @@ void IProductWRTDerivBase1DKernel_QP(
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e = team.league_rank();
 
-            const unsigned int offset = nq0 * e;
+            const unsigned int dfsize   = DEFORMED ? nq0 : 1;
+            const unsigned int dfoffset = ncoord * dfsize * e;
+            const unsigned int offset   = nq0 * e;
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nq0), [&](const unsigned int &i) {
                     const unsigned int index = offset + i;
                     const unsigned int dfindex =
-                        DEFORMED ? ncoord * index : ncoord * e;
+                        DEFORMED ? dfoffset + i : dfoffset;
 
                     TData sum = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
-                        sum += df[d + dfindex] * in[d * nsize + index];
+                        sum += df[d * dfsize + dfindex] * in[d * nsize + index];
                     }
                     out[index] = sum;
                 });
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -223,7 +225,7 @@ void IProductWRTDerivBase2DKernel(
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
@@ -241,7 +243,9 @@ void IProductWRTDerivBase2DKernel_QP(
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e = team.league_rank();
 
-            const unsigned int offset = nqTot * e;
+            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+            const unsigned int dfoffset = ndf * dfsize * e;
+            const unsigned int offset   = nqTot * e;
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
@@ -258,14 +262,14 @@ void IProductWRTDerivBase2DKernel_QP(
                     const unsigned int cnt_ji = nq0 * j + i;
                     const unsigned int index  = offset + cnt_ji;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? dfoffset + cnt_ji : dfoffset;
 
                     TData sum1 = 0.0, sum2 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(2u * d) + dfindex] * tmp;
-                        sum2 += df[(2u * d + 1u) + dfindex] * tmp;
+                        sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
+                        sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
                     }
 
                     // Moving from standard to collapsed coordinates.
@@ -283,7 +287,7 @@ void IProductWRTDerivBase2DKernel_QP(
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
@@ -301,49 +305,51 @@ void IProductWRTDerivBase2DKernel_QP_1D(
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e = team.league_rank();
 
-            const unsigned int offset = nqTot * e;
+            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+            const unsigned int dfoffset = ndf * dfsize * e;
+            const unsigned int offset   = nqTot * e;
 
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0 * nq1),
-                                 [&](const unsigned int &idx) {
-                                     const unsigned int i     = idx % nq0;
-                                     const unsigned int j     = idx / nq0;
-                                     const unsigned int index = offset + idx;
-                                     const unsigned int dfindex =
-                                         DEFORMED ? ndf * index : ndf * e;
-                                     TData f0, f1;
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nq0 * nq1),
+                [&](const unsigned int &idx) {
+                    const unsigned int i     = idx % nq0;
+                    const unsigned int j     = idx / nq0;
+                    const unsigned int index = offset + idx;
+                    const unsigned int dfindex =
+                        DEFORMED ? dfoffset + idx : dfoffset;
+                    TData f0, f1;
 
-                                     if (SHAPETYPE == LibUtilities::Tri)
-                                     {
-                                         f0 = 2.0 / (1.0 - Z1[j]);
-                                         f1 = 0.5 * (1.0 + Z0[i]);
-                                     }
+                    if (SHAPETYPE == LibUtilities::Tri)
+                    {
+                        f0 = 2.0 / (1.0 - Z1[j]);
+                        f1 = 0.5 * (1.0 + Z0[i]);
+                    }
 
-                                     TData sum1 = 0.0, sum2 = 0.0;
-                                     for (unsigned int d = 0u; d < ncoord; ++d)
-                                     {
-                                         TData tmp = in[d * nsize + index];
-                                         sum1 += df[(2u * d) + dfindex] * tmp;
-                                         sum2 +=
-                                             df[(2u * d + 1u) + dfindex] * tmp;
-                                     }
+                    TData sum1 = 0.0, sum2 = 0.0;
+                    for (unsigned int d = 0u; d < ncoord; ++d)
+                    {
+                        TData tmp = in[d * nsize + index];
+                        sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
+                        sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
+                    }
 
-                                     // Moving from standard to collapsed
-                                     // coordinates.
-                                     if (SHAPETYPE == LibUtilities::Quad)
-                                     {
-                                         out[index]         = sum1;
-                                         out[nsize + index] = sum2;
-                                     }
-                                     else if (SHAPETYPE == LibUtilities::Tri)
-                                     {
-                                         out[index] = (sum1 + sum2 * f1) * f0;
-                                         out[nsize + index] = sum2;
-                                     }
-                                 });
+                    // Moving from standard to collapsed
+                    // coordinates.
+                    if (SHAPETYPE == LibUtilities::Quad)
+                    {
+                        out[index]         = sum1;
+                        out[nsize + index] = sum2;
+                    }
+                    else if (SHAPETYPE == LibUtilities::Tri)
+                    {
+                        out[index]         = (sum1 + sum2 * f1) * f0;
+                        out[nsize + index] = sum2;
+                    }
+                });
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int ncoord, const unsigned int nelmt,
@@ -519,7 +525,7 @@ void IProductWRTDerivBase3DKernel(
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -538,7 +544,9 @@ void IProductWRTDerivBase3DKernel_QP(
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e = team.league_rank();
 
-            const unsigned int offset = nqTot * e;
+            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+            const unsigned int dfoffset = ndf * dfsize * e;
+            const unsigned int offset   = nqTot * e;
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
@@ -566,18 +574,18 @@ void IProductWRTDerivBase3DKernel_QP(
                         f0 = 2.0 / (1.0 - Z1[j]);
                     }
 
-                    const unsigned int index =
-                        offset + nq0 * nq1 * k + nq0 * j + i;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    const unsigned int index   = offset + cnt_kji;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
 
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(3u * d) + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                        sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
+                        sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
+                        sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
                     }
 
                     if (SHAPETYPE == LibUtilities::Hex)
@@ -608,7 +616,7 @@ void IProductWRTDerivBase3DKernel_QP(
         });
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -627,7 +635,9 @@ void IProductWRTDerivBase3DKernel_QP_1D(
         KOKKOS_LAMBDA(const team_handle &team) {
             unsigned int e = team.league_rank();
 
-            const unsigned int offset = nqTot * e;
+            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+            const unsigned int dfoffset = ndf * dfsize * e;
+            const unsigned int offset   = nqTot * e;
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nq0 * nq1 * nq2),
@@ -637,7 +647,7 @@ void IProductWRTDerivBase3DKernel_QP_1D(
                     const unsigned int k     = idx / (nq0 * nq1);
                     const unsigned int index = offset + idx;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? dfoffset + idx : dfoffset;
                     TData f0, f1, f2, f3;
 
                     if (SHAPETYPE == LibUtilities::Tet ||
@@ -663,9 +673,9 @@ void IProductWRTDerivBase3DKernel_QP_1D(
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(3u * d) + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                        sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
+                        sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
+                        sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
                     }
 
                     if (SHAPETYPE == LibUtilities::Hex)
@@ -697,8 +707,8 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 }
 
 // Launchers
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
@@ -706,20 +716,23 @@ IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
                              const unsigned int nsize, const TData *df,
                              const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     if constexpr (MULTILEVEL)
     {
-        IProductWRTDerivBase1DKernel_QP<TData, DEFORMED>(nq0, ncoord, nelmts,
-                                                         nsize, df, in, out);
+        IProductWRTDerivBase1DKernel_QP<DEFORMED>(nq0, ncoord, nelmts, nsize,
+                                                  df, in, out);
     }
     else
     {
-        IProductWRTDerivBase1DKernel<TData, DEFORMED>(nq0, ncoord, nelmts,
-                                                      nsize, df, in, out);
+        IProductWRTDerivBase1DKernel<DEFORMED>(nq0, ncoord, nelmts, nsize, df,
+                                               in, out);
     }
 }
 
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
@@ -730,39 +743,40 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
                              const TData *Z1, const TData *df, const TData *in,
                              TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     if (shapetype == LibUtilities::Quad)
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase2DKernel_QP<TData, LibUtilities::Quad,
-                                            DEFORMED>(
-                nq0, nq1, ncoord, nelmts, nsize, nullptr, nullptr, df, in, out);
+            IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad, DEFORMED>(
+                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
         }
         else
         {
-            IProductWRTDerivBase2DKernel<TData, LibUtilities::Quad, DEFORMED>(
-                0u, nq0, nq1, ncoord, nelmts, nsize, nullptr, nullptr, df, in,
-                out);
+            IProductWRTDerivBase2DKernel<LibUtilities::Quad, DEFORMED>(
+                0u, nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
         }
     }
     else if (shapetype == LibUtilities::Tri)
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase2DKernel_QP<TData, LibUtilities::Tri, DEFORMED>(
+            IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri, DEFORMED>(
                 nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
         }
         else
         {
             unsigned int nshared = nq0 + nq1;
-            IProductWRTDerivBase2DKernel<TData, LibUtilities::Tri, DEFORMED>(
+            IProductWRTDerivBase2DKernel<LibUtilities::Tri, DEFORMED>(
                 nshared, nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
         }
     }
 }
 
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
@@ -773,32 +787,34 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
                              const TData *Z1, const TData *Z2, const TData *df,
                              const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     if (shapetype == LibUtilities::Hex)
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Hex, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, nsize, nullptr, nullptr, nullptr,
-                df, in, out);
+            IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
         }
         else
         {
-            IProductWRTDerivBase3DKernel<TData, LibUtilities::Hex, DEFORMED>(
-                0u, nq0, nq1, nq2, ncoord, nelmts, nsize, nullptr, nullptr,
-                nullptr, df, in, out);
+            IProductWRTDerivBase3DKernel<LibUtilities::Hex, DEFORMED>(
+                0u, nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in,
+                out);
         }
     }
     else if (shapetype == LibUtilities::Tet)
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Tet, DEFORMED>(
+            IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
         }
         else
         {
             unsigned int nshared = nq0 + 2 * nq1 + nq2;
-            IProductWRTDerivBase3DKernel<TData, LibUtilities::Tet, DEFORMED>(
+            IProductWRTDerivBase3DKernel<LibUtilities::Tet, DEFORMED>(
                 nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df,
                 in, out);
         }
@@ -807,30 +823,28 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Prism,
-                                            DEFORMED>(nq0, nq1, nq2, ncoord,
-                                                      nelmts, nsize, Z0,
-                                                      nullptr, Z2, df, in, out);
+            IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
         }
         else
         {
             unsigned int nshared = nq0 + nq2;
-            IProductWRTDerivBase3DKernel<TData, LibUtilities::Prism, DEFORMED>(
-                nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, nullptr, Z2,
-                df, in, out);
+            IProductWRTDerivBase3DKernel<LibUtilities::Prism, DEFORMED>(
+                nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df,
+                in, out);
         }
     }
     else if (shapetype == LibUtilities::Pyr)
     {
         if constexpr (MULTILEVEL)
         {
-            IProductWRTDerivBase3DKernel_QP<TData, LibUtilities::Pyr, DEFORMED>(
+            IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
         }
         else
         {
             unsigned int nshared = nq0 + nq1 + nq2;
-            IProductWRTDerivBase3DKernel<TData, LibUtilities::Pyr, DEFORMED>(
+            IProductWRTDerivBase3DKernel<LibUtilities::Pyr, DEFORMED>(
                 nshared, nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df,
                 in, out);
         }

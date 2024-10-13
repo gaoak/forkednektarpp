@@ -67,16 +67,17 @@
 
 BOOST_AUTO_TEST_SUITE(TestNullPreconKokkos)
 
-TEST_NULLPRECON(nullprecon_kokkos_seg, Helmholtz1D_Seg, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_seg, Helmholtz1D_Seg, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_tri_quad, Helmholtz2D_Tri_Quad,
+                1.0E-15)
 
-TEST_NULLPRECON(nullprecon_kokkos_hex, Helmholtz3D_Hex, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_hex, Helmholtz3D_Hex, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_kokkos_prism, Helmholtz3D_Prism, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_prism, Helmholtz3D_Prism, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_kokkos_pyr, Helmholtz3D_Pyr, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_kokkos_tet, Helmholtz3D_Tet, 1.0E-15)
+TEST_NULLPRECON(nullprecon_kokkos_sumfac_tet, Helmholtz3D_Tet, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

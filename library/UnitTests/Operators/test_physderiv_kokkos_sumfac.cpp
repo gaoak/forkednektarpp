@@ -55,6 +55,7 @@
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
             ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
+        fixt_kokkos_out->ReshapeStorage<ExecSpace, 1>();                       \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

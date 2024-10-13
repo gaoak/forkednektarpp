@@ -134,17 +134,20 @@ public:
         }
 
         // Assign map to memory region
+        const bool device_only = true;
+
         m_traceCoeffsToElmtMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtMap, ExecSpace::alignment, true);
+                alignedTraceCoeffsToElmtMap, ExecSpace::alignment, device_only);
 
         m_traceCoeffsToElmtSign =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                TraceCoeffsToElmtSign, ExecSpace::alignment, true);
+                TraceCoeffsToElmtSign, ExecSpace::alignment, device_only);
 
         m_traceCoeffsToElmtTrace =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtTrace, ExecSpace::alignment, true);
+                alignedTraceCoeffsToElmtTrace, ExecSpace::alignment,
+                device_only);
 
         // Reorder the map and sign arrays to let trace data be accessed
         // contiguously
@@ -165,7 +168,7 @@ public:
         }
         m_deInterleaveFieldMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                tmpArray, ExecSpace::alignment, true);
+                tmpArray, ExecSpace::alignment, device_only);
 
         // reuse Array for trace
         tmpArray = Array<OneD, int>(m_trace.GetFieldSize());
@@ -175,7 +178,7 @@ public:
         }
         m_deInterleaveTraceMap =
             MemoryRegion<int>::template fromArray<MemSpace, int>(
-                tmpArray, ExecSpace::alignment, true);
+                tmpArray, ExecSpace::alignment, device_only);
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
                           locTraceToTraceMap->GetNBwdCoeffs();

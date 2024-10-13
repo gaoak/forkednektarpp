@@ -62,6 +62,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        fixt_kokkos_out->ReshapeStorage<ExecSpace, 1>();                       \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -75,17 +76,17 @@
 BOOST_AUTO_TEST_SUITE(TestHelmSolveKokkos)
 
 #if !defined(NEKTAR_USE_MPI)
-TEST_HELMSOLVE(helmsolve_kokkos_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_seg, Helmholtz1D_Seg, 1.0E-12)
 #endif
 
-TEST_HELMSOLVE(helmsolve_kokkos_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_kokkos_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_kokkos_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_kokkos_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
-TEST_HELMSOLVE(helmsolve_kokkos_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_HELMSOLVE(helmsolve_kokkos_sumfac_tet, Helmholtz3D_Tet, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()
