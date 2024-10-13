@@ -176,21 +176,17 @@ public:
 #endif
 };
 
-// Specific pure GPU execution
-#if defined(NEKTAR_ENABLE_CUDA)
-using DefaultExecutionSpace = CUDA;
+// Specific execution
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
+#elif defined(NEKTAR_ENABLE_CUDA)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
 #elif defined(NEKTAR_ENABLE_HIP)
-using DefaultExecutionSpace = HIP;
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
-#elif defined(NEKTAR_ENABLE_SYCL)
-using DefaultExecutionSpace = SYCL;
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-using DefaultExecutionSpace = KOKKOS;
-#define KOKKOS_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
-#else
-using DefaultExecutionSpace = DefaultHostExecutionSpace;
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
+#elif defined(NEKTAR_ENABLE_SYCL)
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
 #endif // GPU specific
 
 // These are used for LoopExecution.hpp

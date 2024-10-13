@@ -2,11 +2,11 @@ CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/Common/SwitchLimits.h.in
                SwitchLimits.h
                @ONLY)
 
-# Currently two primary execution spaces.
+# Default execution spaces.
 SET(ExecSpaces Serial)
 
 # Optional AVX execution space.
-IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
+IF(NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET(ExecSpaces ${ExecSpaces} AVX)
 ENDIF()
 
@@ -15,51 +15,52 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(ExecSpaces ${ExecSpaces} CUDA)
 ENDIF()
 
+# Optional Kokkos execution space.
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(ExecSpaces ${ExecSpaces} Kokkos)
+ENDIF()
+
 # Optional SYCL execution space.
 IF(NEKTAR_ENABLE_SYCL)
     SET(ExecSpaces ${ExecSpaces} SYCL)
 ENDIF()
 
-# Kokkos execution space
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET(ExecSpaces ${ExecSpaces} Kokkos)
-ENDIF()
-
-# Currently two primary implementation types.
+# Set implementation types.
 SET(Implementations StdMat SumFac SumFacQP)
 
-# Shape types for seperate code compilation
+# Shape types for seperate code compilation.
 SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)
 
-# Macro for each operator
+# Macro for each operator.
 MACRO(ADD_OPERATOR dir)
 
-    #extract operator name form directory if it exists
+    # Extract operator name form directory if it exists.
     IF(IS_DIRECTORY ${dir})
-        get_filename_component(name "${dir}" NAME)
-        message("Name identified from dir: " "${name}")
+        GET_FILENAME_COMPONENT(name "${dir}" NAME)
+        MESSAGE("Name identified from dir: " "${name}")
     ELSE()
-        continue()
+        CONTINUE()
+    ENDIF()
+
+    # Skip those files
+    IF( ("${name}" STREQUAL "Common") OR
+        ("${name}" STREQUAL "Field") OR
+        ("${name}" STREQUAL "LoopExecution") OR
+        ("${name}" STREQUAL "MathKernels"))
+        CONTINUE()
     ENDIF()
 
     SET(NAME_HEADERS ${name}_HEADERS)
     SET(NAME_SOURCES ${name}_SOURCES)
-
     SET(OPERATOR ${name})
 
     # These operator have an additional argument for the FieldState
     # which requires two delcarations.
     SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
-    # Add the main operator header to the list of headers.
-    # Does no seem to do anything     SET(${NAME_HEADERS} ${${NAME_HEADERS}} ${OPERTOR_HEADER})
-
-    # These are variales used to determine the operator
+    # These are variales used to determine the operator.
     # implementation.
     UNSET(COMMON_HEADER)
-    UNSET(BASE_HEADER)
-    UNSET(BASE)
-    UNSET(HAS_KERNELS)
 
     # Common header (*Impl.hpp) that can be used without a specific
     # implementation. It may have specific implementation kerenels.
@@ -67,41 +68,27 @@ MACRO(ADD_OPERATOR dir)
          FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                  ${dir}/${name}Impl.hpp)
          SET(COMMON_HEADER "#include \"${include_file}\"")
-
-        # Check for implementation specific kernels (Note the "?*" in
-        # the glob which skips general kernels). If there are kernels
-        # then each implementation must have a kernel header file.
-        FILE(GLOB HAS_KERNELS RELATIVE ${dir} ${name}?*Kernels.*)
-
-    # A base header (*ImplBase.hpp) defines part but not all of the
-    # implementation and as such requires a specific implementation
-    # header.
-    ELSEIF(EXISTS "${dir}/${name}ImplBase.hpp")
-         FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                 ${dir}/${name}ImplBase.hpp)
-        SET(BASE_HEADER "#include \"${include_file}\"")
-        SET(BASE Base) # Used in the Impl.cpp.in file
     ENDIF()
 
     # Check to see if shape specific BlockOpSwitch .h files have
-    # been generated and if not generate for later potential use
-    if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
+    # been generated and if not generate for later potential use.
+    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
     ELSE()
         SET(ShapeIncludeName "Common/BlockOpSwitchCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
             SET(ShapeIncName BlockOpSwitchCode${Shape}.h)
-            message("Generating block header  file file: " "${ShapeIncName}")
-            configure_file(${ShapeIncludeName} ${ShapeIncName})
+            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
     ENDIF()
 
-    if(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
+    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitch1DCoordsCodeSeg.h")
     ELSE()
         SET(ShapeIncludeName "Common/BlockOpSwitch1DCoordsCode.h.in")
         FOREACH (Shape IN LISTS Shapes)
             SET(ShapeIncName BlockOpSwitch1DCoordsCode${Shape}.h)
-            message("Generating block header  file file: " "${ShapeIncName}")
-            configure_file(${ShapeIncludeName} ${ShapeIncName})
+            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
         ENDFOREACH()
     ENDIF()
 
@@ -112,64 +99,58 @@ MACRO(ADD_OPERATOR dir)
         # when using Serial or AVX This loop will then generate a
         # shape specific cpp file containing the shape block method in
         # seperate file which contain the boost_pp generated switch
-        # statements 
+        # statements.
         IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
             IF(EXISTS "${dir}/${name}SerialAVXSumFacBlockOp.cpp.in")
-                 SET(ShapeConfigName "${dir}/${name}SerialAVXSumFacBlockOp.cpp.in")
-                 FOREACH (Shape IN LISTS Shapes)
-                     SET(ShapeName ${name}${ExecSpace}SumFac${Shape}.cpp)
-                     message("Generating shape cpp file: " "${ShapeName}")
-                     configure_file(${ShapeConfigName} ${ShapeName})
-                     SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
-                     SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
-                 ENDFOREACH()
-             ENDIF()
-         ENDIF()
-
-        # CUDA has cu and cuh extentions
-        IF("${ExecSpace}" STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-            SET(HEADER_EXT cuh)
-            # This tag is generic - see Spaces.hpp
-            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-            SET(HEADER_EXT hpp)
-
-            IF("${ExecSpace}" STREQUAL "Kokkos")
-                # This tag is generic - see Spaces.hpp
-                SET(EXEC_MEM_SPACE_TAG KOKKOS_DEFAULT_DEVICE_TAG)
-            ELSEIF("${ExecSpace}" STREQUAL "AVX")
-                SET(EXEC_MEM_SPACE_TAG "NektarSpaces::AVX" )
-            ELSEIF("${ExecSpace}" STREQUAL "SYCL")
-                SET(EXEC_MEM_SPACE_TAG "NektarSpaces::SYCL" )
-            ELSE()
-                # This tag is generic - see Spaces.hpp
-                SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+                SET(ShapeConfigName "${dir}/${name}SerialAVXSumFacBlockOp.cpp.in")
+                FOREACH (Shape IN LISTS Shapes)
+                   SET(ShapeName ${name}${ExecSpace}SumFac${Shape}.cpp)
+                   MESSAGE("Generating shape cpp file: " "${ShapeName}")
+                   CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
+                   SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                   SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
+                ENDFOREACH()
             ENDIF()
         ENDIF()
 
-        # Look for a generic implementation header
+        # Look for a generic implementation header.
         UNSET(GENERIC_HEADER)
 
         IF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
             FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     ${dir}/${name}${ExecSpace}Generic.${HEADER_EXT})
-             SET(GENERIC_HEADER "#include \"${include_file}\"")
+            SET(GENERIC_HEADER "#include \"${include_file}\"")
+        ENDIF()
+
+        # Set file extension.
+        IF("${ExecSpace}" STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+            SET(HEADER_EXT cuh)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+            SET(HEADER_EXT hpp)
+        ENDIF()
+
+        # Set execuation space - see Spaces.hpp
+        IF("${ExecSpace}" STREQUAL "Serial")
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
+        ELSE()
+            SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_DEVICE_TAG)
         ENDIF()
 
         # Loop through each possible implementation.
         FOREACH (Impl IN LISTS Implementations)
 
-            UNSET(SPECIFIC_HEADER)
-            UNSET(KERNEL_HEADER)
+            UNSET(SERIAL_STDMAT_HEADER)
+            UNSET(SERIAL_AVX_SUMFAC_HEADER)
+            UNSET(IMPL_SHARED_HEADER)
 
             # These combinations do/should not exist.
             IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
                 ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
-                continue()
+                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") OR
+                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") )
+                CONTINUE()
             ENDIF()
 
 	    # Set up the name used for the .cpp declaration file.
@@ -185,70 +166,80 @@ MACRO(ADD_OPERATOR dir)
             FILE(GLOB ${CURRENT_HEADERS} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
                  ${dir}/${name}${ExecSpace}${Impl}*.${HEADER_EXT})
 
-            # If there are headers then there is a specific
-            # implementation of some sort.
-            IF(${CURRENT_HEADERS})
-		# Look for a specific header and a kernel header.
-                FOREACH (header_file ${${CURRENT_HEADERS}})
-                    get_filename_component(file "${header_file}" NAME)
-                    get_filename_component(file_dir "${header_file}" DIRECTORY)
-                    IF("${file}" STREQUAL "${name}${ExecSpace}${Impl}.${HEADER_EXT}")
-                        SET(SPECIFIC_HEADER "#include \"${file_dir}/${name}${ExecSpace}${Impl}.${HEADER_EXT}\"")
-                    ELSEIF("${file}" STREQUAL "${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}")
-                        SET(KERNEL_HEADER "#include \"${file_dir}/${name}${ExecSpace}${Impl}Kernels.${HEADER_EXT}\"")
-                    ENDIF()
-                ENDFOREACH()
+            # Found a Serial StdMat header.
+            IF(EXISTS "${dir}/${name}SerialStdMat.hpp" AND
+                ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
 
-                IF(COMMON_HEADER AND KERNEL_HEADER)
-                    message("Add Op with a common impl. and kernels: " "${FactoryDeclName}")
-                ELSEIF(BASE_HEADER AND SPECIFIC_HEADER AND KERNEL_HEADER)
-                    message("Add OP with a base and specific impl. and kernels: " "${FactoryDeclName}")
-                    UNSET(KERNEL_HEADER) # The kernel header should be in the specific implementation.
-                ELSEIF(GENERIC_HEADER)
-                    message("Add OP with a generic impl.: " "${FactoryDeclName}")
-                ELSEIF(BASE_HEADER AND SPECIFIC_HEADER)
-                    message("Add Op with a base and specific impl.: " "${FactoryDeclName}")
-                ELSEIF(SPECIFIC_HEADER AND KERNEL_HEADER)
-                    message("Add Op with a specific impl. and kernels: " "${FactoryDeclName}")
-                    UNSET(KERNEL_HEADER) # The kernel header should be in the specific implementation.
-                ELSEIF(SPECIFIC_HEADER)
-                    message("Add Op with a specific impl.: " "${FactoryDeclName}")
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}SerialStdMat.hpp)
+                SET(SERIAL_STDMAT_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a Serial StdMat implementation: " "${FactoryDeclName}")
+
+            # Found a Serial SumFac header.
+            ELSEIF((EXISTS "${dir}/${name}SerialSumFac.hpp") AND
+                ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "SumFac"))
+
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}SerialSumFac.hpp)
+                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+
+            # Found a AVX SumFac header.
+            ELSEIF((EXISTS "${dir}/${name}AVXSumFac.hpp") AND
+                ("${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
+
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}AVXSumFac.hpp)
+                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+
+            # Found a Serial/AVX SumFac header.
+            ELSEIF((EXISTS "${dir}/${name}SerialAVXSumFac.hpp") AND
+                ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
+
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}SerialAVXSumFac.hpp)
+                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+
+            # Found a ImplShared header.
+            ELSEIF((EXISTS "${dir}/${name}ImplShared.hpp") AND
+                   (("${ExecSpace}" STREQUAL "Device") OR # Generic device implementation
+                    ("${ExecSpace}" STREQUAL "CUDA") OR 
+                    ("${ExecSpace}" STREQUAL "Kokkos") OR 
+                    ("${ExecSpace}" STREQUAL "SYCL")) AND 
+                   (("${Impl}" STREQUAL "SumFac") OR ("${Impl}" STREQUAL "SumFacQP")))
+
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}ImplShared.hpp)
+                SET(IMPL_SHARED_HEADER "#include \"${include_file}\"")
+                IF (("${ExecSpace}" STREQUAL "Device" AND EXISTS "${dir}/${name}DeviceSumFacKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}CUDASumFacKernels.cuh") OR
+                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}KokkosSumFacKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}SYCLSumFacKernels.hpp"))
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
                 ENDIF()
 
-                # Create the cpp file from the implementation file.
-                configure_file(${CONFIG_FILE} ${FactoryDeclName})
-
-                # Add the respective cpp file.
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-
-            # Found a generic header
+            # Found a generic header.
             ELSEIF(GENERIC_HEADER)
-                message("Adding operator with a generic implementation: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a generic implementation: " "${FactoryDeclName}")
 
-                # Create the cpp file from the implementation file.
-                configure_file(${CONFIG_FILE} ${FactoryDeclName})
-
-                # Add the respective cpp file.
-                SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-
-            # Found a base header so there must be a specific
-            # implementation which was not found above so skip.
-            ELSEIF(BASE_HEADER)
-
-            # No headers so totally common but those with kernels
-            # would be declared above.
+            # Found a common header.
             ELSEIF(COMMON_HEADER)
-                # If there are kernels the declaration would be above.
-                IF(NOT HAS_KERNELS)
-                    message("Add Op using kernel: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a common implementation: " "${FactoryDeclName}")
 
-                    # Create the cpp file from the implementation file.
-                    configure_file(${CONFIG_FILE} ${FactoryDeclName})
-
-                    # Add the respective cpp file.
-                    SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
-                ENDIF()
+            # No implementation, skip.
+            ELSE()
+                CONTINUE() # This avoid creating a *.cpp file
             ENDIF()
+
+            # Create the cpp file from the implementation file.
+            CONFIGURE_FILE(${CONFIG_FILE} ${FactoryDeclName})
+
+            # Add the respective cpp file.
+            SET(${CURRENT_SOURCES} ${CMAKE_CURRENT_BINARY_DIR}/${FactoryDeclName})
 
             # Add this specific implementation to the operator's
             # source and header files.
@@ -291,7 +282,7 @@ SET(GROUP_SOURCES ${OPERATORS_SOURCES})
 
 # Loop through all of the directories which contain operators and add
 # their source and header files.
-FILE(GLOB children ./*  ElmtOps/* GlobalLinSysOps/* PreconOps/* BndCondOps/*)
+FILE(GLOB children ./* ElmtOps/* GlobalLinSysOps/* PreconOps/* BndCondOps/*)
 FOREACH(child ${children})
     ADD_OPERATOR(${child})
 ENDFOREACH()
