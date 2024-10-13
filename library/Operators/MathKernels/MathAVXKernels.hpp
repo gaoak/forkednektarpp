@@ -56,76 +56,76 @@ inline
     negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         // y = -x
-        vec_t yChunk0 = -xChunk0;
-        vec_t yChunk1 = -xChunk1;
-        vec_t yChunk2 = -xChunk2;
-        vec_t yChunk3 = -xChunk3;
+        simd_t yChunk0 = -xChunk0;
+        simd_t yChunk1 = -xChunk1;
+        simd_t yChunk2 = -xChunk2;
+        simd_t yChunk3 = -xChunk3;
 
         // store
         yChunk0.store(y, is_aligned);
-        yChunk1.store(y + vec_t::width, is_aligned);
-        yChunk2.store(y + 2 * vec_t::width, is_aligned);
-        yChunk3.store(y + 3 * vec_t::width, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
+        yChunk2.store(y + 2 * simd_t::width, is_aligned);
+        yChunk3.store(y + 3 * simd_t::width, is_aligned);
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         // y = -x
-        vec_t yChunk0 = -xChunk0;
-        vec_t yChunk1 = -xChunk1;
+        simd_t yChunk0 = -xChunk0;
+        simd_t yChunk1 = -xChunk1;
 
         // store
         yChunk0.store(y, is_aligned);
-        yChunk1.store(y + vec_t::width, is_aligned);
+        yChunk1.store(y + simd_t::width, is_aligned);
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk;
+        simd_t xChunk;
         xChunk.load(x, is_aligned);
 
         // z = -x
-        vec_t yChunk = -xChunk;
+        simd_t yChunk = -xChunk;
 
         // store
         yChunk.store(y, is_aligned);
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
     }
 
     // spillover loop
@@ -148,91 +148,91 @@ inline
               TData *z)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
-        yChunk2.load(y + 2 * vec_t::width, is_aligned);
-        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         // z = x + y
-        vec_t zChunk0 = xChunk0 + yChunk0;
-        vec_t zChunk1 = xChunk1 + yChunk1;
-        vec_t zChunk2 = xChunk2 + yChunk2;
-        vec_t zChunk3 = xChunk3 + yChunk3;
+        simd_t zChunk0 = xChunk0 + yChunk0;
+        simd_t zChunk1 = xChunk1 + yChunk1;
+        simd_t zChunk2 = xChunk2 + yChunk2;
+        simd_t zChunk3 = xChunk3 + yChunk3;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
-        zChunk2.store(z + 2 * vec_t::width, is_aligned);
-        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
+        zChunk2.store(z + 2 * simd_t::width, is_aligned);
+        zChunk3.store(z + 3 * simd_t::width, is_aligned);
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        z += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        z += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1;
+        simd_t yChunk0, yChunk1;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         // z = x + y
-        vec_t zChunk0 = xChunk0 + yChunk0;
-        vec_t zChunk1 = xChunk1 + yChunk1;
+        simd_t zChunk0 = xChunk0 + yChunk0;
+        simd_t zChunk1 = xChunk1 + yChunk1;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        z += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        z += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t yChunk;
+        simd_t yChunk;
         yChunk.load(y, is_aligned);
-        vec_t xChunk;
+        simd_t xChunk;
         xChunk.load(x, is_aligned);
 
         // z = x + y
-        vec_t zChunk = xChunk + yChunk;
+        simd_t zChunk = xChunk + yChunk;
 
         // store
         zChunk.store(z, is_aligned);
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        z += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
     }
 
     // spillover loop
@@ -256,91 +256,91 @@ inline
               TData *z)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
-        yChunk2.load(y + 2 * vec_t::width, is_aligned);
-        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         // z = x - y
-        vec_t zChunk0 = xChunk0 - yChunk0;
-        vec_t zChunk1 = xChunk1 - yChunk1;
-        vec_t zChunk2 = xChunk2 - yChunk2;
-        vec_t zChunk3 = xChunk3 - yChunk3;
+        simd_t zChunk0 = xChunk0 - yChunk0;
+        simd_t zChunk1 = xChunk1 - yChunk1;
+        simd_t zChunk2 = xChunk2 - yChunk2;
+        simd_t zChunk3 = xChunk3 - yChunk3;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
-        zChunk2.store(z + 2 * vec_t::width, is_aligned);
-        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
+        zChunk2.store(z + 2 * simd_t::width, is_aligned);
+        zChunk3.store(z + 3 * simd_t::width, is_aligned);
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        z += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        z += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1;
+        simd_t yChunk0, yChunk1;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         // z = x - y
-        vec_t zChunk0 = xChunk0 - yChunk0;
-        vec_t zChunk1 = xChunk1 - yChunk1;
+        simd_t zChunk0 = xChunk0 - yChunk0;
+        simd_t zChunk1 = xChunk1 - yChunk1;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        z += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        z += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t yChunk;
+        simd_t yChunk;
         yChunk.load(y, is_aligned);
-        vec_t xChunk;
+        simd_t xChunk;
         xChunk.load(x, is_aligned);
 
         // z = x - y
-        vec_t zChunk = xChunk - yChunk;
+        simd_t zChunk = xChunk - yChunk;
 
         // store
         zChunk.store(z, is_aligned);
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        z += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
     }
 
     // spillover loop
@@ -364,91 +364,91 @@ inline
                 const TData *y, TData *z)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
-        yChunk2.load(y + 2 * vec_t::width, is_aligned);
-        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         // z = alpha * x + y
-        yChunk0.fma(vec_t(xChunk0), alpha);
-        yChunk1.fma(vec_t(xChunk1), alpha);
-        yChunk2.fma(vec_t(xChunk2), alpha);
-        yChunk3.fma(vec_t(xChunk3), alpha);
+        yChunk0.fma(simd_t(xChunk0), alpha);
+        yChunk1.fma(simd_t(xChunk1), alpha);
+        yChunk2.fma(simd_t(xChunk2), alpha);
+        yChunk3.fma(simd_t(xChunk3), alpha);
 
         // store
         yChunk0.store(z, is_aligned);
-        yChunk1.store(z + vec_t::width, is_aligned);
-        yChunk2.store(z + 2 * vec_t::width, is_aligned);
-        yChunk3.store(z + 3 * vec_t::width, is_aligned);
+        yChunk1.store(z + simd_t::width, is_aligned);
+        yChunk2.store(z + 2 * simd_t::width, is_aligned);
+        yChunk3.store(z + 3 * simd_t::width, is_aligned);
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        z += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        z += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1;
+        simd_t yChunk0, yChunk1;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         // z = alpha * x + y
-        yChunk0.fma(vec_t(xChunk0), alpha);
-        yChunk1.fma(vec_t(xChunk1), alpha);
+        yChunk0.fma(simd_t(xChunk0), alpha);
+        yChunk1.fma(simd_t(xChunk1), alpha);
 
         // store
         yChunk0.store(z, is_aligned);
-        yChunk1.store(z + vec_t::width, is_aligned);
+        yChunk1.store(z + simd_t::width, is_aligned);
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        z += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        z += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t yChunk;
+        simd_t yChunk;
         yChunk.load(y, is_aligned);
-        vec_t xChunk;
+        simd_t xChunk;
         xChunk.load(x, is_aligned);
 
         // z = alpha * x + y
-        yChunk.fma(vec_t(xChunk), alpha);
+        yChunk.fma(simd_t(xChunk), alpha);
 
         // store
         yChunk.store(z, is_aligned);
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        z += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
     }
 
     // spillover loop
@@ -472,91 +472,91 @@ inline
               TData *z)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
-        yChunk2.load(y + 2 * vec_t::width, is_aligned);
-        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         // z = x / y
-        vec_t zChunk0 = xChunk0 / yChunk0;
-        vec_t zChunk1 = xChunk1 / yChunk1;
-        vec_t zChunk2 = xChunk2 / yChunk2;
-        vec_t zChunk3 = xChunk3 / yChunk3;
+        simd_t zChunk0 = xChunk0 / yChunk0;
+        simd_t zChunk1 = xChunk1 / yChunk1;
+        simd_t zChunk2 = xChunk2 / yChunk2;
+        simd_t zChunk3 = xChunk3 / yChunk3;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
-        zChunk2.store(z + 2 * vec_t::width, is_aligned);
-        zChunk3.store(z + 3 * vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
+        zChunk2.store(z + 2 * simd_t::width, is_aligned);
+        zChunk3.store(z + 3 * simd_t::width, is_aligned);
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        z += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        z += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t yChunk0, yChunk1;
+        simd_t yChunk0, yChunk1;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
 
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         // z = x / y
-        vec_t zChunk0 = xChunk0 / yChunk0;
-        vec_t zChunk1 = xChunk1 / yChunk1;
+        simd_t zChunk0 = xChunk0 / yChunk0;
+        simd_t zChunk1 = xChunk1 / yChunk1;
 
         // store
         zChunk0.store(z, is_aligned);
-        zChunk1.store(z + vec_t::width, is_aligned);
+        zChunk1.store(z + simd_t::width, is_aligned);
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        z += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        z += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t yChunk;
+        simd_t yChunk;
         yChunk.load(y, is_aligned);
-        vec_t xChunk;
+        simd_t xChunk;
         xChunk.load(x, is_aligned);
 
         // z = x / y
-        vec_t zChunk = xChunk / yChunk;
+        simd_t zChunk = xChunk / yChunk;
 
         // store
         zChunk.store(z, is_aligned);
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        z += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        z += simd_t::width;
+        cnt -= simd_t::width;
     }
 
     // spillover loop
@@ -579,23 +579,23 @@ inline
     reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = 0.0;
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         yChunk0 += xChunk0;
         yChunk1 += xChunk1;
@@ -603,56 +603,56 @@ inline
         yChunk3 += xChunk3;
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         yChunk0 += xChunk0;
         yChunk1 += xChunk1;
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
         yChunk0 += xChunk0;
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
@@ -674,23 +674,23 @@ inline
     reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = std::numeric_limits<TData>::min();
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         yChunk0 = max(xChunk0, yChunk0);
         yChunk1 = max(xChunk1, yChunk1);
@@ -698,56 +698,56 @@ inline
         yChunk3 = max(xChunk3, yChunk3);
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(tmp[i], *out);
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(tmp[i], *out);
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         yChunk0 = max(xChunk0, yChunk0);
         yChunk1 = max(xChunk1, yChunk1);
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(tmp[i], *out);
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
         yChunk0 = max(xChunk0, yChunk0);
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(tmp[i], *out);
     }
@@ -769,23 +769,23 @@ inline
     reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = std::numeric_limits<TData>::max();
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         yChunk0 = min(xChunk0, yChunk0);
         yChunk1 = min(xChunk1, yChunk1);
@@ -793,56 +793,56 @@ inline
         yChunk3 = min(xChunk3, yChunk3);
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::min(tmp[i], *out);
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::min(tmp[i], *out);
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         yChunk0 = min(xChunk0, yChunk0);
         yChunk1 = min(xChunk1, yChunk1);
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::min(tmp[i], *out);
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
         yChunk0 = min(xChunk0, yChunk0);
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::min(tmp[i], *out);
     }
@@ -865,96 +865,96 @@ inline
                TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t zChunk0 = 0, zChunk1 = 0, zChunk2 = 0, zChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t zChunk0 = 0, zChunk1 = 0, zChunk2 = 0, zChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = 0.0;
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
-        vec_t yChunk0, yChunk1, yChunk2, yChunk3;
+        simd_t yChunk0, yChunk1, yChunk2, yChunk3;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
-        yChunk2.load(y + 2 * vec_t::width, is_aligned);
-        yChunk3.load(y + 3 * vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
+        yChunk2.load(y + 2 * simd_t::width, is_aligned);
+        yChunk3.load(y + 3 * simd_t::width, is_aligned);
 
-        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
-        zChunk1.fma(vec_t(xChunk1), vec_t(yChunk1));
-        zChunk2.fma(vec_t(xChunk2), vec_t(yChunk2));
-        zChunk3.fma(vec_t(xChunk3), vec_t(yChunk3));
+        zChunk0.fma(simd_t(xChunk0), simd_t(yChunk0));
+        zChunk1.fma(simd_t(xChunk1), simd_t(yChunk1));
+        zChunk2.fma(simd_t(xChunk2), simd_t(yChunk2));
+        zChunk3.fma(simd_t(xChunk3), simd_t(yChunk3));
 
         // update pointers
-        x += 4 * vec_t::width;
-        y += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        y += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     zChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
     zChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
-        vec_t yChunk0, yChunk1;
+        simd_t yChunk0, yChunk1;
         yChunk0.load(y, is_aligned);
-        yChunk1.load(y + vec_t::width, is_aligned);
+        yChunk1.load(y + simd_t::width, is_aligned);
 
-        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
-        zChunk1.fma(vec_t(xChunk1), vec_t(yChunk1));
+        zChunk0.fma(simd_t(xChunk0), simd_t(yChunk0));
+        zChunk1.fma(simd_t(xChunk1), simd_t(yChunk1));
 
         // update pointers
-        x += 2 * vec_t::width;
-        y += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        y += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     zChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
-        vec_t yChunk0;
+        simd_t yChunk0;
         yChunk0.load(y, is_aligned);
 
-        zChunk0.fma(vec_t(xChunk0), vec_t(yChunk0));
+        zChunk0.fma(simd_t(xChunk0), simd_t(yChunk0));
 
         // update pointers
-        x += vec_t::width;
-        y += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        y += simd_t::width;
+        cnt -= simd_t::width;
     }
     zChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
@@ -977,23 +977,23 @@ inline
     l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = 0.0;
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         yChunk0 += abs(xChunk0);
         yChunk1 += abs(xChunk1);
@@ -1001,56 +1001,56 @@ inline
         yChunk3 += abs(xChunk3);
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         yChunk0 += abs(xChunk0);
         yChunk1 += abs(xChunk1);
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
         yChunk0 += abs(xChunk0);
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
@@ -1072,80 +1072,80 @@ inline
     l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = 0.0;
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
-        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
-        yChunk1.fma(vec_t(xChunk1), vec_t(xChunk1));
-        yChunk2.fma(vec_t(xChunk2), vec_t(xChunk2));
-        yChunk3.fma(vec_t(xChunk3), vec_t(xChunk3));
+        yChunk0.fma(simd_t(xChunk0), simd_t(xChunk0));
+        yChunk1.fma(simd_t(xChunk1), simd_t(xChunk1));
+        yChunk2.fma(simd_t(xChunk2), simd_t(xChunk2));
+        yChunk3.fma(simd_t(xChunk3), simd_t(xChunk3));
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
-        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
-        yChunk1.fma(vec_t(xChunk1), vec_t(xChunk1));
+        yChunk0.fma(simd_t(xChunk0), simd_t(xChunk0));
+        yChunk1.fma(simd_t(xChunk1), simd_t(xChunk1));
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
-        yChunk0.fma(vec_t(xChunk0), vec_t(xChunk0));
+        yChunk0.fma(simd_t(xChunk0), simd_t(xChunk0));
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out += tmp[i];
     }
@@ -1181,23 +1181,23 @@ inline
     linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     using namespace tinysimd;
-    using vec_t = simd<TData>;
+    using simd_t = simd<TData>;
 
     unsigned int cnt = nsize;
-    vec_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
-    alignas(vec_t::alignment) typename vec_t::scalarArray tmp;
+    simd_t yChunk0 = 0, yChunk1 = 0, yChunk2 = 0, yChunk3 = 0;
+    alignas(simd_t::alignment) typename simd_t::scalarArray tmp;
 
     *out = 0;
 
     // Vectorized loop unroll 4x
-    while (cnt >= 4 * vec_t::width)
+    while (cnt >= 4 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1, xChunk2, xChunk3;
+        simd_t xChunk0, xChunk1, xChunk2, xChunk3;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
-        xChunk2.load(x + 2 * vec_t::width, is_aligned);
-        xChunk3.load(x + 3 * vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
+        xChunk2.load(x + 2 * simd_t::width, is_aligned);
+        xChunk3.load(x + 3 * simd_t::width, is_aligned);
 
         yChunk0 = max(abs(xChunk0), yChunk0);
         yChunk1 = max(abs(xChunk1), yChunk1);
@@ -1205,56 +1205,56 @@ inline
         yChunk3 = max(abs(xChunk3), yChunk3);
 
         // update pointers
-        x += 4 * vec_t::width;
-        cnt -= 4 * vec_t::width;
+        x += 4 * simd_t::width;
+        cnt -= 4 * simd_t::width;
     }
     yChunk3.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(std::abs(tmp[i]), *out);
     }
     yChunk2.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(std::abs(tmp[i]), *out);
     }
 
     // Vectorized loop unroll 2x
-    while (cnt >= 2 * vec_t::width)
+    while (cnt >= 2 * simd_t::width)
     {
         // load
-        vec_t xChunk0, xChunk1;
+        simd_t xChunk0, xChunk1;
         xChunk0.load(x, is_aligned);
-        xChunk1.load(x + vec_t::width, is_aligned);
+        xChunk1.load(x + simd_t::width, is_aligned);
 
         yChunk0 = max(abs(xChunk0), yChunk0);
         yChunk1 = max(abs(xChunk1), yChunk1);
 
         // update pointers
-        x += 2 * vec_t::width;
-        cnt -= 2 * vec_t::width;
+        x += 2 * simd_t::width;
+        cnt -= 2 * simd_t::width;
     }
     yChunk1.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(std::abs(tmp[i]), *out);
     }
 
     // Vectorized loop
-    while (cnt >= vec_t::width)
+    while (cnt >= simd_t::width)
     {
         // load
-        vec_t xChunk0;
+        simd_t xChunk0;
         xChunk0.load(x, is_aligned);
 
         yChunk0 = max(abs(xChunk0), yChunk0);
 
         // update pointers
-        x += vec_t::width;
-        cnt -= vec_t::width;
+        x += simd_t::width;
+        cnt -= simd_t::width;
     }
     yChunk0.store(tmp, is_aligned);
-    for (unsigned int i = 0; i < vec_t::width; i++)
+    for (unsigned int i = 0; i < simd_t::width; i++)
     {
         *out = std::max(std::abs(tmp[i]), *out);
     }

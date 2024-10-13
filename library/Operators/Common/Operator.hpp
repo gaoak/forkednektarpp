@@ -81,6 +81,16 @@ namespace Nektar::Operators
 extern OPERATORS_EXPORT std::string g_OpExecSpace;
 extern OPERATORS_EXPORT std::string g_OpImpl;
 
+template <bool B, class T> struct simd_type_if
+{
+    typedef tinysimd::scalarT<T> type;
+};
+
+template <class T> struct simd_type_if<true, T>
+{
+    typedef tinysimd::simd<T> type;
+};
+
 // Core implementation types
 class StdMat
 {

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HelmholtzSerialSumFac@Shape@.cpp
+// File: HelmholtzSerialAVXSumFac@Shape@.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,7 +36,7 @@
 #include "Common/SwitchLevel2Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/Helmholtz/HelmholtzSerialSumFac.hpp"
+#include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -45,7 +45,7 @@ namespace Nektar::Operators::detail
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 // and ensure the ExecSpace is consistent
 template <>
-void OperatorHelmholtzImpl<NektarSpaces::Serial, Operators::SumFac,
+void OperatorHelmholtzImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
                                       NekDouble>::@Shape@Block
                 (const NekDouble *input, NekDouble *output)
 {

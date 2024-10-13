@@ -346,10 +346,10 @@ protected:
 
             TData *dst = m_host + offset;
 
-            // Special handling for the vec_t.
-            using vec_t = tinysimd::simd<double>;
+            // Special handling for the simd_t.
+            using simd_t = tinysimd::simd<double>;
 
-            if constexpr (std::is_same<vec_t, TData>::value)
+            if constexpr (std::is_same<simd_t, TData>::value)
             {
                 std::fill(dst, dst + count, val);
             }

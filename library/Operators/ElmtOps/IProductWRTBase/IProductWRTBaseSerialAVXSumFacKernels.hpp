@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseAVXSumFacKernels.hpp
+// File: IProductWRTBaseSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -76,24 +76,29 @@ NEK_FORCE_INLINE static void IProduct3DWorkspace(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED>
+          bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
-    const size_t nm0, const size_t nq0, const vec_t::vectorType *in,
-    const vec_t *basis0, const vec_t *w0, const vec_t *jac,
-    vec_t::scalarType *out, NekDouble scale = 1.0)
+    const size_t nm0, const size_t nq0,
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *w0, const simd_type *jac,
+    typename simd_type::scalarType *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, basis0, w0, jac,
                                                out, scale);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED>
+          bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool correct, const vec_t::vectorType *in,
-    const vec_t *basis0, const vec_t *basis1, const vec_t *w0, const vec_t *w1,
-    const vec_t *jac, std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
-    vec_t::scalarType *out, NekDouble scale = 1.0)
+    [[maybe_unused]] const bool correct,
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *w0, const simd_type *w1,
+    const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
+    typename simd_type::scalarType *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -110,16 +115,19 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED>
+          bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, [[maybe_unused]] const bool correct,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *basis2, const vec_t *w0, const vec_t *w1, const vec_t *w2,
-    const vec_t *jac, std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp1,
-    [[maybe_unused]] std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp2,
-    vec_t::scalarType *out, NekDouble scale = 1.0)
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
+    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
+        &wsp2,
+    typename simd_type::scalarType *out,
+    typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {

@@ -87,7 +87,7 @@ public:
                 size_t nqTot = expPtr->GetTotPoints();
                 auto &matPtr = m_matPtr[basisKeys];
                 matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
-                Array<OneD, NekDouble> tmp(nqTot), t;
+                Array<OneD, TData> tmp(nqTot), t;
                 for (size_t d = 0; d < dimension; ++d)
                 {
                     // Get deriv matrix.
