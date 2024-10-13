@@ -49,10 +49,16 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -62,16 +68,22 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         // Initialise the derivative factor.
-        auto width     = 1u;
+        auto transpose =
+            std::is_same<Implementation, Operators::SumFacQP>::value;
+        auto width     = std::is_same<Implementation, Operators::SumFac>::value
+                             ? ExecSpace::width
+                             : 1u;
         auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
                                             ExecSpace::width);
         auto dfSize    = Operator<TData>::GetGeometricFactorSize(locblocks,
                                                                  ExecSpace::width);
-        auto derivFac =
-            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
+        auto derivFac  = Operator<TData>::SetDerivativeFactor(dfSize, locblocks,
+                                                              width, transpose);
+
+        const bool device_only = true;
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *derivFac, ExecSpace::alignment, true);
+            *derivFac, ExecSpace::alignment, device_only);
 
         // Initialize the points.
         m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);
@@ -84,9 +96,11 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
-                 "Input and output widths are different but kernel is not "
-                 "setup for this (yet)");
+        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
+        {
+            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+        }
 
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
@@ -140,18 +154,24 @@ public:
                                       .template GetPtr<MemSpace, ReadOnly>()
                                 : nullptr;
 
+            constexpr bool SharedMemory = true;
+
             // Function call to kernel functions.
             if (dimension == 1)
             {
                 if (deformed)
                 {
-                    PhysDeriv1DKernel<ExecSpace, TData, true>(
+                    constexpr bool Deformed = true;
+
+                    PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
                         nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
                         outPtr);
                 }
                 else
                 {
-                    PhysDeriv1DKernel<ExecSpace, TData, false>(
+                    constexpr bool Deformed = false;
+
+                    PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
                         nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
                         outPtr);
                 }
@@ -160,13 +180,19 @@ public:
             {
                 if (deformed)
                 {
-                    PhysDeriv2DKernel<ExecSpace, TData, true>(
+                    constexpr bool Deformed = true;
+
+                    PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
+                                      SharedMemory>(
                         shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
                         Z1, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
-                    PhysDeriv2DKernel<ExecSpace, TData, false>(
+                    constexpr bool Deformed = false;
+
+                    PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
+                                      SharedMemory>(
                         shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
                         Z1, dfPtr, inPtr, outPtr);
                 }
@@ -175,13 +201,19 @@ public:
             {
                 if (deformed)
                 {
-                    PhysDeriv3DKernel<ExecSpace, TData, true>(
+                    constexpr bool Deformed = true;
+
+                    PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
+                                      SharedMemory>(
                         shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
                         Z1, Z2, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
-                    PhysDeriv3DKernel<ExecSpace, TData, false>(
+                    constexpr bool Deformed = false;
+
+                    PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
+                                      SharedMemory>(
                         shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
                         Z1, Z2, dfPtr, inPtr, outPtr);
                 }

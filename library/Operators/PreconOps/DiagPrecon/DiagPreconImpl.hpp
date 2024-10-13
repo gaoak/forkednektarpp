@@ -82,8 +82,10 @@ public:
 
         auto map = assmbMap->GetLocalToGlobalMap();
 
+        const bool device_only = true;
+
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            map, ExecSpace::alignment, true);
+            map, ExecSpace::alignment, device_only);
 
         m_assmbScatrOp =
             AssmbScatr<TData>::template create<ExecSpace, Implementation>(

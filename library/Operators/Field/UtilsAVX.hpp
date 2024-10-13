@@ -58,8 +58,7 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
         {
             for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
             {
-                inout[idx * VectorWidth + vecElem] =
-                    wsp[vecElem * npts + idx];
+                inout[idx * VectorWidth + vecElem] = wsp[vecElem * npts + idx];
             }
         }
         inout += metaBlockSize;
@@ -85,8 +84,7 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
         {
             for (unsigned int vecElem = 0; vecElem < VectorWidth; ++vecElem)
             {
-                inout[vecElem * npts + idx] =
-                    wsp[idx * VectorWidth + vecElem];
+                inout[vecElem * npts + idx] = wsp[idx * VectorWidth + vecElem];
             }
         }
         inout += metaBlockSize;

@@ -334,8 +334,7 @@ public:
      * @tparam  VectorWidth     Target vector width.
      * @tparam  alignment       Memory alignment to use.
      */
-    template <typename ExecSpace = NektarSpaces::Serial, size_t VectorWidth>
-    void ReshapeStorage()
+    template <typename ExecSpace, size_t VectorWidth> void ReshapeStorage()
     {
         using MemSpace = typename ExecSpace::memory_space;
 
@@ -825,7 +824,7 @@ private:
     }
 
     std::vector<BlockAttributes> block_attributes;
-    std::vector<std::string> component_names = {"u"};
+    std::vector<std::string> component_names;
 
     size_t m_curVecWidth = 1;
 };

@@ -44,7 +44,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransSegKernel(const unsigned int nm0, const unsigned int nq0,
                        const unsigned int nelmt, const TData *__restrict basis0,
                        const TData *__restrict in, TData *__restrict out,
@@ -90,7 +90,7 @@ void BwdTransSegKernel(const unsigned int nm0, const unsigned int nq0,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransSegKernel_QP(const unsigned int nm0, const unsigned int nq0,
                           const unsigned int nelmt,
                           const TData *__restrict basis0,
@@ -144,7 +144,7 @@ void BwdTransSegKernel_QP(const unsigned int nm0, const unsigned int nq0,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
                         const unsigned int nmTot, const unsigned int nq0,
                         const unsigned int nq1, const unsigned int nelmt,
@@ -219,7 +219,7 @@ void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
                            const unsigned int nmTot, const unsigned int nq0,
                            const unsigned int nq1, const unsigned int nelmt,
@@ -320,7 +320,7 @@ void BwdTransQuadKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransQuadKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
                               const unsigned int nmTot, const unsigned int nq0,
                               const unsigned int nq1, const unsigned int nelmt,
@@ -408,7 +408,7 @@ void BwdTransQuadKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nmTot, const unsigned int nq0,
                        const unsigned int nq1, const unsigned int nelmt,
@@ -489,7 +489,7 @@ void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nmTot, const unsigned int nq0,
                           const unsigned int nq1, const unsigned int nelmt,
@@ -596,7 +596,7 @@ void BwdTransTriKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransTriKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
                              const unsigned int nmTot, const unsigned int nq0,
                              const unsigned int nq1, const unsigned int nelmt,
@@ -690,7 +690,7 @@ void BwdTransTriKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransHexKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nm2, const unsigned int nmTot,
                        const unsigned int nq0, const unsigned int nq1,
@@ -797,7 +797,7 @@ void BwdTransHexKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -946,7 +946,7 @@ void BwdTransHexKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransHexKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
                              const unsigned int nm2, const unsigned int nmTot,
                              const unsigned int nq0, const unsigned int nq1,
@@ -1065,7 +1065,7 @@ void BwdTransHexKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nm2, const unsigned int nmTot,
                        const unsigned int nq0, const unsigned int nq1,
@@ -1210,7 +1210,7 @@ void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -1398,7 +1398,7 @@ void BwdTransTetKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1565,7 +1565,7 @@ void BwdTransTetKernel_QP_1D(
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransPrismKernel(const unsigned int nm0, const unsigned int nm1,
                          const unsigned int nm2, const unsigned int nmTot,
                          const unsigned int nq0, const unsigned int nq1,
@@ -1688,7 +1688,7 @@ void BwdTransPrismKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
                             const unsigned int nm2, const unsigned int nmTot,
                             const unsigned int nq0, const unsigned int nq1,
@@ -1851,7 +1851,7 @@ void BwdTransPrismKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true>
+template <bool SHMEM, typename TData>
 void BwdTransPrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1981,7 +1981,7 @@ void BwdTransPrismKernel_QP_1D(
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
                        const unsigned int nm2, const unsigned int nmTot,
                        const unsigned int nq0, const unsigned int nq1,
@@ -2110,7 +2110,7 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
                           const unsigned int nm2, const unsigned int nmTot,
                           const unsigned int nq0, const unsigned int nq1,
@@ -2299,7 +2299,7 @@ void BwdTransPyrKernel_QP(const unsigned int nm0, const unsigned int nm1,
     }
 }
 
-template <typename TData, bool SHMEM = true> // not working for nm2 > nm1
+template <bool SHMEM, typename TData>
 void BwdTransPyrKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
                              const unsigned int nm2, const unsigned int nmTot,
                              const unsigned int nq0, const unsigned int nq1,
@@ -2455,8 +2455,8 @@ void BwdTransPyrKernel_QP_1D(const unsigned int nm0, const unsigned int nm1,
 }
 
 // Kernel launchers
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
-          bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SHMEM,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -2464,6 +2464,9 @@ inline
                      const unsigned int nelmt, const TData *basis0,
                      const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
                    : NektarSpaces::SYCL::defaultBlockSize;
@@ -2492,7 +2495,7 @@ inline
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     BwdTransSegKernel_QP<TData>(nm0, nq0, nelmt, basis0, in,
+                     BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in,
                                                  out, shmPtr, item);
                  });
          }).wait();
@@ -2517,15 +2520,15 @@ inline
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     BwdTransSegKernel<TData, SHMEM>(nm0, nq0, nelmt, basis0,
-                                                     in, out, shmPtr, item);
+                     BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out,
+                                              shmPtr, item);
                  });
          }).wait();
     }
 }
 
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
-          bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SHMEM,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -2536,6 +2539,9 @@ inline
                      const TData *basis1, TData *wsp, const TData *in,
                      TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize2d(1, std::min(nq1, 16u), std::min(nq0, 16u));
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
@@ -2566,12 +2572,12 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransQuadKernel_QP<TData, SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
-                             in, out, shmPtr, item);
+                         BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1,
+                                                      nelmt, basis0, basis1, in,
+                                                      out, shmPtr, item);
                      });
              }).wait();
-            // BwdTransQuadKernel_QP_1D<TData, SHMEM>
+            // BwdTransQuadKernel_QP_1D<SHMEM>
             //    <<<gridsize, blocksize, nshared>>>(
             //         nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in,
             //         out);
@@ -2595,9 +2601,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransQuadKernel<TData, SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
-                             wsp, in, out, shmPtr, item);
+                         BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1,
+                                                   nelmt, basis0, basis1, wsp,
+                                                   in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -2623,12 +2629,12 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransTriKernel_QP<TData, SHMEM>(
+                         BwdTransTriKernel_QP<SHMEM>(
                              nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
                              basis1, in, out, shmPtr, item);
                      });
              }).wait();
-            // BwdTransTriKernel_QP_1D<TData, SHMEM>
+            // BwdTransTriKernel_QP_1D<SHMEM>
             //     <<<nelmt, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
             //                                        nelmt, correct, basis0,
             //                                        basis1, in, out);
@@ -2652,7 +2658,7 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransTriKernel<TData, SHMEM>(
+                         BwdTransTriKernel<SHMEM>(
                              nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
                              basis1, wsp, in, out, shmPtr, item);
                      });
@@ -2661,8 +2667,8 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData, bool MULTILEVEL = true,
-          bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SHMEM,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -2674,6 +2680,9 @@ inline
                      const TData *basis1, const TData *basis2,
                      [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
                                      std::min(nq2, 8u));
     const unsigned int blocksize =
@@ -2708,12 +2717,12 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransHexKernel_QP<TData, SHMEM>(
+                         BwdTransHexKernel_QP<SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
                              basis1, basis2, in, out, shmPtr, item);
                      });
              }).wait();
-            // BwdTransHexKernel_QP_1D<TData, SHMEM>
+            // BwdTransHexKernel_QP_1D<SHMEM>
             //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nmTot, nq0,
             //                                          nq1, nq2, nelmt,
             //                                          basis0, basis1, basis2,
@@ -2738,7 +2747,7 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransHexKernel<TData, SHMEM>(
+                         BwdTransHexKernel<SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
                              basis1, basis2, wsp, in, out, shmPtr, item);
                      });
@@ -2772,17 +2781,17 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransTetKernel_QP<TData, SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                             correct, basis0, basis1, basis2, in, out, shmPtr,
-                             item);
+                         BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0,
+                                                     nq1, nq2, nelmt, correct,
+                                                     basis0, basis1, basis2, in,
+                                                     out, shmPtr, item);
                      });
              }).wait();
             // unsigned int *pindex;
             // unsigned int *qindex;
             // cudaMalloc((void **)&pindex, sizeof(unsigned int)*nm01);
             // cudaMalloc((void **)&qindex, sizeof(unsigned int)*nm01);
-            // BwdTransTetKernel_QP_1D<TData, SHMEM>
+            // BwdTransTetKernel_QP_1D<SHMEM>
             //     <<<gridsize, blocksize, nshared>>>(
             //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
             //         pindex, qindex, basis0, basis1, basis2, in, out);
@@ -2806,7 +2815,7 @@ inline
                                               .template get_multi_ptr<
                                                   sycl::access::decorated::no>()
                                               .get();
-                                      BwdTransTetKernel<TData, SHMEM>(
+                                      BwdTransTetKernel<SHMEM>(
                                           nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
                                           nelmt, correct, basis0, basis1,
                                           basis2, wsp, in, out, shmPtr, item);
@@ -2837,13 +2846,13 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransPrismKernel_QP<TData, SHMEM>(
+                         BwdTransPrismKernel_QP<SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                              correct, basis0, basis1, basis2, in, out, shmPtr,
                              item);
                      });
              }).wait();
-            // BwdTransPrismKernel_QP_1D<TData, SHMEM>
+            // BwdTransPrismKernel_QP_1D<SHMEM>
             //     <<<gridsize, blocksize, nshared>>>(
             //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
             //         basis0, basis1, basis2, in, out);
@@ -2867,7 +2876,7 @@ inline
                                               .template get_multi_ptr<
                                                   sycl::access::decorated::no>()
                                               .get();
-                                      BwdTransPrismKernel<TData, SHMEM>(
+                                      BwdTransPrismKernel<SHMEM>(
                                           nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
                                           nelmt, correct, basis0, basis1,
                                           basis2, wsp, in, out, shmPtr, item);
@@ -2899,13 +2908,13 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         BwdTransPyrKernel_QP<TData, SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                             correct, basis0, basis1, basis2, in, out, shmPtr,
-                             item);
+                         BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0,
+                                                     nq1, nq2, nelmt, correct,
+                                                     basis0, basis1, basis2, in,
+                                                     out, shmPtr, item);
                      });
              }).wait();
-            // BwdTransPyrKernel_QP_1D<TData, SHMEM>
+            // BwdTransPyrKernel_QP_1D<SHMEM>
             //     <<<gridsize, blocksize, nshared>>>(
             //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
             //         basis0, basis1, basis2, in, out);
@@ -2929,7 +2938,7 @@ inline
                                               .template get_multi_ptr<
                                                   sycl::access::decorated::no>()
                                               .get();
-                                      BwdTransPyrKernel<TData, SHMEM>(
+                                      BwdTransPyrKernel<SHMEM>(
                                           nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
                                           nelmt, correct, basis0, basis1,
                                           basis2, wsp, in, out, shmPtr, item);

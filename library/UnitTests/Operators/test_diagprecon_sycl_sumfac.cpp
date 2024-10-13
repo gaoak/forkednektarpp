@@ -62,6 +62,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        fixt_sycl_out->ReshapeStorage<ExecSpace, 1>();                         \
         BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -74,16 +75,16 @@
 
 BOOST_AUTO_TEST_SUITE(TestDiagPreconSYCL)
 
-TEST_DIAGPRECON(diagprecon_sycl_seg, Helmholtz1D_Seg, 1.0E-12)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_seg, Helmholtz1D_Seg, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_hex, Helmholtz3D_Hex, 1.0E-10)
 
-TEST_DIAGPRECON(diagprecon_sycl_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_prism, Helmholtz3D_Prism, 1.0E-10)
 
-TEST_DIAGPRECON(diagprecon_sycl_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-10)
 
-TEST_DIAGPRECON(diagprecon_sycl_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_DIAGPRECON(diagprecon_sycl_sumfac_tet, Helmholtz3D_Tet, 1.0E-10)
 
 BOOST_AUTO_TEST_SUITE_END()

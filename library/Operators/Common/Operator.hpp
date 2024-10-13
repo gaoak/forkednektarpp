@@ -90,6 +90,10 @@ class SumFac
 {
 };
 
+class SumFacQP
+{
+};
+
 // Use typenames to define available implementations to
 // allow extension by users without modifying library
 using default_fp_type = double;
@@ -164,6 +168,10 @@ public:
             if (cmdValue == "SumFac")
             {
                 g_OpImpl = "SumFac";
+            }
+            else if (cmdValue == "SumFacQP")
+            {
+                g_OpImpl = "SumFacQP";
             }
             else if (cmdValue == "StdMat")
             {
@@ -443,7 +451,8 @@ protected:
     }
 
     std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
-        size_t dfSize, std::vector<BlockAttributes> &blocks, size_t width)
+        size_t dfSize, std::vector<BlockAttributes> &blocks, size_t width,
+        bool transpose = false)
     {
         // Allocate memory for the derivative factor
         size_t nDim   = this->m_expansionList->GetShapeDimension();
@@ -461,19 +470,25 @@ protected:
             size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
             auto expPtr            = this->m_expansionList->GetExp(exp_id);
 
+            size_t range1 = transpose ? nDim * nCoord : expPtr->GetTotPoints();
+            size_t range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
+
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
                 for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
-                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
+                    for (size_t index1 = 0; index1 < range1; ++index1)
                     {
-                        for (size_t d = 0; d < nDim * nCoord; ++d)
+                        for (size_t index2 = 0; index2 < range2; ++index2)
                         {
                             for (size_t i = 0; i < width; ++i, ++df_id)
                             {
                                 if (el + i < num_elements)
                                 {
+                                    size_t d  = transpose ? index1 : index2;
+                                    size_t pt = transpose ? index2 : index1;
+
                                     auto &df = this->m_expansionList
                                                    ->GetExp(exp_id + i)
                                                    ->GetMetricInfo()
@@ -489,12 +504,9 @@ protected:
                         }
                     }
 
-                    for (size_t i = 0; i < width; ++i)
+                    if (el < num_elements)
                     {
-                        if (el + i < num_elements)
-                        {
-                            exp_id++;
-                        }
+                        exp_id += std::min(width, num_elements - el);
                     }
                     el += width;
                 }
@@ -523,12 +535,9 @@ protected:
                         }
                     }
 
-                    for (size_t i = 0; i < width; ++i)
+                    if (el < num_elements)
                     {
-                        if (el + i < num_elements)
-                        {
-                            exp_id++;
-                        }
+                        exp_id += std::min(width, num_elements - el);
                     }
                     el += width;
                 }

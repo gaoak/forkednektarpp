@@ -43,8 +43,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
@@ -117,8 +116,7 @@ void IProductWRTBaseSegKernel(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
@@ -196,8 +194,7 @@ void IProductWRTBaseSegKernel_QP(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -299,8 +296,7 @@ void IProductWRTBaseQuadKernel(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -427,8 +423,7 @@ void IProductWRTBaseQuadKernel_QP(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -544,8 +539,7 @@ void IProductWRTBaseQuadKernel_QP_1D(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -691,8 +685,7 @@ void IProductWRTBaseTriKernel(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -871,8 +864,7 @@ void IProductWRTBaseTriKernel_QP(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -1040,8 +1032,7 @@ void IProductWRTBaseTriKernel_QP_1D(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1188,8 +1179,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1373,8 +1363,7 @@ void IProductWRTBaseHexKernel_QP(
     }
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1533,8 +1522,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1780,8 +1768,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2087,8 +2074,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2362,8 +2348,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2570,8 +2555,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2712,7 +2696,6 @@ void IProductWRTBasePrismKernel_QP(
         }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
-        ;
 
         for (unsigned int p = item_ct1.get_local_id(0); p < nm0;
              p += item_ct1.get_local_range(0))
@@ -2827,8 +2810,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -3061,8 +3043,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -3308,8 +3289,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -3606,8 +3586,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -3851,8 +3830,8 @@ void IProductWRTBasePyrKernel_QP_1D(
 }
 
 // Launchers
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -3861,6 +3840,9 @@ inline
                             const TData *w0, const TData *jac, const TData *in,
                             TData *out, const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
                    : NektarSpaces::SYCL::defaultBlockSize;
@@ -3888,8 +3870,8 @@ inline
                                             .template get_multi_ptr<
                                                 sycl::access::decorated::no>()
                                             .get();
-                        IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND,
-                                                    DEFORMED, SHMEM>(
+                        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED,
+                                                    SHMEM>(
                             nm0, nq0, nelmts, basis0, w0, jac, in, out,
                             item_ct1, shmPtr, scale);
                     });
@@ -3912,7 +3894,7 @@ inline
                                             .template get_multi_ptr<
                                                 sycl::access::decorated::no>()
                                             .get();
-                        IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED,
+                        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED,
                                                  SHMEM>(
                             nm0, nq0, nelmts, basis0, w0, jac, in, out,
                             item_ct1, shmPtr, scale);
@@ -3922,8 +3904,8 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -3936,6 +3918,9 @@ inline
                             TData *wsp, const TData *in, TData *out,
                             const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize2d =
         sycl::range<3>(1, std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
@@ -3969,7 +3954,7 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseQuadKernel_QP<TData, SCALE, APPEND,
+                            IProductWRTBaseQuadKernel_QP<SCALE, APPEND,
                                                          DEFORMED, SHMEM>(
                                 nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
                                 basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
@@ -3995,8 +3980,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseQuadKernel<TData, SCALE, APPEND,
-                                                      DEFORMED, SHMEM>(
+                            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED,
+                                                      SHMEM>(
                                 nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
                                 basis1, w0, w1, jac, wsp, in, out, item_ct1,
                                 shmPtr, scale);
@@ -4029,8 +4014,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseTriKernel_QP<TData, SCALE, APPEND,
-                                                        DEFORMED, SHMEM>(
+                            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED,
+                                                        SHMEM>(
                                 nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
                                 basis0, basis1, w0, w1, jac, in, out, item_ct1,
                                 shmPtr, scale);
@@ -4055,8 +4040,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseTriKernel<TData, SCALE, APPEND,
-                                                     DEFORMED, SHMEM>(
+                            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED,
+                                                     SHMEM>(
                                 nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
                                 basis0, basis1, w0, w1, jac, wsp, in, out,
                                 item_ct1, shmPtr, scale);
@@ -4067,8 +4052,8 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -4083,6 +4068,9 @@ inline
                             TData *wsp, const TData *in, TData *out,
                             const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize3d =
         sycl::range<3>(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
     const unsigned int blocksize =
@@ -4119,8 +4107,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseHexKernel_QP<TData, SCALE, APPEND,
-                                                        DEFORMED, SHMEM>(
+                            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED,
+                                                        SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 basis0, basis1, basis2, w0, w1, w2, jac, in,
                                 out, item_ct1, shmPtr, scale);
@@ -4145,8 +4133,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseHexKernel<TData, SCALE, APPEND,
-                                                     DEFORMED, SHMEM>(
+                            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED,
+                                                     SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 basis0, basis1, basis2, w0, w1, w2, jac, wsp,
                                 in, out, item_ct1, shmPtr, scale);
@@ -4185,8 +4173,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseTetKernel_QP<TData, SCALE, APPEND,
-                                                        DEFORMED, SHMEM>(
+                            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED,
+                                                        SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
                                 jac, in, out, item_ct1, shmPtr, scale);
@@ -4211,8 +4199,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBaseTetKernel<TData, SCALE, APPEND,
-                                                     DEFORMED, SHMEM>(
+                            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED,
+                                                     SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
                                 jac, wsp, in, out, item_ct1, shmPtr, scale);
@@ -4248,7 +4236,7 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBasePrismKernel_QP<TData, SCALE, APPEND,
+                            IProductWRTBasePrismKernel_QP<SCALE, APPEND,
                                                           DEFORMED, SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
@@ -4274,8 +4262,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBasePrismKernel<TData, SCALE, APPEND,
-                                                       DEFORMED, SHMEM>(
+                            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED,
+                                                       SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
                                 jac, wsp, in, out, item_ct1, shmPtr, scale);
@@ -4311,8 +4299,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND,
-                                                        DEFORMED, SHMEM>(
+                            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED,
+                                                        SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
                                 jac, in, out, item_ct1, shmPtr, scale);
@@ -4337,8 +4325,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTBasePyrKernel<TData, SCALE, APPEND,
-                                                     DEFORMED, SHMEM>(
+                            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED,
+                                                     SHMEM>(
                                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
                                 correct, basis0, basis1, basis2, w0, w1, w2,
                                 jac, wsp, in, out, item_ct1, shmPtr, scale);

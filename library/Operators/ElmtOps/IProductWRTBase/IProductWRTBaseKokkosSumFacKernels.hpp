@@ -43,8 +43,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
                               const unsigned int nq0, const unsigned int nelmt,
                               const TData *KOKKOS_RESTRICT basis0,
@@ -136,8 +135,7 @@ void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseSegKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nq0,
     const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
@@ -219,8 +217,7 @@ void IProductWRTBaseSegKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -343,8 +340,7 @@ void IProductWRTBaseQuadKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -465,8 +461,7 @@ void IProductWRTBaseQuadKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseQuadKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -587,8 +582,7 @@ void IProductWRTBaseQuadKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -757,8 +751,7 @@ void IProductWRTBaseTriKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -922,8 +915,7 @@ void IProductWRTBaseTriKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1091,8 +1083,7 @@ void IProductWRTBaseTriKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1254,8 +1245,7 @@ void IProductWRTBaseHexKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1413,8 +1403,7 @@ void IProductWRTBaseHexKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseHexKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1572,8 +1561,7 @@ void IProductWRTBaseHexKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -1840,8 +1828,7 @@ void IProductWRTBaseTetKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2095,8 +2082,7 @@ void IProductWRTBaseTetKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2368,8 +2354,7 @@ void IProductWRTBaseTetKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2594,8 +2579,7 @@ void IProductWRTBasePrismKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -2807,8 +2791,7 @@ void IProductWRTBasePrismKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePrismKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -3038,8 +3021,7 @@ void IProductWRTBasePrismKernel_QP_1D(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -3306,8 +3288,7 @@ void IProductWRTBasePyrKernel(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -3559,8 +3540,7 @@ void IProductWRTBasePyrKernel_QP(
         });
 }
 
-template <typename TData, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM = true>
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBasePyrKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
@@ -3808,8 +3788,8 @@ void IProductWRTBasePyrKernel_QP_1D(
         });
 }
 
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
@@ -3817,23 +3797,26 @@ IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
                         const TData *w0, const TData *jac, const TData *in,
                         TData *out, const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     unsigned int nshared = SHMEM ? nm0 * nq0 + nq0 : 0u;
 
     if constexpr (MULTILEVEL)
     {
         nshared += nq0;
-        IProductWRTBaseSegKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
             nshared, nm0, nq0, nelmts, basis0, w0, jac, in, out, scale);
     }
     else
     {
-        IProductWRTBaseSegKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
             nshared, nm0, nq0, nelmts, basis0, w0, jac, in, out, scale);
     }
 }
 
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
@@ -3845,6 +3828,9 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
                         [[maybe_unused]] TData *wsp, const TData *in,
                         TData *out, const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     if (shapetype == LibUtilities::Quad)
     {
         const unsigned int nmTot =
@@ -3854,17 +3840,17 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 + nm0 * nq1;
-            IProductWRTBaseQuadKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
                 w1, jac, in, out, scale);
-            /* IProductWRTBaseQuadKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            /* IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                             SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
                 w1, jac, in, out, scale);*/
         }
         else
         {
-            IProductWRTBaseQuadKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
                 w1, jac, wsp, in, out, scale);
         }
@@ -3878,28 +3864,28 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 + nm0 * nq1 + 1u;
-            IProductWRTBaseTriKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
                 basis1, w0, w1, jac, in, out, scale);
             /* unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));
-            IProductWRTBaseTriKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                            SHMEM>(nshared,
                 nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex, basis0,
                 basis1, w0, w1, jac, in, out, scale);*/
         }
         else
         {
-            IProductWRTBaseTriKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
                 basis1, w0, w1, jac, wsp, in, out, scale);
         }
     }
 }
 
-template <typename ExecSpace, typename TData, bool SCALE, bool APPEND,
-          bool DEFORMED, bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
 IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
@@ -3913,6 +3899,9 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
                         [[maybe_unused]] TData *wsp, const TData *in,
                         TData *out, const TData scale = 1.0)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     if (shapetype == LibUtilities::Hex)
     {
         const unsigned int nmTot =
@@ -3923,17 +3912,17 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
-            IProductWRTBaseHexKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
                 basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            /* IProductWRTBaseHexKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            /* IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                            SHMEM>(nshared,
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
                 basis2, w0, w1, w2, jac, in, out, scale);*/
         }
         else
         {
-            IProductWRTBaseHexKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
                 basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
@@ -3952,7 +3941,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2;
-            IProductWRTBaseTetKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
             /* unsigned int *pindex1 = (unsigned int *)Kokkos::kokkos_malloc<
@@ -3967,7 +3956,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
             unsigned int *qindex2 = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "qindex2", nmTot * sizeof(unsigned int));
-            IProductWRTBaseTetKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                            SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex1, qindex1, pindex2, qindex2, basis0, basis1, basis2, w0,
@@ -3975,7 +3964,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
-            IProductWRTBaseTetKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
@@ -3992,8 +3981,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         {
             nshared +=
                 nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nm1;
-            IProductWRTBasePrismKernel_QP<TData, SCALE, APPEND, DEFORMED,
-                                          SHMEM>(
+            IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
             /* unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
@@ -4005,7 +3993,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
             unsigned int *rindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "rindex", nmTot * sizeof(unsigned int));
-            IProductWRTBasePrismKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                              SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex, qindex, rindex, basis0, basis1, basis2, w0, w1, w2, jac,
@@ -4013,7 +4001,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
-            IProductWRTBasePrismKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }
@@ -4030,7 +4018,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
-            IProductWRTBasePyrKernel_QP<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
             /*unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
@@ -4039,7 +4027,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
             unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "qindex", nmTot * sizeof(unsigned int));
-            IProductWRTBasePyrKernel_QP_1D<TData, SCALE, APPEND, DEFORMED,
+            IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                            SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac, in,
@@ -4047,7 +4035,7 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         }
         else
         {
-            IProductWRTBasePyrKernel<TData, SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
         }

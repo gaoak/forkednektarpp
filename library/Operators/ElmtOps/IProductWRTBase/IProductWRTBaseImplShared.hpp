@@ -41,8 +41,6 @@
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSYCLSumFacKernels.hpp"
 
-#define FLAG_QP false // TODO: to be removed
-
 namespace Nektar::Operators::detail
 {
 
@@ -51,10 +49,16 @@ template <typename ExecSpace, typename Implementation, typename TData,
           typename = typename std::enable_if<
               (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
                std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value) ||
               (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+               std::is_same<Implementation, Operators::SumFac>::value) ||
+              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
+               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
 class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -65,15 +69,19 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise the jacobian.
-        auto width         = 1u;
-        auto locblocks     = GetBlockAttributes(FieldState::Phys, expansionList,
-                                                ExecSpace::width);
+        auto width     = std::is_same<Implementation, Operators::SumFac>::value
+                             ? ExecSpace::width
+                             : 1u;
+        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
+                                            ExecSpace::width);
         const auto jacSize = Operator<TData>::GetGeometricFactorSize(
             locblocks, ExecSpace::width);
         auto jac = Operator<TData>::SetJacobian(jacSize, locblocks, width);
 
+        const bool device_only = true;
+
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
-            *jac, ExecSpace::alignment, true);
+            *jac, ExecSpace::alignment, device_only);
 
         // Initialize the basis data.
         m_basisMap  = GetBasisData<MemSpace, TData>(expansionList, eBasis);
@@ -84,9 +92,11 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
-        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
-                 "Input and output widths are different but kernel is not "
-                 "setup for this (yet)");
+        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
+        {
+            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+        }
 
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
@@ -151,41 +161,60 @@ public:
             TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2,
                                          nm0, nm1, nm2);
 
+            constexpr bool SharedMemory = true;
+            constexpr bool Append       = false;
+
             // Function call to kernel functions.
             if (dimension == 1)
             {
                 if (deformed)
                 {
+                    constexpr bool Deformed = true;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase1DKernel<ExecSpace, TData, false, false,
-                                                true>(nm0, nq0, nElmtsPad,
-                                                      basis0, w0, jacPtr, inPtr,
-                                                      outPtr);
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase1DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
+                            nm0, nq0, nElmtsPad, basis0, w0, jacPtr, inPtr,
+                            outPtr);
                     }
                     else
                     {
-                        IProductWRTBase1DKernel<ExecSpace, TData, true, false,
-                                                true>(nm0, nq0, nElmtsPad,
-                                                      basis0, w0, jacPtr, inPtr,
-                                                      outPtr, lambda);
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase1DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
+                            nm0, nq0, nElmtsPad, basis0, w0, jacPtr, inPtr,
+                            outPtr, lambda);
                     }
                 }
                 else
                 {
+                    constexpr bool Deformed = false;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase1DKernel<ExecSpace, TData, false, false,
-                                                false>(nm0, nq0, nElmtsPad,
-                                                       basis0, w0, jacPtr,
-                                                       inPtr, outPtr);
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase1DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
+                            nm0, nq0, nElmtsPad, basis0, w0, jacPtr, inPtr,
+                            outPtr);
                     }
                     else
                     {
-                        IProductWRTBase1DKernel<ExecSpace, TData, true, false,
-                                                false>(nm0, nq0, nElmtsPad,
-                                                       basis0, w0, jacPtr,
-                                                       inPtr, outPtr, lambda);
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase1DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
+                            nm0, nq0, nElmtsPad, basis0, w0, jacPtr, inPtr,
+                            outPtr, lambda);
                     }
                 }
             }
@@ -193,18 +222,26 @@ public:
             {
                 if (deformed)
                 {
+                    constexpr bool Deformed = true;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase2DKernel<ExecSpace, TData, false, false,
-                                                true>(
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase2DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
                             basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
                             outPtr);
                     }
                     else
                     {
-                        IProductWRTBase2DKernel<ExecSpace, TData, true, false,
-                                                true>(
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase2DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
                             basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
                             outPtr, lambda);
@@ -212,18 +249,26 @@ public:
                 }
                 else
                 {
+                    constexpr bool Deformed = false;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase2DKernel<ExecSpace, TData, false, false,
-                                                false>(
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase2DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
                             basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
                             outPtr);
                     }
                     else
                     {
-                        IProductWRTBase2DKernel<ExecSpace, TData, true, false,
-                                                false>(
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase2DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
                             basis0, basis1, w0, w1, jacPtr, wspPtr, inPtr,
                             outPtr, lambda);
@@ -234,18 +279,26 @@ public:
             {
                 if (deformed)
                 {
+                    constexpr bool Deformed = true;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase3DKernel<ExecSpace, TData, false, false,
-                                                true>(
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase3DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                             correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
                             wspPtr, inPtr, outPtr);
                     }
                     else
                     {
-                        IProductWRTBase3DKernel<ExecSpace, TData, true, false,
-                                                true>(
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase3DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                             correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
                             wspPtr, inPtr, outPtr, lambda);
@@ -253,18 +306,26 @@ public:
                 }
                 else
                 {
+                    constexpr bool Deformed = false;
+
                     if (lambda == 1.0)
                     {
-                        IProductWRTBase3DKernel<ExecSpace, TData, false, false,
-                                                false>(
+                        constexpr bool Scale = false;
+
+                        IProductWRTBase3DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                             correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
                             wspPtr, inPtr, outPtr);
                     }
                     else
                     {
-                        IProductWRTBase3DKernel<ExecSpace, TData, true, false,
-                                                false>(
+                        constexpr bool Scale = true;
+
+                        IProductWRTBase3DKernel<ExecSpace, Implementation,
+                                                Scale, Append, Deformed,
+                                                SharedMemory>(
                             shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                             correct, basis0, basis1, basis2, w0, w1, w2, jacPtr,
                             wspPtr, inPtr, outPtr, lambda);
@@ -322,17 +383,19 @@ public:
     {
         TData *wspptr = nullptr;
 
-        if constexpr (!FLAG_QP)
+        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
             size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
                                                     nq2, nm0, nm1, nm2);
+
+            const bool device_only = true;
 
             if (m_wspsize < wspsize)
             {
                 m_wspsize = wspsize;
 
                 m_wsp = MemoryRegion<TData>::template create<MemSpace>(
-                    m_wspsize, ExecSpace::alignment, true);
+                    m_wspsize, ExecSpace::alignment, device_only);
             }
 
             if (m_wspsize > 0)

@@ -44,7 +44,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                        const unsigned int nelmt, const unsigned int nsize,
                        const TData *__restrict D0, const TData *__restrict df,
@@ -89,7 +89,7 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
     }
 }
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
                           const unsigned int nelmt, const unsigned int nsize,
                           const TData *__restrict D0,
@@ -102,13 +102,15 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
 
     while (e < nelmt)
     {
-        const unsigned int offset = nq0 * e;
+        const unsigned int dfsize   = DEFORMED ? nq0 : 1;
+        const unsigned int dfoffset = ncoord * dfsize * e;
+        const unsigned int offset   = nq0 * e;
 
         for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
              i += item_ct1.get_local_range(2))
         {
             const unsigned int index   = offset + i;
-            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
+            const unsigned int dfindex = DEFORMED ? dfoffset + i : dfoffset;
 
             // Compute tensorial derivative.
             TData d0 = 0.0;
@@ -120,7 +122,7 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] = d0 * df[d + dfindex];
+                out[d * nsize + index] = d0 * df[d * dfsize + dfindex];
             }
         }
 
@@ -128,8 +130,8 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
                        const unsigned int ncoord, const unsigned int nelmt,
                        const unsigned int nsize, const TData *__restrict D0,
@@ -254,8 +256,8 @@ void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv2DKernel_QP(const unsigned int nq0, const unsigned int nq1,
                           const unsigned int ncoord, const unsigned int nelmt,
                           const unsigned int nsize, const TData *__restrict D0,
@@ -297,7 +299,9 @@ void PhysDeriv2DKernel_QP(const unsigned int nq0, const unsigned int nq1,
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         // Copy to shared memory.
         const unsigned int idx0 =
@@ -318,9 +322,10 @@ void PhysDeriv2DKernel_QP(const unsigned int nq0, const unsigned int nq1,
             for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                  i += item_ct1.get_local_range(2))
             {
-                const unsigned int cnt_ji  = nq0 * j + i;
-                const unsigned int index   = offset + cnt_ji;
-                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+                const unsigned int cnt_ji = nq0 * j + i;
+                const unsigned int index  = offset + cnt_ji;
+                const unsigned int dfindex =
+                    DEFORMED ? dfoffset + cnt_ji : dfoffset;
 
                 // Compute tensorial derivative.
                 // Direction 0
@@ -349,8 +354,9 @@ void PhysDeriv2DKernel_QP(const unsigned int nq0, const unsigned int nq1,
                 // Multiply by derivative factors.
                 for (unsigned int d = 0u; d < ncoord; d++)
                 {
-                    out[d * nsize + index] = d0 * df[(2u * d) + dfindex] +
-                                             d1 * df[(2u * d + 1u) + dfindex];
+                    out[d * nsize + index] =
+                        d0 * df[(2u * d) * dfsize + dfindex] +
+                        d1 * df[(2u * d + 1u) * dfsize + dfindex];
                 }
             }
         }
@@ -361,8 +367,8 @@ void PhysDeriv2DKernel_QP(const unsigned int nq0, const unsigned int nq1,
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
@@ -399,7 +405,9 @@ void PhysDeriv2DKernel_QP_1D(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
@@ -416,7 +424,7 @@ void PhysDeriv2DKernel_QP_1D(
             const unsigned int i       = idx % nq0;
             const unsigned int j       = idx / nq0;
             const unsigned int index   = offset + idx;
-            const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
             // Compute tensorial derivative.
             // Direction 0
@@ -445,8 +453,9 @@ void PhysDeriv2DKernel_QP_1D(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] = d0 * df[(2u * d) + dfindex] +
-                                         d1 * df[(2u * d + 1u) + dfindex];
+                out[d * nsize + index] =
+                    d0 * df[(2u * d) * dfsize + dfindex] +
+                    d1 * df[(2u * d + 1u) * dfsize + dfindex];
             }
         }
 
@@ -456,8 +465,8 @@ void PhysDeriv2DKernel_QP_1D(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
                        const unsigned int nq2, const unsigned int nelmt,
                        const unsigned int nsize, const TData *__restrict D0,
@@ -702,8 +711,8 @@ void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nsize,
@@ -755,7 +764,9 @@ void PhysDeriv3DKernel_QP(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         // Copy to shared memory.
         const unsigned int idx0 =
@@ -786,7 +797,7 @@ void PhysDeriv3DKernel_QP(
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     const unsigned int index   = offset + cnt_kji;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
 
                     // Direction 0
                     TData d0 = 0.0;
@@ -849,9 +860,9 @@ void PhysDeriv3DKernel_QP(
                     for (unsigned int d = 0u; d < ncoord; d++)
                     {
                         out[d * nsize + index] =
-                            d0 * df[(3u * d) + dfindex] +
-                            d1 * df[(3u * d + 1u) + dfindex] +
-                            d2 * df[(3u * d + 2u) + dfindex];
+                            d0 * df[(3u * d) * dfsize + dfindex] +
+                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
+                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
                     }
                 }
             }
@@ -863,8 +874,8 @@ void PhysDeriv3DKernel_QP(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED,
-          bool SHMEM = true>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
+          typename TData>
 void PhysDeriv3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const unsigned int nsize,
@@ -911,7 +922,9 @@ void PhysDeriv3DKernel_QP_1D(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         // Copy to shared memory.
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
@@ -928,8 +941,8 @@ void PhysDeriv3DKernel_QP_1D(
             const unsigned int i       = idx % nq0;
             const unsigned int j       = (idx / nq0) % nq1;
             const unsigned int k       = idx / (nq0 * nq1);
-            unsigned int index         = offset + idx;
-            const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+            const unsigned int index   = offset + idx;
+            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
             // Compute tensorial derivative.
             // Direction 0
@@ -989,9 +1002,10 @@ void PhysDeriv3DKernel_QP_1D(
             // Multiply by derivative factors.
             for (unsigned int d = 0u; d < ncoord; d++)
             {
-                out[d * nsize + index] = d0 * df[(3u * d) + dfindex] +
-                                         d1 * df[(3u * d + 1u) + dfindex] +
-                                         d2 * df[(3u * d + 2u) + dfindex];
+                out[d * nsize + index] =
+                    d0 * df[(3u * d) * dfsize + dfindex] +
+                    d1 * df[(3u * d + 1u) * dfsize + dfindex] +
+                    d2 * df[(3u * d + 2u) * dfsize + dfindex];
             }
         }
 
@@ -1004,8 +1018,8 @@ void PhysDeriv3DKernel_QP_1D(
 // Launchers
 
 // PhysDeriv1DKernel
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1014,6 +1028,9 @@ inline
                       const TData *D0, const TData *df, const TData *in,
                       TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
                    : NektarSpaces::SYCL::defaultBlockSize;
@@ -1032,7 +1049,7 @@ inline
 
              cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
                               [=](sycl::nd_item<3> item) {
-                                  PhysDeriv1DKernel_QP<TData, DEFORMED>(
+                                  PhysDeriv1DKernel_QP<DEFORMED>(
                                       nq0, ncoord, nelmts, nsize, D0, df, in,
                                       out, item);
                               });
@@ -1046,7 +1063,7 @@ inline
 
              cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
                               [=](sycl::nd_item<3> item) {
-                                  PhysDeriv1DKernel<TData, DEFORMED>(
+                                  PhysDeriv1DKernel<DEFORMED>(
                                       nq0, ncoord, nelmts, nsize, D0, df, in,
                                       out, item);
                               });
@@ -1056,8 +1073,8 @@ inline
 
 //
 // PhysDeriv2DKernel
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          bool SHMEM, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1068,6 +1085,9 @@ inline
                       const TData *Z1, const TData *df, const TData *in,
                       TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize2d(1, std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
@@ -1102,10 +1122,10 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv2DKernel_QP<TData, LibUtilities::Quad,
-                                              DEFORMED, SHMEM>(
-                             nq0, nq1, ncoord, nelmts, nsize, D0, D1, nullptr,
-                             nullptr, df, in, out, shmPtr, item);
+                         PhysDeriv2DKernel_QP<LibUtilities::Quad, DEFORMED,
+                                              SHMEM>(nq0, nq1, ncoord, nelmts,
+                                                     nsize, D0, D1, Z0, Z1, df,
+                                                     in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1128,10 +1148,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv2DKernel<TData, LibUtilities::Quad, DEFORMED,
-                                           SHMEM>(
-                             nq0, nq1, ncoord, nelmts, nsize, D0, D1, nullptr,
-                             nullptr, df, in, out, shmPtr, item);
+                         PhysDeriv2DKernel<LibUtilities::Quad, DEFORMED, SHMEM>(
+                             nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1,
+                             df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1157,10 +1176,10 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv2DKernel_QP<TData, LibUtilities::Tri,
-                                              DEFORMED, SHMEM>(
-                             nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1,
-                             df, in, out, shmPtr, item);
+                         PhysDeriv2DKernel_QP<LibUtilities::Tri, DEFORMED,
+                                              SHMEM>(nq0, nq1, ncoord, nelmts,
+                                                     nsize, D0, D1, Z0, Z1, df,
+                                                     in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1185,10 +1204,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv2DKernel<TData, LibUtilities::Tri, DEFORMED,
-                                           SHMEM>(nq0, nq1, ncoord, nelmts,
-                                                  nsize, D0, D1, Z0, Z1, df, in,
-                                                  out, shmPtr, item);
+                         PhysDeriv2DKernel<LibUtilities::Tri, DEFORMED, SHMEM>(
+                             nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1,
+                             df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1196,8 +1214,8 @@ inline
 }
 
 // PhysDeriv3DKernel
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true, bool SHMEM = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          bool SHMEM, typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -1208,6 +1226,9 @@ inline
                       const TData *Z0, const TData *Z1, const TData *Z2,
                       const TData *df, const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
                                      std::min(nq2, 8u));
     const unsigned int blocksize =
@@ -1240,10 +1261,10 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel_QP<TData, LibUtilities::Hex,
-                                              DEFORMED, SHMEM>(
-                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, nullptr,
-                             nullptr, nullptr, df, in, out, shmPtr, item);
+                         PhysDeriv3DKernel_QP<LibUtilities::Hex, DEFORMED,
+                                              SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
+                             Z2, df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1262,10 +1283,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel<TData, LibUtilities::Hex, DEFORMED,
-                                           SHMEM>(
-                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, nullptr,
-                             nullptr, nullptr, df, in, out, shmPtr, item);
+                         PhysDeriv3DKernel<LibUtilities::Hex, DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
+                             Z2, df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1288,8 +1308,8 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel_QP<TData, LibUtilities::Tet,
-                                              DEFORMED, SHMEM>(
+                         PhysDeriv3DKernel_QP<LibUtilities::Tet, DEFORMED,
+                                              SHMEM>(
                              nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
                              Z2, df, in, out, shmPtr, item);
                      });
@@ -1311,10 +1331,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel<TData, LibUtilities::Tet, DEFORMED,
-                                           SHMEM>(nq0, nq1, nq2, nelmts, nsize,
-                                                  D0, D1, D2, Z0, Z1, Z2, df,
-                                                  in, out, shmPtr, item);
+                         PhysDeriv3DKernel<LibUtilities::Tet, DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
+                             Z2, df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1337,10 +1356,10 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel_QP<TData, LibUtilities::Prism,
-                                              DEFORMED, SHMEM>(
-                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0,
-                             nullptr, Z2, df, in, out, shmPtr, item);
+                         PhysDeriv3DKernel_QP<LibUtilities::Prism, DEFORMED,
+                                              SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
+                             Z2, df, in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1360,10 +1379,10 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel<TData, LibUtilities::Prism, DEFORMED,
+                         PhysDeriv3DKernel<LibUtilities::Prism, DEFORMED,
                                            SHMEM>(nq0, nq1, nq2, nelmts, nsize,
-                                                  D0, D1, D2, Z0, nullptr, Z2,
-                                                  df, in, out, shmPtr, item);
+                                                  D0, D1, D2, Z0, Z1, Z2, df,
+                                                  in, out, shmPtr, item);
                      });
              }).wait();
         }
@@ -1386,8 +1405,8 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel_QP<TData, LibUtilities::Pyr,
-                                              DEFORMED, SHMEM>(
+                         PhysDeriv3DKernel_QP<LibUtilities::Pyr, DEFORMED,
+                                              SHMEM>(
                              nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
                              Z2, df, in, out, shmPtr, item);
                      });
@@ -1409,10 +1428,9 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
-                         PhysDeriv3DKernel<TData, LibUtilities::Pyr, DEFORMED,
-                                           SHMEM>(nq0, nq1, nq2, nelmts, nsize,
-                                                  D0, D1, D2, Z0, Z1, Z2, df,
-                                                  in, out, shmPtr, item);
+                         PhysDeriv3DKernel<LibUtilities::Pyr, DEFORMED, SHMEM>(
+                             nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1,
+                             Z2, df, in, out, shmPtr, item);
                      });
              }).wait();
         }

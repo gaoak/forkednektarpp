@@ -55,6 +55,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        fixt_kokkos_out->ReshapeStorage<ExecSpace, 1>();                       \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -66,24 +67,26 @@
     }
 BOOST_AUTO_TEST_SUITE(TestHelmholtzKokkos)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_seg, Seg, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_seg, Seg, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_quad, Quad, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_quad, Quad, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_tri, Tri, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_tri, Tri, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_square_all_elements, SquareAllElements,
+               1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_hex, Hex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_hex, Hex, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_prism, Prism, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_prism, Prism, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_pyr, Pyr, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_pyr, Pyr, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_tet, Tet, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_tet, Tet, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_HELMHOLTZ(helmholtz_kokkos_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_HELMHOLTZ(helmholtz_kokkos_sumfac_cube_all_elements, CubeAllElements,
+               1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -67,16 +67,16 @@
 
 BOOST_AUTO_TEST_SUITE(TestNullPreconSYCL)
 
-TEST_NULLPRECON(nullprecon_sycl_seg, Helmholtz1D_Seg, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_seg, Helmholtz1D_Seg, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_sycl_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_sycl_hex, Helmholtz3D_Hex, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_hex, Helmholtz3D_Hex, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_sycl_prism, Helmholtz3D_Prism, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_prism, Helmholtz3D_Prism, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_sycl_pyr, Helmholtz3D_Pyr, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-15)
 
-TEST_NULLPRECON(nullprecon_sycl_tet, Helmholtz3D_Tet, 1.0E-15)
+TEST_NULLPRECON(nullprecon_sycl_sumfac_tet, Helmholtz3D_Tet, 1.0E-15)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -55,6 +55,7 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        fixt_kokkos_out->ReshapeStorage<ExecSpace, 1>();                       \
         BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
@@ -67,42 +68,42 @@
 
 BOOST_AUTO_TEST_SUITE(TestMassKokkos)
 
-TEST_MASS(mass_kokkos_seg, Seg, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_seg, Seg, 1.0E-12)
 
-TEST_MASS(mass_kokkos_seg_sem, SegSEM, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_seg_sem, SegSEM, 1.0E-12)
 
-TEST_MASS(mass_kokkos_quad, Quad, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_quad, Quad, 1.0E-12)
 
-TEST_MASS(mass_kokkos_quad_sem, QuadSEM, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_quad_sem, QuadSEM, 1.0E-12)
 
-TEST_MASS(mass_kokkos_quad_varp, QuadVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_quad_varp, QuadVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_tri, Tri, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_tri, Tri, 1.0E-12)
 
-TEST_MASS(mass_kokkos_tri_varp, TriVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_tri_varp, TriVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_square_all_elements, SquareAllElements, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_square_all_elements, SquareAllElements, 1.0E-12)
 
-TEST_MASS(mass_kokkos_hex, Hex, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_hex, Hex, 1.0E-12)
 
-TEST_MASS(mass_kokkos_hex_sem, HexSEM, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_hex_sem, HexSEM, 1.0E-12)
 
-TEST_MASS(mass_kokkos_hex_varp, HexVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_hex_varp, HexVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_prism, Prism, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_prism, Prism, 1.0E-12)
 
-TEST_MASS(mass_kokkos_prism_varp, PrismVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_prism_varp, PrismVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_pyr, Pyr, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_pyr, Pyr, 1.0E-12)
 
-TEST_MASS(mass_kokkos_pyr_varp, PyrVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_pyr_varp, PyrVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_tet, Tet, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_tet, Tet, 1.0E-12)
 
-TEST_MASS(mass_kokkos_tet_varp, TetVarP, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_tet_varp, TetVarP, 1.0E-12)
 
-TEST_MASS(mass_kokkos_cube_prism_hex, CubePrismHex, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_cube_prism_hex, CubePrismHex, 1.0E-12)
 
-TEST_MASS(mass_kokkos_cube_all_elements, CubeAllElements, 1.0E-12)
+TEST_MASS(mass_kokkos_sumfac_cube_all_elements, CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

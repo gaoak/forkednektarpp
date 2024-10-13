@@ -55,6 +55,7 @@
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
             ->apply(*fixt_sycl_in, *fixt_sycl_out);                            \
+        fixt_sycl_out->ReshapeStorage<ExecSpace, 1>();                         \
         BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \

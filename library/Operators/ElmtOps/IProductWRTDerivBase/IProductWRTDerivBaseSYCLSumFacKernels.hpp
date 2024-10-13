@@ -44,7 +44,7 @@
 namespace Nektar::Operators::detail
 {
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nsize, const TData *__restrict__ df,
@@ -82,7 +82,7 @@ void IProductWRTDerivBase1DKernel(
     }
 }
 
-template <typename TData, bool DEFORMED>
+template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const unsigned int nsize, const TData *__restrict__ df,
@@ -93,18 +93,20 @@ void IProductWRTDerivBase1DKernel_QP(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nq0 * e;
+        const unsigned int dfsize   = DEFORMED ? nq0 : 1;
+        const unsigned int dfoffset = ncoord * dfsize * e;
+        const unsigned int offset   = nq0 * e;
 
         for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
              i += item_ct1.get_local_range(2))
         {
             const unsigned int index   = offset + i;
-            const unsigned int dfindex = DEFORMED ? ncoord * index : ncoord * e;
+            const unsigned int dfindex = DEFORMED ? dfoffset + i : dfoffset;
 
             TData sum = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                sum += df[d + dfindex] * in[d * nsize + index];
+                sum += df[d * dfsize + dfindex] * in[d * nsize + index];
             }
             out[index] = sum;
         }
@@ -113,7 +115,7 @@ void IProductWRTDerivBase1DKernel_QP(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
@@ -194,7 +196,7 @@ void IProductWRTDerivBase2DKernel(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const unsigned int nsize,
@@ -210,7 +212,9 @@ void IProductWRTDerivBase2DKernel_QP(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
              j += item_ct1.get_local_range(1))
@@ -223,16 +227,17 @@ void IProductWRTDerivBase2DKernel_QP(
             for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                  i += item_ct1.get_local_range(2))
             {
-                const unsigned int cnt_ji  = nq0 * j + i;
-                const unsigned int index   = offset + cnt_ji;
-                const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+                const unsigned int cnt_ji = nq0 * j + i;
+                const unsigned int index  = offset + cnt_ji;
+                const unsigned int dfindex =
+                    DEFORMED ? dfoffset + cnt_ji : dfoffset;
 
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0u; d < ncoord; ++d)
                 {
                     TData tmp = in[d * nsize + index];
-                    sum1 += df[(2u * d) + dfindex] * tmp;
-                    sum2 += df[(2u * d + 1u) + dfindex] * tmp;
+                    sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
+                    sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
                 }
 
                 // Moving from standard to collapsed coordinates.
@@ -258,7 +263,70 @@ void IProductWRTDerivBase2DKernel_QP(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+void IProductWRTDerivBase2DKernel_QP_1D(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const unsigned int nsize,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+{
+    const unsigned int nqTot = nq0 * nq1;
+    const auto ndf           = ncoord * 2;
+    TData f0, f1;
+
+    unsigned int e = item_ct1.get_group(2);
+
+    while (e < nelmt)
+    {
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
+
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1;
+             idx += item_ct1.get_local_range(2))
+        {
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = idx / nq0;
+            const unsigned int index   = offset + idx;
+            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
+
+            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            {
+                f0 = 2.0 / (1.0 - Z1[j]);
+            }
+
+            TData sum1 = 0.0, sum2 = 0.0;
+            for (unsigned int d = 0u; d < ncoord; ++d)
+            {
+                TData tmp = in[d * nsize + index];
+                sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
+                sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
+            }
+
+            // Moving from standard to collapsed coordinates.
+            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            {
+                f1 = 0.5 * (1.0 + Z0[i]);
+            }
+
+            if constexpr (SHAPETYPE == LibUtilities::Quad)
+            {
+                out[index]         = sum1;
+                out[nsize + index] = sum2;
+            }
+            else if constexpr (SHAPETYPE == LibUtilities::Tri)
+            {
+                out[index]         = (sum1 + sum2 * f1) * f0;
+                out[nsize + index] = sum2;
+            }
+        }
+
+        e += item_ct1.get_group_range(2);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -411,7 +479,7 @@ void IProductWRTDerivBase3DKernel(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -428,7 +496,9 @@ void IProductWRTDerivBase3DKernel_QP(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
              k += item_ct1.get_local_range(0))
@@ -456,18 +526,18 @@ void IProductWRTDerivBase3DKernel_QP(
                 for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                      i += item_ct1.get_local_range(2))
                 {
-                    const unsigned int index =
-                        offset + nq0 * nq1 * k + nq0 * j + i;
+                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
+                    const unsigned int index   = offset + cnt_kji;
                     const unsigned int dfindex =
-                        DEFORMED ? ndf * index : ndf * e;
+                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
 
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
                         TData tmp = in[d * nsize + index];
-                        sum1 += df[(3u * d) + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                        sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
+                        sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
+                        sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
                     }
 
                     if constexpr (SHAPETYPE == LibUtilities::Tet ||
@@ -509,7 +579,7 @@ void IProductWRTDerivBase3DKernel_QP(
     }
 }
 
-template <typename TData, LibUtilities::ShapeType SHAPETYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
@@ -526,7 +596,9 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 
     while (e < nelmt)
     {
-        const unsigned int offset = nqTot * e;
+        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
+        const unsigned int dfoffset = ndf * dfsize * e;
+        const unsigned int offset   = nqTot * e;
 
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1 * nq2;
              idx += item_ct1.get_local_range(2))
@@ -561,15 +633,15 @@ void IProductWRTDerivBase3DKernel_QP_1D(
             }
 
             const unsigned int index   = offset + idx;
-            const unsigned int dfindex = DEFORMED ? ndf * index : ndf * e;
+            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
             TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
                 TData tmp = in[d * nsize + index];
-                sum1 += df[(3u * d) + dfindex] * tmp;
-                sum2 += df[(3u * d + 1u) + dfindex] * tmp;
-                sum3 += df[(3u * d + 2u) + dfindex] * tmp;
+                sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
+                sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
+                sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
             }
 
             if constexpr (SHAPETYPE == LibUtilities::Hex)
@@ -603,8 +675,8 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 }
 
 // Launchers
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -614,6 +686,9 @@ inline
                                  const unsigned int nsize, const TData *df,
                                  const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const unsigned int blocksize =
         std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
     const unsigned int gridsize =
@@ -627,7 +702,7 @@ inline
                                                 sycl::range<3>(1, 1, blocksize),
                                             sycl::range<3>(1, 1, blocksize)),
                           [=](sycl::nd_item<3> item_ct1) {
-                              IProductWRTDerivBase1DKernel_QP<TData, DEFORMED>(
+                              IProductWRTDerivBase1DKernel_QP<DEFORMED>(
                                   nq0, ncoord, nelmts, nsize, df, in, out,
                                   item_ct1);
                           })
@@ -640,7 +715,7 @@ inline
                                                 sycl::range<3>(1, 1, blocksize),
                                             sycl::range<3>(1, 1, blocksize)),
                           [=](sycl::nd_item<3> item_ct1) {
-                              IProductWRTDerivBase1DKernel<TData, DEFORMED>(
+                              IProductWRTDerivBase1DKernel<DEFORMED>(
                                   nq0, ncoord, nelmts, nsize, df, in, out,
                                   item_ct1);
                           })
@@ -648,8 +723,8 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -661,6 +736,9 @@ inline
                                  const TData *Z1, const TData *df,
                                  const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize2d =
         sycl::range<3>(1, std::min(nq1, 16u), std::min(nq0, 16u));
     const unsigned int blocksize =
@@ -674,15 +752,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize2d,
-                                                blocksize2d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase2DKernel_QP<
-                                      TData, LibUtilities::Quad, DEFORMED>(
-                                      nq0, nq1, ncoord, nelmts, nsize, nullptr,
-                                      nullptr, df, in, out, item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize2d,
+                                      blocksize2d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad,
+                                                        DEFORMED>(
+                            nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
+                            out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -702,10 +781,10 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase2DKernel<
-                                TData, LibUtilities::Quad, DEFORMED>(
-                                nq0, nq1, ncoord, nelmts, nsize, nullptr,
-                                nullptr, df, in, out, item_ct1, shmPtr);
+                            IProductWRTDerivBase2DKernel<LibUtilities::Quad,
+                                                         DEFORMED>(
+                                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
+                                out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -716,15 +795,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize2d,
-                                                blocksize2d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase2DKernel_QP<
-                                      TData, LibUtilities::Tri, DEFORMED>(
-                                      nq0, nq1, ncoord, nelmts, nsize, Z0, Z1,
-                                      df, in, out, item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize2d,
+                                      blocksize2d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri,
+                                                        DEFORMED>(
+                            nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
+                            out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -746,8 +826,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase2DKernel<
-                                TData, LibUtilities::Tri, DEFORMED>(
+                            IProductWRTDerivBase2DKernel<LibUtilities::Tri,
+                                                         DEFORMED>(
                                 nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
                                 out, item_ct1, shmPtr);
                         });
@@ -757,8 +837,8 @@ inline
     }
 }
 
-template <typename ExecSpace, typename TData, bool DEFORMED,
-          bool MULTILEVEL = true>
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          typename TData>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
@@ -771,6 +851,9 @@ inline
                                  const TData *Z1, const TData *Z2,
                                  const TData *df, const TData *in, TData *out)
 {
+    constexpr bool MULTILEVEL =
+        std::is_same<Implementation, Operators::SumFacQP>::value;
+
     const sycl::range<3> blocksize3d =
         sycl::range<3>(std::min(nq2, 8u), std::min(nq1, 8u), std::min(nq0, 8u));
     const unsigned int blocksize =
@@ -784,16 +867,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize3d,
-                                                blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase3DKernel_QP<
-                                      TData, LibUtilities::Hex, DEFORMED>(
-                                      nq0, nq1, nq2, ncoord, nelmts, nsize,
-                                      nullptr, nullptr, nullptr, df, in, out,
-                                      item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize3d,
+                                      blocksize3d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex,
+                                                        DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
+                            df, in, out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -813,11 +896,10 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase3DKernel<
-                                TData, LibUtilities::Hex, DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, nullptr,
-                                nullptr, nullptr, df, in, out, item_ct1,
-                                shmPtr);
+                            IProductWRTDerivBase3DKernel<LibUtilities::Hex,
+                                                         DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
+                                Z2, df, in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -828,15 +910,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize3d,
-                                                blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase3DKernel_QP<
-                                      TData, LibUtilities::Tet, DEFORMED>(
-                                      nq0, nq1, nq2, ncoord, nelmts, nsize, Z0,
-                                      Z1, Z2, df, in, out, item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize3d,
+                                      blocksize3d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet,
+                                                        DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
+                            df, in, out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -858,8 +941,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase3DKernel<
-                                TData, LibUtilities::Tet, DEFORMED>(
+                            IProductWRTDerivBase3DKernel<LibUtilities::Tet,
+                                                         DEFORMED>(
                                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
                                 Z2, df, in, out, item_ct1, shmPtr);
                         });
@@ -872,15 +955,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize3d,
-                                                blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase3DKernel_QP<
-                                      TData, LibUtilities::Prism, DEFORMED>(
-                                      nq0, nq1, nq2, ncoord, nelmts, nsize, Z0,
-                                      nullptr, Z2, df, in, out, item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize3d,
+                                      blocksize3d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism,
+                                                        DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
+                            df, in, out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -902,10 +986,10 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase3DKernel<
-                                TData, LibUtilities::Prism, DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0,
-                                nullptr, Z2, df, in, out, item_ct1, shmPtr);
+                            IProductWRTDerivBase3DKernel<LibUtilities::Prism,
+                                                         DEFORMED>(
+                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
+                                Z2, df, in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -916,15 +1000,16 @@ inline
         if constexpr (MULTILEVEL)
         {
             SYCLQueue::GetInstance()
-                .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                    blocksize3d,
-                                                blocksize3d),
-                              [=](sycl::nd_item<3> item_ct1) {
-                                  IProductWRTDerivBase3DKernel_QP<
-                                      TData, LibUtilities::Pyr, DEFORMED>(
-                                      nq0, nq1, nq2, ncoord, nelmts, nsize, Z0,
-                                      Z1, Z2, df, in, out, item_ct1);
-                              })
+                .parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                          blocksize3d,
+                                      blocksize3d),
+                    [=](sycl::nd_item<3> item_ct1) {
+                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr,
+                                                        DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
+                            df, in, out, item_ct1);
+                    })
                 .wait();
         }
         else
@@ -946,8 +1031,8 @@ inline
                                     .template get_multi_ptr<
                                         sycl::access::decorated::no>()
                                     .get();
-                            IProductWRTDerivBase3DKernel<
-                                TData, LibUtilities::Pyr, DEFORMED>(
+                            IProductWRTDerivBase3DKernel<LibUtilities::Pyr,
+                                                         DEFORMED>(
                                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
                                 Z2, df, in, out, item_ct1, shmPtr);
                         });

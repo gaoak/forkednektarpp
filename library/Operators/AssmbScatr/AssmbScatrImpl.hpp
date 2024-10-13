@@ -75,8 +75,10 @@ public:
         // Compute aligned map to skip over padding elements
         auto map = assmbMap->GetLocalToGlobalMap();
 
+        const bool device_only = true;
+
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            map, ExecSpace::alignment, true);
+            map, ExecSpace::alignment, device_only);
 
         // Memory allocation for sign pointer
         if (m_signChange)
@@ -84,7 +86,7 @@ public:
             auto sign = assmbMap->GetLocalToGlobalSign();
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                sign, ExecSpace::alignment, true);
+                sign, ExecSpace::alignment, device_only);
         }
     }
 

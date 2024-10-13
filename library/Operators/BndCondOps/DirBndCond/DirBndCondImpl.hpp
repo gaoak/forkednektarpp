@@ -136,8 +136,10 @@ public:
             alignedMap[i] = alignmentMap[map[index[i]]];
         }
 
+        const bool device_only = true;
+
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
-            alignedMap, ExecSpace::alignment, true);
+            alignedMap, ExecSpace::alignment, device_only);
 
         Array<OneD, TData> alignedSign(m_nbndcoeff);
         if (m_signChange)
@@ -148,7 +150,7 @@ public:
             }
 
             m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                alignedSign, ExecSpace::alignment, true);
+                alignedSign, ExecSpace::alignment, device_only);
         }
 
         // TODO: This is a temporary hack to fix the Dirichlet boundary
@@ -202,7 +204,7 @@ public:
         // -------------------------- END ------------------------------------
 
         m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-            bndcoeff, ExecSpace::alignment, true);
+            bndcoeff, ExecSpace::alignment, device_only);
 
         m_parallelDirBndSignSize = parallelDirBndSign.size();
         if (m_parallelDirBndSignSize > 0)
@@ -216,7 +218,8 @@ public:
 
             m_parallelDirBndSign =
                 MemoryRegion<int>::template fromArray<MemSpace, int>(
-                    alignedParallelDirBndSign, ExecSpace::alignment, true);
+                    alignedParallelDirBndSign, ExecSpace::alignment,
+                    device_only);
         }
 
         // local
@@ -237,12 +240,12 @@ public:
             }
 
             m_locid0 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locid0, ExecSpace::alignment, true);
+                locid0, ExecSpace::alignment, device_only);
             m_locid1 = MemoryRegion<int>::template fromArray<MemSpace, int>(
-                locid1, ExecSpace::alignment, true);
+                locid1, ExecSpace::alignment, device_only);
             m_locsign =
                 MemoryRegion<TData>::template fromArray<MemSpace, TData>(
-                    locsign, ExecSpace::alignment, true);
+                    locsign, ExecSpace::alignment, device_only);
         }
     }
 
