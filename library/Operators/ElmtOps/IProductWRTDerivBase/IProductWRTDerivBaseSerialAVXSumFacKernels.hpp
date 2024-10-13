@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseSerialSumFacKernels.hpp
+// File: IProductWRTDerivBaseSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -31,23 +31,19 @@
 // Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
-#include "Common/Operator.hpp"
-#include "Common/SwitchLevel2Defs.h"
-#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#pragma once
+
 #include <LibUtilities/BasicUtils/NekInline.hpp>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
 
-namespace Nektar::Operators::detail
-{
-using vec_t = tinysimd::scalarT<double>;
+#include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
-#include "StdRegions/Operators/IProductWRTBaseAVXSumFacStdKernels.hpp"
-
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase1D(
-    const size_t nq0, const size_t indim, const vec_t *df_ptr,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &df_tmp, const size_t inSize,
-    const vec_t::vectorType *in, vec_t::vectorType *out)
+    const size_t nq0, const size_t indim, const simd_type *df_ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inSize, const typename simd_type::vectorType *in,
+    typename simd_type::scalarType *out)
+
 {
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
     if (!DEFORMED)
@@ -79,25 +75,26 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
             }
         }
 
-        vec_t sum = 0.0;
+        simd_type sum = 0.0;
         for (int d = 0; d < indim; ++d)
         {
-            vec_t inval = vec_t(in[d * inSize + i]); // possibly large stride
+            simd_type inval =
+                simd_type(in[d * inSize + i]); // possibly large stride
             sum.fma(inval, df_tmp[d]);
         }
-
-        sum.store(out);
-        out += 1;
+        sum.store(out + i * simd_type::width);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase2D(
-    const size_t nq0, const size_t nq1, const size_t indim, const vec_t *df_Ptr,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &df_tmp, const size_t inSize,
-    const vec_t::vectorType *inPtr, vec_t::vectorType *out0Ptr,
-    vec_t::vectorType *out1Ptr, [[maybe_unused]] const vec_t *Fac0,
-    [[maybe_unused]] const vec_t *Fac1)
+    const size_t nq0, const size_t nq1, const size_t indim,
+    const simd_type *df_Ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inSize, const typename simd_type::vectorType *inPtr,
+    typename simd_type::scalarType *out[2],
+    [[maybe_unused]] const simd_type *Fac0,
+    [[maybe_unused]] const simd_type *Fac1)
 {
     const auto ndf = 2 * indim;
 
@@ -116,13 +113,14 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
         }
     }
 
-    vec_t f1;
-    size_t cnt_ji = 0;
+    simd_type f1;
+    size_t cnt_ji   = 0;
+    size_t inoffset = inSize / simd_type::width;
     for (size_t j = 0; j < nq1; ++j)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            f1 = vec_t(Fac1[j]);
+            f1 = simd_type(Fac1[j]);
         }
 
         for (size_t i = 0; i < nq0; ++i, ++cnt_ji)
@@ -142,18 +140,18 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
                 }
             }
 
-            vec_t in0 = vec_t(inPtr[cnt_ji]);
-            vec_t in1 = vec_t(inPtr[inSize + cnt_ji]);
+            simd_type in0 = simd_type(inPtr[cnt_ji]);
+            simd_type in1 = simd_type(inPtr[inoffset + cnt_ji]);
 
-            vec_t out0 = df_tmp[0] * in0;
+            simd_type out0 = df_tmp[0] * in0;
             out0.fma(df_tmp[2], in1);
 
-            vec_t out1 = df_tmp[1] * in0;
+            simd_type out1 = df_tmp[1] * in0;
             out1.fma(df_tmp[3], in1);
 
             if (indim == 3)
             {
-                vec_t in2 = vec_t(inPtr[2 * inSize + cnt_ji]);
+                simd_type in2 = simd_type(inPtr[2 * inSize + cnt_ji]);
                 out0.fma(df_tmp[4], in2);
                 out1.fma(df_tmp[5], in2);
             }
@@ -161,31 +159,29 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
             if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
             {
                 // Multiply by geometric factors
-                vec_t f0 = vec_t(Fac0[i]);
+                simd_type f0 = simd_type(Fac0[i]);
 
                 // Scale by geometric factor 2/(1-z1)
                 out0 *= f1;
                 // Scale by geometric factor (1+z0)/(1-z1)
-                vec_t c1 = f0 * out1;
+                simd_type c1 = f0 * out1;
                 out0.fma(c1, f1);
             }
 
             // store ouputs
-            out0.store(out0Ptr);
-            out0Ptr += vec_t::width;
-
-            out1.store(out1Ptr);
-            out1Ptr += vec_t::width;
+            out0.store(out[0] + cnt_ji * simd_type::width);
+            out1.store(out[1] + cnt_ji * simd_type::width);
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
-    const size_t nq0, const size_t nq1, const size_t nq2, const vec_t *df_Ptr,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &df_tmp, const size_t inSize,
-    const vec_t::vectorType *inPtr, vec_t::vectorType *out0Ptr,
-    vec_t::vectorType *out1Ptr, vec_t::vectorType *out2Ptr)
+    const size_t nq0, const size_t nq1, const size_t nq2,
+    const simd_type *df_Ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inSize, const typename simd_type::vectorType *inPtr,
+    typename simd_type::scalarType *out[3])
 {
     const auto ndf   = 9;
     const auto nqTot = nq0 * nq1 * nq2;
@@ -204,6 +200,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
         df_tmp[8] = df_Ptr[8];
     }
 
+    size_t inoffset = inSize / simd_type::width;
     for (int i = 0; i < nqTot; ++i)
     {
         if (DEFORMED)
@@ -219,41 +216,39 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
             df_tmp[8] = df_Ptr[i * ndf + 8];
         }
 
-        vec_t in0 = vec_t(inPtr[i]);
-        vec_t in1 = vec_t(inPtr[inSize + i]);
-        vec_t in2 = vec_t(inPtr[2 * inSize + i]);
+        simd_type in0 = simd_type(inPtr[i]);
+        simd_type in1 = simd_type(inPtr[inoffset + i]);
+        simd_type in2 = simd_type(inPtr[2 * inoffset + i]);
 
-        vec_t out0 = df_tmp[0] * in0;
+        simd_type out0 = df_tmp[0] * in0;
         out0.fma(df_tmp[3], in1);
         out0.fma(df_tmp[6], in2);
 
-        vec_t out1 = df_tmp[1] * in0;
+        simd_type out1 = df_tmp[1] * in0;
         out1.fma(df_tmp[4], in1);
         out1.fma(df_tmp[7], in2);
 
-        vec_t out2 = df_tmp[2] * in0;
+        simd_type out2 = df_tmp[2] * in0;
         out2.fma(df_tmp[5], in1);
         out2.fma(df_tmp[8], in2);
 
         // store ouputs
-        out0.store(out0Ptr);
-        out0Ptr += vec_t::width;
-
-        out1.store(out1Ptr);
-        out1Ptr += vec_t::width;
-
-        out2.store(out2Ptr);
-        out2Ptr += vec_t::width;
+        out0.store(out[0] + i * simd_type::width);
+        out1.store(out[1] + i * simd_type::width);
+        out2.store(out[2] + i * simd_type::width);
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase3D(
-    const size_t nq0, const size_t nq1, const size_t nq2, const vec_t *df_Ptr,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &df_tmp, const size_t inSize,
-    const vec_t *Fac0, const vec_t *Fac1, const vec_t *Fac1a, const vec_t *Fac2,
-    const vec_t::vectorType *inPtr, vec_t::vectorType *out0Ptr,
-    vec_t::vectorType *out1Ptr, vec_t::vectorType *out2Ptr)
+    const size_t nq0, const size_t nq1, const size_t nq2,
+    const simd_type *df_Ptr,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
+    const size_t inSize, const simd_type *Fac0,
+    [[maybe_unused]] const simd_type *Fac1,
+    [[maybe_unused]] const simd_type *Fac1a, const simd_type *Fac2,
+    const typename simd_type::vectorType *inPtr,
+    typename simd_type::scalarType *out[3])
 {
     const auto ndf = 9;
 
@@ -272,23 +267,24 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     }
 
     size_t cnt_kji = 0;
-    vec_t f0, f1, f1a, f2;
+    simd_type f0, f1, f1a, f2;
+    size_t inoffset = inSize / simd_type::width;
 
     for (size_t k = 0; k < nq2; ++k)
     {
-        f2 = vec_t(Fac2[k]);
+        f2 = simd_type(Fac2[k]);
 
         for (size_t j = 0; j < nq1; ++j)
         {
             if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
             {
-                f1  = vec_t(Fac1[j]);
-                f1a = vec_t(Fac1a[j]);
+                f1  = simd_type(Fac1[j]);
+                f1a = simd_type(Fac1a[j]);
             }
 
             if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
             {
-                f1 = vec_t(Fac1[j]);
+                f1 = simd_type(Fac1[j]);
             }
 
             for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
@@ -307,26 +303,26 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     df_tmp[8] = df_Ptr[cnt_kji * ndf + 8];
                 }
 
-                vec_t in0 = vec_t(inPtr[cnt_kji]);
-                vec_t in1 = vec_t(inPtr[inSize + cnt_kji]);
-                vec_t in2 = vec_t(inPtr[2 * inSize + cnt_kji]);
+                simd_type in0 = simd_type(inPtr[cnt_kji]);
+                simd_type in1 = simd_type(inPtr[inoffset + cnt_kji]);
+                simd_type in2 = simd_type(inPtr[2 * inoffset + cnt_kji]);
 
-                vec_t out0 = df_tmp[0] * in0;
+                simd_type out0 = df_tmp[0] * in0;
                 out0.fma(df_tmp[3], in1);
                 out0.fma(df_tmp[6], in2);
 
-                vec_t out1 = df_tmp[1] * in0;
+                simd_type out1 = df_tmp[1] * in0;
                 out1.fma(df_tmp[4], in1);
                 out1.fma(df_tmp[7], in2);
 
-                vec_t out2 = df_tmp[2] * in0;
+                simd_type out2 = df_tmp[2] * in0;
                 out2.fma(df_tmp[5], in1);
                 out2.fma(df_tmp[8], in2);
 
                 if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
                 {
                     // (out0 + (out1 + out2)*(1+z0)/2) * 2/(1 - z1) * 2/(1 - z2)
-                    f0 = vec_t(Fac0[i]);
+                    f0 = simd_type(Fac0[i]);
                     out0.fma(out1 + out2, f0);
                     out0 *= f1a * f2;
 
@@ -338,7 +334,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
-                    vec_t f0 = vec_t(Fac0[i]);
+                    simd_type f0 = simd_type(Fac0[i]);
                     out0.fma(out2, f0);
                     out0 *= f2;
 
@@ -350,23 +346,16 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
-                    vec_t f0 = vec_t(Fac0[i]);
+                    simd_type f0 = simd_type(Fac0[i]);
                     out0.fma(out2, f0);
                     out0 *= f2;
                 }
 
                 // store ouputs
-                out0.store(out0Ptr);
-                out0Ptr += vec_t::width;
-
-                out1.store(out1Ptr);
-                out1Ptr += vec_t::width;
-
-                out2.store(out2Ptr);
-                out2Ptr += vec_t::width;
+                out0.store(out[0] + cnt_kji * simd_type::width);
+                out1.store(out[1] + cnt_kji * simd_type::width);
+                out2.store(out[2] + cnt_kji * simd_type::width);
             }
         }
     }
 }
-
-} // namespace Nektar::Operators::detail

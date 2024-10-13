@@ -28,12 +28,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Wrapper file to reuse AVX implementation in serial
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
-#define IS_SERIAL
-
-// use AVX code
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseAVXSumFac.hpp"
+#include "IProductWRTDerivBaseSerialAVXSumFac.hpp"

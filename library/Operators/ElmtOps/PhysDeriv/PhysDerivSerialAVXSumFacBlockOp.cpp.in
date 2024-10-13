@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseAVXSumFac@Shape@.cpp
+// File: PhysDerivSerialAVXSumFac@Shape@.cpp
 //
-// For more information, please see: http://www.nektar.info
+// For more informatioxn, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -29,14 +29,15 @@
 // DEALINGS IN THE SOFTWARE.
 //
 // Description: Cmake configuration for boilerplate code to generate block
-// operator code wrapped in a 2 level switch statement
+// operator code wrapped in a 1 level switch statement with Coord as
+// templates too
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "Common/SwitchLevel2Defs.h"
+#include "Common/SwitchLevel1Defs.h"
 // Update this include file to the appropriate operator class definition if
 // using for another operator
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseAVXSumFac.hpp"
+#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFac.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -44,7 +45,7 @@ namespace Nektar::Operators::detail
 
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
-void OperatorIProductWRTDerivBaseImpl<NektarSpaces::AVX, Operators::SumFac,
+void OperatorPhysDerivImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
                                       NekDouble>::@Shape@Block
                 (const NekDouble *input, NekDouble *output)
 {
@@ -59,7 +60,7 @@ void OperatorIProductWRTDerivBaseImpl<NektarSpaces::AVX, Operators::SumFac,
     // option in the compile line.
     
 #define SHAPE_TYPE_@Shape@
-#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitch1DCoordsCode@Shape@.h"
 
 }
 // clang-format on

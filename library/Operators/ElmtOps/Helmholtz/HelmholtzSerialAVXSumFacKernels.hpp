@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: HelmholtzAVXSumFacKernels.hpp
+// File: HelmholtzSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -35,20 +35,21 @@
 #pragma once
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
     const size_t nq0, const bool isConstVarDiff,
-    const Array<OneD, NekDouble> &constVarDiff, const bool isVarDiff,
-    const Array<OneD, NekDouble> &varD00, const vec_t *df_ptr,
-    vec_t::scalarType *deriv0)
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const simd_type *df_ptr, typename simd_type::scalarType *deriv0)
 {
     constexpr auto ndf = 1;
 
     const auto nqTot = nq0;
 
-    vec_t d00 = {1.0};
-    vec_t df0;
-    vec_t metric00;
+    simd_type d00 = {1.0};
+    simd_type df0;
+    simd_type metric00;
 
     if (isConstVarDiff)
     {
@@ -88,22 +89,22 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                     metric00 = df0 * df0 * d00;
                 }
 
-                vec_t d0;
-                d0.load(deriv0 + i * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + i * simd_type::width);
 
-                vec_t tmp = metric00 * d0;
-                tmp.store(deriv0 + i * vec_t::width);
+                simd_type tmp = metric00 * d0;
+                tmp.store(deriv0 + i * simd_type::width);
             }
         }
         else
         {
             for (int i = 0; i < nqTot; ++i)
             {
-                vec_t d0;
-                d0.load(deriv0 + i * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + i * simd_type::width);
 
-                vec_t tmp = metric00 * d0;
-                tmp.store(deriv0 + i * vec_t::width);
+                simd_type tmp = metric00 * d0;
+                tmp.store(deriv0 + i * simd_type::width);
             }
         }
     }
@@ -117,11 +118,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
 
-                vec_t d0;
-                d0.load(deriv0 + i * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + i * simd_type::width);
 
-                vec_t tmp = metric00 * d0;
-                tmp.store(deriv0 + i * vec_t::width);
+                simd_type tmp = metric00 * d0;
+                tmp.store(deriv0 + i * simd_type::width);
             }
         }
         else
@@ -131,35 +132,39 @@ NEK_FORCE_INLINE static void DiffusionCoeffSegKernel(
                 d00      = varD00[i];
                 metric00 = df0 * df0 * d00;
 
-                vec_t d0;
-                d0.load(deriv0 + i * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + i * simd_type::width);
 
-                vec_t tmp = metric00 * d0;
-                tmp.store(deriv0 + i * vec_t::width);
+                simd_type tmp = metric00 * d0;
+                tmp.store(deriv0 + i * simd_type::width);
             }
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
     const size_t nq0, const size_t nq1, const bool isConstVarDiff,
-    const Array<OneD, NekDouble> &constVarDiff, const bool isVarDiff,
-    const Array<OneD, NekDouble> &varD00, const Array<OneD, NekDouble> &varD01,
-    const Array<OneD, NekDouble> &varD11, const vec_t *df_ptr,
-    const std::vector<vec_t, allocator<vec_t>> &m_h0,
-    const std::vector<vec_t, allocator<vec_t>> &m_h1, vec_t::scalarType *deriv0,
-    vec_t::scalarType *deriv1)
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const simd_type *df_ptr,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1)
 {
     constexpr auto ndf = 4;
 
-    vec_t df0, df1, df2, df3;
-    vec_t metric00, metric01, metric11;
+    simd_type df0, df1, df2, df3;
+    simd_type metric00, metric01, metric11;
 
-    vec_t d00 = {1.0};
-    vec_t d01 = {0.0};
-    vec_t d11 = {1.0};                // var diffusion terms
-    vec_t dtmp0, dtmp1, dtmp2, dtmp3; // metric products
+    simd_type d00 = {1.0};
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};                // var diffusion terms
+    simd_type dtmp0, dtmp1, dtmp2, dtmp3; // metric products
 
     if (isConstVarDiff)
     {
@@ -180,7 +185,7 @@ NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
     // Step 4a: Construct Laplacian metrics
     for (size_t j = 0, cnt = 0; j < nq1; ++j)
     {
-        vec_t h1j = m_h1[j];
+        simd_type h1j = m_h1[j];
         for (size_t i = 0; i < nq0; ++i, ++cnt)
         {
             if constexpr (DEFORMED)
@@ -191,11 +196,11 @@ NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
                 df3 = df_ptr[cnt * ndf + 3];
             }
 
-            vec_t h0i = m_h0[i];
+            simd_type h0i = m_h0[i];
 
             // M = [M_00, df1; M_10; df3]
-            metric00  = h1j * (df0 + h0i * df1); // M_00
-            vec_t tmp = h1j * (df2 + h0i * df3); // M_10
+            metric00      = h1j * (df0 + h0i * df1); // M_00
+            simd_type tmp = h1j * (df2 + h0i * df3); // M_10
 
             if (!isConstVarDiff && !isVarDiff)
             {
@@ -234,42 +239,45 @@ NEK_FORCE_INLINE static void DiffusionCoeffTriKernel(
                 metric11.fma(df3, dtmp3);
             }
 
-            vec_t d0;
-            d0.load(deriv0 + cnt * vec_t::width);
-            vec_t d1;
-            d1.load(deriv1 + cnt * vec_t::width);
+            simd_type d0;
+            d0.load(deriv0 + cnt * simd_type::width);
+            simd_type d1;
+            d1.load(deriv1 + cnt * simd_type::width);
 
             tmp = metric00 * d0;
             tmp.fma(metric01, d1);
             // deriv0[cnt] = tmp;
-            tmp.store(deriv0 + cnt * vec_t::width);
+            tmp.store(deriv0 + cnt * simd_type::width);
 
             tmp = metric01 * d0;
             tmp.fma(metric11, d1);
             // deriv1[cnt] = tmp;
-            tmp.store(deriv1 + cnt * vec_t::width);
+            tmp.store(deriv1 + cnt * simd_type::width);
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
     const size_t nq0, const size_t nq1, const bool isConstVarDiff,
-    const Array<OneD, NekDouble> &constVarDiff, const bool isVarDiff,
-    const Array<OneD, NekDouble> &varD00, const Array<OneD, NekDouble> &varD01,
-    const Array<OneD, NekDouble> &varD11, const vec_t *df_ptr,
-    vec_t::scalarType *deriv0, vec_t::scalarType *deriv1)
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const simd_type *df_ptr, typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1)
 {
     constexpr auto ndf = 4;
 
     const auto nqTot = nq0 * nq1;
 
-    vec_t d00 = {1.0};
-    vec_t d01 = {0.0};
-    vec_t d11 = {1.0};                // var diffusion terms
-    vec_t dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
-    vec_t df0, df1, df2, df3;
-    vec_t metric00, metric01, metric11;
+    simd_type d00 = {1.0};
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};                // var diffusion terms
+    simd_type dtmp0, dtmp1, dtmp2, dtmp3; // temp for vardiff
+    simd_type df0, df1, df2, df3;
+    simd_type metric00, metric01, metric11;
 
     if (isConstVarDiff)
     {
@@ -357,20 +365,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
                         metric11.fma(df3, dtmp3);
                     }
 
-                    vec_t d0;
-                    d0.load(deriv0 + cnt * vec_t::width);
-                    vec_t d1;
-                    d1.load(deriv1 + cnt * vec_t::width);
+                    simd_type d0;
+                    d0.load(deriv0 + cnt * simd_type::width);
+                    simd_type d1;
+                    d1.load(deriv1 + cnt * simd_type::width);
 
-                    vec_t tmp = metric00 * d0;
+                    simd_type tmp = metric00 * d0;
                     tmp.fma(metric01, d1);
                     // deriv0[cnt] = tmp;
-                    tmp.store(deriv0 + cnt * vec_t::width);
+                    tmp.store(deriv0 + cnt * simd_type::width);
 
                     tmp = metric01 * d0;
                     tmp.fma(metric11, d1);
                     // deriv1[cnt] = tmp;
-                    tmp.store(deriv1 + cnt * vec_t::width);
+                    tmp.store(deriv1 + cnt * simd_type::width);
                 }
             }
         }
@@ -378,20 +386,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
         {
             for (int i = 0; i < nqTot; ++i)
             {
-                vec_t d0;
-                d0.load(deriv0 + i * vec_t::width);
-                vec_t d1;
-                d1.load(deriv1 + i * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + i * simd_type::width);
+                simd_type d1;
+                d1.load(deriv1 + i * simd_type::width);
 
-                vec_t tmp = metric00 * d0;
+                simd_type tmp = metric00 * d0;
                 tmp.fma(metric01, d1);
                 // deriv0[i] = tmp;
-                tmp.store(deriv0 + i * vec_t::width);
+                tmp.store(deriv0 + i * simd_type::width);
 
                 tmp = metric01 * d0;
                 tmp.fma(metric11, d1);
                 // deriv1[i] = tmp;
-                tmp.store(deriv1 + i * vec_t::width);
+                tmp.store(deriv1 + i * simd_type::width);
             }
         }
     }
@@ -428,20 +436,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
                     metric11 = df1 * dtmp2;
                     metric11.fma(df3, dtmp3);
 
-                    vec_t d0;
-                    d0.load(deriv0 + cnt * vec_t::width);
-                    vec_t d1;
-                    d1.load(deriv1 + cnt * vec_t::width);
+                    simd_type d0;
+                    d0.load(deriv0 + cnt * simd_type::width);
+                    simd_type d1;
+                    d1.load(deriv1 + cnt * simd_type::width);
 
-                    vec_t tmp = metric00 * d0;
+                    simd_type tmp = metric00 * d0;
                     tmp.fma(metric01, d1);
                     // deriv0[cnt] = tmp;
-                    tmp.store(deriv0 + cnt * vec_t::width);
+                    tmp.store(deriv0 + cnt * simd_type::width);
 
                     tmp = metric01 * d0;
                     tmp.fma(metric11, d1);
                     // deriv1[cnt] = tmp;
-                    tmp.store(deriv1 + cnt * vec_t::width);
+                    tmp.store(deriv1 + cnt * simd_type::width);
                 }
             }
         }
@@ -471,50 +479,56 @@ NEK_FORCE_INLINE static void DiffusionCoeffQuadKernel(
                     metric11 = df1 * dtmp2;
                     metric11.fma(df3, dtmp3);
 
-                    vec_t d0;
-                    d0.load(deriv0 + cnt * vec_t::width);
-                    vec_t d1;
-                    d1.load(deriv1 + cnt * vec_t::width);
+                    simd_type d0;
+                    d0.load(deriv0 + cnt * simd_type::width);
+                    simd_type d1;
+                    d1.load(deriv1 + cnt * simd_type::width);
 
-                    vec_t tmp = metric00 * d0;
+                    simd_type tmp = metric00 * d0;
                     tmp.fma(metric01, d1);
                     // deriv0[cnt] = tmp;
-                    tmp.store(deriv0 + cnt * vec_t::width);
+                    tmp.store(deriv0 + cnt * simd_type::width);
 
                     tmp = metric01 * d0;
                     tmp.fma(metric11, d1);
                     // deriv1[cnt] = tmp;
-                    tmp.store(deriv1 + cnt * vec_t::width);
+                    tmp.store(deriv1 + cnt * simd_type::width);
                 }
             }
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
-    const bool isConstVarDiff, const Array<OneD, NekDouble> &constVarDiff,
-    const bool isVarDiff, const Array<OneD, NekDouble> &varD00,
-    const Array<OneD, NekDouble> &varD01, const Array<OneD, NekDouble> &varD11,
-    const Array<OneD, NekDouble> &varD02, const Array<OneD, NekDouble> &varD12,
-    const Array<OneD, NekDouble> &varD22, const vec_t *df_ptr,
-    vec_t::scalarType *deriv0, vec_t::scalarType *deriv1,
-    vec_t::scalarType *deriv2)
+    const bool isConstVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const Array<OneD, typename simd_type::scalarType> &varD02,
+    const Array<OneD, typename simd_type::scalarType> &varD12,
+    const Array<OneD, typename simd_type::scalarType> &varD22,
+    const simd_type *df_ptr, typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1,
+    typename simd_type::scalarType *deriv2)
 {
     constexpr auto ndf = 9;
     const auto nqTot   = nq0 * nq1 * nq2;
 
-    vec_t df0, df1, df2, df3, df4, df5, df6, df7, df8;
-    vec_t metric00, metric01, metric02, metric11, metric12, metric22;
+    simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
+    simd_type metric00, metric01, metric02, metric11, metric12, metric22;
 
-    vec_t d00 = {1.0};
-    vec_t d01 = {0.0};
-    vec_t d11 = {1.0};
-    vec_t d02 = {0.0};
-    vec_t d12 = {0.0};
-    vec_t d22 = {1.0};                                 // var diffusion terms
-    vec_t td0, td1, td2, td3, td4, td5, td6, td7, td8; // temp terms for vardiff
+    simd_type d00 = {1.0};
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0}; // var diffusion terms
+    simd_type td0, td1, td2, td3, td4, td5, td6, td7,
+        td8; // temp terms for vardiff
 
     if (isConstVarDiff)
     {
@@ -751,30 +765,30 @@ NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
                         metric22.fma(td8, df8);
                     }
 
-                    vec_t d0;
-                    d0.load(deriv0 + cnt * vec_t::width);
-                    vec_t d1;
-                    d1.load(deriv1 + cnt * vec_t::width);
-                    vec_t d2;
-                    d2.load(deriv2 + cnt * vec_t::width);
+                    simd_type d0;
+                    d0.load(deriv0 + cnt * simd_type::width);
+                    simd_type d1;
+                    d1.load(deriv1 + cnt * simd_type::width);
+                    simd_type d2;
+                    d2.load(deriv2 + cnt * simd_type::width);
 
-                    vec_t tmp = metric00 * d0;
+                    simd_type tmp = metric00 * d0;
                     tmp.fma(metric01, d1);
                     tmp.fma(metric02, d2);
                     // deriv0[cnt] = tmp;
-                    tmp.store(deriv0 + cnt * vec_t::width);
+                    tmp.store(deriv0 + cnt * simd_type::width);
 
                     tmp = metric01 * d0;
                     tmp.fma(metric11, d1);
                     tmp.fma(metric12, d2);
                     // deriv1[cnt] = tmp;
-                    tmp.store(deriv1 + cnt * vec_t::width);
+                    tmp.store(deriv1 + cnt * simd_type::width);
 
                     tmp = metric02 * d0;
                     tmp.fma(metric12, d1);
                     tmp.fma(metric22, d2);
                     // deriv2[cnt] = tmp;
-                    tmp.store(deriv2 + cnt * vec_t::width);
+                    tmp.store(deriv2 + cnt * simd_type::width);
                 }
             }
         }
@@ -783,60 +797,67 @@ NEK_FORCE_INLINE static void DiffusionCoeffHexKernel(
     {
         for (int i = 0; i < nqTot; ++i)
         {
-            vec_t d0;
-            d0.load(deriv0 + i * vec_t::width);
-            vec_t d1;
-            d1.load(deriv1 + i * vec_t::width);
-            vec_t d2;
-            d2.load(deriv2 + i * vec_t::width);
+            simd_type d0;
+            d0.load(deriv0 + i * simd_type::width);
+            simd_type d1;
+            d1.load(deriv1 + i * simd_type::width);
+            simd_type d2;
+            d2.load(deriv2 + i * simd_type::width);
 
-            vec_t tmp = metric00 * d0;
+            simd_type tmp = metric00 * d0;
             tmp.fma(metric01, d1);
             tmp.fma(metric02, d2);
             // deriv0[i] = tmp;
-            tmp.store(deriv0 + i * vec_t::width);
+            tmp.store(deriv0 + i * simd_type::width);
 
             tmp = metric01 * d0;
             tmp.fma(metric11, d1);
             tmp.fma(metric12, d2);
             // deriv1[i] = tmp;
-            tmp.store(deriv1 + i * vec_t::width);
+            tmp.store(deriv1 + i * simd_type::width);
 
             tmp = metric02 * d0;
             tmp.fma(metric12, d1);
             tmp.fma(metric22, d2);
             // deriv2[i] = tmp;
-            tmp.store(deriv2 + i * vec_t::width);
+            tmp.store(deriv2 + i * simd_type::width);
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
-    const bool isConstVarDiff, const Array<OneD, NekDouble> &constVarDiff,
-    const bool isVarDiff, const Array<OneD, NekDouble> &varD00,
-    const Array<OneD, NekDouble> &varD01,
-    [[maybe_unused]] const Array<OneD, NekDouble> &varD11,
-    const Array<OneD, NekDouble> &varD02, const Array<OneD, NekDouble> &varD12,
-    const Array<OneD, NekDouble> &varD22, const vec_t *df_ptr,
-    const std::vector<vec_t, allocator<vec_t>> &m_h0,
-    const std::vector<vec_t, allocator<vec_t>> &m_h1,
-    const std::vector<vec_t, allocator<vec_t>> &m_h2,
-    const std::vector<vec_t, allocator<vec_t>> &m_h3, vec_t::scalarType *deriv0,
-    vec_t::scalarType *deriv1, vec_t::scalarType *deriv2)
+    const bool isConstVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    [[maybe_unused]] const Array<OneD, typename simd_type::scalarType> &varD11,
+    const Array<OneD, typename simd_type::scalarType> &varD02,
+    const Array<OneD, typename simd_type::scalarType> &varD12,
+    const Array<OneD, typename simd_type::scalarType> &varD22,
+    const simd_type *df_ptr,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h2,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h3,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1,
+    typename simd_type::scalarType *deriv2)
 {
     constexpr auto ndf = 9;
 
-    vec_t df0, df1, df2, df3, df4, df5, df6, df7, df8;
-    vec_t g0, g1, g2, g3, g4, g5;
-    vec_t d00 = {1.0};
-    vec_t d01 = {0.0};
-    vec_t d11 = {1.0};
-    vec_t d02 = {0.0};
-    vec_t d12 = {0.0};
-    vec_t d22 = {1.0};                                 // var diffusion terms
-    vec_t td0, td1, td2, td3, td4, td5, td6, td7, td8; // temp terms for vardiff
+    simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
+    simd_type g0, g1, g2, g3, g4, g5;
+    simd_type d00 = {1.0};
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0}; // var diffusion terms
+    simd_type td0, td1, td2, td3, td4, td5, td6, td7,
+        td8; // temp terms for vardiff
 
     if (isConstVarDiff)
     {
@@ -864,13 +885,13 @@ NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
     // Step 4a: Construct Laplacian metrics
     for (size_t k = 0, cnt = 0; k < nq2; ++k)
     {
-        vec_t h3 = m_h3[k];
+        simd_type h3 = m_h3[k];
         for (size_t j = 0; j < nq1; ++j)
         {
-            vec_t h1   = m_h1[j];
-            vec_t h2   = m_h2[j];
-            vec_t h2h3 = h2 * h3;
-            vec_t h1h3 = h1 * h3;
+            simd_type h1   = m_h1[j];
+            simd_type h2   = m_h2[j];
+            simd_type h2h3 = h2 * h3;
+            simd_type h1h3 = h1 * h3;
 
             for (int i = 0; i < nq0; ++i, ++cnt)
             {
@@ -887,20 +908,20 @@ NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
                     df8 = df_ptr[cnt * ndf + 8];
                 }
 
-                vec_t h0h2h3 = m_h0[i] * h2h3;
+                simd_type h0h2h3 = m_h0[i] * h2h3;
 
-                vec_t tmp1 = h0h2h3 * (df1 + df2);
+                simd_type tmp1 = h0h2h3 * (df1 + df2);
                 tmp1.fma(df0, h2h3);
-                vec_t tmp2 = h0h2h3 * (df4 + df5);
+                simd_type tmp2 = h0h2h3 * (df4 + df5);
                 tmp2.fma(df3, h2h3);
-                vec_t tmp3 = h0h2h3 * (df7 + df8);
+                simd_type tmp3 = h0h2h3 * (df7 + df8);
                 tmp3.fma(df6, h2h3);
 
-                vec_t tmp4 = df1 * h3;
+                simd_type tmp4 = df1 * h3;
                 tmp4.fma(df2, h1h3);
-                vec_t tmp5 = df4 * h3;
+                simd_type tmp5 = df4 * h3;
                 tmp5.fma(df5, h1h3);
-                vec_t tmp6 = df7 * h3;
+                simd_type tmp6 = df7 * h3;
                 tmp6.fma(df8, h1h3);
 
                 if (!isConstVarDiff && !isVarDiff)
@@ -1001,58 +1022,66 @@ NEK_FORCE_INLINE static void DiffusionCoeffTetKernel(
                     g2.fma(td8, df8);
                 }
 
-                vec_t d0;
-                d0.load(deriv0 + cnt * vec_t::width);
-                vec_t d1;
-                d1.load(deriv1 + cnt * vec_t::width);
-                vec_t d2;
-                d2.load(deriv2 + cnt * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + cnt * simd_type::width);
+                simd_type d1;
+                d1.load(deriv1 + cnt * simd_type::width);
+                simd_type d2;
+                d2.load(deriv2 + cnt * simd_type::width);
 
                 tmp1 = g0 * d0;
                 tmp1.fma(g3, d1);
                 tmp1.fma(g4, d2);
                 // deriv0[cnt] = tmp1;
-                tmp1.store(deriv0 + cnt * vec_t::width);
+                tmp1.store(deriv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * d0;
                 tmp2.fma(g1, d1);
                 tmp2.fma(g5, d2);
                 // deriv1[cnt] = tmp2;
-                tmp2.store(deriv1 + cnt * vec_t::width);
+                tmp2.store(deriv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * d0;
                 tmp3.fma(g5, d1);
                 tmp3.fma(g2, d2);
                 // deriv2[cnt] = tmp3;
-                tmp3.store(deriv2 + cnt * vec_t::width);
+                tmp3.store(deriv2 + cnt * simd_type::width);
             }
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
-    const bool isConstVarDiff, const Array<OneD, NekDouble> &constVarDiff,
-    const bool isVarDiff, const Array<OneD, NekDouble> &varD00,
-    const Array<OneD, NekDouble> &varD01, const Array<OneD, NekDouble> &varD11,
-    const Array<OneD, NekDouble> &varD02, const Array<OneD, NekDouble> &varD12,
-    const Array<OneD, NekDouble> &varD22, const vec_t *df_ptr,
-    const std::vector<vec_t, allocator<vec_t>> &m_h0,
-    const std::vector<vec_t, allocator<vec_t>> &m_h1, vec_t::scalarType *deriv0,
-    vec_t::scalarType *deriv1, vec_t::scalarType *deriv2)
+    const bool isConstVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const Array<OneD, typename simd_type::scalarType> &varD02,
+    const Array<OneD, typename simd_type::scalarType> &varD12,
+    const Array<OneD, typename simd_type::scalarType> &varD22,
+    const simd_type *df_ptr,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1,
+    typename simd_type::scalarType *deriv2)
 {
     constexpr auto ndf = 9;
 
-    vec_t df0, df1, df2, df3, df4, df5, df6, df7, df8;
-    vec_t g0, g1, g2, g3, g4, g5; // metrics
-    [[maybe_unused]] vec_t d00 = {1.0};
-    [[maybe_unused]] vec_t d01 = {0.0};
-    [[maybe_unused]] vec_t d11 = {1.0};
-    [[maybe_unused]] vec_t d02 = {0.0};
-    [[maybe_unused]] vec_t d12 = {0.0};
-    [[maybe_unused]] vec_t d22 = {1.0};                // var diffusion terms
-    vec_t td0, td1, td2, td3, td4, td5, td6, td7, td8; // temp terms for vardiff
+    simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
+    simd_type g0, g1, g2, g3, g4, g5; // metrics
+    [[maybe_unused]] simd_type d00 = {1.0};
+    [[maybe_unused]] simd_type d01 = {0.0};
+    [[maybe_unused]] simd_type d11 = {1.0};
+    [[maybe_unused]] simd_type d02 = {0.0};
+    [[maybe_unused]] simd_type d12 = {0.0};
+    [[maybe_unused]] simd_type d22 = {1.0}; // var diffusion terms
+    simd_type td0, td1, td2, td3, td4, td5, td6, td7,
+        td8; // temp terms for vardiff
 
     if (isConstVarDiff)
     {
@@ -1080,12 +1109,12 @@ NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
     // Step 4a: Construct Laplacian metrics
     for (size_t k = 0, cnt = 0; k < nq2; ++k)
     {
-        vec_t h1 = m_h1[k];
+        simd_type h1 = m_h1[k];
         for (size_t j = 0; j < nq1; ++j)
         {
             for (size_t i = 0; i < nq0; ++i, cnt++)
             {
-                vec_t h0 = m_h0[i];
+                simd_type h0 = m_h0[i];
 
                 if constexpr (DEFORMED)
                 {
@@ -1100,9 +1129,9 @@ NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
                     df8 = df_ptr[cnt * ndf + 8];
                 }
 
-                vec_t tmp1 = h1 * (h0 * df2 + df0);
-                vec_t tmp2 = h1 * (h0 * df5 + df3);
-                vec_t tmp3 = h1 * (h0 * df8 + df6);
+                simd_type tmp1 = h1 * (h0 * df2 + df0);
+                simd_type tmp2 = h1 * (h0 * df5 + df3);
+                simd_type tmp3 = h1 * (h0 * df8 + df6);
 
                 if (!isConstVarDiff && !isVarDiff)
                 {
@@ -1204,59 +1233,67 @@ NEK_FORCE_INLINE static void DiffusionCoeffPrismKernel(
                     g2.fma(td8, df8);
                 }
 
-                vec_t d0;
-                d0.load(deriv0 + cnt * vec_t::width);
-                vec_t d1;
-                d1.load(deriv1 + cnt * vec_t::width);
-                vec_t d2;
-                d2.load(deriv2 + cnt * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + cnt * simd_type::width);
+                simd_type d1;
+                d1.load(deriv1 + cnt * simd_type::width);
+                simd_type d2;
+                d2.load(deriv2 + cnt * simd_type::width);
 
                 tmp1 = g0 * d0;
                 tmp1.fma(g3, d1);
                 tmp1.fma(g4, d2);
                 // deriv0[cnt] = tmp1;
-                tmp1.store(deriv0 + cnt * vec_t::width);
+                tmp1.store(deriv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * d0;
                 tmp2.fma(g1, d1);
                 tmp2.fma(g5, d2);
                 // deriv1[cnt] = tmp2;
-                tmp2.store(deriv1 + cnt * vec_t::width);
+                tmp2.store(deriv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * d0;
                 tmp3.fma(g5, d1);
                 tmp3.fma(g2, d2);
                 // deriv2[cnt] = tmp3;
-                tmp3.store(deriv2 + cnt * vec_t::width);
+                tmp3.store(deriv2 + cnt * simd_type::width);
             }
         }
     }
 }
 
-template <bool DEFORMED>
+template <bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
-    const bool isConstVarDiff, const Array<OneD, NekDouble> &constVarDiff,
-    const bool isVarDiff, const Array<OneD, NekDouble> &varD00,
-    const Array<OneD, NekDouble> &varD01, const Array<OneD, NekDouble> &varD11,
-    const Array<OneD, NekDouble> &varD02, const Array<OneD, NekDouble> &varD12,
-    const Array<OneD, NekDouble> &varD22, const vec_t *df_ptr,
-    const std::vector<vec_t, allocator<vec_t>> &m_h0,
-    const std::vector<vec_t, allocator<vec_t>> &m_h1,
-    const std::vector<vec_t, allocator<vec_t>> &m_h2, vec_t::scalarType *deriv0,
-    vec_t::scalarType *deriv1, vec_t::scalarType *deriv2)
+    const bool isConstVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const Array<OneD, typename simd_type::scalarType> &varD02,
+    const Array<OneD, typename simd_type::scalarType> &varD12,
+    const Array<OneD, typename simd_type::scalarType> &varD22,
+    const simd_type *df_ptr,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h0,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h1,
+    const std::vector<simd_type, tinysimd::allocator<simd_type>> &m_h2,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1,
+    typename simd_type::scalarType *deriv2)
 {
     constexpr auto ndf = 9;
 
-    vec_t df0, df1, df2, df3, df4, df5, df6, df7, df8;
-    vec_t g0, g1, g2, g3, g4, g5; // metrics
-    vec_t d00 = {1.0};
-    vec_t d01 = {0.0};
-    vec_t d11 = {1.0};
-    vec_t d02 = {0.0};
-    vec_t d12 = {0.0};
-    vec_t d22 = {1.0};                                 // var diffusion terms
-    vec_t td0, td1, td2, td3, td4, td5, td6, td7, td8; // temp terms for vardiff
+    simd_type df0, df1, df2, df3, df4, df5, df6, df7, df8;
+    simd_type g0, g1, g2, g3, g4, g5; // metrics
+    simd_type d00 = {1.0};
+    simd_type d01 = {0.0};
+    simd_type d11 = {1.0};
+    simd_type d02 = {0.0};
+    simd_type d12 = {0.0};
+    simd_type d22 = {1.0}; // var diffusion terms
+    simd_type td0, td1, td2, td3, td4, td5, td6, td7,
+        td8; // temp terms for vardiff
 
     if (isConstVarDiff)
     {
@@ -1284,15 +1321,15 @@ NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
     // Step 4a: Construct Laplacian metrics
     for (size_t k = 0, cnt = 0; k < nq2; ++k)
     {
-        vec_t h2 = m_h2[k];
+        simd_type h2 = m_h2[k];
         for (size_t j = 0; j < nq1; ++j)
         {
-            vec_t h1   = m_h1[j];
-            vec_t h1h2 = h1 * h2;
+            simd_type h1   = m_h1[j];
+            simd_type h1h2 = h1 * h2;
             for (size_t i = 0; i < nq0; ++i, cnt++)
             {
-                vec_t h0   = m_h0[i];
-                vec_t h0h2 = h0 * h2;
+                simd_type h0   = m_h0[i];
+                simd_type h0h2 = h0 * h2;
 
                 if constexpr (DEFORMED)
                 {
@@ -1307,18 +1344,18 @@ NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
                     df8 = df_ptr[cnt * ndf + 8];
                 }
 
-                vec_t tmp0 = h2 * df0;
+                simd_type tmp0 = h2 * df0;
                 tmp0.fma(h0h2, df2);
-                vec_t tmp1 = h2 * df3;
+                simd_type tmp1 = h2 * df3;
                 tmp1.fma(h0h2, df5);
-                vec_t tmp2 = h2 * df6;
+                simd_type tmp2 = h2 * df6;
                 tmp2.fma(h0h2, df8);
 
-                vec_t tmp3 = h2 * df1;
+                simd_type tmp3 = h2 * df1;
                 tmp3.fma(h1h2, df2);
-                vec_t tmp4 = h2 * df4;
+                simd_type tmp4 = h2 * df4;
                 tmp4.fma(h1h2, df5);
-                vec_t tmp5 = h2 * df7;
+                simd_type tmp5 = h2 * df7;
                 tmp5.fma(h1h2, df8);
 
                 if (!isConstVarDiff && !isVarDiff)
@@ -1421,40 +1458,41 @@ NEK_FORCE_INLINE static void DiffusionCoeffPyrKernel(
                     g2.fma(td8, df8);
                 }
 
-                vec_t d0;
-                d0.load(deriv0 + cnt * vec_t::width);
-                vec_t d1;
-                d1.load(deriv1 + cnt * vec_t::width);
-                vec_t d2;
-                d2.load(deriv2 + cnt * vec_t::width);
+                simd_type d0;
+                d0.load(deriv0 + cnt * simd_type::width);
+                simd_type d1;
+                d1.load(deriv1 + cnt * simd_type::width);
+                simd_type d2;
+                d2.load(deriv2 + cnt * simd_type::width);
 
                 tmp1 = g0 * d0;
                 tmp1.fma(g3, d1);
                 tmp1.fma(g4, d2);
                 // deriv0[cnt] = tmp1;
-                tmp1.store(deriv0 + cnt * vec_t::width);
+                tmp1.store(deriv0 + cnt * simd_type::width);
 
                 tmp2 = g3 * d0;
                 tmp2.fma(g1, d1);
                 tmp2.fma(g5, d2);
                 // deriv1[cnt] = tmp2;
-                tmp2.store(deriv1 + cnt * vec_t::width);
+                tmp2.store(deriv1 + cnt * simd_type::width);
 
                 tmp3 = g4 * d0;
                 tmp3.fma(g5, d1);
                 tmp3.fma(g2, d2);
                 // deriv2[cnt] = tmp3;
-                tmp3.store(deriv2 + cnt * vec_t::width);
+                tmp3.store(deriv2 + cnt * simd_type::width);
             }
         }
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void GetHelmholtz2DHalfSpace(
-    const size_t nq0, const size_t nq1, const vec_t *z0, const vec_t *z1,
-    std::vector<vec_t, allocator<vec_t>> &h0,
-    std::vector<vec_t, allocator<vec_t>> &h1)
+    const size_t nq0, const size_t nq1, const simd_type *z0,
+    const simd_type *z1,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &h0,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &h1)
 {
     h0.resize(nq0);
     h1.resize(nq1);
@@ -1470,14 +1508,15 @@ NEK_FORCE_INLINE static void GetHelmholtz2DHalfSpace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void GetHelmholtz3DHalfSpace(
     const size_t nq0, [[maybe_unused]] const size_t nq1, const size_t nq2,
-    const vec_t *z0, [[maybe_unused]] const vec_t *z1, const vec_t *z2,
-    std::vector<vec_t, allocator<vec_t>> &h0,
-    std::vector<vec_t, allocator<vec_t>> &h1,
-    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &h2,
-    [[maybe_unused]] std::vector<vec_t, allocator<vec_t>> &h3)
+    const simd_type *z0, [[maybe_unused]] const simd_type *z1,
+    const simd_type *z2,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &h0,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &h1,
+    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>> &h2,
+    [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>> &h3)
 {
     // #if defined(SHAPE_TYPE_TET)
     if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
@@ -1544,15 +1583,21 @@ NEK_FORCE_INLINE static void GetHelmholtz3DHalfSpace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeff2DKernel(
     const size_t nq0, const size_t nq1, const bool isConstVarDiff,
-    const Array<OneD, NekDouble> &constVarDiff, const bool isVarDiff,
-    const Array<OneD, NekDouble> &varD00, const Array<OneD, NekDouble> &varD01,
-    const Array<OneD, NekDouble> &varD11, const vec_t *df_ptr,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h0,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h1,
-    vec_t::scalarType *deriv0, vec_t::scalarType *deriv1)
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const simd_type *df_ptr,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h0,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h1,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1)
 {
     // #if defined(SHAPE_TYPE_TRI)
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -1569,20 +1614,30 @@ NEK_FORCE_INLINE static void DiffusionCoeff2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void DiffusionCoeff3DKernel(
     const size_t nq0, const size_t nq1, const size_t nq2,
-    const bool isConstVarDiff, const Array<OneD, NekDouble> &constVarDiff,
-    const bool isVarDiff, const Array<OneD, NekDouble> &varD00,
-    const Array<OneD, NekDouble> &varD01, const Array<OneD, NekDouble> &varD11,
-    const Array<OneD, NekDouble> &varD02, const Array<OneD, NekDouble> &varD12,
-    const Array<OneD, NekDouble> &varD22, const vec_t *df_ptr,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h0,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h1,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h2,
-    [[maybe_unused]] const std::vector<vec_t, allocator<vec_t>> &h3,
-    vec_t::scalarType *deriv0, vec_t::scalarType *deriv1,
-    vec_t::scalarType *deriv2)
+    const bool isConstVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &constVarDiff,
+    const bool isVarDiff,
+    const Array<OneD, typename simd_type::scalarType> &varD00,
+    const Array<OneD, typename simd_type::scalarType> &varD01,
+    const Array<OneD, typename simd_type::scalarType> &varD11,
+    const Array<OneD, typename simd_type::scalarType> &varD02,
+    const Array<OneD, typename simd_type::scalarType> &varD12,
+    const Array<OneD, typename simd_type::scalarType> &varD22,
+    const simd_type *df_ptr,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h0,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h1,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h2,
+    [[maybe_unused]] const std::vector<simd_type,
+                                       tinysimd::allocator<simd_type>> &h3,
+    typename simd_type::scalarType *deriv0,
+    typename simd_type::scalarType *deriv1,
+    typename simd_type::scalarType *deriv2)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {

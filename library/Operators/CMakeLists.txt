@@ -114,8 +114,8 @@ MACRO(ADD_OPERATOR dir)
         # seperate file which contain the boost_pp generated switch
         # statements 
         IF("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX")
-            IF(EXISTS "${dir}/${name}${ExecSpace}SumFacBlockOp.cpp.in")
-                 SET(ShapeConfigName "${dir}/${name}${ExecSpace}SumFacBlockOp.cpp.in")
+            IF(EXISTS "${dir}/${name}SerialAVXSumFacBlockOp.cpp.in")
+                 SET(ShapeConfigName "${dir}/${name}SerialAVXSumFacBlockOp.cpp.in")
                  FOREACH (Shape IN LISTS Shapes)
                      SET(ShapeName ${name}${ExecSpace}SumFac${Shape}.cpp)
                      message("Generating shape cpp file: " "${ShapeName}")

@@ -34,13 +34,13 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-template <bool SCALE, bool APPEND>
-NEK_FORCE_INLINE static void ScaleAppend(vec_t &store, vec_t &pos,
+template <bool SCALE, bool APPEND, typename simd_type>
+NEK_FORCE_INLINE static void ScaleAppend(simd_type &store, simd_type &pos,
                                          [[maybe_unused]] double scale)
 {
     if constexpr (SCALE && APPEND)
     {
-        store.fma(pos, vec_t(scale));
+        store.fma(pos, simd_type(scale));
     }
     else if constexpr (APPEND)
     {
@@ -56,19 +56,20 @@ NEK_FORCE_INLINE static void ScaleAppend(vec_t &store, vec_t &pos,
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductSegKernel(
-    const size_t nm0, const size_t nq0, const vec_t::vectorType *in,
-    const vec_t *basis0, const vec_t *w0, const vec_t *jac,
-    vec_t::scalarType *out, double scale = 1.0)
+    const size_t nm0, const size_t nq0,
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *w0, const simd_type *jac,
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     for (int p = 0; p < nm0; ++p)
     {
-        vec_t sum = 0.0;
+        simd_type sum = 0.0;
 
         for (int i = 0; i < nq0; ++i)
         {
-            vec_t jac_val;
+            simd_type jac_val;
 
             if constexpr (DEFORMED)
             {
@@ -79,39 +80,39 @@ NEK_FORCE_INLINE static void IProductSegKernel(
                 jac_val = jac[0];
             }
 
-            vec_t prod =
-                vec_t(in[i]) * basis0[p * nq0 + i] * jac_val; // Load 2x
-            sum.fma(prod, w0[i]);                             // Load 1x
+            simd_type prod =
+                simd_type(in[i]) * basis0[p * nq0 + i] * jac_val; // Load 2x
+            sum.fma(prod, w0[i]);                                 // Load 1x
         }
 
         // Modes are reversed from what they normally are for tris, tets etc.
-        vec_t tmp;
+        simd_type tmp;
         tmp.load(out);
         ScaleAppend<SCALE, APPEND>(tmp, sum, scale); // Store x1
         tmp.store(out);
-        out += vec_t::width;
+        out += simd_type::width;
     }
 }
 
 #if 0 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductQuadKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *w0, const vec_t *w1, const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_j, // nq1
-    vec_t::scalarType *out, double scale = 1.0)
+    const typename simd_type::vectorType *in, const simd_type *basis0, const simd_type *basis1,
+    const simd_type *w0, const simd_type *w1, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_j, // nq1
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     for (int p = 0; p < nm0; ++p)
     {
         int cnt_ji = 0;
         for (int j = 0; j < nq1; ++j)
         {
-            vec_t sum_j = 0.0;
+            simd_type sum_j = 0.0;
 
             for (int i = 0; i < nq0; ++i, ++cnt_ji)
             {
-                vec_t jac_val;
+                simd_type jac_val;
 
                 if constexpr (DEFORMED)
                 {
@@ -122,7 +123,7 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
                     jac_val = jac[0];
                 }
 
-                vec_t prod = vec_t(in[cnt_ji]) * basis0[p * nq0 + i] *
+                simd_type prod = simd_type(in[cnt_ji]) * basis0[p * nq0 + i] *
                              jac_val;   // Load 2x
                 sum_j.fma(prod, w0[i]); // Load 1x
             }
@@ -132,32 +133,33 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
 
         for (int q = 0; q < nm1; ++q)
         {
-            vec_t sum = 0.0;
+            simd_type sum = 0.0;
 
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t prod = sums_j[j] * basis1[q * nq1 + j]; // Load 2x
+                simd_type prod = sums_j[j] * basis1[q * nq1 + j]; // Load 2x
                 sum.fma(prod, w1[j]);                         // Load 1x
             }
 
             // Modes are reversed from what they normally are for tris, tets
             // etc.
-            vec_t tmp;
-            tmp.load(out + (q * nm0 + p) * vec_t::width);
+            simd_type tmp;
+            tmp.load(out + (q * nm0 + p) * simd_type::width);
             ScaleAppend<SCALE, APPEND>(tmp, sum, scale); // Store x1
-            tmp.store(out + (q * nm0 + p) * vec_t::width);
+            tmp.store(out + (q * nm0 + p) * simd_type::width);
         }
     }
 }
 #else
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductQuadKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *w0, const vec_t *w1, const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_j, // nq1
-    vec_t::scalarType *out, double scale = 1.0, const bool CollDir0 = false,
-    const bool CollDir1 = false)
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *w0, const simd_type *w1,
+    const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_j, // nq1
+    typename simd_type::scalarType *out, double scale = 1.0,
+    const bool CollDir0 = false, const bool CollDir1 = false)
 {
     for (int p = 0; p < nm0; ++p)
     {
@@ -165,7 +167,7 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
         {
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t jac_val;
+                simd_type jac_val;
 
                 if constexpr (DEFORMED)
                 {
@@ -176,7 +178,7 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
                     jac_val = jac[0];
                 }
 
-                sums_j[j] = vec_t(in[j * nq0 + p]) * jac_val * w0[p];
+                sums_j[j] = simd_type(in[j * nq0 + p]) * jac_val * w0[p];
             }
         }
         else
@@ -184,11 +186,11 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
             int cnt_ji = 0;
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t sum_j = 0.0;
+                simd_type sum_j = 0.0;
 
                 for (int i = 0; i < nq0; ++i, ++cnt_ji)
                 {
-                    vec_t jac_val;
+                    simd_type jac_val;
 
                     if constexpr (DEFORMED)
                     {
@@ -200,9 +202,9 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
                         jac_val = jac[0];
                     }
 
-                    vec_t prod = vec_t(in[cnt_ji]) * basis0[p * nq0 + i] *
-                                 jac_val;   // Load 2x
-                    sum_j.fma(prod, w0[i]); // Load 1x
+                    simd_type prod = simd_type(in[cnt_ji]) *
+                                     basis0[p * nq0 + i] * jac_val; // Load 2x
+                    sum_j.fma(prod, w0[i]);                         // Load 1x
                 }
 
                 sums_j[j] = sum_j; // Store 1
@@ -213,47 +215,48 @@ NEK_FORCE_INLINE static void IProductQuadKernel(
         {
             for (int q = 0; q < nm1; ++q)
             {
-                vec_t sum = sums_j[q] * w1[q];
+                simd_type sum = sums_j[q] * w1[q];
 
                 // Modes are reversed from what they normally are for tris, tets
                 // etc.
-                vec_t tmp;
-                tmp.load(out + (q * nm0 + p) * vec_t::width);
+                simd_type tmp;
+                tmp.load(out + (q * nm0 + p) * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(tmp, sum, scale); // Store x1
-                tmp.store(out + (q * nm0 + p) * vec_t::width);
+                tmp.store(out + (q * nm0 + p) * simd_type::width);
             }
         }
         else
         {
             for (int q = 0; q < nm1; ++q)
             {
-                vec_t sum = 0.0;
+                simd_type sum = 0.0;
 
                 for (int j = 0; j < nq1; ++j)
                 {
-                    vec_t prod = sums_j[j] * basis1[q * nq1 + j]; // Load 2x
-                    sum.fma(prod, w1[j]);                         // Load 1x
+                    simd_type prod = sums_j[j] * basis1[q * nq1 + j]; // Load 2x
+                    sum.fma(prod, w1[j]);                             // Load 1x
                 }
 
                 // Modes are reversed from what they normally are for tris, tets
                 // etc.
-                vec_t tmp;
-                tmp.load(out + (q * nm0 + p) * vec_t::width);
+                simd_type tmp;
+                tmp.load(out + (q * nm0 + p) * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(tmp, sum, scale); // Store x1
-                tmp.store(out + (q * nm0 + p) * vec_t::width);
+                tmp.store(out + (q * nm0 + p) * simd_type::width);
             }
         }
     }
 }
 #endif
 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductTriKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    const bool modBasis, const vec_t::vectorType *in, const vec_t *basis0,
-    const vec_t *basis1, const vec_t *w0, const vec_t *w1, const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &eta0_sums, // nq1
-    vec_t::scalarType *out, double scale = 1.0)
+    const bool modBasis, const typename simd_type::vectorType *in,
+    const simd_type *basis0, const simd_type *basis1, const simd_type *w0,
+    const simd_type *w1, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &eta0_sums, // nq1
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     int mode = 0;
 
@@ -266,12 +269,12 @@ NEK_FORCE_INLINE static void IProductTriKernel(
         // pq loop.
         for (int eta1 = 0; eta1 < nq1; ++eta1)
         {
-            vec_t eta0_sum = 0.0;
+            simd_type eta0_sum = 0.0;
 
             for (int eta0 = 0; eta0 < nq0; ++eta0, ++eta_idx)
             {
                 // eta0_sum += phi_p(eta0) * fn(eta0, eta1) * J * w0(eta0)
-                vec_t jac_val;
+                simd_type jac_val;
                 if constexpr (DEFORMED)
                 {
                     jac_val = jac[eta1 * nq0 + eta0];
@@ -281,9 +284,9 @@ NEK_FORCE_INLINE static void IProductTriKernel(
                     jac_val = jac[0];
                 }
 
-                vec_t prod = vec_t(in[eta_idx]) * basis0[p * nq0 + eta0] *
-                             jac_val;         // Load 2x
-                eta0_sum.fma(prod, w0[eta0]); // Load 1x
+                simd_type prod = simd_type(in[eta_idx]) *
+                                 basis0[p * nq0 + eta0] * jac_val; // Load 2x
+                eta0_sum.fma(prod, w0[eta0]);                      // Load 1x
             }
 
             eta0_sums[eta1] = eta0_sum;
@@ -291,17 +294,17 @@ NEK_FORCE_INLINE static void IProductTriKernel(
 
         for (int q = 0; q < nm1 - p; ++q, ++mode)
         {
-            vec_t sum_eta1 = 0.0;
+            simd_type sum_eta1 = 0.0;
             for (int eta1 = 0; eta1 < nq1; ++eta1)
             {
-                vec_t prod =
+                simd_type prod =
                     eta0_sums[eta1] * basis1[mode * nq1 + eta1]; // Load 2x
                 sum_eta1.fma(prod, w1[eta1]);                    // Load 1x
             }
-            vec_t tmp;
-            tmp.load(out + mode * vec_t::width);
+            simd_type tmp;
+            tmp.load(out + mode * simd_type::width);
             ScaleAppend<SCALE, APPEND>(tmp, sum_eta1, scale); // Store x1
-            tmp.store(out + mode * vec_t::width);
+            tmp.store(out + mode * simd_type::width);
         }
     }
 
@@ -310,12 +313,12 @@ NEK_FORCE_INLINE static void IProductTriKernel(
     // etc) to mode 00 With contributions from every quadrature point
     if (modBasis)
     {
-        int eta_idx    = 0;
-        vec_t iprod_01 = 0.0; // T(outptr + VW); //Load 1x
+        int eta_idx        = 0;
+        simd_type iprod_01 = 0.0; // T(outptr + VW); //Load 1x
 
         for (int eta1 = 0; eta1 < nq1; ++eta1)
         {
-            vec_t preweight_eta1;
+            simd_type preweight_eta1;
 
             if constexpr (DEFORMED)
             {
@@ -328,34 +331,35 @@ NEK_FORCE_INLINE static void IProductTriKernel(
 
             for (int eta0 = 0; eta0 < nq0; ++eta0, ++eta_idx)
             {
-                vec_t prod = vec_t(in[eta_idx]) * preweight_eta1 * w0[eta0];
+                simd_type prod =
+                    simd_type(in[eta_idx]) * preweight_eta1 * w0[eta0];
 
                 if constexpr (DEFORMED)
                 {
                     prod = prod * jac[eta1 * nq0 + eta0];
                 }
 
-                vec_t basis_val1 = basis0[nq0 + eta0];
+                simd_type basis_val1 = basis0[nq0 + eta0];
                 iprod_01.fma(prod, basis_val1);
             }
         }
-        vec_t tmp;
-        tmp.load(out + 1 * vec_t::width);
+        simd_type tmp;
+        tmp.load(out + 1 * simd_type::width);
         ScaleAppend<SCALE, true>(tmp, iprod_01, scale);
-        tmp.store(out + 1 * vec_t::width);
+        tmp.store(out + 1 * simd_type::width);
     }
 }
 
 #if 0 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductHexKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, const vec_t::vectorType *in,
-    const vec_t *basis0, const vec_t *basis1, const vec_t *basis2,
-    const vec_t *w0, const vec_t *w1, const vec_t *w2, const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_kj, // nq2 * nq1
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_k,  // nq2
-    vec_t::scalarType *out, double scale = 1.0)
+    const size_t nq1, const size_t nq2, const typename simd_type::vectorType *in,
+    const simd_type *basis0, const simd_type *basis1, const simd_type *basis2,
+    const simd_type *w0, const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_kj, // nq2 * nq1
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_k,  // nq2
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     for (int p = 0; p < nm0; ++p)
     {
@@ -365,12 +369,12 @@ NEK_FORCE_INLINE static void IProductHexKernel(
         {
             for (int j = 0; j < nq1; ++j, ++cnt_kj)
             {
-                vec_t sum_kj = 0.0;
+                simd_type sum_kj = 0.0;
 
                 for (int i = 0; i < nq0; ++i, ++cnt_kji)
                 {
 
-                    vec_t jac_val;
+                    simd_type jac_val;
 
                     if constexpr (DEFORMED)
                     {
@@ -381,7 +385,7 @@ NEK_FORCE_INLINE static void IProductHexKernel(
                         jac_val = jac[0];
                     }
 
-                    vec_t prod = vec_t(in[cnt_kji]) * basis0[i + nq0 * p] *
+                    simd_type prod = simd_type(in[cnt_kji]) * basis0[i + nq0 * p] *
                                  jac_val;    // load 2x
                     sum_kj.fma(prod, w0[i]); // Load 1x
                 }
@@ -395,11 +399,11 @@ NEK_FORCE_INLINE static void IProductHexKernel(
             cnt_kj = 0;
             for (int k = 0; k < nq2; ++k)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
-                    vec_t prod =
+                    simd_type prod =
                         sums_kj[cnt_kj] * basis1[q * nq1 + j]; // Load 2x
                     sum_k.fma(prod, w1[j]);                    // Load 1x
                 }
@@ -409,32 +413,35 @@ NEK_FORCE_INLINE static void IProductHexKernel(
 
             for (int r = 0; r < nm2; ++r)
             {
-                vec_t sum = 0.0;
+                simd_type sum = 0.0;
 
                 for (int k = 0; k < nq2; ++k)
                 {
-                    vec_t prod = sums_k[k] * basis2[r * nq2 + k]; // Load 2x
+                    simd_type prod = sums_k[k] * basis2[r * nq2 + k]; // Load 2x
                     sum.fma(prod, w2[k]);                         // Load 1x
                 }
-                vec_t temp;
-                temp.load(out + (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                simd_type temp;
+                temp.load(out + (r * nm0 * nm1 + q * nm0 + p) * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(temp, sum, scale); // Store x1
-                temp.store(out + (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                temp.store(out + (r * nm0 * nm1 + q * nm0 + p) * simd_type::width);
             }
         }
     }
 }
 #else
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductHexKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, const vec_t::vectorType *in,
-    const vec_t *basis0, const vec_t *basis1, const vec_t *basis2,
-    const vec_t *w0, const vec_t *w1, const vec_t *w2, const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_kj, // nq2 * nq1
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_k,  // nq2
-    vec_t::scalarType *out, double scale = 1.0, const bool CollDir0 = false,
-    const bool CollDir1 = false, const bool CollDir2 = false)
+    const size_t nq1, const size_t nq2,
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>>
+        &sums_kj,                                                   // nq2 * nq1
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_k, // nq2
+    typename simd_type::scalarType *out, double scale = 1.0,
+    const bool CollDir0 = false, const bool CollDir1 = false,
+    const bool CollDir2 = false)
 {
     for (int p = 0; p < nm0; ++p)
     {
@@ -446,7 +453,7 @@ NEK_FORCE_INLINE static void IProductHexKernel(
             {
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
-                    vec_t jac_val;
+                    simd_type jac_val;
                     int cnt_kjp = nq0 * nq1 * k + nq0 * j + p;
 
                     if constexpr (DEFORMED)
@@ -458,7 +465,7 @@ NEK_FORCE_INLINE static void IProductHexKernel(
                         jac_val = jac[0];
                     }
 
-                    sums_kj[cnt_kj] = vec_t(in[cnt_kjp]) * jac_val * w0[p];
+                    sums_kj[cnt_kj] = simd_type(in[cnt_kjp]) * jac_val * w0[p];
                 }
             }
         }
@@ -470,12 +477,12 @@ NEK_FORCE_INLINE static void IProductHexKernel(
             {
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
-                    vec_t sum_kj = 0.0;
+                    simd_type sum_kj = 0.0;
 
                     for (int i = 0; i < nq0; ++i, ++cnt_kji)
                     {
 
-                        vec_t jac_val;
+                        simd_type jac_val;
 
                         if constexpr (DEFORMED)
                         {
@@ -486,9 +493,10 @@ NEK_FORCE_INLINE static void IProductHexKernel(
                             jac_val = jac[0];
                         }
 
-                        vec_t prod = vec_t(in[cnt_kji]) * basis0[i + nq0 * p] *
-                                     jac_val;    // load 2x
-                        sum_kj.fma(prod, w0[i]); // Load 1x
+                        simd_type prod = simd_type(in[cnt_kji]) *
+                                         basis0[i + nq0 * p] *
+                                         jac_val; // load 2x
+                        sum_kj.fma(prod, w0[i]);  // Load 1x
                     }
 
                     sums_kj[cnt_kj] = sum_kj;
@@ -511,11 +519,11 @@ NEK_FORCE_INLINE static void IProductHexKernel(
                 int cnt_kj = 0;
                 for (int k = 0; k < nq2; ++k)
                 {
-                    vec_t sum_k = 0.0;
+                    simd_type sum_k = 0.0;
 
                     for (int j = 0; j < nq1; ++j, ++cnt_kj)
                     {
-                        vec_t prod = sums_kj[cnt_kj] * basis1[q * nq1 + j];
+                        simd_type prod = sums_kj[cnt_kj] * basis1[q * nq1 + j];
                         sum_k.fma(prod, w1[j]);
                     }
 
@@ -527,33 +535,33 @@ NEK_FORCE_INLINE static void IProductHexKernel(
             {
                 for (int r = 0; r < nm2; ++r)
                 {
-                    vec_t sum = sums_k[r] * w2[r];
+                    simd_type sum = sums_k[r] * w2[r];
 
-                    vec_t temp;
+                    simd_type temp;
                     temp.load(out +
-                              (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                              (r * nm0 * nm1 + q * nm0 + p) * simd_type::width);
                     ScaleAppend<SCALE, APPEND>(temp, sum, scale);
-                    temp.store(out +
-                               (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                    temp.store(out + (r * nm0 * nm1 + q * nm0 + p) *
+                                         simd_type::width);
                 }
             }
             else
             {
                 for (int r = 0; r < nm2; ++r)
                 {
-                    vec_t sum = 0.0;
+                    simd_type sum = 0.0;
 
                     for (int k = 0; k < nq2; ++k)
                     {
-                        vec_t prod = sums_k[k] * basis2[r * nq2 + k];
+                        simd_type prod = sums_k[k] * basis2[r * nq2 + k];
                         sum.fma(prod, w2[k]);
                     }
-                    vec_t temp;
+                    simd_type temp;
                     temp.load(out +
-                              (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                              (r * nm0 * nm1 + q * nm0 + p) * simd_type::width);
                     ScaleAppend<SCALE, APPEND>(temp, sum, scale);
-                    temp.store(out +
-                               (r * nm0 * nm1 + q * nm0 + p) * vec_t::width);
+                    temp.store(out + (r * nm0 * nm1 + q * nm0 + p) *
+                                         simd_type::width);
                 }
             }
         }
@@ -561,16 +569,17 @@ NEK_FORCE_INLINE static void IProductHexKernel(
 }
 #endif
 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductTetKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool isModified,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *basis2, const vec_t *w0, const vec_t *w1, const vec_t *w2,
-    const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_kj, // nq2 * nq1
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_k,  // nq2
-    vec_t::scalarType *out, double scale = 1.0)
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>>
+        &sums_kj,                                                   // nq2 * nq1
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_k, // nq2
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     for (int p = 0, mode = 0, mode2 = 0, cnt_pqr = 0; p < nm0; ++p)
     {
@@ -582,7 +591,7 @@ NEK_FORCE_INLINE static void IProductTetKernel(
             {
                 // Unroll first entry of for loop below and multiply by
                 // quadrature weights in dir0 & jacobian.
-                vec_t jac_val;
+                simd_type jac_val;
 
                 if constexpr (DEFORMED)
                 {
@@ -593,8 +602,8 @@ NEK_FORCE_INLINE static void IProductTetKernel(
                     jac_val = jac[0];
                 }
 
-                vec_t sum_kj = vec_t(in[cnt_kji]) * basis0[nq0 * p] * jac_val *
-                               w0[0]; // Load 3x
+                simd_type sum_kj = simd_type(in[cnt_kji]) * basis0[nq0 * p] *
+                                   jac_val * w0[0]; // Load 3x
                 ++cnt_kji;
 
                 for (int i = 1; i < nq0; ++i, ++cnt_kji)
@@ -608,9 +617,9 @@ NEK_FORCE_INLINE static void IProductTetKernel(
                         jac_val = jac[0];
                     }
 
-                    vec_t inxmm = vec_t(in[cnt_kji]) * basis0[i + nq0 * p] *
-                                  jac_val;    // Load 2x
-                    sum_kj.fma(inxmm, w0[i]); // Load 1x
+                    simd_type inxmm = simd_type(in[cnt_kji]) *
+                                      basis0[i + nq0 * p] * jac_val; // Load 2x
+                    sum_kj.fma(inxmm, w0[i]);                        // Load 1x
                 }
 
                 sums_kj[cnt_kj] = sum_kj; // Store 1x
@@ -623,13 +632,13 @@ NEK_FORCE_INLINE static void IProductTetKernel(
 
             for (int k = 0; k < nq2; ++k)
             {
-                vec_t sum_k =
+                simd_type sum_k =
                     basis1[mode * nq1] * sums_kj[cnt_kj] * w1[0]; // Load 3x
                 ++cnt_kj;
 
                 for (int j = 1; j < nq1; ++j, ++cnt_kj)
                 {
-                    vec_t tmp2 =
+                    simd_type tmp2 =
                         basis1[mode * nq1 + j] * sums_kj[cnt_kj]; // Load 2x
                     sum_k.fma(tmp2, w1[j]);                       // Load 1x
                 }
@@ -639,17 +648,19 @@ NEK_FORCE_INLINE static void IProductTetKernel(
 
             for (int r = 0; r < nm2 - p - q; ++r, ++mode2, ++cnt_pqr)
             {
-                vec_t tmp = sums_k[0] * basis2[mode2 * nq2] * w2[0]; // Load 3x
+                simd_type tmp =
+                    sums_k[0] * basis2[mode2 * nq2] * w2[0]; // Load 3x
 
                 for (int k = 1; k < nq2; ++k)
                 {
-                    vec_t tmp2 = sums_k[k] * basis2[mode2 * nq2 + k]; // Load 2x
-                    tmp.fma(tmp2, w2[k]);                             // Load 1x
+                    simd_type tmp2 =
+                        sums_k[k] * basis2[mode2 * nq2 + k]; // Load 2x
+                    tmp.fma(tmp2, w2[k]);                    // Load 1x
                 }
-                vec_t temp;
-                temp.load(out + cnt_pqr * vec_t::width);
+                simd_type temp;
+                temp.load(out + cnt_pqr * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(temp, tmp, scale); // Store 1x
-                temp.store(out + cnt_pqr * vec_t::width);
+                temp.store(out + cnt_pqr * simd_type::width);
             }
         }
 
@@ -664,7 +675,7 @@ NEK_FORCE_INLINE static void IProductTetKernel(
     {
         for (int k = 0, cnt = 0; k < nq2; ++k)
         {
-            vec_t tmpQ2 = w2[k]; // Load 1x
+            simd_type tmpQ2 = w2[k]; // Load 1x
             if constexpr (!DEFORMED)
             {
                 tmpQ2 = tmpQ2 * jac[0];
@@ -672,13 +683,13 @@ NEK_FORCE_INLINE static void IProductTetKernel(
 
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t tmpQ1 = tmpQ2 * w1[j]; // Load 1x
+                simd_type tmpQ1 = tmpQ2 * w1[j]; // Load 1x
 
                 for (int i = 0; i < nq0; ++i, ++cnt)
                 {
                     // Store jac * quadrature weight
-                    vec_t tmpQ  = tmpQ1 * w0[i];  // Load 1x
-                    vec_t tmpIn = vec_t(in[cnt]); // Load 1x
+                    simd_type tmpQ  = tmpQ1 * w0[i];      // Load 1x
+                    simd_type tmpIn = simd_type(in[cnt]); // Load 1x
 
                     if constexpr (DEFORMED)
                     {
@@ -687,27 +698,27 @@ NEK_FORCE_INLINE static void IProductTetKernel(
 
                     // top vertex
                     //
-                    vec_t tmp = basis0[i] * basis1[nq1 + j];   // Load 2x
-                    tmp.fma(basis0[nq0 + i], basis1[j]);       // Load 2x
-                    tmp.fma(basis0[nq0 + i], basis1[nq1 + j]); // Load 2x
-                    tmp = tmp * basis2[nq2 + k];               // Load 1x
+                    simd_type tmp = basis0[i] * basis1[nq1 + j]; // Load 2x
+                    tmp.fma(basis0[nq0 + i], basis1[j]);         // Load 2x
+                    tmp.fma(basis0[nq0 + i], basis1[nq1 + j]);   // Load 2x
+                    tmp = tmp * basis2[nq2 + k];                 // Load 1x
                     tmp = tmp * tmpIn;
 
                     // add to existing entry
-                    vec_t tmpOut = tmp * tmpQ;
-                    vec_t temp;
-                    temp.load(out + 1 * vec_t::width);
+                    simd_type tmpOut = tmp * tmpQ;
+                    simd_type temp;
+                    temp.load(out + 1 * simd_type::width);
                     ScaleAppend<SCALE, true>(temp, tmpOut, scale); // Store 1x
-                    temp.store(out + 1 * vec_t::width);
+                    temp.store(out + 1 * simd_type::width);
 
                     // bottom vertex
                     //
                     tmp = basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] *
                           tmpIn; // Load 3x
                     tmpOut = tmp * tmpQ;
-                    temp.load(out + nm2 * vec_t::width);
+                    temp.load(out + nm2 * simd_type::width);
                     ScaleAppend<SCALE, true>(temp, tmpOut, scale); // Store 1x
-                    temp.store(out + nm2 * vec_t::width);
+                    temp.store(out + nm2 * simd_type::width);
 
                     // singular edge
                     for (int r = 1; r < nm2 - 1; ++r)
@@ -715,10 +726,10 @@ NEK_FORCE_INLINE static void IProductTetKernel(
                         tmp = basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
                               basis0[nq0 + i] * tmpIn; // Load 3x
                         tmpOut = tmp * tmpQ;
-                        temp.load(out + (nm2 + r) * vec_t::width);
+                        temp.load(out + (nm2 + r) * simd_type::width);
                         ScaleAppend<SCALE, true>(temp, tmpOut,
                                                  scale); // Store 1x
-                        temp.store(out + (nm2 + r) * vec_t::width);
+                        temp.store(out + (nm2 + r) * simd_type::width);
                     }
                 }
             }
@@ -726,17 +737,18 @@ NEK_FORCE_INLINE static void IProductTetKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductPrismKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool isModified,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *basis2, const vec_t *w0, const vec_t *w1, const vec_t *w2,
-    const vec_t *jac,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_kj, // nq2 * nq1
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_k,  // nq2
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &corr_q,  // nm1
-    vec_t::scalarType *out, double scale = 1.0)
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>>
+        &sums_kj,                                                   // nq2 * nq1
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_k, // nq2
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &corr_q, // nm1
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     int mode_pr = 0, mode_pqr = 0;
 
@@ -748,11 +760,11 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
         {
             for (int j = 0; j < nq1; ++j, ++cnt_kj)
             {
-                vec_t sum_kj = 0.0;
+                simd_type sum_kj = 0.0;
 
                 for (int i = 0; i < nq0; ++i, ++cnt_kji)
                 {
-                    vec_t jac_val;
+                    simd_type jac_val;
 
                     if constexpr (DEFORMED)
                     {
@@ -763,9 +775,9 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
                         jac_val = jac[0];
                     }
 
-                    vec_t prod =
+                    simd_type prod =
                         basis0[nq0 * p + i] * jac_val * w0[i]; // load 2x
-                    vec_t fn = vec_t(in[cnt_kji]);             // load 1x
+                    simd_type fn = simd_type(in[cnt_kji]);     // load 1x
                     sum_kj.fma(prod, fn);
                 }
 
@@ -779,7 +791,7 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
 
             for (int k = 0; k < nq2; ++k)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
@@ -794,17 +806,17 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
             // loop and sotre identical copies...
             for (int r = 0; r < nm2 - p; ++r, ++mode_pqr)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int k = 0; k < nq2; ++k)
                 {
                     sum_k.fma(basis2[(mode_pr + r) * nq2 + k] * w2[k],
                               sums_k[k]); // Load 3x
                 }
-                vec_t temp;
-                temp.load(out + mode_pqr * vec_t::width);
+                simd_type temp;
+                temp.load(out + mode_pqr * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(temp, sum_k, scale); // Store 1x
-                temp.store(out + mode_pqr * vec_t::width);
+                temp.store(out + mode_pqr * simd_type::width);
             }
         }
 
@@ -822,7 +834,7 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
         int cnt_kji = 0;
         for (int k = 0; k < nq2; ++k)
         {
-            vec_t k_weight = w2[k];
+            simd_type k_weight = w2[k];
             if constexpr (!DEFORMED)
             {
                 k_weight = k_weight * jac[0];
@@ -830,24 +842,24 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
 
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t kj_weight = k_weight * w1[j];
+                simd_type kj_weight = k_weight * w1[j];
                 for (int i = 0; i < nq0; ++i, ++cnt_kji)
                 {
 
-                    vec_t kji_weight = kj_weight * w0[i];
-                    vec_t prod       = kji_weight * vec_t(in[cnt_kji]);
+                    simd_type kji_weight = kj_weight * w0[i];
+                    simd_type prod       = kji_weight * simd_type(in[cnt_kji]);
 
                     if constexpr (DEFORMED)
                     {
                         prod *= jac[k * nq1 * nq0 + j * nq0 + i];
                     }
 
-                    vec_t basis_2 = basis2[nq2 + k];
-                    vec_t basis_0 = basis0[nq0 + i];
+                    simd_type basis_2 = basis2[nq2 + k];
+                    simd_type basis_0 = basis0[nq0 + i];
                     // Add phi_1q1 to phi_0q1
                     for (int q = 0; q < nm1; ++q)
                     {
-                        vec_t basis_1 = basis1[q * nq1 + j];
+                        simd_type basis_1 = basis1[q * nq1 + j];
 
                         corr_q[q].fma(basis_2 * basis_1, basis_0 * prod);
                     }
@@ -855,25 +867,26 @@ NEK_FORCE_INLINE static void IProductPrismKernel(
             }
         }
 
-        vec_t temp;
+        simd_type temp;
         for (int q = 0; q < nm1; ++q)
         {
-            temp.load(out + (nm2 * q + 1) * vec_t::width);
+            temp.load(out + (nm2 * q + 1) * simd_type::width);
             ScaleAppend<SCALE, true>(temp, corr_q[q], scale);
-            temp.store(out + (nm2 * q + 1) * vec_t::width);
+            temp.store(out + (nm2 * q + 1) * simd_type::width);
         }
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProductPyrKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, const bool isModified,
-    const vec_t::vectorType *in, const vec_t *basis0, const vec_t *basis1,
-    const vec_t *basis2, const vec_t *w0, const vec_t *w1, const vec_t *w2,
-    const vec_t *jac, std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_kj,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &sums_k,
-    vec_t::scalarType *out, double scale = 1.0)
+    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const simd_type *w1, const simd_type *w2, const simd_type *jac,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_kj,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &sums_k,
+    typename simd_type::scalarType *out, double scale = 1.0)
 {
     int mode_pqr = 0, cnt_pqr = 0;
 
@@ -885,11 +898,11 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
         {
             for (int j = 0; j < nq1; ++j, ++cnt_kj)
             {
-                vec_t sum_kj = 0.0;
+                simd_type sum_kj = 0.0;
 
                 for (int i = 0; i < nq0; ++i, ++cnt_kji)
                 {
-                    vec_t jac_val;
+                    simd_type jac_val;
 
                     if constexpr (DEFORMED)
                     {
@@ -900,9 +913,9 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
                         jac_val = jac[0];
                     }
 
-                    vec_t prod =
+                    simd_type prod =
                         basis0[nq0 * p + i] * jac_val * w0[i]; // load 2x
-                    vec_t fn = vec_t(in[cnt_kji]);             // load 1x
+                    simd_type fn = simd_type(in[cnt_kji]);     // load 1x
                     sum_kj.fma(prod, fn);
                 }
 
@@ -916,7 +929,7 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
             for (int k = 0; k < nq2; ++k)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
@@ -929,17 +942,17 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
             for (int r = 0; r < nm2 - p; ++r, ++mode_pqr, ++cnt_pqr)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int k = 0; k < nq2; ++k)
                 {
                     sum_k.fma(basis2[mode_pqr * nq2 + k] * w2[k],
                               sums_k[k]); // Load 3x
                 }
-                vec_t temp;
-                temp.load(out + cnt_pqr * vec_t::width);
+                simd_type temp;
+                temp.load(out + cnt_pqr * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(temp, sum_k, scale); // Store 1x
-                temp.store(out + cnt_pqr * vec_t::width);
+                temp.store(out + cnt_pqr * simd_type::width);
             }
         }
 
@@ -949,7 +962,7 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
             for (int k = 0; k < nq2; ++k)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int j = 0; j < nq1; ++j, ++cnt_kj)
                 {
@@ -961,17 +974,17 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
             for (int r = 0; r < nm2 - q; ++r, ++mode_pqr, ++cnt_pqr)
             {
-                vec_t sum_k = 0.0;
+                simd_type sum_k = 0.0;
 
                 for (int k = 0; k < nq2; ++k)
                 {
                     sum_k.fma(basis2[mode_pqr * nq2 + k] * w2[k],
                               sums_k[k]); // Load 3x
                 }
-                vec_t temp;
-                temp.load(out + cnt_pqr * vec_t::width);
+                simd_type temp;
+                temp.load(out + cnt_pqr * simd_type::width);
                 ScaleAppend<SCALE, APPEND>(temp, sum_k, scale); // Store 1x
-                temp.store(out + cnt_pqr * vec_t::width);
+                temp.store(out + cnt_pqr * simd_type::width);
             }
         }
 
@@ -986,7 +999,7 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
     {
         for (int k = 0, cnt = 0; k < nq2; ++k)
         {
-            vec_t tmpQ2 = w2[k]; // Load 1x
+            simd_type tmpQ2 = w2[k]; // Load 1x
 
             if constexpr (!DEFORMED)
             {
@@ -995,13 +1008,13 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
             for (int j = 0; j < nq1; ++j)
             {
-                vec_t tmpQ1 = tmpQ2 * w1[j]; // Load 1x
+                simd_type tmpQ1 = tmpQ2 * w1[j]; // Load 1x
 
                 for (int i = 0; i < nq0; ++i, ++cnt)
                 {
                     // Store jac * quadrature weight
-                    vec_t tmpQ  = tmpQ1 * w0[i];  // Load 1x
-                    vec_t tmpIn = vec_t(in[cnt]); // Load 1x
+                    simd_type tmpQ  = tmpQ1 * w0[i];      // Load 1x
+                    simd_type tmpIn = simd_type(in[cnt]); // Load 1x
 
                     if constexpr (DEFORMED)
                     {
@@ -1010,18 +1023,18 @@ NEK_FORCE_INLINE static void IProductPyrKernel(
 
                     // top vertex
                     //
-                    vec_t tmp = basis0[i] * basis1[nq1 + j];   // Load 2x
-                    tmp.fma(basis0[nq0 + i], basis1[j]);       // Load 2x
-                    tmp.fma(basis0[nq0 + i], basis1[nq1 + j]); // Load 2x
-                    tmp = tmp * basis2[nq2 + k];               // Load 1x
+                    simd_type tmp = basis0[i] * basis1[nq1 + j]; // Load 2x
+                    tmp.fma(basis0[nq0 + i], basis1[j]);         // Load 2x
+                    tmp.fma(basis0[nq0 + i], basis1[nq1 + j]);   // Load 2x
+                    tmp = tmp * basis2[nq2 + k];                 // Load 1x
                     tmp = tmp * tmpIn;
 
                     // add to existing entry
-                    vec_t tmpOut = tmp * tmpQ;
-                    vec_t temp;
-                    temp.load(out + 1 * vec_t::width);
+                    simd_type tmpOut = tmp * tmpQ;
+                    simd_type temp;
+                    temp.load(out + 1 * simd_type::width);
                     ScaleAppend<SCALE, true>(temp, tmpOut, scale); // Store 1x
-                    temp.store(out + 1 * vec_t::width);
+                    temp.store(out + 1 * simd_type::width);
                 }
             }
         }

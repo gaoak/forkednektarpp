@@ -28,12 +28,10 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Wrapper file to reuse AVX implementation in serial
+// Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
-#define IS_SERIAL
-
-// use AVX code
-#include "ElmtOps/Helmholtz/HelmholtzAVXSumFac.hpp"
+#include "HelmholtzSerialAVXSumFac.hpp"

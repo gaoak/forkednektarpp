@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BwdTransAVXSumFacKernels.hpp
+// File: BwdTransSerialAVXSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -88,22 +88,23 @@ NEK_FORCE_INLINE static void BwdTrans3DWorkspace(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
-NEK_FORCE_INLINE static void BwdTrans1DKernel(const size_t nm0,
-                                              const size_t nq0,
-                                              const vec_t *basis0,
-                                              const vec_t::vectorType *in,
-                                              vec_t::scalarType *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
+NEK_FORCE_INLINE static void BwdTrans1DKernel(
+    const size_t nm0, const size_t nq0, const simd_type *basis0,
+    const typename simd_type::vectorType *in,
+    typename simd_type::scalarType *out)
 {
     BwdTransSegKernel(nm0, nq0, basis0, in, out);
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool correct, const vec_t *basis0,
-    const vec_t *basis1, std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
-    const vec_t::vectorType *in, vec_t::scalarType *out)
+    [[maybe_unused]] const bool correct, const simd_type *basis0,
+    const simd_type *basis1,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
+    const typename simd_type::vectorType *in,
+    typename simd_type::scalarType *out)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
@@ -116,14 +117,15 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, [[maybe_unused]] const bool correct,
-    const vec_t *basis0, const vec_t *basis1, const vec_t *basis2,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp0,
-    std::vector<vec_t, tinysimd::allocator<vec_t>> &wsp1,
-    const vec_t::vectorType *in, vec_t::scalarType *out)
+    const simd_type *basis0, const simd_type *basis1, const simd_type *basis2,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
+    std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
+    const typename simd_type::vectorType *in,
+    typename simd_type::scalarType *out)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {

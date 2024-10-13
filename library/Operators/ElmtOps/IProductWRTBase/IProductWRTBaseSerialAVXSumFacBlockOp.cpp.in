@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTDerivBaseSerialSumFac@Shape@.cpp
+// File: IProductWRTDerivBaseSerialAVXSumFac@Shape@.cpp
 //
-// For more information, please see: http://www.nektar.info
+// For more informatioxn, please see: http://www.nektar.info
 //
 // The MIT License
 //
@@ -28,29 +28,40 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: Cmake configuration for boilerplate code to generate block
+// operator code wrapped in a 2 level switch statement
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialSumFac.hpp"
+#include "Common/SwitchLevel2Defs.h"
+// Update this include file to the appropriate operator class definition if
+// using for another operator
+#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFac.hpp"
 
-// clang-format off
 namespace Nektar::Operators::detail
 {
+// clang-format off
 
+// Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
-void OperatorIProductWRTDerivBaseImpl<NektarSpaces::Serial, Operators::SumFac,
-                                      double>::
-    @Shape@Block(const size_t inSize, const size_t dim, const double *&inPtr,
-                double *&outPtr,
-                std::shared_ptr<Nektar::LocalRegions::Expansion> expPtr,
-                const size_t nElmts, const Array<OneD, const double> &m_jac,
-                size_t &jac_idx, const Array<OneD, const double> &m_derivFac,
-                size_t &df_idx)
+void OperatorIProductWRTBaseImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
+                                      NekDouble>::@Shape@Block
+                (const NekDouble *input, NekDouble *output)
 {
-    IProductWRTDerivBaseSumFac @Shape
-        @Kernel(inSize, dim, inPtr, outPtr, expPtr, nElmts, m_jac, jac_idx,
-                m_derivFac, df_idx);
+    // The following will use predefined code found in the Operators/Common
+    // directory to import boost_pp code to make wrapper code to call
+    // Operator1D methods for Segs, Operator2D method for Tris and Quads and
+    // Operator3D otherwise
+    //
+    // To see the full code from this macros,  Compile the .cpp file with make
+    // VERBOSE=1 copy the full compile command and add in --preprocess after the
+    // c++ command then you can view the file in the file output after the -o
+    // option in the compile line.
+    
+#define SHAPE_TYPE_@Shape@
+#include "@CMAKE_CURRENT_BINARY_DIR@/BlockOpSwitchCode@Shape@.h"
+
 }
 // clang-format on
+
 } // namespace Nektar::Operators::detail
