@@ -44,10 +44,11 @@
 // used in the header files.
 
 // clang-format off
-@KERNEL_HEADER@
-@COMMON_HEADER@
+@SERIAL_STDMAT_HEADER@
+@SERIAL_AVX_SUMFAC_HEADER@
+@IMPL_SHARED_HEADER@
 @GENERIC_HEADER@
-@SPECIFIC_HEADER@
+@COMMON_HEADER@
 
 namespace Nektar::Operators::detail
 {
@@ -57,7 +58,7 @@ template <>
 std::string Operator@OPERATOR@Impl@BASE@<@EXEC_MEM_SPACE_TAG@,
                              Operators::@Impl@, double>::className =
     GetOperatorFactory<double>().RegisterCreatorFunction(
-        std::string("@OPERATOR@") + std::string("@ExecSpace@") + std::string("@Impl@"),
+        std::string("@OPERATOR@@ExecSpace@@Impl@"),
         Operator@OPERATOR@Impl<@EXEC_MEM_SPACE_TAG@,
                          Operators::@Impl@, double>::instantiate,
         "...");
