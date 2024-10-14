@@ -750,8 +750,13 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad, DEFORMED>(
                 nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
+#else
+            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad, DEFORMED>(
+                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
+#endif
         }
         else
         {
@@ -763,8 +768,13 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri, DEFORMED>(
                 nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
+#else
+            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri, DEFORMED>(
+                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
+#endif
         }
         else
         {
@@ -794,8 +804,13 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#else
+            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#endif
         }
         else
         {
@@ -808,8 +823,13 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#else
+            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#endif
         }
         else
         {
@@ -823,8 +843,13 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#else
+            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#endif
         }
         else
         {
@@ -838,8 +863,13 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
     {
         if constexpr (MULTILEVEL)
         {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr, DEFORMED>(
                 nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#else
+            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED>(
+                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2, df, in, out);
+#endif
         }
         else
         {

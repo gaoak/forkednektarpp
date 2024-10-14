@@ -3840,13 +3840,15 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 + nm0 * nq1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
                 w1, jac, in, out, scale);
-            /* IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                            SHMEM>(
+#else
+            IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0,
-                w1, jac, in, out, scale);*/
+                w1, jac, in, out, scale);
+#endif
         }
         else
         {
@@ -3864,16 +3866,19 @@ IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 + nm0 * nq1 + 1u;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
                 basis1, w0, w1, jac, in, out, scale);
-            /* unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
+#else
+            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));
-            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                           SHMEM>(nshared,
-                nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex, basis0,
-                basis1, w0, w1, jac, in, out, scale);*/
+            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+                nshared, nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex,
+                basis0, basis1, w0, w1, jac, in, out, scale);
+            Kokkos::kokkos_free(pindex);
+#endif
         }
         else
         {
@@ -3912,13 +3917,15 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
                 basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            /* IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                           SHMEM>(nshared,
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                basis2, w0, w1, w2, jac, in, out, scale);*/
+#else
+            IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
+                basis1, basis2, w0, w1, w2, jac, in, out, scale);
+#endif
         }
         else
         {
@@ -3941,10 +3948,12 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            /* unsigned int *pindex1 = (unsigned int *)Kokkos::kokkos_malloc<
+#else
+            unsigned int *pindex1 = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex1", nm01 * sizeof(unsigned int));
             unsigned int *qindex1 = (unsigned int *)Kokkos::kokkos_malloc<
@@ -3956,11 +3965,15 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
             unsigned int *qindex2 = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "qindex2", nmTot * sizeof(unsigned int));
-            IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                           SHMEM>(
+            IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex1, qindex1, pindex2, qindex2, basis0, basis1, basis2, w0,
-                w1, w2, jac, in, out, scale);*/
+                w1, w2, jac, in, out, scale);
+            Kokkos::kokkos_free(pindex1);
+            Kokkos::kokkos_free(pindex2);
+            Kokkos::kokkos_free(qindex1);
+            Kokkos::kokkos_free(qindex2);
+#endif
         }
         else
         {
@@ -3981,10 +3994,12 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         {
             nshared +=
                 nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nm1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            /* unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
+#else
+            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));
             unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
@@ -3993,11 +4008,14 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
             unsigned int *rindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "rindex", nmTot * sizeof(unsigned int));
-            IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                             SHMEM>(
+            IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex, qindex, rindex, basis0, basis1, basis2, w0, w1, w2, jac,
-                in, out, scale);*/
+                in, out, scale);
+            Kokkos::kokkos_free(pindex);
+            Kokkos::kokkos_free(qindex);
+            Kokkos::kokkos_free(rindex);
+#endif
         }
         else
         {
@@ -4018,20 +4036,24 @@ IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            /*unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
+#else
+            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "pindex", nmTot * sizeof(unsigned int));
             unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
                 Kokkos::DefaultExecutionSpace::memory_space>(
                 "qindex", nmTot * sizeof(unsigned int));
-            IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                           SHMEM>(
+            IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                 pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac, in,
-                out, scale);*/
+                out, scale);
+            Kokkos::kokkos_free(pindex);
+            Kokkos::kokkos_free(qindex);
+#endif
         }
         else
         {
