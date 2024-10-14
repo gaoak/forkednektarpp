@@ -3672,16 +3672,17 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize2d, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
                                                      nelmts, basis0, basis1, w0,
                                                      w1, jac, in, out, scale);
-            // IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                 SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-            //                                        nelmts, basis0, basis1,
-            //                                        w0, w1, jac, in, out,
-            //                                        scale);
+#else
+            IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
+                                                   nelmts, basis0, basis1, w0,
+                                                   w1, jac, in, out, scale);
+#endif
         }
         else
         {
@@ -3701,17 +3702,20 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1 + 1u);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize2d, nshared>>>(
                     nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1,
                     w0, w1, jac, in, out, scale);
-            // unsigned int *pindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex,
-            //         basis0, basis1, w0, w1, jac, in, out, scale);
+#else
+            unsigned int *pindex;
+            cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
+            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(
+                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, pindex, basis0,
+                    basis1, w0, w1, jac, in, out, scale);
+            cudaFree(pindex);
+#endif
         }
         else
         {
@@ -3765,15 +3769,17 @@ inline
         {
             nshared += sizeof(TData) *
                        (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
                     basis2, w0, w1, w2, jac, in, out, scale);
-            // IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0,
-            //         basis1, basis2, w0, w1, w2, jac, in, out, scale);
+#else
+            IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
+                    basis2, w0, w1, w2, jac, in, out, scale);
+#endif
         }
         else
         {
@@ -3799,24 +3805,30 @@ inline
         {
             nshared += sizeof(TData) *
                        (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                     basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex1;
-            // unsigned int *qindex1;
-            // unsigned int *pindex2;
-            // unsigned int *qindex2;
-            // cudaMalloc((void **)&pindex1, sizeof(unsigned int) * nm01);
-            // cudaMalloc((void **)&qindex1, sizeof(unsigned int) * nm01);
-            // cudaMalloc((void **)&pindex2, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex2, sizeof(unsigned int) * nmTot);
-            // IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex1, qindex1, pindex2, qindex2, basis0, basis1,
-            //         basis2, w0, w1, w2, jac, in, out, scale);
+#else
+            unsigned int *pindex1;
+            unsigned int *qindex1;
+            unsigned int *pindex2;
+            unsigned int *qindex2;
+            cudaMalloc((void **)&pindex1, sizeof(unsigned int) * nm01);
+            cudaMalloc((void **)&qindex1, sizeof(unsigned int) * nm01);
+            cudaMalloc((void **)&pindex2, sizeof(unsigned int) * nmTot);
+            cudaMalloc((void **)&qindex2, sizeof(unsigned int) * nmTot);
+            IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                    pindex1, qindex1, pindex2, qindex2, basis0, basis1, basis2,
+                    w0, w1, w2, jac, in, out, scale);
+            cudaFree(pindex1);
+            cudaFree(pindex2);
+            cudaFree(qindex1);
+            cudaFree(qindex2);
+#endif
         }
         else
         {
@@ -3841,22 +3853,27 @@ inline
         {
             nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
                                         nm0 * nm1 * nq2 + nm1);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                     basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // unsigned int *rindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&rindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                  SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex, qindex, rindex, basis0, basis1, basis2, w0, w1,
-            //         w2, jac, in, out, scale);
+#else
+            unsigned int *pindex;
+            unsigned int *qindex;
+            unsigned int *rindex;
+            cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
+            cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
+            cudaMalloc((void **)&rindex, sizeof(unsigned int) * nmTot);
+            IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                    pindex, qindex, rindex, basis0, basis1, basis2, w0, w1, w2,
+                    jac, in, out, scale);
+            cudaFree(pindex);
+            cudaFree(qindex);
+            cudaFree(rindex);
+#endif
         }
         else
         {
@@ -3882,20 +3899,24 @@ inline
         {
             nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
                                         nm0 * nm1 * nq2 + 1u);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
                 <<<gridsize, blocksize3d, nshared>>>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
                     basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
-            // IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED,
-            //                                SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-            //         pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac,
-            //         in, out, scale);
+#else
+            unsigned int *pindex;
+            unsigned int *qindex;
+            cudaMalloc((void **)&pindex, sizeof(unsigned int) * nmTot);
+            cudaMalloc((void **)&qindex, sizeof(unsigned int) * nmTot);
+            IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
+                <<<gridsize, blocksize, nshared>>>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
+                    pindex, qindex, basis0, basis1, basis2, w0, w1, w2, jac, in,
+                    out, scale);
+            cudaFree(pindex);
+            cudaFree(qindex);
+#endif
         }
         else
         {

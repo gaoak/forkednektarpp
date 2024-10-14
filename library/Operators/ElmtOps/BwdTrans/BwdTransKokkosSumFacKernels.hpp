@@ -2579,11 +2579,13 @@ BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + nq0 * nm1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransQuadKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
                                          nelmt, basis0, basis1, in, out);
-            // BwdTransQuadKernel_QP_1D<SHMEM>(nshared,
-            //         nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in,
-            //         out);
+#else
+            BwdTransQuadKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
+                                            nelmt, basis0, basis1, in, out);
+#endif
         }
         else
         {
@@ -2599,14 +2601,15 @@ BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + nm0 * nq1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransTriKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
                                         nelmt, correct, basis0, basis1, in,
                                         out);
-            // BwdTransTriKernel_QP_1D<SHMEM>
-            //     (nshared, nm0, nm1, nmTot, nq0, nq1,
-            //                                        nelmt, correct,
-            //                                        basis0, basis1, in,
-            //                                        out);
+#else
+            BwdTransTriKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
+                                           nelmt, correct, basis0, basis1, in,
+                                           out);
+#endif
         }
         else
         {
@@ -2640,14 +2643,15 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         {
             nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
                        (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransHexKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
                                         nq2, nelmt, basis0, basis1, basis2, in,
                                         out);
-            // BwdTransHexKernel_QP_1D<SHMEM>
-            //     (nshared, nm0, nm1, nm2, nmTot, nq0,
-            //                                          nq1, nq2, nelmt,
-            //                                          basis0, basis1,
-            //                                          basis2, in, out);
+#else
+            BwdTransHexKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
+                                           nq1, nq2, nelmt, basis0, basis1,
+                                           basis2, in, out);
+#endif
         }
         else
         {
@@ -2669,18 +2673,23 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         {
             nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
                        (nm0 * nq1 * nq2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransTetKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
                                         nq2, nelmt, correct, basis0, basis1,
                                         basis2, in, out);
-            // unsigned int *pindex = (unsigned int *)
-            //     Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
-            //             "pindex", nm01 * sizeof(unsigned int));
-            // unsigned int *qindex = (unsigned int *)
-            //     Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
-            //             "qindex", nm01 * sizeof(unsigned int));
-            // BwdTransTetKernel_QP_1D<SHMEM>(nshared,
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         pindex, qindex, basis0, basis1, basis2, in, out);
+#else
+            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
+                Kokkos::DefaultExecutionSpace::memory_space>(
+                "pindex", nm01 * sizeof(unsigned int));
+            unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
+                Kokkos::DefaultExecutionSpace::memory_space>(
+                "qindex", nm01 * sizeof(unsigned int));
+            BwdTransTetKernel_QP_1D<SHMEM>(
+                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
+                pindex, qindex, basis0, basis1, basis2, in, out);
+            Kokkos::kokkos_free(pindex);
+            Kokkos::kokkos_free(qindex);
+#endif
         }
         else
         {
@@ -2698,12 +2707,15 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransPrismKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
                                           nq1, nq2, nelmt, correct, basis0,
                                           basis1, basis2, in, out);
-            // BwdTransPrismKernel_QP_1D<SHMEM>(nshared,
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
+#else
+            BwdTransPrismKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
+                                             nq1, nq2, nelmt, correct, basis0,
+                                             basis1, basis2, in, out);
+#endif
         }
         else
         {
@@ -2723,12 +2735,15 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
         if constexpr (MULTILEVEL)
         {
             nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransPyrKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
                                         nq2, nelmt, correct, basis0, basis1,
                                         basis2, in, out);
-            // BwdTransPyrKernel_QP_1D<SHMEM>(nshared,
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
+#else
+            BwdTransPyrKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
+                                           nq1, nq2, nelmt, correct, basis0,
+                                           basis1, basis2, in, out);
+#endif
         }
         else
         {

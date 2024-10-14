@@ -1099,9 +1099,15 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv2DKernel_QP<LibUtilities::Quad, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
                 in, out);
+#else
+            PhysDeriv2DKernel_QP_1D<LibUtilities::Quad, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
+                in, out);
+#endif
         }
         else
         {
@@ -1115,9 +1121,15 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv2DKernel_QP<LibUtilities::Tri, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
                 in, out);
+#else
+            PhysDeriv2DKernel_QP_1D<LibUtilities::Tri, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, ncoord, nelmts, nsize, D0, D1, Z0, Z1, df,
+                in, out);
+#endif
         }
         else
         {
@@ -1150,9 +1162,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv3DKernel_QP<LibUtilities::Hex, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
                 df, in, out);
+#else
+            PhysDeriv3DKernel_QP_1D<LibUtilities::Hex, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
+#endif
         }
         else
         {
@@ -1166,9 +1184,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv3DKernel_QP<LibUtilities::Tet, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
                 df, in, out);
+#else
+            PhysDeriv3DKernel_QP_1D<LibUtilities::Tet, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
+#endif
         }
         else
         {
@@ -1183,9 +1207,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv3DKernel_QP<LibUtilities::Prism, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
                 df, in, out);
+#else
+            PhysDeriv3DKernel_QP_1D<LibUtilities::Prism, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
+#endif
         }
         else
         {
@@ -1200,9 +1230,15 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
         if constexpr (MULTILEVEL)
         {
             nshared += nq0 * nq1 * nq2;
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             PhysDeriv3DKernel_QP<LibUtilities::Pyr, DEFORMED, SHMEM>(
                 nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
                 df, in, out);
+#else
+            PhysDeriv3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED, SHMEM>(
+                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
+                df, in, out);
+#endif
         }
         else
         {

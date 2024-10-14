@@ -2369,12 +2369,13 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += sizeof(TData) * (nmTot + nq0 * nm1);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransQuadKernel_QP<SHMEM><<<gridsize, blocksize2d, nshared>>>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in, out);
-            // BwdTransQuadKernel_QP_1D<SHMEM>
-            //    <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in,
-            //         out);
+#else
+            BwdTransQuadKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in, out);
+#endif
         }
         else
         {
@@ -2391,13 +2392,15 @@ inline
         if constexpr (MULTILEVEL)
         {
             nshared += sizeof(TData) * (nmTot + nm0 * nq1);
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransTriKernel_QP<SHMEM><<<nelmt, blocksize2d, nshared>>>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0, basis1, in,
                 out);
-            // BwdTransTriKernel_QP_1D<SHMEM>
-            //     <<<nelmt, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-            //                                        nelmt, correct, basis0,
-            //                                        basis1, in, out);
+#else
+            BwdTransTriKernel_QP_1D<SHMEM><<<nelmt, blocksize, nshared>>>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0, basis1, in,
+                out);
+#endif
         }
         else
         {
@@ -2444,14 +2447,15 @@ inline
             nshared +=
                 sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
                                  (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2));
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransHexKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
                 basis2, in, out);
-            // BwdTransHexKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nmTot, nq0,
-            //                                          nq1, nq2, nelmt,
-            //                                          basis0, basis1, basis2,
-            //                                          in, out);
+#else
+            BwdTransHexKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
+                basis2, in, out);
+#endif
         }
         else
         {
@@ -2475,17 +2479,21 @@ inline
             nshared += sizeof(TData) *
                        (nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
                         (nm0 * nq1 * nq2));
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransTetKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
                 basis1, basis2, in, out);
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int)*nm01);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int)*nm01);
-            // BwdTransTetKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         pindex, qindex, basis0, basis1, basis2, in, out);
+#else
+            unsigned int *pindex;
+            unsigned int *qindex;
+            cudaMalloc((void **)&pindex, sizeof(unsigned int) * nm01);
+            cudaMalloc((void **)&qindex, sizeof(unsigned int) * nm01);
+            BwdTransTetKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, pindex,
+                qindex, basis0, basis1, basis2, in, out);
+            cudaFree(pindex);
+            cudaFree(qindex);
+#endif
         }
         else
         {
@@ -2505,13 +2513,15 @@ inline
         {
             nshared +=
                 sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransPrismKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
                 basis1, basis2, in, out);
-            // BwdTransPrismKernel_QP_1D<SHMEM>
-            //    <<<gridsize, blocksize, nshared>>>(
-            //        nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //        basis0, basis1, basis2, in, out);
+#else
+            BwdTransPrismKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
+                basis1, basis2, in, out);
+#endif
         }
         else
         {
@@ -2532,13 +2542,15 @@ inline
         {
             nshared +=
                 sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             BwdTransPyrKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
                 basis1, basis2, in, out);
-            // BwdTransPyrKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
+#else
+            BwdTransPyrKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
+                basis1, basis2, in, out);
+#endif
         }
         else
         {
