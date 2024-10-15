@@ -68,13 +68,9 @@ BOOST_FIXTURE_TEST_CASE(serial_negkernel, MathKernels)
     negKernelLauncher(n, x, y);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -98,13 +94,9 @@ BOOST_FIXTURE_TEST_CASE(serial_addkernel, MathKernels)
     addKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -128,13 +120,9 @@ BOOST_FIXTURE_TEST_CASE(serial_subkernel, MathKernels)
     subKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -160,13 +148,9 @@ BOOST_FIXTURE_TEST_CASE(serial_daxpykernel, MathKernels)
     daxpyKernelLauncher(n, alpha, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-14));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-14);
+        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-14));
     }
 }
 
@@ -190,13 +174,9 @@ BOOST_FIXTURE_TEST_CASE(serial_divkernel, MathKernels)
     divKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
     }
 }
 

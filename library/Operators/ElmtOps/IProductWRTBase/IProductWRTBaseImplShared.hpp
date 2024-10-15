@@ -69,14 +69,14 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise the jacobian.
-        auto width     = std::is_same<Implementation, Operators::SumFac>::value
-                             ? ExecSpace::width
-                             : 1u;
-        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
-                                            ExecSpace::width);
-        const auto jacSize = Operator<TData>::GetGeometricFactorSize(
-            locblocks, ExecSpace::width);
-        auto jac = Operator<TData>::SetJacobian(jacSize, locblocks, width);
+        auto interleave_width =
+            std::is_same<Implementation, Operators::SumFac>::value
+                ? NektarSpaces::vector_width<TData>::value
+                : 1u;
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, interleave_width);
+        const auto jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto jac           = Operator<TData>::SetJacobian(jacSize, locblocks);
 
         const bool device_only = true;
 
@@ -94,8 +94,10 @@ public:
     {
         if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
-            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
-            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            in.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
+            out.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
         }
 
         // Copy memory to the device, if necessary and get raw pointers.

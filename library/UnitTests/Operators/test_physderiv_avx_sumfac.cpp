@@ -50,19 +50,15 @@
         Configure(1, dim);                                                     \
         SetTestCase(fixt_in->GetBlocks(),                                      \
                     fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
+        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
+            ->apply(*fixt_in, *fixt_out);                                      \
         NektarSolution(                                                        \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
-            ->apply(*fixt_in, *fixt_out);                                      \
         fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
-        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(                                                  \
-                fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),         \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                tol);                                                          \
+            BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \
         }                                                                      \
     }
 

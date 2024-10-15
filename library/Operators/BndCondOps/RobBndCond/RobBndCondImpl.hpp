@@ -66,8 +66,8 @@ public:
         int i = 0, j = 0;
 
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
-                                         ExecSpace::width);
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;

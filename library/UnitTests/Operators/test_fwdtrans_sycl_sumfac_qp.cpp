@@ -61,13 +61,9 @@
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        BOOST_TEST(fixt_sycl_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(                                                  \
-                fixt_sycl_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                tol);                                                          \
+            BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, tol));          \
         }                                                                      \
     }
 

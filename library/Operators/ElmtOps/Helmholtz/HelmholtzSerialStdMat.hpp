@@ -60,19 +60,15 @@ public:
         : OperatorHelmholtz<TData>(expansionList),
           m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz bwd",
-              GetBlockAttributes(FieldState::Phys, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
-
+              GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
+              ExecSpace::alignment)),
           m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz deriv",
-              GetBlockAttributes(FieldState::Phys, expansionList,
-                                 ExecSpace::width),
+              GetBlockAttributes<TData>(FieldState::Phys, expansionList),
               expansionList->GetCoordim(0), ExecSpace::alignment)),
           m_derivCoeff(
               Field<TData, FieldState::Phys>::template create<MemSpace>(
-                  GetBlockAttributes(FieldState::Phys, expansionList,
-                                     ExecSpace::width),
+                  GetBlockAttributes<TData>(FieldState::Phys, expansionList),
                   expansionList->GetCoordim(0), ExecSpace::alignment)),
           m_diffCoeff(MemoryRegion<TData>::template create<MemSpace>(
               "Helmholtz diffCoeff",
@@ -80,9 +76,6 @@ public:
               ExecSpace::alignment))
     {
         auto nCoord = this->m_expansionList->GetCoordim(0);
-
-        m_diffCoeff = MemoryRegion<TData>::template create<MemSpace>(
-            "Helmholtz diffCoeff", nCoord * nCoord, ExecSpace::alignment);
 
         m_diffCoeff.initialize(0);
 
@@ -129,26 +122,11 @@ public:
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv,
                         Field<TData, FieldState::Phys> &derivCoeff)
     {
-        ASSERTL1(deriv.GetVecWidth() == derivCoeff.GetVecWidth(),
-                 "Input and output widths are different but kernel is not "
-                 "setup for this (yet)");
-
         // Initialize pointers.
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
-
-        auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
-        auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
-        auto *derivPtr2 = derivPtr1 + deriv.GetFieldSize();
-
-        auto *derivCoeffPtr0 =
-            derivCoeff.template GetPtr<MemSpace, ReadWrite>();
-        auto *derivCoeffPtr1 = derivCoeffPtr0 + derivCoeff.GetFieldSize();
-        auto *derivCoeffPtr2 = derivCoeffPtr1 + derivCoeff.GetFieldSize();
-
-        std::vector<TData *> derivPtr{derivPtr0, derivPtr1, derivPtr2};
-        std::vector<TData *> derivCoeffPtr{derivCoeffPtr0, derivCoeffPtr1,
-                                           derivCoeffPtr2};
+        auto *derivPtr      = deriv.template GetPtr<MemSpace, ReadWrite>();
+        auto *derivCoeffPtr = derivCoeff.template GetPtr<MemSpace, ReadWrite>();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -166,24 +144,21 @@ public:
             // Multiply by diffusion coefficient.
             for (size_t d = 0; d < nCoord; d++)
             {
-                Vmath::Smul(nqTot * nElmts, diffCoeffPtr[d * nCoord],
-                            derivPtr[0], 1, derivCoeffPtr[d], 1);
+                Vmath::Smul(nqTot * nElmts, diffCoeffPtr[d * nCoord], derivPtr,
+                            1, derivCoeffPtr + d * nElmtsPad * nqTot, 1);
 
                 for (size_t l = 1; l < nCoord; l++)
                 {
                     Vmath::Svtvp(nqTot * nElmts, diffCoeffPtr[d * nCoord + l],
-                                 derivPtr[l], 1, derivCoeffPtr[d], 1,
-                                 derivCoeffPtr[d], 1);
+                                 derivPtr + l * nElmtsPad * nqTot, 1,
+                                 derivCoeffPtr + d * nElmtsPad * nqTot, 1,
+                                 derivCoeffPtr + d * nElmtsPad * nqTot, 1);
                 }
             }
 
             // Increment pointer and index for next element type.
-            for (size_t d = 0; d < nCoord; d++)
-            {
-                derivPtr[d] += nqTot * nElmtsPad;
-                derivCoeffPtr[d] += nqTot * nElmtsPad;
-            }
-
+            derivCoeffPtr += nCoord * nqTot * nElmtsPad;
+            derivPtr += nCoord * nqTot * nElmtsPad;
             exp_idx += nElmts;
         }
     }

@@ -57,14 +57,12 @@ public:
         : OperatorFwdTrans<TData>(expansionList),
           m_rhs(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "FwdTrans RHS",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_tmp(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "FwdTrans TMP",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment))
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment))
     {
         m_MassOp = Mass<TData>::template create<ExecSpace, Implementation>(
             this->m_expansionList);

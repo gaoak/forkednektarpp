@@ -75,16 +75,17 @@ public:
         // Initialise the jacobian and the derivative factor.
         auto transpose =
             std::is_same<Implementation, Operators::SumFacQP>::value;
-        auto width     = std::is_same<Implementation, Operators::SumFac>::value
-                             ? ExecSpace::width
-                             : 1u;
-        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
-                                            ExecSpace::width);
-        const auto gFacSize = Operator<TData>::GetGeometricFactorSize(
-            locblocks, ExecSpace::width);
-        auto jac = Operator<TData>::SetJacobian(gFacSize, locblocks, width);
+        auto interleave_width =
+            std::is_same<Implementation, Operators::SumFac>::value
+                ? NektarSpaces::vector_width<TData>::value
+                : 1u;
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, interleave_width);
+        const auto gFacSize =
+            Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto jac      = Operator<TData>::SetJacobian(gFacSize, locblocks);
         auto derivFac = Operator<TData>::SetDerivativeFactor(
-            gFacSize, locblocks, width, transpose);
+            gFacSize, locblocks, transpose);
 
         const bool device_only = true;
 
@@ -112,8 +113,10 @@ public:
     {
         if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
-            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
-            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            in.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
+            out.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
         }
 
         // Copy memory to the device, if necessary and get raw pointers.
@@ -235,7 +238,7 @@ public:
 
                     IProductWRTDerivBase1DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        nq0, nCoord, nElmtsPad, nSize, dfPtr, inPtr, tmpPtr);
+                        nq0, nCoord, nElmtsPad, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         nm0, nq0, nElmtsPad, dbasis0, w0, jacPtr, tmpPtr,
@@ -247,7 +250,7 @@ public:
 
                     IProductWRTDerivBase1DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        nq0, nCoord, nElmtsPad, nSize, dfPtr, inPtr, tmpPtr);
+                        nq0, nCoord, nElmtsPad, dfPtr, inPtr, tmpPtr);
                     IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         nm0, nq0, nElmtsPad, dbasis0, w0, jacPtr, tmpPtr,
@@ -263,8 +266,8 @@ public:
 
                     IProductWRTDerivBase2DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        shapeType, nq0, nq1, nCoord, nElmtsPad, nSize, Z0, Z1,
-                        dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nCoord, nElmtsPad, Z0, Z1, dfPtr,
+                        inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
@@ -273,8 +276,8 @@ public:
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        basis0, dbasis1, w0, w1, jacPtr, wspPtr, tmpPtr + nSize,
-                        outPtr);
+                        basis0, dbasis1, w0, w1, jacPtr, wspPtr,
+                        tmpPtr + nElmtsPad * nqTot, outPtr);
                 }
                 else
                 {
@@ -282,8 +285,8 @@ public:
 
                     IProductWRTDerivBase2DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        shapeType, nq0, nq1, nCoord, nElmtsPad, nSize, Z0, Z1,
-                        dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nCoord, nElmtsPad, Z0, Z1, dfPtr,
+                        inPtr, tmpPtr);
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
@@ -292,8 +295,8 @@ public:
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        basis0, dbasis1, w0, w1, jacPtr, wspPtr, tmpPtr + nSize,
-                        outPtr);
+                        basis0, dbasis1, w0, w1, jacPtr, wspPtr,
+                        tmpPtr + nElmtsPad * nqTot, outPtr);
                 }
             }
             else if (dimension == 3)
@@ -304,8 +307,8 @@ public:
 
                     IProductWRTDerivBase3DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, nSize, Z0,
-                        Z1, Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, Z0, Z1, Z2,
+                        dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -315,12 +318,12 @@ public:
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                         correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + nSize, outPtr);
+                        wspPtr, tmpPtr + nElmtsPad * nqTot, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                         correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + 2 * nSize, outPtr);
+                        wspPtr, tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
                 }
                 else
                 {
@@ -328,8 +331,8 @@ public:
 
                     IProductWRTDerivBase3DKernel<ExecSpace, Implementation,
                                                  Deformed>(
-                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, nSize, Z0,
-                        Z1, Z2, dfPtr, inPtr, tmpPtr);
+                        shapeType, nq0, nq1, nq2, nCoord, nElmtsPad, Z0, Z1, Z2,
+                        dfPtr, inPtr, tmpPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
@@ -339,12 +342,12 @@ public:
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                         correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + nSize, outPtr);
+                        wspPtr, tmpPtr + nElmtsPad * nqTot, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
                         correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + 2 * nSize, outPtr);
+                        wspPtr, tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
                 }
             }
 
@@ -352,8 +355,8 @@ public:
             jacPtr += deformed ? nqTot * nElmtsPad : nElmtsPad;
             dfPtr += deformed ? ndf * nqTot * nElmtsPad : ndf * nElmtsPad;
 
-            tmpPtr += nqTot * nElmtsPad;
-            inPtr += nqTot * nElmtsPad;
+            tmpPtr += nCoord * nqTot * nElmtsPad;
+            inPtr += nCoord * nqTot * nElmtsPad;
             outPtr += nmTot * nElmtsPad;
             exp_idx += nElmts;
         }

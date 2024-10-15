@@ -67,12 +67,10 @@ public:
         : OperatorPhysDeriv<TData>(expansionList)
     {
         // Initialise jacobian with paddings
-        auto blocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, simd_t::width);
-        auto dfSize =
-            Operator<TData>::GetGeometricFactorSize(blocks, simd_t::width);
-        auto derivFac =
-            Operator<TData>::SetDerivativeFactor(dfSize, blocks, simd_t::width);
+        auto blocks = GetBlockAttributes<TData>(FieldState::Phys, expansionList,
+                                                simd_t::width);
+        auto dfSize = Operator<TData>::GetGeometricFactorSize(blocks);
+        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize, blocks);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
@@ -89,6 +87,8 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
         // check alignment
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
@@ -114,10 +114,12 @@ public:
         ASSERTL0(m_coordDim <= out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
 #endif
-        m_outSize = out.GetFieldSize();
-
         m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
         m_df_idx  = 0; // accumulates over blocks, accessed in operatorND()
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
 
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
@@ -131,18 +133,15 @@ public:
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto nqTot     = expPtr->GetTotPoints();
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.GetNumElmtGroups(simd_t::width);
+            m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
-            m_basisKeys.clear();
             for (size_t d = 0; d < dimension; ++d)
             {
-                // m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-                m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
+                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
@@ -196,7 +195,7 @@ public:
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
+            outPtr += outblock.block_size * m_coordDim;
 
             if (deformed)
             {
@@ -224,7 +223,6 @@ public:
 
 private:
     int m_nElmtGroup, m_df_idx, m_exp_idx;
-    size_t m_outSize;
     size_t m_coordDim;
 
     MemoryRegion<TData> m_derivFac;
@@ -264,8 +262,6 @@ private:
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
-        // const auto Z0 = m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace,
-        // ReadOnly>();
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -273,7 +269,7 @@ private:
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_outSize);
+                output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -316,8 +312,6 @@ private:
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
-        // const auto Z0 = m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace,
-        // ReadOnly>();
 
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
@@ -326,7 +320,7 @@ private:
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_outSize);
+                output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -387,7 +381,7 @@ private:
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_outSize);
+                output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -443,7 +437,7 @@ private:
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_outSize);
+                output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
@@ -512,10 +506,10 @@ private:
 
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-        tmpOut[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(output + m_outSize);
+        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
+            output + m_nElmtGroup * simd_t::width * nqTot);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * m_outSize);
+            output + 2 * m_nElmtGroup * simd_t::width * nqTot);
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
@@ -578,10 +572,10 @@ private:
 
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-        tmpOut[1] =
-            reinterpret_cast<typename simd_t::scalarType *>(output + m_outSize);
+        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
+            output + m_nElmtGroup * simd_t::width * nqTot);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * m_outSize);
+            output + 2 * m_nElmtGroup * simd_t::width * nqTot);
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {

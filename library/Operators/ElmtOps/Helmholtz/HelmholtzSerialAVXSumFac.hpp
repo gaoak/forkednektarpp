@@ -74,17 +74,15 @@ public:
         : OperatorHelmholtz<TData>(expansionList)
     {
         // Initialise jacobian with paddings
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, simd_t::width);
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, simd_t::width);
 
-        size_t gFacSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, simd_t::width);
-        auto jac =
-            Operator<TData>::SetJacobian(gFacSize, locblocks, simd_t::width);
+        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto jac        = Operator<TData>::SetJacobian(gFacSize, locblocks);
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
-        auto derivFac = Operator<TData>::SetDerivativeFactor(
-            gFacSize, locblocks, simd_t::width);
+        auto derivFac =
+            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
         m_df = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
 
@@ -123,6 +121,8 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // check alignment
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
@@ -139,12 +139,12 @@ public:
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
-        //---debug-----
-        // std::cout << "Print Vectorized Jacobian:" << std::endl;
-        // size_t jac_idx = 0;
-
         m_exp_idx = 0; // accumulates over blocks, used in operatorND()
         m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
 
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
@@ -153,27 +153,27 @@ public:
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad =
+                inblock.num_elements + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto nqTot     = expPtr->GetTotPoints();
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.GetNumElmtGroups(simd_t::width);
+            m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
-            m_basisKeys.clear();
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
+                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
             {
-                    // Segment
+                // Segment
                 case LibUtilities::Seg:
                 {
                     SegBlock(inPtr, outPtr);
@@ -218,20 +218,13 @@ public:
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
             }
+
             // #include "Operators/Common/SwitchLevel2Deformed.h"
 
+            m_jac_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
             m_exp_idx += nElmts;
-
-            if (deformed) // update m_jac_idx globally
-            {
-                m_jac_idx += nqTot * m_nElmtGroup * simd_t::width;
-            }
-            else
-            {
-                m_jac_idx += m_nElmtGroup * simd_t::width;
-            }
         }
     }
 
@@ -330,7 +323,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
@@ -345,9 +337,6 @@ private:
             // Step 5: Apply Laplacian metrics & inner product
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -413,7 +402,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
@@ -428,9 +416,6 @@ private:
             // Step 5: Apply Laplacian metrics & inner product
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -537,7 +522,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
@@ -559,9 +543,6 @@ private:
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
                 jacPtr, wsp0, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -654,8 +635,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
@@ -677,9 +656,6 @@ private:
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
                 jacPtr, wsp0, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -805,8 +781,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,
@@ -835,8 +809,6 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -953,8 +925,6 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,
@@ -983,8 +953,6 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
             // increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;

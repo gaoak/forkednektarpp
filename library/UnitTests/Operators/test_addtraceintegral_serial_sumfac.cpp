@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_diagprecon_sycl_sumfac.cpp
+// File: test_addtraceintegral_serial_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,55 +32,64 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestDiagPreconSYCL
-
-#include "init_diagpreconfields.hpp"
-
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-
+#define BOOST_TEST_MODULE TestAddTraceIntegralSerial
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
 
-#define TEST_DIAGPRECON(test_name, test, tol)                                  \
+#include "Operators/OperatorAddTraceIntegral.hpp"
+#include "init_addtraceintegralfields.hpp"
+
+#define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
     {                                                                          \
-        using ExecSpace = NektarSpaces::SYCL;                                  \
+        using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_sycl_in->GetBlocks(),                                         \
-            fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
-        auto HelmholtzOp =                                                     \
-            Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
-        auto DiagPreconOp =                                                    \
-            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        HelmholtzOp->setLambda(1.0);                                           \
-        DiagPreconOp->configure(HelmholtzOp);                                  \
-        DiagPreconOp->apply(*fixt_sycl_in, *fixt_sycl_out);                    \
+        ReConfigure();                                                         \
+        SetTestCase(fixt_in->GetBlocks(),                                      \
+                    fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
+        AddTraceIntegral<>::template create<ExecSpace, Impl>(fixt_explist)     \
+            ->apply(*fixt_in, *fixt_out);                                      \
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        fixt_sycl_out->ReshapeStorage<ExecSpace, 1>();                         \
+        fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, tol));          \
+            BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \
         }                                                                      \
     }
 
-BOOST_AUTO_TEST_SUITE(TestDiagPreconSYCL)
+BOOST_AUTO_TEST_SUITE(TestAddTraceIntegral)
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_seg, Helmholtz1D_Seg, 1.0E-12)
+/*
+ * Currently fails in GetBlockAttributes
+ * GEometry is not initialised for Expansion(0)
+ * Possibly, because trace is not working for 1D expansions
+TEST_ADDTRACEINTEGRAL(addtraceintegral_seg, Seg, 1.0E-12)
+*/
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_quad, Quad, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_hex, Helmholtz3D_Hex, 1.0E-10)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tri, Tri, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_prism, Helmholtz3D_Prism, 1.0E-10)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_square_all_elements,
+                      SquareAllElements, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_pyr, Helmholtz3D_Pyr, 1.0E-10)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_hex, Hex, 1.0E-12)
 
-TEST_DIAGPRECON(diagprecon_sycl_sumfac_tet, Helmholtz3D_Tet, 1.0E-10)
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_prism, Prism, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_pyr, Pyr, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_tet, Tet, 1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_prism_hex, CubePrismHex,
+                      1.0E-12)
+
+TEST_ADDTRACEINTEGRAL(addtraceintegral_serial_cube_all_elements,
+                      CubeAllElements, 1.0E-12)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -48,7 +48,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
     {
         for (auto const &block : blocks)
@@ -58,15 +58,15 @@ public:
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    inptr[cnt] = coeff;
+                    outptr[cnt] = coeff;
                 }
             }
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         Array<OneD, NekDouble> incoeffs(fixt_explist->GetNcoeffs());
         Array<OneD, NekDouble> bwdtrans(fixt_explist->GetTotPoints());
@@ -88,10 +88,10 @@ public:
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    inptr[cnt] = (*coeffptr++);
+                    outptr[cnt] = (*coeffptr++);
                 }
             }
-            inptr += block.block_size;
+            outptr += block.block_size;
         }
     }
 };

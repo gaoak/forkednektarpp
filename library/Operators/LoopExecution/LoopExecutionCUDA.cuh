@@ -235,7 +235,7 @@ __global__ void reduceSumKernel(const unsigned int begin,
     // Implementation based on reduce7 of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
@@ -278,7 +278,7 @@ __global__ void reduceMaxKernel(const unsigned int begin,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr TData min             = ::cuda::std::numeric_limits<TData>::min();
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
@@ -320,7 +320,7 @@ __global__ void reduceMinKernel(const unsigned int begin,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr TData max             = ::cuda::std::numeric_limits<TData>::max();
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();

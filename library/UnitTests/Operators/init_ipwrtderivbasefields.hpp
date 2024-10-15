@@ -49,35 +49,55 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
+    {
+        for (auto const &block : blocks)
+        {
+            for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
+            {
+                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+                {
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                    {
+                        outptr[cnt] = phys + k;
+                    }
+                }
+                outptr += (padding) ? block.block_size
+                                    : block.num_elements * block.num_pts;
+            }
+        }
+    }
+
+    void SetTestCaseNektar(const std::vector<BlockAttributes> &blocks,
+                           double *outptr, bool padding = true)
     {
         for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
         {
             for (auto const &block : blocks)
             {
-                size_t cnt = 0;
-                for (size_t el = 0; el < block.num_elements; ++el)
+                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        inptr[cnt] = phys + k;
+                        outptr[cnt] = phys + k;
                     }
                 }
-                inptr += (padding) ? block.block_size : cnt;
+                outptr += (padding) ? block.block_size
+                                    : block.num_elements * block.num_pts;
             }
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         Array<OneD, NekDouble> inphys(fixt_explist->GetCoordim(0) *
                                       fixt_explist->GetTotPoints());
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
 
         // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
+        SetTestCaseNektar(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
         Array<OneD, Array<OneD, NekDouble>> inphysarray(
@@ -100,15 +120,14 @@ public:
         double *ptr = outcoeffs.get();
         for (auto const &block : blocks)
         {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    inptr[cnt] = (*ptr++);
+                    outptr[cnt] = (*ptr++);
                 }
             }
-            inptr += block.block_size;
+            outptr += block.block_size;
         }
     }
 };

@@ -51,7 +51,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
     {
         Array<OneD, NekDouble> x(fixt_explist->GetTotPoints());
@@ -77,16 +77,16 @@ public:
                 {
                     if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
                     {
-                        inptr[cnt] = *(fceptr++);
+                        outptr[cnt] = *(fceptr++);
                     }
                     else
                     {
-                        inptr[cnt] = 1.0;
+                        outptr[cnt] = 1.0;
                         if (fixt_explist->GetCoordim(0) == 1)
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                inptr[cnt] += n * std::pow(*xptr, n);
+                                outptr[cnt] += n * std::pow(*xptr, n);
                             }
                             xptr++;
                         }
@@ -94,7 +94,7 @@ public:
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                inptr[cnt] +=
+                                outptr[cnt] +=
                                     n * std::pow(*xptr, n) * std::pow(*yptr, n);
                             }
                             xptr++;
@@ -104,9 +104,9 @@ public:
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                inptr[cnt] += n * std::pow(*xptr, n) *
-                                              std::pow(*yptr, n) *
-                                              std::pow(*zptr, n);
+                                outptr[cnt] += n * std::pow(*xptr, n) *
+                                               std::pow(*yptr, n) *
+                                               std::pow(*zptr, n);
                             }
                             xptr++;
                             yptr++;
@@ -116,12 +116,12 @@ public:
                 }
             }
 
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
         Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
@@ -146,10 +146,10 @@ public:
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    inptr[cnt] = (*coeffptr++);
+                    outptr[cnt] = (*coeffptr++);
                 }
             }
-            inptr += block.block_size;
+            outptr += block.block_size;
         }
     }
 };

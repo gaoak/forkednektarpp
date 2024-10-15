@@ -56,13 +56,9 @@
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         fixt_cuda_out->ReshapeStorage<ExecSpace, 1>();                         \
-        BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, tol));               \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(                                                  \
-                fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                tol);                                                          \
+            BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, tol));          \
         }                                                                      \
     }
 

@@ -47,11 +47,10 @@ namespace Nektar::Operators::detail
 template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
                      item_ct1.get_local_id(2);
@@ -73,7 +72,7 @@ void IProductWRTDerivBase1DKernel(
             TData sum = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                sum += df[d * warpsize + dfindex] * in[d * nsize + index];
+                sum += df[d * warpsize + dfindex] * in[d * nelmt * nq0 + index];
             }
             out[index] = sum;
         }
@@ -85,9 +84,8 @@ void IProductWRTDerivBase1DKernel(
 template <bool DEFORMED, typename TData>
 void IProductWRTDerivBase1DKernel_QP(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
     unsigned int e = item_ct1.get_group(2);
 
@@ -106,7 +104,7 @@ void IProductWRTDerivBase1DKernel_QP(
             TData sum = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                sum += df[d * dfsize + dfindex] * in[d * nsize + index];
+                sum += df[d * dfsize + dfindex] * in[d * nelmt * nq0 + index];
             }
             out[index] = sum;
         }
@@ -118,14 +116,13 @@ void IProductWRTDerivBase1DKernel_QP(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const unsigned int nsize,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared)
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     const auto ndf           = 2 * ncoord;
@@ -174,20 +171,20 @@ void IProductWRTDerivBase2DKernel(
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0; d < ncoord; ++d)
                 {
-                    TData tmp = in[d * nsize + index];
+                    TData tmp = in[d * nelmt * nqTot + index];
                     sum1 += df[(2u * d) * warpsize + dfindex] * tmp;
                     sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
                 }
 
                 if constexpr (SHAPETYPE == LibUtilities::Quad)
                 {
-                    out[index]         = sum1;
-                    out[nsize + index] = sum2;
+                    out[index]                 = sum1;
+                    out[nelmt * nqTot + index] = sum2;
                 }
                 else if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    out[index]         = (sum1 + sum2 * s_f1[i]) * s_f0[j];
-                    out[nsize + index] = sum2;
+                    out[index] = (sum1 + sum2 * s_f1[i]) * s_f0[j];
+                    out[nelmt * nqTot + index] = sum2;
                 }
             }
         }
@@ -199,10 +196,10 @@ void IProductWRTDerivBase2DKernel(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const unsigned int nsize,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
     const auto ndf           = 2 * ncoord;
@@ -235,7 +232,7 @@ void IProductWRTDerivBase2DKernel_QP(
                 TData sum1 = 0.0, sum2 = 0.0;
                 for (unsigned int d = 0u; d < ncoord; ++d)
                 {
-                    TData tmp = in[d * nsize + index];
+                    TData tmp = in[d * nelmt * nqTot + index];
                     sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
                     sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
                 }
@@ -248,13 +245,13 @@ void IProductWRTDerivBase2DKernel_QP(
 
                 if constexpr (SHAPETYPE == LibUtilities::Quad)
                 {
-                    out[index]         = sum1;
-                    out[nsize + index] = sum2;
+                    out[index]                 = sum1;
+                    out[nelmt * nqTot + index] = sum2;
                 }
                 else if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    out[index]         = (sum1 + sum2 * f1) * f0;
-                    out[nsize + index] = sum2;
+                    out[index]                 = (sum1 + sum2 * f1) * f0;
+                    out[nelmt * nqTot + index] = sum2;
                 }
             }
         }
@@ -266,10 +263,10 @@ void IProductWRTDerivBase2DKernel_QP(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const unsigned int nsize,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
     const auto ndf           = ncoord * 2;
@@ -299,7 +296,7 @@ void IProductWRTDerivBase2DKernel_QP_1D(
             TData sum1 = 0.0, sum2 = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                TData tmp = in[d * nsize + index];
+                TData tmp = in[d * nelmt * nqTot + index];
                 sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
                 sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
             }
@@ -312,13 +309,13 @@ void IProductWRTDerivBase2DKernel_QP_1D(
 
             if constexpr (SHAPETYPE == LibUtilities::Quad)
             {
-                out[index]         = sum1;
-                out[nsize + index] = sum2;
+                out[index]                 = sum1;
+                out[nelmt * nqTot + index] = sum2;
             }
             else if constexpr (SHAPETYPE == LibUtilities::Tri)
             {
-                out[index]         = (sum1 + sum2 * f1) * f0;
-                out[nsize + index] = sum2;
+                out[index]                 = (sum1 + sum2 * f1) * f0;
+                out[nelmt * nqTot + index] = sum2;
             }
         }
 
@@ -330,15 +327,14 @@ template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared)
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared)
 {
 
     const auto ndf                  = 9u;
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_f0, *s_f1, *s_f2, *s_f3;
@@ -440,7 +436,7 @@ void IProductWRTDerivBase3DKernel(
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
-                        TData tmp = in[d * nsize + index];
+                        TData tmp = in[d * nelmt * nqTot + index];
                         sum1 += df[(3u * d) * warpsize + dfindex] * tmp;
                         sum2 += df[(3u * d + 1u) * warpsize + dfindex] * tmp;
                         sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
@@ -448,28 +444,30 @@ void IProductWRTDerivBase3DKernel(
 
                     if constexpr (SHAPETYPE == LibUtilities::Hex)
                     {
-                        out[index]              = sum1;
-                        out[nsize + index]      = sum2;
-                        out[2u * nsize + index] = sum3;
+                        out[index]                      = sum1;
+                        out[nelmt * nqTot + index]      = sum2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
                                      s_f0[j] * s_f2[k];
-                        out[nsize + index] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
-                        out[2u * nsize + index] = sum3;
+                        out[nelmt * nqTot + index] =
+                            (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
                     {
-                        out[index]         = (sum1 + sum3 * s_f1[i]) * s_f2[k];
-                        out[nsize + index] = sum2;
-                        out[2u * nsize + index] = sum3;
+                        out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                        out[nelmt * nqTot + index]      = sum2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        out[index]         = (sum1 + sum3 * s_f1[i]) * s_f2[k];
-                        out[nsize + index] = (sum2 + sum3 * s_f3[j]) * s_f2[k];
-                        out[2u * nsize + index] = sum3;
+                        out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
+                        out[nelmt * nqTot + index] =
+                            (sum2 + sum3 * s_f3[j]) * s_f2[k];
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                 }
             }
@@ -483,10 +481,10 @@ template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1)
 {
     const auto ndf           = 9u;
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -534,7 +532,7 @@ void IProductWRTDerivBase3DKernel_QP(
                     TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
                     for (unsigned int d = 0u; d < ncoord; ++d)
                     {
-                        TData tmp = in[d * nsize + index];
+                        TData tmp = in[d * nelmt * nqTot + index];
                         sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
                         sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
                         sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
@@ -549,27 +547,27 @@ void IProductWRTDerivBase3DKernel_QP(
 
                     if constexpr (SHAPETYPE == LibUtilities::Hex)
                     {
-                        out[index]              = sum1;
-                        out[nsize + index]      = sum2;
-                        out[2u * nsize + index] = sum3;
+                        out[index]                      = sum1;
+                        out[nelmt * nqTot + index]      = sum2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
-                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
-                        out[2u * nsize + index] = sum3;
+                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
                     {
-                        out[index]              = (sum1 + sum3 * f1) * f2;
-                        out[nsize + index]      = sum2;
-                        out[2u * nsize + index] = sum3;
+                        out[index]                 = (sum1 + sum3 * f1) * f2;
+                        out[nelmt * nqTot + index] = sum2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        out[index]              = (sum1 + sum3 * f1) * f2;
-                        out[nsize + index]      = (sum2 + sum3 * f3) * f2;
-                        out[2u * nsize + index] = sum3;
+                        out[index]                 = (sum1 + sum3 * f1) * f2;
+                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
+                        out[2u * nelmt * nqTot + index] = sum3;
                     }
                 }
             }
@@ -583,10 +581,10 @@ template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 void IProductWRTDerivBase3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
-    const unsigned int nsize, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
-    const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1)
 {
     const auto ndf           = 9u;
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -638,7 +636,7 @@ void IProductWRTDerivBase3DKernel_QP_1D(
             TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
             {
-                TData tmp = in[d * nsize + index];
+                TData tmp = in[d * nelmt * nqTot + index];
                 sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
                 sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
                 sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
@@ -646,27 +644,27 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 
             if constexpr (SHAPETYPE == LibUtilities::Hex)
             {
-                out[index]              = sum1;
-                out[nsize + index]      = sum2;
-                out[2u * nsize + index] = sum3;
+                out[index]                      = sum1;
+                out[nelmt * nqTot + index]      = sum2;
+                out[2u * nelmt * nqTot + index] = sum3;
             }
             else if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
-                out[index]              = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
-                out[nsize + index]      = (sum2 + sum3 * f3) * f2;
-                out[2u * nsize + index] = sum3;
+                out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
+                out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
+                out[2u * nelmt * nqTot + index] = sum3;
             }
             else if constexpr (SHAPETYPE == LibUtilities::Prism)
             {
-                out[index]              = (sum1 + sum3 * f1) * f2;
-                out[nsize + index]      = sum2;
-                out[2u * nsize + index] = sum3;
+                out[index]                      = (sum1 + sum3 * f1) * f2;
+                out[nelmt * nqTot + index]      = sum2;
+                out[2u * nelmt * nqTot + index] = sum3;
             }
             else if constexpr (SHAPETYPE == LibUtilities::Pyr)
             {
-                out[index]              = (sum1 + sum3 * f1) * f2;
-                out[nsize + index]      = (sum2 + sum3 * f3) * f2;
-                out[2u * nsize + index] = sum3;
+                out[index]                      = (sum1 + sum3 * f1) * f2;
+                out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
+                out[2u * nelmt * nqTot + index] = sum3;
             }
         }
 
@@ -682,8 +680,7 @@ inline
                             void>::type
     IProductWRTDerivBase1DKernel(const unsigned int nq0,
                                  const unsigned int ncoord,
-                                 const unsigned int nelmts,
-                                 const unsigned int nsize, const TData *df,
+                                 const unsigned int nelmts, const TData *df,
                                  const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
@@ -703,8 +700,7 @@ inline
                                             sycl::range<3>(1, 1, blocksize)),
                           [=](sycl::nd_item<3> item_ct1) {
                               IProductWRTDerivBase1DKernel_QP<DEFORMED>(
-                                  nq0, ncoord, nelmts, nsize, df, in, out,
-                                  item_ct1);
+                                  nq0, ncoord, nelmts, df, in, out, item_ct1);
                           })
             .wait();
     }
@@ -716,8 +712,7 @@ inline
                                             sycl::range<3>(1, 1, blocksize)),
                           [=](sycl::nd_item<3> item_ct1) {
                               IProductWRTDerivBase1DKernel<DEFORMED>(
-                                  nq0, ncoord, nelmts, nsize, df, in, out,
-                                  item_ct1);
+                                  nq0, ncoord, nelmts, df, in, out, item_ct1);
                           })
             .wait();
     }
@@ -731,8 +726,7 @@ inline
     IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
                                  const unsigned int nq0, const unsigned int nq1,
                                  const unsigned int ncoord,
-                                 const unsigned int nelmts,
-                                 const unsigned int nsize, const TData *Z0,
+                                 const unsigned int nelmts, const TData *Z0,
                                  const TData *Z1, const TData *df,
                                  const TData *in, TData *out)
 {
@@ -759,8 +753,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad,
                                                         DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
-                            out, item_ct1);
+                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                            item_ct1);
                     })
                 .wait();
         }
@@ -783,8 +777,8 @@ inline
                                     .get();
                             IProductWRTDerivBase2DKernel<LibUtilities::Quad,
                                                          DEFORMED>(
-                                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
-                                out, item_ct1, shmPtr);
+                                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                                item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -802,8 +796,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri,
                                                         DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
-                            out, item_ct1);
+                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                            item_ct1);
                     })
                 .wait();
         }
@@ -828,8 +822,8 @@ inline
                                     .get();
                             IProductWRTDerivBase2DKernel<LibUtilities::Tri,
                                                          DEFORMED>(
-                                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in,
-                                out, item_ct1, shmPtr);
+                                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                                item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -846,8 +840,7 @@ inline
                                  const unsigned int nq0, const unsigned int nq1,
                                  const unsigned int nq2,
                                  const unsigned int ncoord,
-                                 const unsigned int nelmts,
-                                 const unsigned int nsize, const TData *Z0,
+                                 const unsigned int nelmts, const TData *Z0,
                                  const TData *Z1, const TData *Z2,
                                  const TData *df, const TData *in, TData *out)
 {
@@ -874,8 +867,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex,
                                                         DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
-                            df, in, out, item_ct1);
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
                     })
                 .wait();
         }
@@ -898,8 +891,8 @@ inline
                                     .get();
                             IProductWRTDerivBase3DKernel<LibUtilities::Hex,
                                                          DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
-                                Z2, df, in, out, item_ct1, shmPtr);
+                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
+                                in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -917,8 +910,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet,
                                                         DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
-                            df, in, out, item_ct1);
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
                     })
                 .wait();
         }
@@ -943,8 +936,8 @@ inline
                                     .get();
                             IProductWRTDerivBase3DKernel<LibUtilities::Tet,
                                                          DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
-                                Z2, df, in, out, item_ct1, shmPtr);
+                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
+                                in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -962,8 +955,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism,
                                                         DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
-                            df, in, out, item_ct1);
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
                     })
                 .wait();
         }
@@ -988,8 +981,8 @@ inline
                                     .get();
                             IProductWRTDerivBase3DKernel<LibUtilities::Prism,
                                                          DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
-                                Z2, df, in, out, item_ct1, shmPtr);
+                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
+                                in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();
@@ -1007,8 +1000,8 @@ inline
                     [=](sycl::nd_item<3> item_ct1) {
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr,
                                                         DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1, Z2,
-                            df, in, out, item_ct1);
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
                     })
                 .wait();
         }
@@ -1033,8 +1026,8 @@ inline
                                     .get();
                             IProductWRTDerivBase3DKernel<LibUtilities::Pyr,
                                                          DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, nsize, Z0, Z1,
-                                Z2, df, in, out, item_ct1, shmPtr);
+                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
+                                in, out, item_ct1, shmPtr);
                         });
                 })
                 .wait();

@@ -58,17 +58,14 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise derivative factor.
-        auto width = 1u;
         auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
-        size_t dfSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, width);
-        m_derivFac =
-            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, width);
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        size_t dfSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        m_derivFac    = Operator<TData>::SetDerivativeFactor(dfSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
@@ -85,18 +82,17 @@ public:
             if (m_matPtr.find(basisKeys) == m_matPtr.end())
             {
                 size_t nqTot = expPtr->GetTotPoints();
+                Array<OneD, TData> tmp(nqTot), t;
+                // Get deriv matrix.
                 auto &matPtr = m_matPtr[basisKeys];
                 matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
-                Array<OneD, TData> tmp(nqTot), t;
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    // Get deriv matrix.
                     matPtr[d] = Array<OneD, TData>(nqTot * nqTot);
                     for (int i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
-                        // TODO: Use redesign kernel
                         expPtr->GetStdExp()->PhysDeriv(
                             d, tmp, t = matPtr[d] + i * nqTot);
                     }
@@ -108,22 +104,19 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        ASSERTL1(in.GetVecWidth() == out.GetVecWidth(),
-                 "Input and output widths are different but kernel is not "
-                 "setup for this (yet)");
+        size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        auto nSize        = out.GetFieldSize();
+        auto *dfPtr       = m_derivFac->data();
 
         // Initialize index.
         size_t exp_idx = 0;
-        size_t df_idx  = 0;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         for (const auto &block : in.GetBlocks())
         {
@@ -132,17 +125,14 @@ public:
             const auto nElmtsPad = block.num_padding_elements + nElmts;
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
+            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto nCoord  = expPtr->GetCoordim();
             const auto nqTot   = expPtr->GetTotPoints();
             const auto ptsKeys = expPtr->GetPointsKeys();
 
             const auto ndf = dimension * nCoord;
-
-            Array<OneD, Array<OneD, TData>> deriv(dimension);
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
@@ -153,34 +143,39 @@ public:
             // Get derivative matrix.
             const auto &matPtr = m_matPtr[basisKeys];
 
+            // Allocate storate.
+            if (m_derivSize < dimension * nqTot * nElmts)
+            {
+                m_derivSize = dimension * nqTot * nElmts;
+
+                m_deriv = std::vector<TData>(dimension * nqTot * nElmts);
+            }
+
             for (size_t d = 0; d < dimension; ++d)
             {
                 // Perform matrix-matrix multiply.
-                deriv[d] = Array<OneD, TData>(nqTot * nElmts);
                 Blas::Dgemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
                             matPtr[d].get(), nqTot, inPtr, nqTot, 0.0,
-                            deriv[d].get(), nqTot);
+                            m_deriv.data() + d * nqTot * nElmts, nqTot);
             }
 
             if (deformed)
             {
                 for (size_t i = 0; i < nCoord; i++)
                 {
-                    Vmath::Vmul(nqTot * nElmts,
-                                m_derivFac->data() + i * dimension + df_idx,
-                                ndf, deriv[0].get(), 1, outPtr + i * nSize, 1);
+                    Vmath::Vmul(nqTot * nElmts, dfPtr + i * dimension, ndf,
+                                m_deriv.data(), 1,
+                                outPtr + i * nElmtsPad * nqTot, 1);
                     for (size_t d = 1; d < dimension; d++)
                     {
-                        Vmath::Vvtvp(
-                            nqTot * nElmts,
-                            m_derivFac->data() + i * dimension + d + df_idx,
-                            ndf, deriv[d].data(), 1, outPtr + i * nSize, 1,
-                            outPtr + i * nSize, 1);
+                        Vmath::Vvtvp(nqTot * nElmts, dfPtr + i * dimension + d,
+                                     ndf, m_deriv.data() + d * nqTot * nElmts,
+                                     1, outPtr + i * nElmtsPad * nqTot, 1,
+                                     outPtr + i * nElmtsPad * nqTot, 1);
                     }
                 }
 
-                outPtr += nElmtsPad * nqTot;
-                df_idx += ndf * nqTot * nElmts;
+                dfPtr += ndf * nqTot * nElmtsPad;
             }
             else
             {
@@ -188,30 +183,30 @@ public:
                 {
                     for (size_t i = 0; i < nCoord; i++)
                     {
-                        Vmath::Smul(nqTot,
-                                    (*m_derivFac)[i * dimension + df_idx],
-                                    deriv[0].get() + e * nqTot, 1,
-                                    outPtr + i * nSize, 1);
+                        Vmath::Smul(nqTot, dfPtr[i * dimension],
+                                    m_deriv.data() + e * nqTot, 1,
+                                    outPtr + i * nElmtsPad * nqTot + e * nqTot,
+                                    1);
                         for (size_t d = 1; d < dimension; d++)
                         {
                             Vmath::Svtvp(
-                                nqTot,
-                                (*m_derivFac)[i * dimension + d + df_idx],
-                                deriv[d].get() + e * nqTot, 1,
-                                outPtr + i * nSize, 1, outPtr + i * nSize, 1);
+                                nqTot, dfPtr[i * dimension + d],
+                                m_deriv.data() + d * nqTot * nElmts + e * nqTot,
+                                1, outPtr + i * nElmtsPad * nqTot + e * nqTot,
+                                1, outPtr + i * nElmtsPad * nqTot + e * nqTot,
+                                1);
                         }
                     }
 
-                    outPtr += nqTot;
-                    df_idx += ndf;
+                    dfPtr += ndf;
                 }
 
                 // padding if required
-                outPtr += (nElmtsPad - nElmts) * nqTot;
-                df_idx += (nElmtsPad - nElmts) * ndf;
+                dfPtr += (nElmtsPad - nElmts) * ndf;
             }
 
             inPtr += nElmtsPad * nqTot;
+            outPtr += nCoord * nElmtsPad * nqTot;
             exp_idx += nElmts;
         }
     }
@@ -229,10 +224,12 @@ public:
     }
 
 private:
+    std::vector<TData> m_deriv;
     std::shared_ptr<std::vector<TData>> m_derivFac;
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;
+    size_t m_derivSize = 0;
 };
 
 } // namespace Nektar::Operators::detail

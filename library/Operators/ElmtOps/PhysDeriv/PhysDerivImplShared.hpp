@@ -70,15 +70,15 @@ public:
         // Initialise the derivative factor.
         auto transpose =
             std::is_same<Implementation, Operators::SumFacQP>::value;
-        auto width     = std::is_same<Implementation, Operators::SumFac>::value
-                             ? ExecSpace::width
-                             : 1u;
-        auto locblocks = GetBlockAttributes(FieldState::Phys, expansionList,
-                                            ExecSpace::width);
-        auto dfSize    = Operator<TData>::GetGeometricFactorSize(locblocks,
-                                                                 ExecSpace::width);
-        auto derivFac  = Operator<TData>::SetDerivativeFactor(dfSize, locblocks,
-                                                              width, transpose);
+        auto interleave_width =
+            std::is_same<Implementation, Operators::SumFac>::value
+                ? NektarSpaces::vector_width<TData>::value
+                : 1u;
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, interleave_width);
+        auto dfSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto derivFac =
+            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, transpose);
 
         const bool device_only = true;
 
@@ -98,16 +98,16 @@ public:
     {
         if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
-            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
-            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            in.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
+            out.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
         }
 
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
         const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
-
-        size_t nSize = out.GetFieldSize();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -164,16 +164,14 @@ public:
                     constexpr bool Deformed = true;
 
                     PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
-                        nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
-                        outPtr);
+                        nq0, nCoord, nElmtsPad, D0, dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     constexpr bool Deformed = false;
 
                     PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
-                        nq0, nCoord, nElmtsPad, nSize, D0, dfPtr, inPtr,
-                        outPtr);
+                        nq0, nCoord, nElmtsPad, D0, dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 2)
@@ -183,18 +181,18 @@ public:
                     constexpr bool Deformed = true;
 
                     PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(
-                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
-                        Z1, dfPtr, inPtr, outPtr);
+                                      SharedMemory>(shape, nq0, nq1, nCoord,
+                                                    nElmtsPad, D0, D1, Z0, Z1,
+                                                    dfPtr, inPtr, outPtr);
                 }
                 else
                 {
                     constexpr bool Deformed = false;
 
                     PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(
-                        shape, nq0, nq1, nCoord, nElmtsPad, nSize, D0, D1, Z0,
-                        Z1, dfPtr, inPtr, outPtr);
+                                      SharedMemory>(shape, nq0, nq1, nCoord,
+                                                    nElmtsPad, D0, D1, Z0, Z1,
+                                                    dfPtr, inPtr, outPtr);
                 }
             }
             else if (dimension == 3)
@@ -205,8 +203,8 @@ public:
 
                     PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
                                       SharedMemory>(
-                        shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
-                        Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
+                        dfPtr, inPtr, outPtr);
                 }
                 else
                 {
@@ -214,15 +212,15 @@ public:
 
                     PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
                                       SharedMemory>(
-                        shape, nq0, nq1, nq2, nElmtsPad, nSize, D0, D1, D2, Z0,
-                        Z1, Z2, dfPtr, inPtr, outPtr);
+                        shape, nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
+                        dfPtr, inPtr, outPtr);
                 }
             }
 
             // Increment pointer and index for next element type.
             dfPtr += deformed ? ndf * nqTot * nElmtsPad : ndf * nElmtsPad;
             inPtr += nElmtsPad * nqTot;
-            outPtr += nElmtsPad * nqTot;
+            outPtr += nCoord * nElmtsPad * nqTot;
             exp_idx += nElmts;
         }
     }

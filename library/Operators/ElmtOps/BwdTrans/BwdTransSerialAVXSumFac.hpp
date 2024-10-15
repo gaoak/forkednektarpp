@@ -73,6 +73,7 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
 
         // check alignment
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
@@ -92,6 +93,10 @@ public:
 
         m_exp_idx = 0; // accumulated across each block.
 
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
+
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
@@ -103,21 +108,18 @@ public:
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
 
-            m_nElmtGroup = inblock.GetNumElmtGroups(simd_t::width);
+            m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
-            m_basisKeys.clear();
             for (size_t d = 0; d < dimension; ++d)
             {
-                // m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-                m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
+                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
             {
-                    // Segment
+                // Segment
                 case LibUtilities::Seg:
                 {
                     SegBlock(inPtr, outPtr);
@@ -141,7 +143,7 @@ public:
                     HexBlock(inPtr, outPtr);
                     break;
                 }
-                    // Tet
+                // Tet
                 case LibUtilities::Tet:
                 {
                     TetBlock(inPtr, outPtr);
@@ -153,7 +155,7 @@ public:
                     PyrBlock(inPtr, outPtr);
                     break;
                 }
-                    // Prism
+                // Prism
                 case LibUtilities::Prism:
                 {
                     PrismBlock(inPtr, outPtr);
@@ -215,18 +217,10 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
-
-            // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
 
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
@@ -244,14 +238,9 @@ private:
 
         const auto nqTot = nq0;
         const auto nmTot = nm0;
-        // const auto nqBlocks = nqTot * simd_t::width;
-        // const auto nmBlocks = nmTot * simd_t::width;
-        // const auto nElmtGroup = this->m_nElmt / simd_t::width;
-        // Workspace for kernels - also checks preconditions
+
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
-        // std::vector<simd_t, tinysimd::allocator<simd_t>> tmpIn(nmTot),
-        // tmpOut(nqTot);
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -259,18 +248,10 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
-
-            // // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
 
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
@@ -287,9 +268,6 @@ private:
         constexpr auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        // constexpr auto nqBlocks = nqTot * simd_t::width;
-        // const auto nmBlocks     = nmTot * simd_t::width;
-        // const auto nElmtGroup = this->m_nElmt / simd_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -297,9 +275,6 @@ private:
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-        // tmpIn(nmTot),
-        //     tmpOut(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
@@ -308,10 +283,6 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -319,11 +290,6 @@ private:
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
-
-            // // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
-
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -344,9 +310,6 @@ private:
         const auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        // const auto nqBlocks = nqTot * simd_t::width;
-        // const auto nmBlocks = nmTot * simd_t::width;
-        // const auto nElmtGroup = this->m_nElmt / simd_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -354,9 +317,6 @@ private:
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
 
-        // std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-        // tmpIn(nmTot),
-        //     tmpOut(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
@@ -365,10 +325,6 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -376,11 +332,6 @@ private:
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
-
-            // // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
-
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -396,9 +347,6 @@ private:
         constexpr auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        // constexpr auto nqBlocks = nqTot * simd_t::width;
-        // const auto nmBlocks     = nmTot * simd_t::width;
-        // const auto nElmtGroup = this->m_nElmt / simd_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -407,9 +355,6 @@ private:
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
 
-        // std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-        // wsp1(wsp1Size),
-        //     tmpIn(nmTot), tmpOut(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
         const typename simd_t::vectorType *tmpIn =
@@ -419,10 +364,6 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -433,11 +374,6 @@ private:
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
                                          bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
                                          tmpOut);
-
-            // // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
-
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -460,9 +396,6 @@ private:
         const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        // const auto nqBlocks = nqTot * simd_t::width;
-        // const auto nmBlocks = nmTot * simd_t::width;
-        // const auto nElmtGroup = this->m_nElmt / simd_t::width;
         const bool correct =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
@@ -471,9 +404,6 @@ private:
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
 
-        // std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
-        // wsp1(wsp1Size),
-        //     tmpIn(nmTot), tmpOut(nqTot);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
         const typename simd_t::vectorType *tmpIn =
@@ -483,10 +413,6 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
-            // // Load and transpose data
-            // copy_to_simd_t(input, nmTot, tmpIn);
-            // load_interleave(input, nmTot, tmpIn);
-
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -497,11 +423,6 @@ private:
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
                                          bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
                                          tmpOut);
-
-            // // de-interleave and store data
-            // copy_from_simd_t(tmpOut, nqTot, output);
-            // deinterleave_store(tmpOut, nqTot, output);
-
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }

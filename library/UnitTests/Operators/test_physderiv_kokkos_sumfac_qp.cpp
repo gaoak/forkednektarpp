@@ -50,18 +50,14 @@
         SetTestCase(                                                           \
             fixt_kokkos_in->GetBlocks(),                                       \
             fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
+        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
+            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
         NektarSolution(                                                        \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
-            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
-        BOOST_TEST(fixt_kokkos_out->compare(*fixt_expected, tol));             \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(                                                  \
-                fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),  \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                tol);                                                          \
+            BOOST_TEST(Compare(*fixt_kokkos_out, *fixt_expected, tol));        \
         }                                                                      \
     }
 

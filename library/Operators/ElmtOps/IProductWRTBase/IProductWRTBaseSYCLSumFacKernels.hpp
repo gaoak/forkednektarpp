@@ -52,7 +52,7 @@ void IProductWRTBaseSegKernel(
     TData *__restrict__ shared, const TData scale = 1.0)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
     TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
@@ -205,7 +205,7 @@ void IProductWRTBaseQuadKernel(
     const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -551,7 +551,7 @@ void IProductWRTBaseTriKernel(
     TData *__restrict__ shared, const TData scale = 1.0)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1046,7 +1046,7 @@ void IProductWRTBaseHexKernel(
     const TData scale = 1.0)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1535,7 +1535,7 @@ void IProductWRTBaseTetKernel(
     const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
@@ -2362,7 +2362,7 @@ void IProductWRTBasePrismKernel(
     const TData scale = 1.0)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -3057,7 +3057,7 @@ void IProductWRTBasePyrKernel(
     const TData scale = 1.0)
 {
 
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =

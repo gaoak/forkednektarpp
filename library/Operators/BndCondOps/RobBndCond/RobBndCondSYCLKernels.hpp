@@ -50,7 +50,7 @@ inline
                        const TData *matPtr, const unsigned int *mapPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::width;
+    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -98,7 +98,7 @@ inline
                        const unsigned int *mapPtr, const int *signPtr,
                        const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::width;
+    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = nsize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();

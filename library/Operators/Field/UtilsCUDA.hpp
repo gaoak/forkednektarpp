@@ -69,12 +69,12 @@ inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
                             void>::type
     BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
-                             const unsigned int ncoeff,
+                             const unsigned int npts,
                              const unsigned int newVecWidth,
                              const unsigned int offset, int *deInterleaveMapPtr,
                              int *interleaveMapPtr)
 {
-    BuildInterleaveMapCUDAlauncher(numMetaBlocks, ncoeff, newVecWidth, offset,
+    BuildInterleaveMapCUDAlauncher(numMetaBlocks, npts, newVecWidth, offset,
                                    deInterleaveMapPtr, interleaveMapPtr);
 }
 

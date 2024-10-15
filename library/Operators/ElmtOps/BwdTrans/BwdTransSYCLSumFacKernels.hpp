@@ -51,7 +51,7 @@ void BwdTransSegKernel(const unsigned int nm0, const unsigned int nq0,
                        TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
 
@@ -154,7 +154,7 @@ void BwdTransQuadKernel(const unsigned int nm0, const unsigned int nm1,
                         TData *__restrict shared,
                         const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -418,7 +418,7 @@ void BwdTransTriKernel(const unsigned int nm0, const unsigned int nm1,
                        TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -702,7 +702,7 @@ void BwdTransHexKernel(const unsigned int nm0, const unsigned int nm1,
                        TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1077,7 +1077,7 @@ void BwdTransTetKernel(const unsigned int nm0, const unsigned int nm1,
                        TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
@@ -1577,7 +1577,7 @@ void BwdTransPrismKernel(const unsigned int nm0, const unsigned int nm1,
                          TData *__restrict shared,
                          const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
@@ -1993,7 +1993,7 @@ void BwdTransPyrKernel(const unsigned int nm0, const unsigned int nm1,
                        TData *__restrict shared,
                        const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int warpsize = NektarSpaces::SYCL::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
@@ -2484,7 +2484,8 @@ inline
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              // Set WorkGroup dimensions
-             const sycl::range<3> wgSize(1, 1, NektarSpaces::SYCL::width);
+             const sycl::range<3> wgSize(
+                 1, 1, NektarSpaces::vector_width<TData>::value);
              const sycl::range<3> globalSize =
                  sycl::range<3>(1, 1, gridsize) * wgSize;
 

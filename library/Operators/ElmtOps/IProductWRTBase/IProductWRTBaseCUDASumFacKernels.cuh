@@ -52,7 +52,7 @@ __global__ void IProductWRTBaseSegKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
@@ -203,7 +203,7 @@ __global__ void IProductWRTBaseQuadKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
@@ -533,7 +533,7 @@ __global__ void IProductWRTBaseTriKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
@@ -1004,7 +1004,7 @@ __global__ void IProductWRTBaseHexKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
@@ -1456,7 +1456,7 @@ __global__ void IProductWRTBaseTetKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
@@ -2230,7 +2230,7 @@ __global__ void IProductWRTBasePrismKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -2872,7 +2872,7 @@ __global__ void IProductWRTBasePyrKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =

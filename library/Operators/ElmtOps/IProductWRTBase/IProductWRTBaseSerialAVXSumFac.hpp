@@ -68,12 +68,10 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise jacobian with paddings if appropriate
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, simd_t::width);
-        auto jacSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, simd_t::width);
-        auto jac =
-            Operator<TData>::SetJacobian(jacSize, locblocks, simd_t::width);
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, simd_t::width);
+        auto jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto jac     = Operator<TData>::SetJacobian(jacSize, locblocks);
 
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
@@ -89,6 +87,8 @@ public:
                Field<TData, FieldState::Coeff> &out,
                [[maybe_unused]] const TData lambda) override
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
         // check alignment
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
@@ -97,19 +97,20 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        if (in.GetVecWidth() != simd_t::width)
-        {
-            // Reshape into simd_t::width. If the Field is already
-            // interleaved, this method returns.
-            in.template ReshapeStorage<ExecSpace, simd_t::width>();
-            out.template ReshapeStorage<ExecSpace, simd_t::width>();
-        }
+        // Reshape into simd_t::width. If the Field is already
+        // interleaved, this method returns.
+        in.template ReshapeStorage<ExecSpace, simd_t::width>();
+        out.template ReshapeStorage<ExecSpace, simd_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
         m_exp_idx = 0; // accumulates over blocks, accessed in operatorND()
         m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -124,22 +125,20 @@ public:
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto nqTot     = expPtr->GetTotPoints();
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
-            m_nElmtGroup = inblock.GetNumElmtGroups(simd_t::width);
+            m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
-            m_basisKeys.clear();
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
+                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
             {
-                    // Segment
+                // Segment
                 case LibUtilities::Seg:
                 {
                     SegBlock(inPtr, outPtr);
@@ -163,7 +162,7 @@ public:
                     HexBlock(inPtr, outPtr);
                     break;
                 }
-                    // Tet
+                // Tet
                 case LibUtilities::Tet:
                 {
                     TetBlock(inPtr, outPtr);
@@ -175,7 +174,7 @@ public:
                     PyrBlock(inPtr, outPtr);
                     break;
                 }
-                    // Prism
+                // Prism
                 case LibUtilities::Prism:
                 {
                     PrismBlock(inPtr, outPtr);
@@ -261,14 +260,8 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
-
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
 
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
@@ -304,14 +297,8 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
-
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
 
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
@@ -419,15 +406,9 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
-
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
                 wPtr1, jacPtr, wsp0, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
 
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
@@ -491,15 +472,9 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
-
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
 
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
@@ -556,15 +531,9 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
-            // Load and transpose data
-            // load_interleave(inPtr, nqTot, tmpIn);
-
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-
-            // de-interleave and store data
-            // deinterleave_store(tmpOut, m_nmTot, outPtr);
 
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;

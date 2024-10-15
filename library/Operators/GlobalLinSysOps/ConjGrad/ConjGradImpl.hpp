@@ -64,34 +64,28 @@ public:
         : OperatorConjGrad<TData>(expansionList),
           m_w_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad w_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_s_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad s_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_r_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad r_A",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_wk(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_q_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment)),
           m_p_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
               "ConjGrad wk",
-              GetBlockAttributes(FieldState::Coeff, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment))
+              GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
+              ExecSpace::alignment))
     {
         auto contfield =
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);

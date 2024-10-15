@@ -261,7 +261,7 @@ public:
 
 #if defined(_MSC_VER)
         // Check for a class root.
-        Nektar::stripString(execStr, "class ");
+        Nektar::stripString(execStr, "struct ");
 #endif
 
         // Overide with command-line specified execution space, if necessary
@@ -357,36 +357,36 @@ public:
     }
 
 protected:
-    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks,
-                                  const size_t width)
+    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks)
     {
         size_t gfSize = 0;
         size_t exp_id = 0;
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
-
             const auto expPtr = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                gfSize += num_elmt_groups * expPtr->GetTotPoints();
+                gfSize +=
+                    expPtr->GetTotPoints() * (blocks[blk].num_elements +
+                                              blocks[blk].num_padding_elements);
             }
             else
             {
-                gfSize += num_elmt_groups;
+                gfSize +=
+                    blocks[blk].num_elements + blocks[blk].num_padding_elements;
             }
 
             exp_id += blocks[blk].num_elements;
         }
 
-        return gfSize * width;
+        return gfSize;
     }
 
     std::shared_ptr<std::vector<TData>> SetJacobian(
-        size_t jacSize, std::vector<BlockAttributes> &blocks, size_t width)
+        size_t jacSize, std::vector<BlockAttributes> &blocks)
     {
         // Allocate memory for the jacobian
         std::vector<TData> jac;
@@ -397,19 +397,20 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements    = blocks[blk].num_elements;
-            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
+            size_t interleave_width = blocks[blk].interleave_width;
+            size_t num_elements     = blocks[blk].num_elements;
+            size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
 
             auto expPtr = this->m_expansionList->GetExp(exp_id);
 
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                Array<OneD, Array<OneD, NekDouble>> jacArray(width);
+                Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
 
                 for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
-                    for (size_t i = 0; i < width; ++i, ++el)
+                    for (size_t i = 0; i < interleave_width; ++i, ++el)
                     {
                         if (el < num_elements)
                         {
@@ -427,7 +428,7 @@ protected:
 
                     for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
                     {
-                        for (size_t i = 0; i < width; ++i, ++jac_id)
+                        for (size_t i = 0; i < interleave_width; ++i, ++jac_id)
                         {
                             jac[jac_id] = jacArray[i][pt];
                         }
@@ -438,7 +439,8 @@ protected:
             {
                 for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
                 {
-                    for (size_t i = 0; i < width; ++i, ++el, ++jac_id)
+                    for (size_t i = 0; i < interleave_width;
+                         ++i, ++el, ++jac_id)
                     {
                         if (el < num_elements)
                         {
@@ -461,7 +463,7 @@ protected:
     }
 
     std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
-        size_t dfSize, std::vector<BlockAttributes> &blocks, size_t width,
+        size_t dfSize, std::vector<BlockAttributes> &blocks,
         bool transpose = false)
     {
         // Allocate memory for the derivative factor
@@ -476,9 +478,10 @@ protected:
 
         for (size_t blk = 0; blk < blocks.size(); ++blk)
         {
-            size_t num_elements    = blocks[blk].num_elements;
-            size_t num_elmt_groups = blocks[blk].GetNumElmtGroups(width);
-            auto expPtr            = this->m_expansionList->GetExp(exp_id);
+            size_t interleave_width = blocks[blk].interleave_width;
+            size_t num_elements     = blocks[blk].num_elements;
+            size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
+            auto expPtr             = this->m_expansionList->GetExp(exp_id);
 
             size_t range1 = transpose ? nDim * nCoord : expPtr->GetTotPoints();
             size_t range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
@@ -492,7 +495,8 @@ protected:
                     {
                         for (size_t index2 = 0; index2 < range2; ++index2)
                         {
-                            for (size_t i = 0; i < width; ++i, ++df_id)
+                            for (size_t i = 0; i < interleave_width;
+                                 ++i, ++df_id)
                             {
                                 if (el + i < num_elements)
                                 {
@@ -516,9 +520,9 @@ protected:
 
                     if (el < num_elements)
                     {
-                        exp_id += std::min(width, num_elements - el);
+                        exp_id += std::min(interleave_width, num_elements - el);
                     }
-                    el += width;
+                    el += interleave_width;
                 }
             }
             else
@@ -527,7 +531,7 @@ protected:
                 {
                     for (size_t d = 0; d < nDim * nCoord; ++d)
                     {
-                        for (size_t i = 0; i < width; ++i, ++df_id)
+                        for (size_t i = 0; i < interleave_width; ++i, ++df_id)
                         {
                             if (el + i < num_elements)
                             {
@@ -547,9 +551,9 @@ protected:
 
                     if (el < num_elements)
                     {
-                        exp_id += std::min(width, num_elements - el);
+                        exp_id += std::min(interleave_width, num_elements - el);
                     }
-                    el += width;
+                    el += interleave_width;
                 }
             }
         }

@@ -59,16 +59,14 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        auto width = 1u;
         auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
-        size_t jacSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, width);
-        m_jac = Operator<TData>::SetJacobian(jacSize, locblocks, width);
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        size_t jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        m_jac          = Operator<TData>::SetJacobian(jacSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
@@ -105,6 +103,8 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // Get raw pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
@@ -115,7 +115,7 @@ public:
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -125,21 +125,30 @@ public:
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmts    = inblock.num_elements;
+            const auto nPadElmts = inblock.num_padding_elements;
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
-            auto dimension    = expPtr->GetShapeDimension();
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nmTot  = expPtr->GetNcoeffs();
 
             // Multiply by jacobian.
-            Array<OneD, TData> wsp(nqTot * nElmts, 0.0);
+            if (m_wspsize < inblock.block_size)
+            {
+                m_wspsize = inblock.block_size;
+
+                m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                    inblock.block_size, ExecSpace::alignment);
+            }
+
+            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                for (size_t i = 0; i < nElmts * nqTot; ++i)
+                for (size_t i = 0; i < inblock.block_size; ++i)
                 {
-                    wsp[i] = (*m_jac)[jac_idx++] * inPtr[i];
+                    wspptr[i] = (*m_jac)[jac_idx++] * inPtr[i];
                 }
             }
             else
@@ -148,12 +157,13 @@ public:
                 {
                     for (size_t i = 0; i < nqTot; ++i)
                     {
-                        wsp[e * nqTot + i] =
+                        wspptr[e * nqTot + i] =
                             (*m_jac)[jac_idx] * inPtr[e * nqTot + i];
                     }
 
                     jac_idx++;
                 }
+                jac_idx += nPadElmts;
             }
 
             // Fetch basis key for the current element type.
@@ -167,7 +177,7 @@ public:
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),
-                        nmTot, wsp.get(), nqTot, 0.0, outPtr, nmTot);
+                        nmTot, wspptr, nqTot, 0.0, outPtr, nmTot);
 
             // Increment pointer and index for next element type.
             inPtr += inblock.block_size;
@@ -191,6 +201,8 @@ public:
 private:
     std::shared_ptr<std::vector<TData>> m_jac;
     std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_matPtr;
+    MemoryRegion<TData> m_wsp;
+    size_t m_wspsize = 0;
 };
 
 } // namespace Nektar::Operators::detail

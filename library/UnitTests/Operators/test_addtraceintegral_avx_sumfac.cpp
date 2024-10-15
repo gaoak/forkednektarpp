@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: test_test_addtraceintegral_avx_sumfac.cpp
+// File: test_addtraceintegral_avx_sumfac.cpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -56,13 +56,9 @@
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
         fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
-        BOOST_TEST(fixt_out->compare(*fixt_expected, tol));                    \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            OutputIfNotMatch(                                                  \
-                fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),         \
-                fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),    \
-                tol);                                                          \
+            BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \
         }                                                                      \
     }
 

@@ -56,7 +56,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
     {
         size_t el = 0, pts = 0;
@@ -98,54 +98,67 @@ public:
                             }
                         }
                     }
-                    inptr[cnt] = tmp;
+                    outptr[cnt] = tmp;
                 }
             }
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *inptr)
+                        double *outptr)
     {
-        auto coordim   = fixt_explist->GetCoordim(0);
-        auto totpoints = fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> inphys(totpoints);
-        Array<OneD, NekDouble> outphys(coordim * totpoints);
-        Array<OneD, Array<OneD, NekDouble>> out(3, NullNekDouble1DArray);
-
-        for (int i = 0; i < coordim; ++i)
-        {
-            out[i] = outphys + i * fixt_explist->GetTotPoints();
-        }
+        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
+                                       fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys0 = outphys;
+        Array<OneD, NekDouble> outphys1 =
+            outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, NekDouble> outphys2 =
+            outphys1 + fixt_explist->GetTotPoints();
 
         // Set test case
         SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
-        fixt_explist->PhysDeriv(inphys, out[0], out[1], out[2]);
+        fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
 
         // Copy expected result from Array to pointer
-        double *ptr = outphys.get();
-        for (size_t k = 0; k < coordim; k++)
+        double *ptr0 = outphys.get();
+        double *ptr1 = outphys1.get();
+        double *ptr2 = outphys2.get();
+        for (auto const &block : blocks)
         {
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t el = 0; el < block.num_elements; ++el)
+                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        inptr[cnt] = (*ptr++);
+                        if (n == 0)
+                        {
+                            outptr[cnt] = ptr0[el * block.num_pts + phys];
+                        }
+                        else if (n == 1)
+                        {
+                            outptr[cnt] = ptr1[el * block.num_pts + phys];
+                        }
+                        else if (n == 2)
+                        {
+                            outptr[cnt] = ptr2[el * block.num_pts + phys];
+                        }
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            ptr0 += block.num_elements * block.num_pts;
+            ptr1 += block.num_elements * block.num_pts;
+            ptr2 += block.num_elements * block.num_pts;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
@@ -164,19 +177,19 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+        size_t el = 0, pts = 0;
+        for (auto const &block : blocks)
         {
-            size_t el = 0, pts = 0;
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t e = 0; e < block.num_elements; ++e, ++el)
+                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
                 {
                     size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                     for (size_t phys = 0; phys < block.num_pts;
                          ++phys, ++pts, ++cnt)
                     {
-                        double tmp = 0.0;
+                        size_t index = pts + e * block.num_pts + phys;
+                        double tmp   = 0.0;
                         for (size_t i = 1; i < M / 2; i++)
                         {
                             for (size_t j = 1; j < M / 2; j++)
@@ -185,31 +198,33 @@ public:
                                 {
                                     if (n == 0 && i >= 1)
                                     {
-                                        tmp += i * std::pow(x[pts], i - 1) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k);
+                                        tmp += i * std::pow(x[index], i - 1) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k);
                                     }
                                     if (n == 1 && j >= 1)
                                     {
-                                        tmp += j * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j - 1) *
-                                               std::pow(z[pts], k);
+                                        tmp += j * std::pow(x[index], i) *
+                                               std::pow(y[index], j - 1) *
+                                               std::pow(z[index], k);
                                     }
 
                                     if (n == 2 && k >= 1)
                                     {
-                                        tmp += k * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k - 1);
+                                        tmp += k * std::pow(x[index], i) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k - 1);
                                     }
                                 }
                             }
                         }
-                        inptr[cnt] = tmp;
+                        outptr[cnt] = tmp;
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            pts += block.num_elements * block.num_pts;
+            el += block.num_elements;
         }
     }
 };
@@ -221,7 +236,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
     {
         size_t el = 0, pts = 0;
@@ -260,54 +275,67 @@ public:
                             }
                         }
                     }
-                    inptr[cnt] = tmp;
+                    outptr[cnt] = tmp;
                 }
             }
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *inptr)
+                        double *outptr)
     {
-        auto coordim   = fixt_explist->GetCoordim(0);
-        auto totpoints = fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> inphys(totpoints);
-        Array<OneD, NekDouble> outphys(coordim * totpoints);
-        Array<OneD, Array<OneD, NekDouble>> out(3, NullNekDouble1DArray);
-
-        for (int i = 0; i < coordim; ++i)
-        {
-            out[i] = outphys + i * fixt_explist->GetTotPoints();
-        }
+        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
+                                       fixt_explist->GetTotPoints());
+        Array<OneD, NekDouble> outphys0 = outphys;
+        Array<OneD, NekDouble> outphys1 =
+            outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, NekDouble> outphys2 =
+            outphys1 + fixt_explist->GetTotPoints();
 
         // Set test case
         SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
 
         // Calculate expected result from Nektar++
-        fixt_explist->PhysDeriv(inphys, out[0], out[1], out[2]);
+        fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
 
         // Copy expected result from Array to fixt_expected
-        double *ptr = outphys.get();
-        for (size_t k = 0; k < coordim; k++)
+        double *ptr0 = outphys.get();
+        double *ptr1 = outphys1.get();
+        double *ptr2 = outphys2.get();
+        for (auto const &block : blocks)
         {
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t el = 0; el < block.num_elements; ++el)
+                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        inptr[cnt] = (*ptr++);
+                        if (n == 0)
+                        {
+                            outptr[cnt] = ptr0[el * block.num_pts + phys];
+                        }
+                        else if (n == 1)
+                        {
+                            outptr[cnt] = ptr1[el * block.num_pts + phys];
+                        }
+                        else if (n == 2)
+                        {
+                            outptr[cnt] = ptr2[el * block.num_pts + phys];
+                        }
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            ptr0 += block.num_elements * block.num_pts;
+            ptr1 += block.num_elements * block.num_pts;
+            ptr2 += block.num_elements * block.num_pts;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
@@ -321,13 +349,12 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+        size_t el = 0, pts = 0;
+        for (auto const &block : blocks)
         {
-            size_t el = 0, pts = 0;
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t e = 0; e < block.num_elements; ++e, ++el)
+                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
                 {
                     size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                     size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
@@ -335,7 +362,8 @@ public:
                     for (size_t phys = 0; phys < block.num_pts;
                          ++phys, ++pts, ++cnt)
                     {
-                        double tmp = 0.0;
+                        size_t index = pts + e * block.num_pts + phys;
+                        double tmp   = 0.0;
                         for (size_t i = 0; i < M / 2; i++)
                         {
                             for (size_t j = 0; j < N / 2; j++)
@@ -344,31 +372,33 @@ public:
                                 {
                                     if (n == 0 && i >= 1)
                                     {
-                                        tmp += i * std::pow(x[pts], i - 1) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k);
+                                        tmp += i * std::pow(x[index], i - 1) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k);
                                     }
                                     if (n == 1 && j >= 1)
                                     {
-                                        tmp += j * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j - 1) *
-                                               std::pow(z[pts], k);
+                                        tmp += j * std::pow(x[index], i) *
+                                               std::pow(y[index], j - 1) *
+                                               std::pow(z[index], k);
                                     }
 
                                     if (n == 2 && k >= 1)
                                     {
-                                        tmp += k * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k - 1);
+                                        tmp += k * std::pow(x[index], i) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k - 1);
                                     }
                                 }
                             }
                         }
-                        inptr[cnt] = tmp;
+                        outptr[cnt] = tmp;
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            pts += block.num_elements * block.num_pts;
+            el += block.num_elements;
         }
     }
 };
@@ -380,7 +410,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
     {
         size_t el = 0, pts = 0;
@@ -412,15 +442,15 @@ public:
                             }
                         }
                     }
-                    inptr[cnt] = tmp;
+                    outptr[cnt] = tmp;
                 }
             }
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *inptr)
+                        double *outptr)
     {
         Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
         Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
@@ -438,46 +468,60 @@ public:
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
 
         // Copy expected result from Array to fixt_expected
-        double *ptr = outphys.get();
-        for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
+        double *ptr0 = outphys.get();
+        double *ptr1 = outphys1.get();
+        double *ptr2 = outphys2.get();
+        for (auto const &block : blocks)
         {
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t el = 0; el < block.num_elements; ++el)
+                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        inptr[cnt] = (*ptr++);
+                        if (n == 0)
+                        {
+                            outptr[cnt] = ptr0[el * block.num_pts + phys];
+                        }
+                        else if (n == 1)
+                        {
+                            outptr[cnt] = ptr1[el * block.num_pts + phys];
+                        }
+                        else if (n == 2)
+                        {
+                            outptr[cnt] = ptr2[el * block.num_pts + phys];
+                        }
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            ptr0 += block.num_elements * block.num_pts;
+            ptr1 += block.num_elements * block.num_pts;
+            ptr2 += block.num_elements * block.num_pts;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
-        for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+        size_t el = 0, pts = 0;
+        for (auto const &block : blocks)
         {
-            size_t el = 0, pts = 0;
-            for (auto const &block : blocks)
+            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                size_t cnt = 0;
-                for (size_t e = 0; e < block.num_elements; ++e, ++el)
+                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
                 {
-                    size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                    size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                    size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                    for (size_t phys = 0; phys < block.num_pts;
-                         ++phys, ++pts, ++cnt)
+                    size_t M = fixt_explist->GetExp(el + e)->GetNumPoints(0);
+                    size_t N = fixt_explist->GetExp(el + e)->GetNumPoints(1);
+                    size_t K = fixt_explist->GetExp(el + e)->GetNumPoints(2);
+                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        double tmp = 0.0;
+                        size_t index = pts + e * block.num_pts + phys;
+                        double tmp   = 0.0;
                         for (size_t i = 0; i < M / 2; i++)
                         {
                             for (size_t j = 0; j < N / 2; j++)
@@ -486,30 +530,32 @@ public:
                                 {
                                     if (n == 0 && i >= 1)
                                     {
-                                        tmp += i * std::pow(x[pts], i - 1) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k);
+                                        tmp += i * std::pow(x[index], i - 1) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k);
                                     }
                                     if (n == 1 && j >= 1)
                                     {
-                                        tmp += j * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j - 1) *
-                                               std::pow(z[pts], k);
+                                        tmp += j * std::pow(x[index], i) *
+                                               std::pow(y[index], j - 1) *
+                                               std::pow(z[index], k);
                                     }
                                     if (n == 2 && k >= 1)
                                     {
-                                        tmp += k * std::pow(x[pts], i) *
-                                               std::pow(y[pts], j) *
-                                               std::pow(z[pts], k - 1);
+                                        tmp += k * std::pow(x[index], i) *
+                                               std::pow(y[index], j) *
+                                               std::pow(z[index], k - 1);
                                     }
                                 }
                             }
                         }
-                        inptr[cnt] = tmp;
+                        outptr[cnt] = tmp;
                     }
                 }
-                inptr += block.block_size;
+                outptr += block.block_size;
             }
+            pts += block.num_elements * block.num_pts;
+            el += block.num_elements;
         }
     }
 };

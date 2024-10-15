@@ -43,6 +43,7 @@
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
+#include <MultiRegions/ExpList.h>
 
 #include <array>
 #include <iostream>
@@ -86,7 +87,8 @@ struct BlockAttributes
     // default constructor: no padding
     BlockAttributes(size_t num_elements, size_t num_pts)
         : num_elements(num_elements), num_pts(num_pts),
-          block_size(num_elements * num_pts), num_padding_elements(0)
+          block_size(num_elements * num_pts), num_padding_elements(0),
+          interleave_width(1)
     {
     }
 
@@ -94,12 +96,13 @@ struct BlockAttributes
     size_t num_pts;
     size_t block_size; // (num_elements + num_padding_elements) * num_pts
     size_t num_padding_elements;
+    size_t interleave_width;
 
-    size_t GetNumElmtGroups(const size_t VectorWidth) const
+    size_t GetNumElmtGroups(void) const
     {
-        ASSERTL0((num_elements + num_padding_elements) % VectorWidth == 0,
-                 "Number of elements is not divisible by vector width.");
-        return (num_elements + num_padding_elements) / VectorWidth;
+        ASSERTL0((num_elements + num_padding_elements) % interleave_width == 0,
+                 "Number of elements is not divisible by interleave width.");
+        return (num_elements + num_padding_elements) / interleave_width;
     }
 };
 
@@ -111,12 +114,87 @@ struct BlockAttributes
  *
  * @param state     Field state to query.
  * @param explist   Expansion list to query.
- * @param VectorWidth Vector width to use for the field.
+ * @param interleave_width Vector width to use for the field.
  * @return std::vector<BlockAttributes>
  */
+template <typename TData>
 std::vector<BlockAttributes> GetBlockAttributes(
-    FieldState state, const Nektar::MultiRegions::ExpListSharedPtr explist,
-    size_t VectorWidth);
+    FieldState state, const MultiRegions::ExpListSharedPtr explist,
+    const size_t interleave_width = 1)
+{
+    std::vector<BlockAttributes> blockAttr;
+
+    // initialize the first block using the first element
+    auto expPtr        = explist->GetExp(0);
+    int prevIsDeformed = -1, thisIsDeformed = -1;
+    std::vector<LibUtilities::BasisKey> prevbasisKeys(
+        expPtr->GetNumBases(), LibUtilities::NullBasisKey);
+    std::vector<LibUtilities::BasisKey> thisbasisKeys(
+        expPtr->GetNumBases(), LibUtilities::NullBasisKey);
+    for (int d = 0; d < expPtr->GetNumBases(); d++)
+    {
+        prevbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+    }
+    prevIsDeformed = expPtr->GetMetricInfo()->GetGtype();
+    size_t num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
+                                               : expPtr->GetNcoeffs();
+    blockAttr.push_back({1, num_pts});
+
+    // loop over elements
+    for (int i = 1; i < explist->GetNumElmts(); i++)
+    {
+        expPtr = explist->GetExp(i);
+
+        // fetch basiskeys of current element
+        for (int d = 0; d < expPtr->GetNumBases(); d++)
+        {
+            thisbasisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+        }
+
+        thisIsDeformed = expPtr->GetMetricInfo()->GetGtype();
+
+        // if the basis is the same as the previous one,
+        // increment the number of elements
+        if (thisbasisKeys == prevbasisKeys && thisIsDeformed == prevIsDeformed)
+        {
+            blockAttr.back().num_elements++;
+        }
+        else // if not, create a new block with the number of elements = 1
+        {
+            size_t num_elements_with_padding =
+                ((blockAttr.back().num_elements +
+                  NektarSpaces::vector_width<TData>::value - 1) /
+                 NektarSpaces::vector_width<TData>::value) *
+                NektarSpaces::vector_width<TData>::value;
+            blockAttr.back().num_padding_elements =
+                num_elements_with_padding - blockAttr.back().num_elements;
+            blockAttr.back().block_size =
+                num_elements_with_padding * blockAttr.back().num_pts;
+            blockAttr.back().interleave_width = interleave_width;
+
+            // update num_pts for a new block
+            num_pts = state == FieldState::Phys ? expPtr->GetTotPoints()
+                                                : expPtr->GetNcoeffs();
+            blockAttr.push_back({1, num_pts});
+            prevbasisKeys  = thisbasisKeys;
+            prevIsDeformed = thisIsDeformed;
+        }
+    }
+
+    // update the padding elements for the last block
+    size_t num_elements_with_padding =
+        ((blockAttr.back().num_elements +
+          NektarSpaces::vector_width<TData>::value - 1) /
+         NektarSpaces::vector_width<TData>::value) *
+        NektarSpaces::vector_width<TData>::value;
+    blockAttr.back().num_padding_elements =
+        num_elements_with_padding - blockAttr.back().num_elements;
+    blockAttr.back().block_size =
+        num_elements_with_padding * blockAttr.back().num_pts;
+    blockAttr.back().interleave_width = interleave_width;
+
+    return blockAttr;
+}
 
 /**
  * @brief A Field represents expansion data to be operated on.
@@ -141,8 +219,7 @@ public:
     Field(Field &&rhs)
         : MemoryRegion<TData>::MemoryRegion(std::move(rhs)),
           block_attributes(std::move(rhs.block_attributes)),
-          component_names(std::move(rhs.component_names)),
-          m_curVecWidth(rhs.m_curVecWidth)
+          component_names(std::move(rhs.component_names))
     {
     }
 
@@ -158,7 +235,6 @@ public:
         this->m_storage  = std::move(rhs.m_storage);
         block_attributes = std::move(rhs.block_attributes);
         component_names  = std::move(rhs.component_names);
-        m_curVecWidth    = std::move(rhs.m_curVecWidth);
 
         return *this;
     }
@@ -331,83 +407,50 @@ public:
      * vectorised instructions. At the moment this routine reshapes from VW0 to
      * VW1 by first reshaping from VW0 to a vector width of 1, and then to VW1.
      *
-     * @tparam  VectorWidth     Target vector width.
-     * @tparam  alignment       Memory alignment to use.
+     * @tparam  interleave_width     Target vector width.
+     * @tparam  alignment            Memory alignment to use.
      */
-    template <typename ExecSpace, size_t VectorWidth> void ReshapeStorage()
+    template <typename ExecSpace, size_t interleave_width> void ReshapeStorage()
     {
         using MemSpace = typename ExecSpace::memory_space;
 
-        // No reshape required, early return
-        if (m_curVecWidth == VectorWidth)
+        auto *ptr = this->template GetPtr<MemSpace, ReadWrite>();
+
+        for (auto &block : block_attributes)
         {
-            return;
-        }
-
-        ReshapeToScalar<ExecSpace>();
-
-        // Early return if "scalar" shape is required
-        if (VectorWidth == 1)
-        {
-            return;
-        }
-
-        size_t scalar_field_size = GetFieldSize();
-
-        for (int component = 0; component < GetNumComponents(); ++component)
-        {
-            auto *ptr = this->template GetPtr<MemSpace, ReadWrite>() +
-                        component * scalar_field_size;
-
-            for (const auto &block : block_attributes)
+            if (block.interleave_width != interleave_width)
             {
-                const size_t num_elmt_groups =
-                    block.GetNumElmtGroups(VectorWidth);
-                // Interleave on the device
-                interleave<VectorWidth, ExecSpace>(num_elmt_groups,
-                                                   block.num_pts, ptr);
+                // Reshape block to scalar shape, if necessary
+                if (block.interleave_width != 1)
+                {
+                    for (int component = 0; component < GetNumComponents();
+                         ++component)
+                    {
+                        deInterleave<ExecSpace>(
+                            block.interleave_width, block.GetNumElmtGroups(),
+                            block.num_pts, ptr + component * block.block_size);
+                    }
+                }
 
-                ptr += block.block_size;
+                // Set new interleave width
+                block.interleave_width = interleave_width;
+
+                // Reshape block to required shape, if necessary
+                if (block.interleave_width != 1)
+                {
+                    for (int component = 0; component < GetNumComponents();
+                         ++component)
+                    {
+                        interleave<interleave_width, ExecSpace>(
+                            block.GetNumElmtGroups(), block.num_pts,
+                            ptr + component * block.block_size);
+                    }
+                }
             }
+
+            // Increment pointer and index for next block.
+            ptr += block.block_size * GetNumComponents();
         }
-
-        m_curVecWidth = VectorWidth;
-    }
-
-    /**
-     * @brief Reshapes the current storage interleaving to a non-interleaved
-     * arrangement. For multi-component fields, all paddings will be placed
-     * at the end of each component after this operation.
-     */
-    template <typename ExecSpace> void ReshapeToScalar()
-    {
-        using MemSpace = typename ExecSpace::memory_space;
-
-        if (m_curVecWidth == 1)
-        {
-            return;
-        }
-
-        size_t scalar_field_size = GetFieldSize();
-
-        for (int component = 0; component < GetNumComponents(); ++component)
-        {
-            auto *ptr = this->template GetPtr<MemSpace, ReadWrite>() +
-                        component * scalar_field_size;
-
-            for (const auto &block : block_attributes)
-            {
-                const size_t num_elmt_groups =
-                    block.GetNumElmtGroups(m_curVecWidth);
-
-                deInterleave<ExecSpace>(m_curVecWidth, num_elmt_groups,
-                                        block.num_pts, ptr);
-
-                ptr += block.block_size;
-            }
-        }
-
-        m_curVecWidth = 1;
     }
 
     /**
@@ -518,8 +561,13 @@ public:
     {
         ASSERTL0(field.block_attributes.size() == block_attributes.size(),
                  "Number of blocks are not the same!");
-        ASSERTL0(field.m_curVecWidth == m_curVecWidth,
-                 "Vector width are not the same!");
+
+        for (size_t bl = 0; bl < block_attributes.size(); ++bl)
+        {
+            ASSERTL0(field.block_attributes[bl].interleave_width ==
+                         block_attributes[bl].interleave_width,
+                     "Vector width are not the same!");
+        }
 
         if (this->size() != field.size())
         {
@@ -653,108 +701,6 @@ public:
     }
 
     /**
-     * @brief Compare this field to another field, with absolute
-     * tolerance tol. Two fields must have same storage shape
-     * and same components.
-     *
-     * @return bool
-     */
-    bool compare(Field<TData, TState> &rhs, TData tol)
-    {
-        if (rhs.GetNumComponents() != GetNumComponents())
-        {
-            std::cout << "Mismatch of number of components." << std::endl;
-            return false;
-        }
-
-        const std::vector<BlockAttributes> &rhs_blocks = rhs.GetBlocks();
-
-        if (rhs_blocks.size() != block_attributes.size())
-        {
-            std::cout << "Mismatch of block size." << std::endl;
-            return false;
-        }
-
-        if (rhs.m_curVecWidth != m_curVecWidth)
-        {
-            std::cout << "Mismatch of vector width." << std::endl;
-            return false;
-        }
-
-        bool isMatched = true;
-
-        const TData *store =
-            this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        const TData *rhs_store =
-            rhs.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
-        for (size_t component = 0; component < GetNumComponents(); ++component)
-        {
-            for (size_t bl = 0; bl < block_attributes.size(); ++bl)
-            {
-                size_t num_pts      = block_attributes[bl].num_pts;
-                size_t num_elements = block_attributes[bl].num_elements;
-                size_t num_elmt_groups =
-                    block_attributes[bl].GetNumElmtGroups(m_curVecWidth);
-
-                // Check that each block have the same structure
-                if ((num_elements != rhs_blocks[bl].num_elements) ||
-                    (num_pts != rhs_blocks[bl].num_pts))
-                {
-                    std::cout << "Mismatch of block structure." << std::endl;
-                    return false;
-                }
-
-                int MisMatchcnt = 0, total = 0;
-
-                for (size_t metaBlock = 0; metaBlock < num_elmt_groups;
-                     ++metaBlock)
-                {
-                    for (size_t coeff = 0; coeff < num_pts; ++coeff)
-                    {
-                        for (size_t k = 0; k < m_curVecWidth; ++k)
-                        {
-                            // skip padding elements
-                            if (metaBlock * m_curVecWidth + k + 1 <=
-                                num_elements)
-                            {
-                                total++;
-                                if (std::abs(*store - *rhs_store) > tol)
-                                {
-                                    if (MisMatchcnt == 0)
-                                    {
-                                        isMatched = false;
-                                    }
-
-                                    MisMatchcnt++;
-                                }
-                            }
-
-                            store++;
-                            rhs_store++;
-                        }
-                    }
-                }
-
-                if (!isMatched)
-                {
-                    std::cout << "Number of mismatches in block " << bl
-                              << " is " << MisMatchcnt << " out of " << total
-                              << std::endl;
-                }
-            }
-        }
-        if (isMatched)
-        {
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    /**
      * @brief Get BlockAttributes for the field.
      *
      * @return std::vector<BlockAttributes>
@@ -794,16 +740,6 @@ public:
         return this->m_storage->getAlignment();
     }
 
-    /**
-     * @brief Get current vector width.
-     *
-     * @return size_t
-     */
-    size_t GetVecWidth()
-    {
-        return m_curVecWidth;
-    }
-
 private:
     /**
      * @brief Construct a new Field object.
@@ -825,8 +761,6 @@ private:
 
     std::vector<BlockAttributes> block_attributes;
     std::vector<std::string> component_names;
-
-    size_t m_curVecWidth = 1;
 };
 
 /// A generic function to reshuffle the map, based on the given interleave or
@@ -858,8 +792,8 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
 
 /// A generic function to build the interleave map for a given field.
 template <typename ExecSpace>
-void BuildInterleaveMap(const std::vector<BlockAttributes> &blocks,
-                        const int newVecWidth,
+void BuildInterleaveMap(std::vector<BlockAttributes> &blocks,
+                        const int new_interleave_width,
                         MemoryRegion<int> &deInterleaveMap,
                         MemoryRegion<int> &InterleaveMap)
 {
@@ -876,16 +810,17 @@ void BuildInterleaveMap(const std::vector<BlockAttributes> &blocks,
 
     for (auto &block : blocks)
     {
+        block.interleave_width   = new_interleave_width;
         auto const ncoeff        = block.num_pts;
-        const size_t nElmtGroups = block.GetNumElmtGroups(newVecWidth);
+        const size_t nElmtGroups = block.GetNumElmtGroups();
 
         // this function fills both InterleaveMap and deInterleaveMap;
         // deInterleaveMap is saved as a member for later use;
-        BuildInterleaveMapKernel<ExecSpace>(nElmtGroups, ncoeff, newVecWidth,
-                                            offset, deInterleaveMapPtr,
-                                            InterleaveMapPtr);
+        BuildInterleaveMapKernel<ExecSpace>(
+            nElmtGroups, ncoeff, new_interleave_width, offset,
+            deInterleaveMapPtr, InterleaveMapPtr);
 
-        deInterleaveMapPtr += ncoeff * newVecWidth * nElmtGroups;
-        offset += ncoeff * newVecWidth * nElmtGroups;
+        deInterleaveMapPtr += ncoeff * new_interleave_width * nElmtGroups;
+        offset += ncoeff * new_interleave_width * nElmtGroups;
     }
 }

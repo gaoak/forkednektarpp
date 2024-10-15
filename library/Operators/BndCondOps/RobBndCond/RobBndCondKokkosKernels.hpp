@@ -48,7 +48,7 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                    const TData *matPtr, const unsigned int *mapPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::width;
+    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
@@ -78,7 +78,7 @@ RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *mapPtr, const int *signPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::width;
+    const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
     const unsigned int shmem_size = Kokkos::View<
