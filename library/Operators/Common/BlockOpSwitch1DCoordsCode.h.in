@@ -361,13 +361,13 @@ const auto nquad0   = expPtr->GetNumPoints(0);
             {
                 BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
-                    OPERATOR_DEF;
-                    break;
+                OPERATOR_DEF;
+                break;
             }
         }
         else
         {
-                    OPERATOR_DEF;
+            OPERATOR_DEF;
         }
     }
     else
@@ -413,13 +413,13 @@ const auto nquad0   = expPtr->GetNumPoints(0);
             {
                 BOOST_PP_FOR((MIN1D, MAX1D), LEV1TEST, LEV1UPDATE, OPERATOR);
             default:
-                    OPERATOR_DEF;
-                    break;
+                OPERATOR_DEF;
+                break;
             }
         }
         else
         {
-                    OPERATOR_DEF;
+            OPERATOR_DEF;
         }
     }
 #endif

@@ -46,7 +46,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
 
 {
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if (!DEFORMED)
+    if constexpr (!DEFORMED)
     {
         // unroll very small loops
         df_tmp[0] = df_ptr[0];
@@ -62,7 +62,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase1D(
 
     for (int i = 0; i < nq0; ++i)
     {
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             df_tmp[0] = df_ptr[i * indim];
             if (indim >= 2)
@@ -91,7 +91,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const size_t nq0, const size_t nq1, const size_t indim,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inSize, const typename simd_type::vectorType *inPtr,
+    const size_t inoffset, const typename simd_type::vectorType *inPtr,
     typename simd_type::scalarType *out[2],
     [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1)
@@ -99,7 +99,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const auto ndf = 2 * indim;
 
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if (!DEFORMED)
+    if constexpr (!DEFORMED)
     {
         df_tmp[0] = df_Ptr[0];
         df_tmp[1] = df_Ptr[1];
@@ -114,8 +114,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     }
 
     simd_type f1;
-    size_t cnt_ji   = 0;
-    size_t inoffset = inSize / simd_type::width;
+    size_t cnt_ji = 0;
     for (size_t j = 0; j < nq1; ++j)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -125,8 +124,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
 
         for (size_t i = 0; i < nq0; ++i, ++cnt_ji)
         {
-
-            if (DEFORMED)
+            if constexpr (DEFORMED)
             {
                 df_tmp[0] = df_Ptr[cnt_ji * ndf];
                 df_tmp[1] = df_Ptr[cnt_ji * ndf + 1];
@@ -151,7 +149,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
 
             if (indim == 3)
             {
-                simd_type in2 = simd_type(inPtr[2 * inSize + cnt_ji]);
+                simd_type in2 = simd_type(inPtr[2 * inoffset + cnt_ji]);
                 out0.fma(df_tmp[4], in2);
                 out1.fma(df_tmp[5], in2);
             }
@@ -180,14 +178,14 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
     const size_t nq0, const size_t nq1, const size_t nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inSize, const typename simd_type::vectorType *inPtr,
+    const size_t inoffset, const typename simd_type::vectorType *inPtr,
     typename simd_type::scalarType *out[3])
 {
     const auto ndf   = 9;
     const auto nqTot = nq0 * nq1 * nq2;
 
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if (!DEFORMED)
+    if constexpr (!DEFORMED)
     {
         df_tmp[0] = df_Ptr[0];
         df_tmp[1] = df_Ptr[1];
@@ -200,10 +198,9 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
         df_tmp[8] = df_Ptr[8];
     }
 
-    size_t inoffset = inSize / simd_type::width;
     for (int i = 0; i < nqTot; ++i)
     {
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             df_tmp[0] = df_Ptr[i * ndf];
             df_tmp[1] = df_Ptr[i * ndf + 1];
@@ -244,7 +241,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const size_t nq0, const size_t nq1, const size_t nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inSize, const simd_type *Fac0,
+    const size_t inoffset, const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a, const simd_type *Fac2,
     const typename simd_type::vectorType *inPtr,
@@ -253,7 +250,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const auto ndf = 9;
 
     // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if (!DEFORMED)
+    if constexpr (!DEFORMED)
     {
         df_tmp[0] = df_Ptr[0];
         df_tmp[1] = df_Ptr[1];
@@ -268,7 +265,6 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
 
     size_t cnt_kji = 0;
     simd_type f0, f1, f1a, f2;
-    size_t inoffset = inSize / simd_type::width;
 
     for (size_t k = 0; k < nq2; ++k)
     {
@@ -289,8 +285,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
 
             for (size_t i = 0; i < nq0; ++i, ++cnt_kji)
             {
-
-                if (DEFORMED)
+                if constexpr (DEFORMED)
                 {
                     df_tmp[0] = df_Ptr[cnt_kji * ndf];
                     df_tmp[1] = df_Ptr[cnt_kji * ndf + 1];

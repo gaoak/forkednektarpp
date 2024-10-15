@@ -41,7 +41,7 @@
 #include "Operators/MathKernels/MathSYCLKernels.hpp"
 #include "Operators/MathKernels/MathSerialKernels.hpp"
 
-namespace Nektar //::Operators
+namespace Nektar
 {
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>

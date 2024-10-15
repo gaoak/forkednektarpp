@@ -132,7 +132,6 @@ inline
     }
 }
 
-// Simple 1D Range parallel_for
 template <typename ExecSpace, typename Functor>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
@@ -157,7 +156,6 @@ inline
      }).wait();
 }
 
-// Simple 1D Range parallel_reduce
 template <typename TData, typename Functor>
 void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
                      const unsigned int begin, const unsigned int end,

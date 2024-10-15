@@ -43,7 +43,7 @@
 #include <numeric>
 #include <type_traits>
 
-namespace Nektar //::Operators
+namespace Nektar
 {
 
 // NOTE: Those AVX Math kernels assumed aligned memory. Using non-aligned memory

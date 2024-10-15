@@ -42,7 +42,7 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace Nektar //::Operators
+namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>

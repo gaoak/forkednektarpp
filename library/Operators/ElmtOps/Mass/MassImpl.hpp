@@ -52,9 +52,8 @@ public:
         : OperatorMass<TData>(expansionList),
           m_tmp(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Mass tmp",
-              GetBlockAttributes(FieldState::Phys, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment))
+              GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
+              ExecSpace::alignment))
     {
         m_BwdTransOp =
             BwdTrans<TData>::template create<ExecSpace, Implementation>(

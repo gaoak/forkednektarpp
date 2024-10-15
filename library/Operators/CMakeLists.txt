@@ -42,7 +42,7 @@ MACRO(ADD_OPERATOR dir)
         CONTINUE()
     ENDIF()
 
-    # Skip those files
+    # Skip those files.
     IF( ("${name}" STREQUAL "Common") OR
         ("${name}" STREQUAL "Field") OR
         ("${name}" STREQUAL "LoopExecution") OR
@@ -70,7 +70,7 @@ MACRO(ADD_OPERATOR dir)
          SET(COMMON_HEADER "#include \"${include_file}\"")
     ENDIF()
 
-    # Check to see if shape specific BlockOpSwitch .h files have
+    # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
     IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
     ELSE()
@@ -260,7 +260,7 @@ MACRO(ADD_OPERATOR dir)
         )
 ENDMACRO()
 
-
+# Common header file.
 SET(OPERATORS_HEADERS
     Field/Field.hpp
     Field/MemoryRegionHost.hpp
@@ -272,6 +272,7 @@ SET(OPERATORS_HEADERS
     MathKernels/MathKernels.hpp
     )
 
+# Common source file.
 SET(OPERATORS_SOURCES
     Field/Field.cpp
     Common/Operator.cpp
@@ -290,6 +291,7 @@ ENDFOREACH()
 SET(OPERATORS_DEPENDS
     MultiRegions)
 
+# CUDA specific file
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
@@ -306,6 +308,14 @@ IF(NEKTAR_ENABLE_CUDA)
       ${NEKLIB_CUDA_LIBRARIES})
 ENDIF()
 
+# Kokkos specific file
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(OPERATORS_DEPENDS
+        ${OPERATORS_DEPENDS}
+        ${NEKTAR_KOKKOS_DEPENDS})
+ENDIF()
+
+# SYCL specific file
 IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
@@ -316,13 +326,6 @@ IF(NEKTAR_ENABLE_SYCL)
       ${OPERATORS_SOURCES}
       SYCLQueue.cpp
     )
-ENDIF()
-
-# Kokkos - if no Kokkos loops are serial
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET(OPERATORS_DEPENDS
-        ${OPERATORS_DEPENDS}
-        ${NEKTAR_KOKKOS_DEPENDS})
 ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}

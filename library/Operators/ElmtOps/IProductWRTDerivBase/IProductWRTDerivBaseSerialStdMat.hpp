@@ -60,18 +60,15 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
-        auto width = 1u;
         auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, width);
-        size_t gFacSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, width);
-        m_jac = Operator<TData>::SetJacobian(gFacSize, locblocks, width);
-        m_derivFac =
-            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks, width);
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        m_jac           = Operator<TData>::SetJacobian(gFacSize, locblocks);
+        m_derivFac = Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
@@ -89,12 +86,12 @@ public:
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 size_t nmTot = expPtr->GetNcoeffs();
+                Array<OneD, TData> tmp(nqTot), t;
+                // Get IProductWRTDerivBase matrix.
                 auto &matPtr = m_matPtr[basisKeys];
                 matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
-                Array<OneD, TData> tmp(nqTot), t;
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    // Get IProductWRTDerivBase matrix.
                     matPtr[d] = Array<OneD, TData>(nqTot * nmTot);
                     for (size_t i = 0; i < nqTot; ++i)
                     {
@@ -116,21 +113,21 @@ public:
                Field<TData, FieldState::Coeff> &out,
                bool APPEND = false) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // Copy memory to the host, if necessary and get raw pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
         auto *wspPtr      = m_wsp.get();
-        auto nSize        = in.GetFieldSize();
-        auto nStorage     = this->m_expansionList->GetTotPoints();
+        auto *dfPtr       = m_derivFac->data();
+        auto *jacPtr      = m_jac->data();
 
         // Initialize index.
         size_t exp_idx = 0;
-        size_t jac_idx = 0;
-        size_t df_idx  = 0;
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
@@ -140,11 +137,12 @@ public:
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmts    = outblock.num_elements;
+            const auto nElmtsPad =
+                outblock.num_elements + outblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
+            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto nCoord = expPtr->GetCoordim();
             const auto nqTot  = expPtr->GetTotPoints();
@@ -156,18 +154,16 @@ public:
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_derivFac->data() + d + df_idx,
-                                ndf, inPtr, 1, wspPtr + d * nStorage, 1);
+                    Vmath::Vmul(nqTot * nElmts, dfPtr + d, ndf, inPtr, 1,
+                                wspPtr + d * nElmts * nqTot, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
-                        Vmath::Vvtvp(
-                            nqTot * nElmts,
-                            m_derivFac->data() + d + i * dimension + df_idx,
-                            ndf, inPtr + i * nSize, 1, wspPtr + d * nStorage, 1,
-                            wspPtr + d * nStorage, 1);
+                        Vmath::Vvtvp(nqTot * nElmts, dfPtr + d + i * dimension,
+                                     ndf, inPtr + i * nElmtsPad * nqTot, 1,
+                                     wspPtr + d * nElmts * nqTot, 1,
+                                     wspPtr + d * nElmts * nqTot, 1);
                     }
                 }
-                df_idx += ndf * nqTot * nElmts;
             }
             else
             {
@@ -175,20 +171,18 @@ public:
                 {
                     for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, (*m_derivFac)[d + df_idx],
+                        Vmath::Smul(nqTot, dfPtr[ndf * e + d],
                                     inPtr + e * nqTot, 1,
-                                    wspPtr + d * nStorage + e * nqTot, 1);
+                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1);
                         for (size_t i = 1; i < nCoord; ++i)
                         {
                             Vmath::Svtvp(
-                                nqTot,
-                                (*m_derivFac)[d + i * dimension + df_idx],
-                                inPtr + i * nSize + e * nqTot, 1,
-                                wspPtr + d * nStorage + e * nqTot, 1,
-                                wspPtr + d * nStorage + e * nqTot, 1);
+                                nqTot, dfPtr[ndf * e + d + i * dimension],
+                                inPtr + i * nElmtsPad * nqTot + e * nqTot, 1,
+                                wspPtr + d * nElmts * nqTot + e * nqTot, 1,
+                                wspPtr + d * nElmts * nqTot + e * nqTot, 1);
                         }
                     }
-                    df_idx += ndf;
                 }
             }
 
@@ -197,9 +191,9 @@ public:
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, m_jac->data() + jac_idx, 1,
-                                wspPtr + d * nStorage, 1, wspPtr + d * nStorage,
-                                1);
+                    Vmath::Vmul(nqTot * nElmts, jacPtr, 1,
+                                wspPtr + d * nElmts * nqTot, 1,
+                                wspPtr + d * nElmts * nqTot, 1);
                 }
             }
             else
@@ -208,9 +202,9 @@ public:
                 {
                     for (size_t d = 0; d < dimension; ++d)
                     {
-                        Vmath::Smul(nqTot, (*m_jac)[jac_idx + e],
-                                    wspPtr + d * nStorage + e * nqTot, 1,
-                                    wspPtr + d * nStorage + e * nqTot, 1);
+                        Vmath::Smul(nqTot, jacPtr[e],
+                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1,
+                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1);
                     }
                 }
             }
@@ -229,16 +223,15 @@ public:
             {
                 TData alpha = (d == 0 && !APPEND) ? 0.0 : 1.0;
                 Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nmTot, wspPtr + d * nStorage,
+                            matPtr[d].get(), nmTot, wspPtr + d * nElmts * nqTot,
                             nqTot, alpha, outPtr, nmTot);
             }
 
             // Increment pointer and index for next element type.
-            jac_idx += deformed ? nqTot * nElmts : nElmts;
-
-            wspPtr += nqTot * nElmts;
-
-            inPtr += inblock.block_size;
+            dfPtr += deformed ? ndf * nElmtsPad * nqTot : ndf * nElmtsPad;
+            jacPtr += deformed ? nElmtsPad * nqTot : nElmtsPad;
+            wspPtr += dimension * nElmts * nqTot;
+            inPtr += inblock.block_size * nCoord;
             outPtr += outblock.block_size;
             exp_idx += nElmts;
         }

@@ -68,18 +68,15 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         // Initialise jacobian with paddings if appropriate
-        auto locblocks =
-            GetBlockAttributes(FieldState::Phys, expansionList, simd_t::width);
-        size_t gFacSize =
-            Operator<TData>::GetGeometricFactorSize(locblocks, simd_t::width);
-        auto jac =
-            Operator<TData>::SetJacobian(gFacSize, locblocks, simd_t::width);
-        auto derivFac = Operator<TData>::SetDerivativeFactor(
-            gFacSize, locblocks, simd_t::width);
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, simd_t::width);
+        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
+        auto jac        = Operator<TData>::SetJacobian(gFacSize, locblocks);
+        auto derivFac =
+            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
 
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
-
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, ExecSpace::alignment);
 
@@ -105,6 +102,7 @@ public:
                Field<TData, FieldState::Coeff> &out,
                [[maybe_unused]] bool APPEND = false) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // check alignment
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
@@ -114,13 +112,10 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        if (in.GetVecWidth() != simd_t::width)
-        {
-            // Reshape into simd_t::width. If the Field is already
-            // interleaved, this method returns.
-            in.template ReshapeStorage<ExecSpace, simd_t::width>();
-            out.template ReshapeStorage<ExecSpace, simd_t::width>();
-        }
+        // Reshape into simd_t::width. If the Field is already
+        // interleaved, this method returns.
+        in.template ReshapeStorage<ExecSpace, simd_t::width>();
+        out.template ReshapeStorage<ExecSpace, simd_t::width>();
 
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
@@ -128,7 +123,10 @@ public:
         m_exp_idx = 0;
         m_jac_idx = 0;
         m_df_idx  = 0;
-        m_inSize  = in.GetFieldSize();
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -138,27 +136,29 @@ public:
             const auto &inblock  = in.GetBlocks()[block_idx];
             const auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad =
+                inblock.num_elements + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto nqTot     = expPtr->GetTotPoints();
-            const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
+            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
+            const auto shapeType = expPtr->DetShapeType();
+            const auto ncoord    = expPtr->GetCoordim();
+            const auto nqTot     = expPtr->GetTotPoints();
 
-            m_nElmtGroup = inblock.GetNumElmtGroups(simd_t::width);
+            const auto ndf = dimension * ncoord;
+            m_nElmtGroup   = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
-            m_basisKeys.clear();
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys.push_back(expPtr->GetBasis(d)->GetBasisKey());
+                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
             {
-                    // Segment
+                // Segment
                 case LibUtilities::Seg:
                 {
                     SegBlock(inPtr, outPtr);
@@ -182,7 +182,7 @@ public:
                     HexBlock(inPtr, outPtr);
                     break;
                 }
-                    // Tet
+                // Tet
                 case LibUtilities::Tet:
                 {
                     TetBlock(inPtr, outPtr);
@@ -194,7 +194,7 @@ public:
                     PyrBlock(inPtr, outPtr);
                     break;
                 }
-                    // Prism
+                // Prism
                 case LibUtilities::Prism:
                 {
                     PrismBlock(inPtr, outPtr);
@@ -205,18 +205,11 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            inPtr += inblock.block_size;
+            m_df_idx += deformed ? ndf * nElmtsPad * nqTot : ndf * nElmtsPad;
+            m_jac_idx += deformed ? nElmtsPad * nqTot : nElmtsPad;
+            inPtr += inblock.block_size * ncoord;
             outPtr += outblock.block_size;
             m_exp_idx += nElmts;
-
-            if (deformed) // update m_jac_idx globally
-            {
-                m_jac_idx += nqTot * m_nElmtGroup * simd_t::width;
-            }
-            else
-            {
-                m_jac_idx += m_nElmtGroup * simd_t::width;
-            }
         }
     }
 
@@ -237,7 +230,6 @@ private:
     size_t m_df_idx;
     size_t m_exp_idx;
     size_t m_nElmtGroup;
-    size_t m_inSize;
 
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_derivFac;
@@ -275,8 +267,7 @@ private:
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
         // Fetch basis key for the current element type.
-        m_basisKeys.clear();
-        m_basisKeys.push_back(expPtr->GetBasis(0)->GetBasisKey());
+        m_basisKeys[0] = expPtr->GetBasis(0)->GetBasisKey();
 
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
@@ -290,11 +281,11 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         size_t ipt = 1;
-
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             ipt *= nquad0;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
@@ -307,7 +298,7 @@ private:
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
-                                          m_inSize, tmpIn, tmpPtr);
+                                          m_nElmtGroup * nquad0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
                 nmodes0, nquad0, (const typename simd_t::vectorType *)tmpPtr,
                 BD0, W0, jacPtr, tmpOut);
@@ -317,7 +308,6 @@ private:
             jacPtr += ipt;
             dfPtr += ipt * ncoord;
         }
-        m_df_idx += ipt * ncoord * m_nElmtGroup * simd_t::width;
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nmodes0,
@@ -329,8 +319,7 @@ private:
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
         // Fetch basis key for the current element type.
-        m_basisKeys.clear();
-        m_basisKeys.push_back(expPtr->GetBasis(0)->GetBasisKey());
+        m_basisKeys[0] = expPtr->GetBasis(0)->GetBasisKey();
 
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
@@ -344,10 +333,11 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         size_t ipt = 1;
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             ipt *= nquad0;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
@@ -360,7 +350,7 @@ private:
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
-                                          m_inSize, tmpIn, tmpPtr);
+                                          m_nElmtGroup * nquad0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
                 nmodes0, nquad0, (const typename simd_t::vectorType *)tmpPtr,
                 BD0, W0, jacPtr, tmpOut);
@@ -370,7 +360,6 @@ private:
             jacPtr += ipt;
             dfPtr += ipt * ncoord;
         }
-        m_df_idx += ipt * ncoord * m_nElmtGroup * simd_t::width;
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -405,7 +394,6 @@ private:
             m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nquad1),
             tmp0(totPoints), tmp1(totPoints);
 
@@ -415,12 +403,13 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
         tmpPtr[1] =
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
-        size_t ipt = 1;
 
-        if (DEFORMED)
+        size_t ipt = 1;
+        if constexpr (DEFORMED)
         {
             ipt *= totPoints;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
@@ -438,8 +427,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp, m_inSize, tmpIn,
-                    tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
+                    (simd_t *)nullptr);
                 IProductQuadKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nquad0, nquad1,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
@@ -454,7 +444,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -470,8 +459,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp, m_inSize, tmpIn,
-                    tmpPtr, F0, F1);
+                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
                 IProductTriKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nquad0, nquad1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
@@ -485,7 +474,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
     }
 
@@ -528,7 +516,7 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
 
         size_t ipt = 1;
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             ipt *= totPoints;
         }
@@ -549,8 +537,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp, m_inSize, tmpIn,
-                    tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
+                    (simd_t *)nullptr);
                 IProductQuadKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nquad0, nquad1,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
@@ -565,7 +554,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -581,8 +569,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp, m_inSize, tmpIn,
-                    tmpPtr, F0, F1);
+                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
                 IProductTriKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nquad0, nquad1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
@@ -596,12 +584,11 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(const TData *&inPtr, TData *&outPtr)
+    void Operator3D(const TData *inPtr, TData *outPtr)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -651,10 +638,11 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
 
         size_t ipt = 1;
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             ipt *= totPoints;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
@@ -672,7 +660,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
-                                               df_tmp, m_inSize, tmpIn, tmpPtr);
+                                               df_tmp, m_nElmtGroup * totPoints,
+                                               tmpIn, tmpPtr);
                 IProductHexKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
@@ -693,7 +682,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
@@ -710,8 +698,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0, F1,
-                    F1a, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
                 IProductTetKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -729,7 +717,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
@@ -745,8 +732,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0, F1,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
+                    tmpIn, tmpPtr);
                 IProductPyrKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -764,7 +752,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Prism)
@@ -780,8 +767,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0,
-                    (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,
+                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPrismKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -799,13 +787,12 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nmodes0,
               int nmodes1, int nmodes2, int nquad0, int nquad1, int nquad2>
-    void Operator3D(const TData *&inPtr, TData *&outPtr)
+    void Operator3D(const TData *inPtr, TData *outPtr)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
@@ -847,7 +834,7 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
 
         size_t ipt = 1;
-        if (DEFORMED)
+        if constexpr (DEFORMED)
         {
             ipt *= totPoints;
         }
@@ -868,7 +855,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
-                                               df_tmp, m_inSize, tmpIn, tmpPtr);
+                                               df_tmp, m_nElmtGroup * totPoints,
+                                               tmpIn, tmpPtr);
                 IProductHexKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
@@ -889,7 +877,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
@@ -906,8 +893,8 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0, F1,
-                    F1a, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
                 IProductTetKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -925,7 +912,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
@@ -941,8 +927,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0, F1,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
+                    tmpIn, tmpPtr);
                 IProductPyrKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -960,7 +947,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
 
         if constexpr (SHAPE_TYPE == LibUtilities::Prism)
@@ -976,8 +962,9 @@ private:
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp, m_inSize, F0,
-                    (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
+                    m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,
+                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPrismKernel<false, false, DEFORMED>(
                     nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
                     isModified, (const typename simd_t::vectorType *)tmpPtr[0],
@@ -995,7 +982,6 @@ private:
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
-            m_df_idx += ipt * ndf * m_nElmtGroup * simd_t::width;
         }
     }
 };

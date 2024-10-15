@@ -71,8 +71,8 @@ public:
             {
                 delete fixt_kokkos_in;
             }
-            auto blocks_in = GetBlockAttributes(
-                stateIn, fixt_explist->GetTrace(), NektarSpaces::KOKKOS::width);
+            auto blocks_in =
+                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
                                          NektarSpaces::KOKKOS::alignment);
@@ -92,8 +92,8 @@ public:
             {
                 delete fixt_cuda_in;
             }
-            auto blocks_in = GetBlockAttributes(
-                stateIn, fixt_explist->GetTrace(), NektarSpaces::CUDA::width);
+            auto blocks_in =
+                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
                                          NektarSpaces::CUDA::alignment);
@@ -113,8 +113,8 @@ public:
             {
                 delete fixt_sycl_in;
             }
-            auto blocks_in = GetBlockAttributes(
-                stateIn, fixt_explist->GetTrace(), NektarSpaces::SYCL::width);
+            auto blocks_in =
+                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
                                          NektarSpaces::SYCL::alignment);
@@ -130,8 +130,8 @@ public:
             {
                 delete fixt_in;
             }
-            auto blocks_in = GetBlockAttributes(
-                stateIn, fixt_explist->GetTrace(), NektarSpaces::AVX::width);
+            auto blocks_in =
+                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
                                          NektarSpaces::AVX::alignment);
@@ -143,8 +143,8 @@ public:
             {
                 delete fixt_in;
             }
-            auto blocks_in = GetBlockAttributes(
-                stateIn, fixt_explist->GetTrace(), NektarSpaces::Serial::width);
+            auto blocks_in =
+                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
                                          NektarSpaces::Serial::alignment);
@@ -152,7 +152,7 @@ public:
         }
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *inptr,
+    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
                      bool padding = true)
 
     {
@@ -163,15 +163,15 @@ public:
             {
                 for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
-                    inptr[cnt] = phys;
+                    outptr[cnt] = phys;
                 }
             }
-            inptr += (padding) ? block.block_size : cnt;
+            outptr += (padding) ? block.block_size : cnt;
         }
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         auto fixt_explist_trace = fixt_explist->GetTrace();
         Array<OneD, NekDouble> inTracephys(fixt_explist_trace->GetNpoints(),
@@ -193,10 +193,10 @@ public:
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    inptr[cnt] = (*ptr++);
+                    outptr[cnt] = (*ptr++);
                 }
             }
-            inptr += block.block_size;
+            outptr += block.block_size;
         }
     }
 };

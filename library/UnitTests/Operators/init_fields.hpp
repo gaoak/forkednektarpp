@@ -259,10 +259,9 @@ public:
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
-            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                 NektarSpaces::KOKKOS::width);
-            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
-                                                 NektarSpaces::KOKKOS::width);
+            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
+            auto blocks_out =
+                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
@@ -287,10 +286,9 @@ public:
         }
         else if (testModule.find("CUDA") != std::string::npos)
         {
-            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                 NektarSpaces::CUDA::width);
-            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
-                                                 NektarSpaces::CUDA::width);
+            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
+            auto blocks_out =
+                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::CUDA::alignment);
@@ -314,10 +312,9 @@ public:
         }
         else if (testModule.find("SYCL") != std::string::npos)
         {
-            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                 NektarSpaces::SYCL::width);
-            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
-                                                 NektarSpaces::SYCL::width);
+            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
+            auto blocks_out =
+                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::SYCL::alignment);
@@ -341,10 +338,9 @@ public:
         }
         else if (testModule.find("AVX") != std::string::npos)
         {
-            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                 NektarSpaces::AVX::width);
-            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
-                                                 NektarSpaces::AVX::width);
+            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
+            auto blocks_out =
+                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
@@ -360,10 +356,9 @@ public:
         }
         else
         {
-            auto blocks_in  = GetBlockAttributes(stateIn, fixt_explist,
-                                                 NektarSpaces::Serial::width);
-            auto blocks_out = GetBlockAttributes(stateOut, fixt_explist,
-                                                 NektarSpaces::Serial::width);
+            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
+            auto blocks_out =
+                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::Serial::alignment);
@@ -379,31 +374,100 @@ public:
         }
     }
 
-    void OutputIfNotMatch(const double *outptr, const double *expptr,
-                          double tol)
+    /**
+     * @brief Compare this field to another field, with absolute
+     * tolerance tol. Two fields must have same storage shape
+     * and same components.
+     *
+     * @return bool
+     */
+    bool Compare(Field<double, stateOut> &in, Field<double, stateOut> &ref,
+                 double tol)
     {
+        if (ref.GetNumComponents() != in.GetNumComponents())
+        {
+            std::cout << "Mismatch of number of components." << std::endl;
+            return false;
+        }
+
+        if (ref.GetBlocks().size() != in.GetBlocks().size())
+        {
+            std::cout << "Mismatch of block size." << std::endl;
+            return false;
+        }
+
+        const TData *in_store =
+            in.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        const TData *ref_store =
+            ref.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+
+        bool isMatch = true;
+
         printf(
             "#elm #pts output               expected            difference\n");
-        for (auto const &block : fixt_out->GetBlocks())
+        for (size_t bl = 0; bl < in.GetBlocks().size(); ++bl)
         {
-            int cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
+            // Check that each block have the same structure
+            if (ref.GetBlocks()[bl].interleave_width !=
+                in.GetBlocks()[bl].interleave_width)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
-                {
-                    if (std::abs(*outptr - *expptr) > tol)
-                    {
-                        printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el,
-                               phys, *outptr, *expptr,
-                               std::abs(*outptr - *expptr));
-                    }
-                    expptr++;
-                    outptr++;
-                }
+                std::cout << "Mismatch of interleave width." << std::endl;
+                return false;
             }
 
-            expptr += block.block_size - cnt;
-            outptr += block.block_size - cnt;
+            if ((in.GetBlocks()[bl].num_elements !=
+                 ref.GetBlocks()[bl].num_elements) ||
+                (in.GetBlocks()[bl].num_pts != ref.GetBlocks()[bl].num_pts))
+            {
+                std::cout << "Mismatch of block structure." << std::endl;
+                return false;
+            }
+
+            size_t MisMatchcnt = 0, total = 0;
+
+            for (size_t component = 0; component < in.GetNumComponents();
+                 ++component)
+            {
+                for (size_t el = 0; el < in.GetBlocks()[bl].num_elements; ++el)
+                {
+                    for (size_t pts = 0; pts < in.GetBlocks()[bl].num_pts;
+                         ++pts)
+                    {
+                        if (std::abs(*in_store - *ref_store) > tol)
+                        {
+                            printf("%04zu %04zu %20.16f %20.16f %20.16f\n", el,
+                                   pts, *in_store, *ref_store,
+                                   std::abs(*in_store - *ref_store));
+                            MisMatchcnt++;
+                        }
+                        total++;
+                        in_store++;
+                        ref_store++;
+                    }
+                }
+
+                in_store += in.GetBlocks()[bl].num_pts *
+                            in.GetBlocks()[bl].num_padding_elements;
+                ref_store += ref.GetBlocks()[bl].num_pts *
+                             ref.GetBlocks()[bl].num_padding_elements;
+            }
+
+            if (MisMatchcnt)
+            {
+                std::cout << "Number of mismatches in block " << bl << " is "
+                          << MisMatchcnt << " out of " << total << std::endl;
+
+                isMatch = false;
+            }
+        }
+
+        if (isMatch)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 

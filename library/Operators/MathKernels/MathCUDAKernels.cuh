@@ -38,7 +38,7 @@
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-namespace Nektar //::Operators
+namespace Nektar
 {
 
 __device__ inline float4 &operator+=(float4 &a, const float4 b)
@@ -248,7 +248,7 @@ __global__ void reduceSumKernel(const unsigned int nsize, const TData *x,
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -324,7 +324,7 @@ __global__ void reduceMaxKernel(const unsigned int nsize, const TData *x,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr TData min             = ::cuda::std::numeric_limits<TData>::min();
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -397,7 +397,7 @@ __global__ void reduceMinKernel(const unsigned int nsize, const TData *x,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr TData max             = ::cuda::std::numeric_limits<TData>::max();
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -469,7 +469,7 @@ __global__ void ddotKernel(const unsigned int nsize, const TData *x,
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -548,7 +548,7 @@ __global__ void l1normKernel(const unsigned int nsize, const TData *x,
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -626,7 +626,7 @@ __global__ void l2normKernel(const unsigned int nsize, const TData *x,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     auto grid  = cg::this_grid();
     auto block = cg::this_thread_block();
@@ -702,7 +702,7 @@ __global__ void lpnormKernel(const unsigned int nsize, const int p,
     // Implementation based on reduce7_vl of "Ansorge, R. (2022). Programming in
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();
@@ -781,7 +781,7 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
     // parallel with CUDA: a practical guide. Cambridge University Press."
 
     constexpr TData min             = ::cuda::std::numeric_limits<TData>::min();
-    constexpr unsigned int warpsize = NektarSpaces::CUDA::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
     constexpr unsigned int vecsize  = (16u / sizeof(TData));
 
     auto grid  = cg::this_grid();

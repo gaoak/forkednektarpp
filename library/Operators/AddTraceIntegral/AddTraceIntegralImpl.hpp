@@ -59,8 +59,8 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorAddTraceIntegral<TData>(std::move(expansionList)),
           m_trace(Field<TData, FieldState::Coeff>::template create<MemSpace>(
-              GetBlockAttributes(FieldState::Coeff, expansionList->GetTrace(),
-                                 ExecSpace::width),
+              GetBlockAttributes<TData>(FieldState::Coeff,
+                                        expansionList->GetTrace()),
               1, ExecSpace::alignment))
     {
         // Set mapping to skip over padding elements
@@ -68,8 +68,8 @@ public:
 
         i = 0, j = 0;
         Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks = GetBlockAttributes(FieldState::Coeff, expansionList,
-                                         ExecSpace::width);
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -89,8 +89,8 @@ public:
         i = 0, j = 0;
         Array<OneD, int> alignmentTrace(
             expansionList->GetTrace()->GetNcoeffs());
-        auto traceBlocks = GetBlockAttributes(
-            FieldState::Coeff, expansionList->GetTrace(), ExecSpace::width);
+        auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
+                                                     expansionList->GetTrace());
         for (auto &block : traceBlocks)
         {
             const auto ncoeff    = block.num_pts;
@@ -197,7 +197,7 @@ public:
 
         // interleave the map only when the input vector width is different
         // from current vector width of map
-        if (m_trace.GetVecWidth() != m_traceVecWdith)
+        /*if (m_trace.GetVecWidth() != m_traceVecWdith)
         {
             if (m_traceVecWdith != 1) // deinterleave first
             {
@@ -223,6 +223,7 @@ public:
             // contiguously
             ReorderMap();
         }
+
         if (out.GetVecWidth() != m_fieldVecWdith)
         {
             if (m_fieldVecWdith != 1) // deinterleave first
@@ -245,7 +246,7 @@ public:
             }
             // update the vector width of map
             m_fieldVecWdith = out.GetVecWidth();
-        }
+        }*/
 
         // Step 2: Map Trace to Element
         AddTraceIntegral(out);

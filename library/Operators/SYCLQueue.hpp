@@ -31,6 +31,7 @@
 // Description:
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 
 #include <sycl/sycl.hpp>
@@ -50,7 +51,9 @@ public:
     {
         /** @todo: Add device selection logic */
         if (!queue)
+        {
             queue = new sycl::queue(sycl::default_selector_v);
+        }
 
         return *queue;
     }

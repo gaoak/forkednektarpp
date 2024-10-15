@@ -73,7 +73,6 @@ atomic_min(TData *const dest, const TData val)
     Kokkos::atomic_min(dest, val);
 }
 
-// Simple 1D Range parallel_for
 template <typename ExecSpace, typename Functor>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
@@ -88,7 +87,6 @@ parallel_for(const int begin, const int end, const Functor &functor)
     Kokkos::parallel_for(name, rangePolicy, functor);
 }
 
-// Simple 1D Range parallel_reduce
 template <typename ExecSpace, typename Reduction, typename Functor>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type

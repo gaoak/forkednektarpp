@@ -74,13 +74,11 @@ public:
         : OperatorHelmholtz<TData>(expansionList),
           m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz bwd",
-              GetBlockAttributes(FieldState::Phys, expansionList,
-                                 ExecSpace::width),
-              1, ExecSpace::alignment)),
+              GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
+              ExecSpace::alignment)),
           m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
               "Helmholtz deriv",
-              GetBlockAttributes(FieldState::Phys, expansionList,
-                                 ExecSpace::width),
+              GetBlockAttributes<TData>(FieldState::Phys, expansionList),
               expansionList->GetCoordim(0), ExecSpace::alignment)),
           m_diffCoeff(MemoryRegion<TData>::template create<MemSpace>(
               "Helmholtz diffCoeff",
@@ -137,9 +135,7 @@ public:
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
 
-        auto *derivPtr0 = deriv.template GetPtr<MemSpace, ReadWrite>();
-        auto *derivPtr1 = derivPtr0 + deriv.GetFieldSize();
-        auto *derivPtr2 = derivPtr1 + deriv.GetFieldSize();
+        auto *derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -147,8 +143,8 @@ public:
         for (const auto &block : deriv.GetBlocks())
         {
             // Determine shape and type of the element.
-            auto nElmts = block.num_elements;
-
+            auto nElmts       = block.num_elements;
+            auto nElmtsPad    = block.num_elements + block.num_padding_elements;
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             auto nCoord       = expPtr->GetCoordim();
             auto nqTot        = expPtr->GetTotPoints();
@@ -157,27 +153,26 @@ public:
             if (nCoord == 1)
             {
                 DiffusionCoeff1DKernel<ExecSpace, TData>(
-                    nqTot * nElmts, diffCoeffPtr, derivPtr0);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr);
 
-                derivPtr0 += nqTot * nElmts;
+                derivPtr += nqTot * nElmtsPad;
             }
             else if (nCoord == 2)
             {
                 DiffusionCoeff2DKernel<ExecSpace, TData>(
-                    nqTot * nElmts, diffCoeffPtr, derivPtr0, derivPtr1);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr,
+                    derivPtr + nqTot * nElmtsPad);
 
-                derivPtr0 += nqTot * nElmts;
-                derivPtr1 += nqTot * nElmts;
+                derivPtr += 2 * nqTot * nElmtsPad;
             }
             else
             {
                 DiffusionCoeff3DKernel<ExecSpace, TData>(
-                    nqTot * nElmts, diffCoeffPtr, derivPtr0, derivPtr1,
-                    derivPtr2);
+                    nqTot * nElmts, diffCoeffPtr, derivPtr,
+                    derivPtr + nqTot * nElmtsPad,
+                    derivPtr + 2 * nqTot * nElmtsPad);
 
-                derivPtr0 += nqTot * nElmts;
-                derivPtr1 += nqTot * nElmts;
-                derivPtr2 += nqTot * nElmts;
+                derivPtr += 3 * nqTot * nElmtsPad;
             }
 
             exp_idx += nElmts;

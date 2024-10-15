@@ -62,121 +62,138 @@
 #define STRV(...) #__VA_ARGS__
 #define STRVX(...) STRV(__VA_ARGS__)
 
-using vec_t = tinysimd::simd<double>;
-
 namespace NektarSpaces
 {
 
+// Device vector width
+template <typename TData>
+#if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
+struct vector_width
+{
+    static constexpr size_t value = tinysimd::simd<TData>::width;
+};
+#elif defined(NEKTAR_ENABLE_CUDA)
+struct vector_width
+{
+    static constexpr size_t value = 32u;
+};
+#elif defined(NEKTAR_ENABLE_HIP)
+struct vector_width
+{
+    static constexpr size_t value = 64u;
+};
+#elif defined(KOKKOS_ENABLE_CUDA)
+struct vector_width
+{
+    static constexpr size_t value = Kokkos::Impl::CudaTraits::WarpSize;
+};
+#elif defined(KOKKOS_ENABLE_HIP)
+struct vector_width
+{
+    static constexpr size_t value = Kokkos::Impl::HIPTraits::WarpSize;
+};
+#elif defined(KOKKOS_ENABLE_SYCL)
+struct vector_width
+{
+    static constexpr size_t value = 64u;
+};
+#elif defined(SYCL_ENABLE_CUDA)
+struct vector_width
+{
+    static constexpr size_t value = 32u;
+};
+#else
+struct vector_width
+{
+    static constexpr size_t value = 1u;
+};
+#endif
+
+// Memory space.
 // Used to refer to any data in host memory.
-class HostSpace
+struct HostSpace
 {
 };
-
-class Serial
-{
-public:
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t width     = 1;
-    static constexpr size_t alignment = vec_t::alignment;
-};
-
-class AVX
-{
-public:
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t width     = vec_t::width;
-    static constexpr size_t alignment = vec_t::alignment;
-};
-
-using DefaultHostExecutionSpace = Serial; // Default Host implementation.
-
-// This macro is used in the CMakeLists.txt for generating the factory
-// *.cpp files. There is also a device tag.
-#define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::DefaultHostExecutionSpace
-
-// Native pure GPU execution
 #if defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP) ||               \
-    defined(NEKTAR_ENABLE_SYCL) || defined(KOKKOS_USING_GPU)
-
+    defined(SYCL_ENABLE_CUDA) || defined(KOKKOS_USING_GPU)
 // Used to refer to any data in device memory.
-class DeviceSpace
+struct DeviceSpace
 {
 };
-
 #else
 // No specific GPU so the device is the host.
 using DeviceSpace = HostSpace;
 #endif
 
-// Native pure CUDA execution
-class CUDA
+// Execution space.
+struct Serial
 {
-public:
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+};
+
+struct AVX
+{
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+};
+
+struct CUDA
+{
     using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t width     = 32;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 };
 
-// Native pure HIP execution
-class HIP
+struct HIP
 {
-public:
     using memory_space                = NektarSpaces::DeviceSpace;
-    static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 };
 
-// Native pure SYCL execution
-class SYCL
-{
-public:
-    using memory_space = NektarSpaces::DeviceSpace;
-#if defined(SYCL_ENABLE_CUDA)
-    static constexpr size_t width     = 32;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
-#else
-    static constexpr size_t width     = vec_t::width;
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 16u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
-#endif
-};
-
-// Native pure Kokkos execution
-class KOKKOS
+struct KOKKOS
 {
 public:
     using memory_space = NektarSpaces::DeviceSpace;
 #if defined(KOKKOS_ENABLE_CUDA)
-    static constexpr size_t width     = Kokkos::Impl::CudaTraits::WarpSize;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 #elif defined(KOKKOS_ENABLE_HIP)
-    static constexpr size_t width     = Kokkos::Impl::HIPTraits::WarpSize;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 #elif defined(KOKKOS_ENABLE_SYCL)
-    static constexpr size_t width     = 64;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 #else
-    static constexpr size_t width     = vec_t::width;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 1u;
     static constexpr unsigned int defaultGridSize  = 1024u;
 #endif
 };
 
-// Specific execution
+struct SYCL
+{
+    using memory_space = NektarSpaces::DeviceSpace;
+#if defined(SYCL_ENABLE_CUDA)
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#else
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 16u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#endif
+};
+
+// Specify execution for CMakeList.txt
+#define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::Serial
+
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::AVX
 #elif defined(NEKTAR_ENABLE_CUDA)
@@ -187,28 +204,29 @@ public:
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
-#endif // GPU specific
+#else
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Serial
+#endif
 
 // These are used for LoopExecution.hpp
 #if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
-#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA [=]
 #elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA KOKKOS_LAMBDA
+#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA [=]
 #else
 #define NEKTAR_LAMBDA [&]
 #endif
 
-class GlobalScope
+// Memory scope for atomic.
+struct GlobalScope
 {
-public:
 };
 
-class LocalScope
+struct LocalScope
 {
-public:
 };
 
 } // namespace NektarSpaces

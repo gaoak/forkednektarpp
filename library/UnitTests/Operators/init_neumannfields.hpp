@@ -53,19 +53,18 @@ public:
 
     void SetTestCase(
         [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
-        [[maybe_unused]] double *inptr)
+        [[maybe_unused]] double *outptr)
     {
     }
 
     void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *inptr)
+                          double *outptr)
     {
         using ExecSpace     = NektarSpaces::Serial;
         using Impl          = Operators::StdMat;
         const auto stateOut = FieldState::Coeff;
 
-        auto blocks_tmp = GetBlockAttributes(stateOut, fixt_explist,
-                                             NektarSpaces::Serial::width);
+        auto blocks_tmp = GetBlockAttributes<double>(stateOut, fixt_explist);
         auto f_tmp =
             Field<double, stateOut>::template create<NektarSpaces::HostSpace>(
                 "f_out", blocks_tmp, 1, NektarSpaces::Serial::alignment);
@@ -85,11 +84,11 @@ public:
                 for (size_t coeff = 0; coeff < blocks[bl].num_pts;
                      ++coeff, ++cnt)
                 {
-                    inptr[cnt] = ptr[cnt];
+                    outptr[cnt] = ptr[cnt];
                 }
             }
 
-            inptr += blocks[bl].block_size;
+            outptr += blocks[bl].block_size;
             ptr += blocks_tmp[bl].block_size;
         }
 

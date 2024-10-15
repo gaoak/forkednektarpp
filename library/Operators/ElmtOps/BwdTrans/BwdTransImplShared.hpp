@@ -77,8 +77,10 @@ public:
     {
         if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
         {
-            in.template ReshapeStorage<ExecSpace, ExecSpace::width>();
-            out.template ReshapeStorage<ExecSpace, ExecSpace::width>();
+            in.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
+            out.template ReshapeStorage<
+                ExecSpace, NektarSpaces::vector_width<TData>::value>();
         }
 
         // Copy memory to the device, if necessary and get raw pointers.

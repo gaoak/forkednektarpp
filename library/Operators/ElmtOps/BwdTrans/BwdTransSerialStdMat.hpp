@@ -59,7 +59,7 @@ public:
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
         for (size_t e = 0; e < nTotElmts; ++e)
@@ -85,7 +85,6 @@ public:
                 {
                     Vmath::Zero(nmTot, tmp, 1);
                     tmp[i] = 1.0;
-                    // TODO: Use redesign kernels
                     expPtr->GetStdExp()->BwdTrans(tmp, t = matPtr + i * nqTot);
                 }
             }
@@ -95,6 +94,8 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
         // Initialize pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
@@ -104,7 +105,7 @@ public:
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
-            3, LibUtilities::NullBasisKey);
+            dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
@@ -116,10 +117,9 @@ public:
             const auto nElmts    = inblock.num_elements;
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto nmTot     = expPtr->GetNcoeffs();
-            const auto nqTot     = expPtr->GetTotPoints();
+            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
+            const auto nmTot  = expPtr->GetNcoeffs();
+            const auto nqTot  = expPtr->GetTotPoints();
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; d++)

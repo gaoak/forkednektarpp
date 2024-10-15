@@ -70,13 +70,9 @@ BOOST_FIXTURE_TEST_CASE(cuda_negkernel, MathKernels)
     negKernelLauncher(n, x, y);
 
     // Check results
-    BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -101,13 +97,9 @@ BOOST_FIXTURE_TEST_CASE(cuda_addkernel, MathKernels)
     addKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -132,13 +124,9 @@ BOOST_FIXTURE_TEST_CASE(cuda_subkernel, MathKernels)
     subKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, 1.0E-15));
     }
 }
 
@@ -165,13 +153,9 @@ BOOST_FIXTURE_TEST_CASE(cuda_daxpykernel, MathKernels)
     daxpyKernelLauncher(n, alpha, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, 1.0E-14));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-14);
+        BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, 1.0E-14));
     }
 }
 
@@ -196,13 +180,9 @@ BOOST_FIXTURE_TEST_CASE(cuda_divkernel, MathKernels)
     divKernelLauncher(n, x, z, z);
 
     // Check results
-    BOOST_TEST(fixt_cuda_out->compare(*fixt_expected, 1.0E-15));
     boost::test_tools::output_test_stream output;
     {
-        OutputIfNotMatch(
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-            1.0E-15);
+        BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, 1.0E-15));
     }
 }
 

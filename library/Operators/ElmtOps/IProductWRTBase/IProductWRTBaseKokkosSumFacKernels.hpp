@@ -53,7 +53,7 @@ void IProductWRTBaseSegKernel(const unsigned int ssize, const unsigned int nm0,
                               TData *KOKKOS_RESTRICT out,
                               const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -227,7 +227,7 @@ void IProductWRTBaseQuadKernel(
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -593,7 +593,7 @@ void IProductWRTBaseTriKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -1095,7 +1095,7 @@ void IProductWRTBaseHexKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -1573,7 +1573,7 @@ void IProductWRTBaseTetKernel(
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -2366,7 +2366,7 @@ void IProductWRTBasePrismKernel(
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -3033,7 +3033,7 @@ void IProductWRTBasePyrKernel(
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const TData scale = 1.0)
 {
-    constexpr unsigned int warpsize = NektarSpaces::KOKKOS::width;
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
