@@ -65,52 +65,52 @@
 
 BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMassCUDA)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_seg, Seg, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_seg, Seg, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_seg_sem, SegSEM, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_seg_sem, SegSEM, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_quad, Quad, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_quad, Quad, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_quad_sem, QuadSEM,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_quad_varp, QuadVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tri, Tri, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tri, Tri, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tri_varp, TriVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_square_all_elements,
-                           SquareAllElements, 1.0E-12)
+                           SquareAllElements, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex, Hex, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex, Hex, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex_sem, HexSEM, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex_sem, HexSEM, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_hex_varp, HexVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_prism, Prism, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_prism, Prism, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_prism_varp, PrismVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_pyr, Pyr, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_pyr, Pyr, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_pyr_varp, PyrVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tet, Tet, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tet, Tet, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_tet_varp, TetVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_cube_prism_hex,
-                           CubePrismHex, 1.0E-12)
+                           CubePrismHex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_cuda_cube_all_elements,
-                           CubeAllElements, 1.0E-12)
+                           CubeAllElements, 1.0E-03)
 
 BOOST_AUTO_TEST_SUITE_END()

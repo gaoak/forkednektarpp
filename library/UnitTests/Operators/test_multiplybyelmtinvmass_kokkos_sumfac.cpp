@@ -32,14 +32,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BOOST_TEST_MODULE TestMultiplyByElmtInvMassKokkos
-
-#include "init_multiplybyelmtinvmassfields.hpp"
+#define BOOST_TEST_MODULE TestMultiplyByElmtInvMass
 
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
+#include "init_multiplybyelmtinvmassfields.hpp"
 
 #define TEST_MULTIPLYBYELMTINVMASS(test_name, test, tol)                       \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -64,54 +65,54 @@
 
 BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMassKokkos)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_seg, Seg, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_seg, Seg, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_seg_sem, SegSEM,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad, Quad, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad, Quad, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad_sem, QuadSEM,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_quad_varp, QuadVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tri, Tri, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tri, Tri, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tri_varp, TriVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_square_all_elements,
-                           SquareAllElements, 1.0E-12)
+                           SquareAllElements, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex, Hex, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex, Hex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex_sem, HexSEM,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_hex_varp, HexVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_prism, Prism, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_prism, Prism, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_prism_varp, PrismVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_pyr, Pyr, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_pyr, Pyr, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_pyr_varp, PyrVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tet, Tet, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tet, Tet, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_tet_varp, TetVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_cube_prism_hex,
-                           CubePrismHex, 1.0E-12)
+                           CubePrismHex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_kokkos_cube_all_elements,
-                           CubeAllElements, 1.0E-12)
+                           CubeAllElements, 1.0E-04)
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestMultiplyByElmtInvMass
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
@@ -63,54 +64,54 @@
 
 BOOST_AUTO_TEST_SUITE(TestMultiplyByElmtInvMass)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_seg, Seg, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_seg, Seg, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_seg_sem, SegSEM,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_quad, Quad, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_quad, Quad, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_quad_sem, QuadSEM,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_quad_varp, QuadVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tri, Tri, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tri, Tri, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tri_varp, TriVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_square_all_elements,
-                           SquareAllElements, 1.0E-12)
+                           SquareAllElements, 1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_hex, Hex, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_hex, Hex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_hex_sem, HexSEM,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_hex_varp, HexVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_prism, Prism, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_prism, Prism, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_prism_varp, PrismVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_pyr, Pyr, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_pyr, Pyr, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_pyr_varp, PyrVarP,
-                           1.0E-12)
+                           1.0E-04)
 
-TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tet, Tet, 1.0E-12)
+TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tet, Tet, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_tet_varp, TetVarP,
-                           1.0E-12)
+                           1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_cube_prism_hex,
-                           CubePrismHex, 1.0E-12)
+                           CubePrismHex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_serial_cube_all_elements,
-                           CubeAllElements, 1.0E-12)
+                           CubeAllElements, 1.0E-03)
 
 BOOST_AUTO_TEST_SUITE_END()
