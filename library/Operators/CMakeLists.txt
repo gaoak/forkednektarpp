@@ -113,15 +113,6 @@ MACRO(ADD_OPERATOR dir)
             ENDIF()
         ENDIF()
 
-        # Look for a generic implementation header.
-        UNSET(GENERIC_HEADER)
-
-        IF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
-            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}${ExecSpace}Generic.${HEADER_EXT})
-            SET(GENERIC_HEADER "#include \"${include_file}\"")
-        ENDIF()
-
         # Set file extension.
         IF("${ExecSpace}" STREQUAL "CUDA")
             SET(SOURCE_EXT cu)
@@ -129,6 +120,15 @@ MACRO(ADD_OPERATOR dir)
         ELSE()
             SET(SOURCE_EXT cpp)
             SET(HEADER_EXT hpp)
+        ENDIF()
+
+        # Look for a generic implementation header.
+        UNSET(GENERIC_HEADER)
+
+        IF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
+            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${dir}/${name}${ExecSpace}Generic.${HEADER_EXT})
+            SET(GENERIC_HEADER "#include \"${include_file}\"")
         ENDIF()
 
         # Set execuation space - see Spaces.hpp
@@ -296,10 +296,12 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
+      CUBLASHandle.cuh
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
+      CUBLASHandle.cu
     )
 
     SET(OPERATORS_DEPENDS

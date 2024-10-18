@@ -60,7 +60,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
     if [[ $BUILD_CUDA == "on" ]]; then
         # Load CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda
+        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_CUDA:BOOL=ON")
@@ -70,7 +70,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=Serial")
     elif [[ $BUILD_KOKKOS == "CUDA" ]]; then
         # Load Boost and CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load boost cuda
+        [[ $OS_VERSION != "macos" ]] && module load boost cuda/12.2.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=CUDA")
@@ -83,7 +83,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=Default")
     elif [[ $BUILD_SYCL == "CUDA" ]]; then
         # Load CUDA and Intel compiler module for SYCL support on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda intel/compiler
+        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2 intel/compiler
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")

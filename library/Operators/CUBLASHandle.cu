@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorMultiplyByElmtInvMass.hpp
+// File: CUBLASHandle.cu
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,54 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "CUBLASHandle.cuh"
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
-
-namespace Nektar::Operators
-{
-
-// MultiplyByElmtInvMass base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class OperatorMultiplyByElmtInvMass
-    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
-{
-public:
-    OperatorMultiplyByElmtInvMass(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
-    {
-    }
-
-    ~OperatorMultiplyByElmtInvMass() override = default;
-
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
-};
-
-// Descriptor / traits class for MultiplyByElmtInvMass
-template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
-{
-    using class_name = OperatorMultiplyByElmtInvMass<TData>;
-
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
-    MultiplyByElmtInvMass() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template create<MultiplyByElmtInvMass<TData>,
-                                                ExecSpace, Impl>(expansionList);
-    }
-};
-
-} // namespace Nektar::Operators
+cublasHandle_t CUBLASHandle::handle = nullptr;

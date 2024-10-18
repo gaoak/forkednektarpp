@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorMultiplyByElmtInvMass.hpp
+// File: CUBLASHandle.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,52 +34,26 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include <stdio.h>
 
-namespace Nektar::Operators
-{
+#include <cublas_v2.h>
 
-// MultiplyByElmtInvMass base class
-// Defines the apply operator to enforce apply parameter types
-template <typename TData>
-class OperatorMultiplyByElmtInvMass
-    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
+class CUBLASHandle
 {
 public:
-    OperatorMultiplyByElmtInvMass(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
-              expansionList)
+    static cublasHandle_t &GetInstance()
     {
+        if (!handle)
+        {
+            if (cublasCreate(&handle) != CUBLAS_STATUS_SUCCESS)
+            {
+                printf("CUBLAS initialization failed\n");
+            }
+        }
+
+        return handle;
     }
 
-    ~OperatorMultiplyByElmtInvMass() override = default;
-
-    virtual void operator()(Field<TData, FieldState::Coeff> &in,
-                            Field<TData, FieldState::Coeff> &out)
-    {
-        this->apply(in, out);
-    }
+private:
+    static cublasHandle_t handle;
 };
-
-// Descriptor / traits class for MultiplyByElmtInvMass
-template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
-{
-    using class_name = OperatorMultiplyByElmtInvMass<TData>;
-
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
-    MultiplyByElmtInvMass() = delete;
-
-    template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
-        const MultiRegions::ExpListSharedPtr &expansionList)
-    {
-        return Operator<TData>::template create<MultiplyByElmtInvMass<TData>,
-                                                ExecSpace, Impl>(expansionList);
-    }
-};
-
-} // namespace Nektar::Operators
