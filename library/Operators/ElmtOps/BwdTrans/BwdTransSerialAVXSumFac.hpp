@@ -36,9 +36,10 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorBwdTrans.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
+#include "Operators/Utils/UtilsKernels.hpp"
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 
@@ -83,11 +84,6 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Reshape into simd_t::width. If the Field is already
-        // interleaved, this method returns.
-        in.template ReshapeStorage<ExecSpace, simd_t::width>();
-        out.template ReshapeStorage<ExecSpace, simd_t::width>();
-
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
@@ -101,14 +97,22 @@ public:
              ++block_idx)
         {
             // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
+            auto &inblock     = in.GetBlocks()[block_idx];
+            auto &outblock    = out.GetBlocks()[block_idx];
+            const auto nElmts = inblock.num_elements;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
             const auto shapeType = expPtr->DetShapeType();
 
+            // Get current interleave width.
+            m_in_interleave_width = inblock.interleave_width;
+
+            // Set to new interleave width.
+            inblock.interleave_width  = simd_t::width;
+            outblock.interleave_width = simd_t::width;
+
+            // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
@@ -189,6 +193,7 @@ private:
     std::vector<LibUtilities::BasisKey> m_basisKeys;
 
     int m_nElmtGroup, m_exp_idx;
+    int m_in_interleave_width;
 
     void SegBlock(const TData *inPtr, TData *outPtr);
     void TriBlock(const TData *inPtr, TData *outPtr);
@@ -217,6 +222,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
@@ -248,6 +258,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
@@ -283,6 +298,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -325,6 +345,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -364,6 +389,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -413,6 +443,11 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]

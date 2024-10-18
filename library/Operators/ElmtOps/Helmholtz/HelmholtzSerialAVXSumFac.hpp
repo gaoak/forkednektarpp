@@ -40,8 +40,9 @@
 #include "ElmtOps/OperatorIProductWRTBase.hpp"
 #include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
+#include "Operators/Utils/UtilsKernels.hpp"
 
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
@@ -77,12 +78,13 @@ public:
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, simd_t::width);
 
-        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        auto jac        = Operator<TData>::SetJacobian(gFacSize, locblocks);
+        size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
+        auto jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
+        auto derivFac =
+            SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
+
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
-        auto derivFac =
-            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
         m_df = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
 
@@ -131,13 +133,8 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Reshape into simd_t::width. If the Field is already
-        // interleaved, this method returns.
-        in.template ReshapeStorage<ExecSpace, simd_t::width>();
-        out.template ReshapeStorage<ExecSpace, simd_t::width>();
-
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
+        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
 
         m_exp_idx = 0; // accumulates over blocks, used in operatorND()
         m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
@@ -150,9 +147,9 @@ public:
              ++block_idx)
         {
             // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
+            auto &inblock     = in.GetBlocks()[block_idx];
+            auto &outblock    = out.GetBlocks()[block_idx];
+            const auto nElmts = inblock.num_elements;
             const auto nElmtsPad =
                 inblock.num_elements + inblock.num_padding_elements;
 
@@ -163,6 +160,14 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
+            // Get current interleave width.
+            m_in_interleave_width = inblock.interleave_width;
+
+            // Set to new interleave width.
+            inblock.interleave_width  = simd_t::width;
+            outblock.interleave_width = simd_t::width;
+
+            // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
@@ -219,8 +224,7 @@ public:
                     std::cout << "shapetype not implemented" << std::endl;
             }
 
-            // #include "Operators/Common/SwitchLevel2Deformed.h"
-
+            // Increment pointer and index for next element type.
             m_jac_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
             inPtr += inblock.block_size;
             outPtr += outblock.block_size;
@@ -241,6 +245,7 @@ public:
 
 private:
     int m_nElmtGroup, m_jac_idx, m_exp_idx;
+    int m_in_interleave_width;
 
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_df;
@@ -323,6 +328,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
@@ -402,6 +412,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
             // Step 2: inner product for mass matrix operation
@@ -522,6 +537,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
@@ -635,6 +655,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
@@ -781,6 +806,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,
@@ -925,6 +955,11 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nmTot,
+                (TData *)input + e * nmTot * simd_t::width);
+
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,

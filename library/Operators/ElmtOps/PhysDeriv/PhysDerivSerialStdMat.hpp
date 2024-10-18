@@ -36,6 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
+#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 
 namespace Nektar::Operators::detail
@@ -60,8 +61,9 @@ public:
         // Initialise derivative factor.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t dfSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        m_derivFac    = Operator<TData>::SetDerivativeFactor(dfSize, locblocks);
+        size_t dfSize = GetGeometricFactorSize(expansionList, locblocks);
+        m_derivFac =
+            SetDerivativeFactor<TData>(expansionList, dfSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(

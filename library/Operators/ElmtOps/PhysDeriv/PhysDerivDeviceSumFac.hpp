@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: PhysDerivImplShared.hpp
+// File: PhysDerivDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,6 +36,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
@@ -76,9 +77,9 @@ public:
                 : 1u;
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, interleave_width);
-        auto dfSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        auto derivFac =
-            Operator<TData>::SetDerivativeFactor(dfSize, locblocks, transpose);
+        auto dfSize   = GetGeometricFactorSize(expansionList, locblocks);
+        auto derivFac = SetDerivativeFactor<TData>(expansionList, dfSize,
+                                                   locblocks, transpose);
 
         const bool device_only = true;
 
@@ -96,14 +97,6 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
-        {
-            in.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-            out.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-        }
-
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
@@ -112,11 +105,14 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
-        for (const auto &block : in.GetBlocks())
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
         {
             // Block dependent
-            const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_padding_elements + nElmts;
+            auto &inblock        = in.GetBlocks()[block_idx];
+            auto &outblock       = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad = inblock.num_padding_elements + nElmts;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -155,6 +151,24 @@ public:
                                 : nullptr;
 
             constexpr bool SharedMemory = true;
+
+            // Reshape, if necessary.
+            if constexpr (std::is_same<Implementation,
+                                       Operators::SumFac>::value)
+            {
+                ReshapeStorage<ExecSpace,
+                               NektarSpaces::vector_width<TData>::value>(
+                    inblock.interleave_width, nElmtsPad, inblock.num_pts,
+                    (TData *)inPtr);
+                ReshapeStorage<ExecSpace,
+                               NektarSpaces::vector_width<TData>::value>(
+                    outblock.interleave_width, nElmtsPad, outblock.num_pts,
+                    outPtr);
+                inblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+                outblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+            }
 
             // Function call to kernel functions.
             if (dimension == 1)

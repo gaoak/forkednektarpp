@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsKokkos.hpp
+// File: UtilsKokkosKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -126,11 +126,9 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 template <typename ExecSpace>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
-                         const unsigned int npts,
-                         const unsigned int newVecWidth,
-                         const unsigned int offset, int *deInterleaveMapPtr,
-                         int *interleaveMapPtr)
+BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
+                   const unsigned int newVecWidth, const unsigned int offset,
+                   int *deInterleaveMapPtr, int *interleaveMapPtr)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -141,7 +139,6 @@ BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
         Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
             bufferSize);
 
-    // rewrite UtilsAVX.hpp BuildInterleaveMapKernel for Kokkos:
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(numMetaBlocks, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {

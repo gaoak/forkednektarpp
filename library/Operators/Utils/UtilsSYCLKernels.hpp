@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsSYCL.hpp
+// File: UtilsSYCLKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -134,11 +134,10 @@ template <typename ExecSpace>
 inline
     typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
                             void>::type
-    BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
-                             const unsigned int npts,
-                             const unsigned int newVecWidth,
-                             const unsigned int offset, int *deInterleaveMapPtr,
-                             int *interleaveMapPtr)
+    BuildInterleaveMap(const unsigned int numMetaBlocks,
+                       const unsigned int npts, const unsigned int newVecWidth,
+                       const unsigned int offset, int *deInterleaveMapPtr,
+                       int *interleaveMapPtr)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 

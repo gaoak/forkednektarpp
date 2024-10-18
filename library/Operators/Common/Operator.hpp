@@ -81,26 +81,26 @@ namespace Nektar::Operators
 extern OPERATORS_EXPORT std::string g_OpExecSpace;
 extern OPERATORS_EXPORT std::string g_OpImpl;
 
-template <bool B, class T> struct simd_type_if
+template <bool B, typename T> struct simd_type_if
 {
     typedef tinysimd::scalarT<T> type;
 };
 
-template <class T> struct simd_type_if<true, T>
+template <typename T> struct simd_type_if<true, T>
 {
     typedef tinysimd::simd<T> type;
 };
 
-// Core implementation types
-class StdMat
+// Core implementation types.
+struct StdMat
 {
 };
 
-class SumFac
+struct SumFac
 {
 };
 
-class SumFacQP
+struct SumFacQP
 {
 };
 
@@ -260,7 +260,7 @@ public:
         }
 
 #if defined(_MSC_VER)
-        // Check for a class root.
+        // Check for a struct root.
         Nektar::stripString(execStr, "struct ");
 #endif
 
@@ -277,8 +277,8 @@ public:
         Nektar::stripString(implStr, "Nektar::Operators::");
 
 #if defined(_MSC_VER)
-        // Check for a class root.
-        Nektar::stripString(implStr, "class ");
+        // Check for a struct root.
+        Nektar::stripString(implStr, "struct ");
 #endif
 
         // Overide with command-line specified implementation, if necessary
@@ -300,6 +300,7 @@ public:
 #else
         constexpr size_t nOpTests = 3;
 #endif
+
         for (size_t i = 0; i < nOpTests; ++i)
         {
             switch (i)
@@ -357,211 +358,6 @@ public:
     }
 
 protected:
-    size_t GetGeometricFactorSize(const std::vector<BlockAttributes> &blocks)
-    {
-        size_t gfSize = 0;
-        size_t exp_id = 0;
-
-        for (size_t blk = 0; blk < blocks.size(); ++blk)
-        {
-            const auto expPtr = this->m_expansionList->GetExp(exp_id);
-
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                gfSize +=
-                    expPtr->GetTotPoints() * (blocks[blk].num_elements +
-                                              blocks[blk].num_padding_elements);
-            }
-            else
-            {
-                gfSize +=
-                    blocks[blk].num_elements + blocks[blk].num_padding_elements;
-            }
-
-            exp_id += blocks[blk].num_elements;
-        }
-
-        return gfSize;
-    }
-
-    std::shared_ptr<std::vector<TData>> SetJacobian(
-        size_t jacSize, std::vector<BlockAttributes> &blocks)
-    {
-        // Allocate memory for the jacobian
-        std::vector<TData> jac;
-        jac.resize(jacSize);
-
-        size_t exp_id = 0;
-        size_t jac_id = 0;
-
-        for (size_t blk = 0; blk < blocks.size(); ++blk)
-        {
-            size_t interleave_width = blocks[blk].interleave_width;
-            size_t num_elements     = blocks[blk].num_elements;
-            size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
-
-            auto expPtr = this->m_expansionList->GetExp(exp_id);
-
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
-
-                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
-                {
-                    for (size_t i = 0; i < interleave_width; ++i, ++el)
-                    {
-                        if (el < num_elements)
-                        {
-                            jacArray[i] =
-                                this->m_expansionList->GetExp(exp_id++)
-                                    ->GetMetricInfo()
-                                    ->GetJac(expPtr->GetPointsKeys());
-                        }
-                        else
-                        {
-                            jacArray[i] = Array<OneD, NekDouble>(
-                                expPtr->GetTotPoints(), 0.0);
-                        }
-                    }
-
-                    for (size_t pt = 0; pt < expPtr->GetTotPoints(); ++pt)
-                    {
-                        for (size_t i = 0; i < interleave_width; ++i, ++jac_id)
-                        {
-                            jac[jac_id] = jacArray[i][pt];
-                        }
-                    }
-                }
-            }
-            else // regular geometry
-            {
-                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
-                {
-                    for (size_t i = 0; i < interleave_width;
-                         ++i, ++el, ++jac_id)
-                    {
-                        if (el < num_elements)
-                        {
-                            auto &auxJac =
-                                this->m_expansionList->GetExp(exp_id++)
-                                    ->GetMetricInfo()
-                                    ->GetJac(expPtr->GetPointsKeys());
-                            jac[jac_id] = auxJac[0];
-                        }
-                        else
-                        {
-                            jac[jac_id] = 0.0;
-                        }
-                    }
-                }
-            }
-        }
-
-        return MemoryManager<std::vector<TData>>::AllocateSharedPtr(jac);
-    }
-
-    std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
-        size_t dfSize, std::vector<BlockAttributes> &blocks,
-        bool transpose = false)
-    {
-        // Allocate memory for the derivative factor
-        size_t nDim   = this->m_expansionList->GetShapeDimension();
-        size_t nCoord = this->m_expansionList->GetCoordim(0);
-
-        std::vector<TData> derivFac;
-        derivFac.resize(nDim * nCoord * dfSize);
-
-        size_t exp_id = 0;
-        size_t df_id  = 0;
-
-        for (size_t blk = 0; blk < blocks.size(); ++blk)
-        {
-            size_t interleave_width = blocks[blk].interleave_width;
-            size_t num_elements     = blocks[blk].num_elements;
-            size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
-            auto expPtr             = this->m_expansionList->GetExp(exp_id);
-
-            size_t range1 = transpose ? nDim * nCoord : expPtr->GetTotPoints();
-            size_t range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
-
-            if (expPtr->GetMetricInfo()->GetGtype() ==
-                SpatialDomains::eDeformed)
-            {
-                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
-                {
-                    for (size_t index1 = 0; index1 < range1; ++index1)
-                    {
-                        for (size_t index2 = 0; index2 < range2; ++index2)
-                        {
-                            for (size_t i = 0; i < interleave_width;
-                                 ++i, ++df_id)
-                            {
-                                if (el + i < num_elements)
-                                {
-                                    size_t d  = transpose ? index1 : index2;
-                                    size_t pt = transpose ? index2 : index1;
-
-                                    auto &df = this->m_expansionList
-                                                   ->GetExp(exp_id + i)
-                                                   ->GetMetricInfo()
-                                                   ->GetDerivFactors(
-                                                       expPtr->GetPointsKeys());
-                                    derivFac[df_id] = df[d][pt];
-                                }
-                                else
-                                {
-                                    derivFac[df_id] = 0.0;
-                                }
-                            }
-                        }
-                    }
-
-                    if (el < num_elements)
-                    {
-                        exp_id += std::min(interleave_width, num_elements - el);
-                    }
-                    el += interleave_width;
-                }
-            }
-            else
-            {
-                for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
-                {
-                    for (size_t d = 0; d < nDim * nCoord; ++d)
-                    {
-                        for (size_t i = 0; i < interleave_width; ++i, ++df_id)
-                        {
-                            if (el + i < num_elements)
-                            {
-                                auto &df =
-                                    this->m_expansionList->GetExp(exp_id + i)
-                                        ->GetMetricInfo()
-                                        ->GetDerivFactors(
-                                            expPtr->GetPointsKeys());
-                                derivFac[df_id] = df[d][0];
-                            }
-                            else
-                            {
-                                derivFac[df_id] = 0.0;
-                            }
-                        }
-                    }
-
-                    if (el < num_elements)
-                    {
-                        exp_id += std::min(interleave_width, num_elements - el);
-                    }
-                    el += interleave_width;
-                }
-            }
-        }
-
-        return MemoryManager<std::vector<NekDouble>>::AllocateSharedPtr(
-            derivFac);
-    }
-
     MultiRegions::ExpListSharedPtr m_expansionList;
 };
 

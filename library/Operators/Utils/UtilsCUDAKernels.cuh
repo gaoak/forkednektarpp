@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsCUDAKernels.cu
+// File: UtilsCUDAKernels.cuh
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,17 +32,20 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma once
+
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "UtilsCUDALaunchers.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 namespace Nektar
 {
 
 template <typename TData>
-__global__ void interleave(const unsigned int VectorWidth,
-                           const unsigned int numMetaBlocks,
-                           const unsigned int npts, TData *buffer, TData *inout)
+__global__ void interleaveKernel(const unsigned int VectorWidth,
+                                 const unsigned int numMetaBlocks,
+                                 const unsigned int npts, TData *buffer,
+                                 TData *inout)
 {
     const unsigned int metaBlock = blockIdx.x;
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -65,10 +68,10 @@ __global__ void interleave(const unsigned int VectorWidth,
 }
 
 template <typename TData>
-__global__ void deInterleave(const unsigned int VectorWidth,
-                             const unsigned int numMetaBlocks,
-                             const unsigned int npts, TData *buffer,
-                             TData *inout)
+__global__ void deInterleaveKernel(const unsigned int VectorWidth,
+                                   const unsigned int numMetaBlocks,
+                                   const unsigned int npts, TData *buffer,
+                                   TData *inout)
 {
     const unsigned int metaBlock = blockIdx.x;
     const unsigned int offset    = npts * VectorWidth * metaBlock;
@@ -90,12 +93,13 @@ __global__ void deInterleave(const unsigned int VectorWidth,
     }
 }
 
-__global__ void BuildInterleaveMap(const unsigned int numMetaBlocks,
-                                   const unsigned int npts,
-                                   const unsigned int newVecWidth,
-                                   const unsigned int offset,
-                                   int *deInterleaveMapPtr,
-                                   int *interleaveMapPtr, int *buffer)
+template <typename TData>
+__global__ void BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
+                                         const unsigned int npts,
+                                         const unsigned int newVecWidth,
+                                         const unsigned int offset,
+                                         TData *deInterleaveMapPtr,
+                                         TData *interleaveMapPtr, TData *buffer)
 {
     // rewrite UtilsSYCL.hpp BuildInterleaveMapKernel into CUDA codes
     const unsigned int metaBlock   = blockIdx.x;
@@ -128,120 +132,57 @@ __global__ void BuildInterleaveMap(const unsigned int numMetaBlocks,
     }
 }
 
-void interleaveCUDAlauncher(const unsigned int VectorWidth,
-                            const unsigned int numMetaBlocks,
-                            const unsigned int npts, double *inout)
+template <size_t VectorWidth, typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    interleave(const unsigned int numMetaBlocks, const unsigned int npts,
+               TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
-        sizeof(double) * VectorWidth * numMetaBlocks * npts;
+        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
-    double *buffer;
+    TData *buffer;
     cudaMalloc(&buffer, bufferSize);
 
-    interleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                        buffer, inout);
+    interleaveKernel<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
+                                              buffer, inout);
 
     cudaFree(buffer);
 }
 
-void interleaveCUDAlauncher(const unsigned int VectorWidth,
-                            const unsigned int numMetaBlocks,
-                            const unsigned int npts, float *inout)
+template <typename ExecSpace, typename TData>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    deInterleave(const unsigned int VectorWidth,
+                 const unsigned int numMetaBlocks, const unsigned int npts,
+                 TData *inout)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
     const unsigned int bufferSize =
-        sizeof(float) * VectorWidth * numMetaBlocks * npts;
+        sizeof(TData) * VectorWidth * numMetaBlocks * npts;
 
-    float *buffer;
+    TData *buffer;
     cudaMalloc(&buffer, bufferSize);
 
-    interleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                        buffer, inout);
+    deInterleaveKernel<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks,
+                                                npts, buffer, inout);
 
     cudaFree(buffer);
 }
 
-void interleaveCUDAlauncher(const unsigned int VectorWidth,
-                            const unsigned int numMetaBlocks,
-                            const unsigned int npts, int *inout)
-{
-    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
-        sizeof(int) * VectorWidth * numMetaBlocks * npts;
-
-    int *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
-    interleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                        buffer, inout);
-
-    cudaFree(buffer);
-}
-
-void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
-                              const unsigned int numMetaBlocks,
-                              const unsigned int npts, double *inout)
-{
-    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
-        sizeof(double) * VectorWidth * numMetaBlocks * npts;
-
-    double *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
-    deInterleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                          buffer, inout);
-
-    cudaFree(buffer);
-}
-
-void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
-                              const unsigned int numMetaBlocks,
-                              const unsigned int npts, float *inout)
-{
-    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
-        sizeof(float) * VectorWidth * numMetaBlocks * npts;
-
-    float *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
-    deInterleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                          buffer, inout);
-
-    cudaFree(buffer);
-}
-
-void deInterleaveCUDAlauncher(const unsigned int VectorWidth,
-                              const unsigned int numMetaBlocks,
-                              const unsigned int npts, int *inout)
-{
-    const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = numMetaBlocks;
-    const unsigned int bufferSize =
-        sizeof(int) * VectorWidth * numMetaBlocks * npts;
-
-    int *buffer;
-    cudaMalloc(&buffer, bufferSize);
-
-    deInterleave<<<gridSize, blockSize>>>(VectorWidth, numMetaBlocks, npts,
-                                          buffer, inout);
-
-    cudaFree(buffer);
-}
-
-void BuildInterleaveMapCUDAlauncher(const unsigned int numMetaBlocks,
-                                    const unsigned int npts,
-                                    const unsigned int newVecWidth,
-                                    const unsigned int offset,
-                                    int *deInterleaveMapPtr,
-                                    int *interleaveMapPtr)
+template <typename ExecSpace>
+inline
+    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+                            void>::type
+    BuildInterleaveMap(const unsigned int numMetaBlocks,
+                       const unsigned int npts, const unsigned int newVecWidth,
+                       const unsigned int offset, int *deInterleaveMapPtr,
+                       int *interleaveMapPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = numMetaBlocks;
@@ -251,7 +192,7 @@ void BuildInterleaveMapCUDAlauncher(const unsigned int numMetaBlocks,
     int *buffer;
     cudaMalloc(&buffer, bufferSize);
 
-    BuildInterleaveMap<<<gridSize, blockSize>>>(
+    BuildInterleaveMapKernel<<<gridSize, blockSize>>>(
         numMetaBlocks, npts, newVecWidth, offset, deInterleaveMapPtr,
         interleaveMapPtr, buffer);
 

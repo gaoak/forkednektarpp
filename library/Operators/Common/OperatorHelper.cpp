@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: Utils.hpp
+// File: OperatorHelper.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -32,9 +32,38 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma once
+#include "Operators/Common/OperatorHelper.hpp"
 
-#include "UtilsAVX.hpp"
-#include "UtilsCUDA.hpp"
-#include "UtilsKokkos.hpp"
-#include "UtilsSYCL.hpp"
+namespace Nektar::Operators
+{
+
+size_t GetGeometricFactorSize(
+    const MultiRegions::ExpListSharedPtr &expansionList,
+    const std::vector<BlockAttributes> &blocks)
+{
+    size_t gfSize = 0;
+    size_t exp_id = 0;
+
+    for (size_t blk = 0; blk < blocks.size(); ++blk)
+    {
+        const auto expPtr = expansionList->GetExp(exp_id);
+
+        if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
+        {
+            gfSize +=
+                expPtr->GetTotPoints() *
+                (blocks[blk].num_elements + blocks[blk].num_padding_elements);
+        }
+        else
+        {
+            gfSize +=
+                blocks[blk].num_elements + blocks[blk].num_padding_elements;
+        }
+
+        exp_id += blocks[blk].num_elements;
+    }
+
+    return gfSize;
+}
+
+} // namespace Nektar::Operators

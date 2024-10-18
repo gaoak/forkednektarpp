@@ -40,6 +40,7 @@
 #include <SpatialDomains/MeshGraphIO.h>
 
 #include <Operators/Field/Field.hpp>
+#include <Operators/Utils/UtilsKernels.hpp>
 
 // Currently the BOOST_TEST_DYN_LINK is local only to this unit
 // test. It is undefined at the bottom of the file.
@@ -256,12 +257,11 @@ public:
         }
 
         // Create two Field objects with a MemoryRegionHost backend by default
+        auto blocks_in  = GetBlockAttributes<TData>(stateIn, fixt_explist);
+        auto blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
         if (testModule.find("Kokkos") != std::string::npos ||
             testModule.find("KOKKOS") != std::string::npos)
         {
-            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
-            auto blocks_out =
-                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
@@ -286,9 +286,6 @@ public:
         }
         else if (testModule.find("CUDA") != std::string::npos)
         {
-            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
-            auto blocks_out =
-                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::CUDA::alignment);
@@ -312,9 +309,6 @@ public:
         }
         else if (testModule.find("SYCL") != std::string::npos)
         {
-            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
-            auto blocks_out =
-                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::SYCL::alignment);
@@ -338,9 +332,6 @@ public:
         }
         else if (testModule.find("AVX") != std::string::npos)
         {
-            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
-            auto blocks_out =
-                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
@@ -356,9 +347,6 @@ public:
         }
         else
         {
-            auto blocks_in = GetBlockAttributes<double>(stateIn, fixt_explist);
-            auto blocks_out =
-                GetBlockAttributes<double>(stateOut, fixt_explist);
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
                     "f_in", blocks_in, nin, NektarSpaces::Serial::alignment);
@@ -381,8 +369,8 @@ public:
      *
      * @return bool
      */
-    bool Compare(Field<double, stateOut> &in, Field<double, stateOut> &ref,
-                 double tol)
+    bool Compare(Field<TData, stateOut> &in, Field<TData, stateOut> &ref,
+                 TData tol)
     {
         if (ref.GetNumComponents() != in.GetNumComponents())
         {
@@ -468,6 +456,28 @@ public:
         else
         {
             return false;
+        }
+    }
+
+    void ReshapeToScalar(Field<TData, stateOut> &in)
+    {
+        auto ptr = in.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+
+        for (auto &block : in.GetBlocks())
+        {
+            int numElmtsPad = block.num_elements + block.num_padding_elements;
+            for (int component = 0; component < in.GetNumComponents();
+                 component++)
+            {
+                ReshapeStorage<NektarSpaces::Serial, 1>(
+                    block.interleave_width, numElmtsPad, block.num_pts,
+                    ptr + component * block.block_size);
+            }
+
+            block.interleave_width = 1;
+
+            // Increment pointer and index for next block.
+            ptr += block.block_size * in.GetNumComponents();
         }
     }
 

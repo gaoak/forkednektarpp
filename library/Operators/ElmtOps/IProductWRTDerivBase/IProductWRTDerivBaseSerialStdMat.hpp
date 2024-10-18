@@ -36,6 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
+#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 
 namespace Nektar::Operators::detail
@@ -62,9 +63,10 @@ public:
         // Initialise jacobian.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        m_jac           = Operator<TData>::SetJacobian(gFacSize, locblocks);
-        m_derivFac = Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
+        size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
+        m_jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
+        m_derivFac =
+            SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(

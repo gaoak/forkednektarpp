@@ -204,8 +204,6 @@ struct SYCL
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
-#else
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::Serial
 #endif
 
 // These are used for LoopExecution.hpp

@@ -37,8 +37,9 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
+#include "Operators/Utils/UtilsKernels.hpp"
 
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
@@ -69,8 +70,9 @@ public:
         // Initialise jacobian with paddings
         auto blocks = GetBlockAttributes<TData>(FieldState::Phys, expansionList,
                                                 simd_t::width);
-        auto dfSize = Operator<TData>::GetGeometricFactorSize(blocks);
-        auto derivFac = Operator<TData>::SetDerivativeFactor(dfSize, blocks);
+        auto dfSize = GetGeometricFactorSize(expansionList, blocks);
+        auto derivFac =
+            SetDerivativeFactor<TData>(expansionList, dfSize, blocks);
 
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
@@ -97,11 +99,6 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Reshape into simd_t::width. If the Field is already
-        // interleaved, this method returns.
-        in.template ReshapeStorage<ExecSpace, simd_t::width>();
-        out.template ReshapeStorage<ExecSpace, simd_t::width>();
-
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
@@ -125,9 +122,11 @@ public:
              ++block_idx)
         {
             // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
+            auto &inblock     = in.GetBlocks()[block_idx];
+            auto &outblock    = out.GetBlocks()[block_idx];
+            const auto nElmts = inblock.num_elements;
+            const auto nElmtsPad =
+                inblock.num_elements + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
@@ -136,6 +135,15 @@ public:
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
+            // Get current interleave width.
+            m_in_interleave_width  = inblock.interleave_width;
+            m_out_interleave_width = outblock.interleave_width;
+
+            // Set to new interleave width.
+            inblock.interleave_width  = simd_t::width;
+            outblock.interleave_width = simd_t::width;
+
+            // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
@@ -191,20 +199,11 @@ public:
                 default:
                     std::cout << "shapetype not implemented" << std::endl;
             }
-            // #include "Operators/Common/SwitchLevel1DeformedCoord.h"
 
             // Increment pointer and index for next element type.
+            m_df_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
             inPtr += inblock.block_size;
             outPtr += outblock.block_size * m_coordDim;
-
-            if (deformed)
-            {
-                m_df_idx += nqTot * m_nElmtGroup * simd_t::width;
-            }
-            else
-            {
-                m_df_idx += m_nElmtGroup * simd_t::width;
-            }
             m_exp_idx += nElmts;
         }
     }
@@ -223,6 +222,7 @@ public:
 
 private:
     int m_nElmtGroup, m_df_idx, m_exp_idx;
+    int m_in_interleave_width, m_out_interleave_width;
     size_t m_coordDim;
 
     MemoryRegion<TData> m_derivFac;
@@ -274,6 +274,13 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+
             // Get the basic derivative
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
@@ -325,6 +332,13 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+
             // Get the basic derivative
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
@@ -386,6 +400,15 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+
             // Results written to tmpOut0, tmpOut1
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
@@ -442,6 +465,15 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+
             // Results written to tmpOut0, tmpOut1
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
@@ -513,6 +545,17 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[2]);
+
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
             // Calculate physical derivative
@@ -579,6 +622,17 @@ private:
 
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_in_interleave_width, simd_t::width, nqTot,
+                (TData *)input + e * nqTot * simd_t::width);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nqTot, tmpOut[2]);
+
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
             // Calculate physical derivative
