@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: UtilsAVX.hpp
+// File: UtilsSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -96,11 +96,9 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-BuildInterleaveMapKernel(const unsigned int numMetaBlocks,
-                         const unsigned int npts,
-                         const unsigned int newVecWidth,
-                         const unsigned int offset, int *deInterleaveMapPtr,
-                         int *interleaveMapPtr)
+BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
+                   const unsigned int newVecWidth, const unsigned int offset,
+                   int *deInterleaveMapPtr, int *interleaveMapPtr)
 {
     auto MetaBlockSize = newVecWidth * npts;
     std::vector<int> tmp(MetaBlockSize);

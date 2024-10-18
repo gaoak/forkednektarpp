@@ -51,10 +51,10 @@
                     fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
         IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist) \
             ->apply(*fixt_in, *fixt_out);                                      \
-        fixt_out->ReshapeStorage<ExecSpace, 1>();                              \
         ExpectedSolution(                                                      \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        ReshapeToScalar(*fixt_out);                                            \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \

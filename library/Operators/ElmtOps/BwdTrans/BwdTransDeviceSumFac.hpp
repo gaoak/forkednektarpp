@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: BwdTransImplShared.hpp
+// File: BwdTransDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -37,6 +37,7 @@
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Field/MemoryRegion.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
@@ -75,14 +76,6 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
-        {
-            in.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-            out.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-        }
-
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
@@ -95,8 +88,8 @@ public:
              ++block_idx)
         {
             // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
+            auto &inblock  = in.GetBlocks()[block_idx];
+            auto &outblock = out.GetBlocks()[block_idx];
             const auto nElmtsPad =
                 inblock.num_padding_elements + inblock.num_elements;
 
@@ -129,6 +122,20 @@ public:
             TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2);
 
             constexpr bool SharedMemory = true;
+
+            // Reshape, if necessary.
+            if constexpr (std::is_same<Implementation,
+                                       Operators::SumFac>::value)
+            {
+                ReshapeStorage<ExecSpace,
+                               NektarSpaces::vector_width<TData>::value>(
+                    inblock.interleave_width, nElmtsPad, inblock.num_pts,
+                    (TData *)inPtr);
+                inblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+                outblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+            }
 
             // Function call to kernel functions.
             if (dimension == 1)

@@ -36,6 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
+#include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 
 namespace Nektar::Operators::detail
@@ -61,8 +62,8 @@ public:
         // Initialise jacobian.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        m_jac          = Operator<TData>::SetJacobian(jacSize, locblocks);
+        size_t jacSize = GetGeometricFactorSize(expansionList, locblocks);
+        m_jac          = SetJacobian<TData>(expansionList, jacSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(

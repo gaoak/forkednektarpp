@@ -55,7 +55,7 @@
         NektarSolution(                                                        \
             fixt_expected->GetBlocks(),                                        \
             fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        fixt_sycl_out->ReshapeStorage<ExecSpace, 1>();                         \
+        ReshapeToScalar(*fixt_sycl_out);                                       \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
             BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, tol));          \

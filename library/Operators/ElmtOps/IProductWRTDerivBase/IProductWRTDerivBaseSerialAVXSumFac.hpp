@@ -36,8 +36,9 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
-#include <LibUtilities/BasicUtils/NekInline.hpp>
+#include "Operators/Utils/UtilsKernels.hpp"
 
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
@@ -70,10 +71,10 @@ public:
         // Initialise jacobian with paddings if appropriate
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, simd_t::width);
-        size_t gFacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        auto jac        = Operator<TData>::SetJacobian(gFacSize, locblocks);
+        size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
+        auto jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
         auto derivFac =
-            Operator<TData>::SetDerivativeFactor(gFacSize, locblocks);
+            SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
 
         m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
@@ -112,11 +113,6 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        // Reshape into simd_t::width. If the Field is already
-        // interleaved, this method returns.
-        in.template ReshapeStorage<ExecSpace, simd_t::width>();
-        out.template ReshapeStorage<ExecSpace, simd_t::width>();
-
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
 
@@ -133,9 +129,9 @@ public:
              ++block_idx)
         {
             // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
+            auto &inblock     = in.GetBlocks()[block_idx];
+            auto &outblock    = out.GetBlocks()[block_idx];
+            const auto nElmts = inblock.num_elements;
             const auto nElmtsPad =
                 inblock.num_elements + inblock.num_padding_elements;
 
@@ -148,7 +144,17 @@ public:
             const auto nqTot     = expPtr->GetTotPoints();
 
             const auto ndf = dimension * ncoord;
-            m_nElmtGroup   = inblock.GetNumElmtGroups();
+
+            // Get current interleave width.
+            m_in_interleave_width  = inblock.interleave_width;
+            m_out_interleave_width = outblock.interleave_width;
+
+            // Set to new interleave width.
+            inblock.interleave_width  = simd_t::width;
+            outblock.interleave_width = simd_t::width;
+
+            // Get required number of element groups.
+            m_nElmtGroup = inblock.GetNumElmtGroups();
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; ++d)
@@ -230,6 +236,7 @@ private:
     size_t m_df_idx;
     size_t m_exp_idx;
     size_t m_nElmtGroup;
+    int m_in_interleave_width, m_out_interleave_width;
 
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_derivFac;
@@ -297,6 +304,17 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            for (int n = 0; n < ncoord; ++n)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, simd_t::width, nquad0,
+                    (TData *)inPtr +
+                        ((n * m_nElmtGroup + e) * nquad0) * simd_t::width);
+            }
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nmodes0, tmpOut);
+
             StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
                                           m_nElmtGroup * nquad0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
@@ -349,6 +367,17 @@ private:
 
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
+            // Reshape, if necessary.
+            for (int n = 0; n < ncoord; ++n)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, simd_t::width, nquad0,
+                    (TData *)inPtr +
+                        ((n * m_nElmtGroup + e) * nquad0) * simd_t::width);
+            }
+            ReshapeStorage<ExecSpace, simd_t::width>(
+                m_out_interleave_width, simd_t::width, nmodes0, tmpOut);
+
             StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
                                           m_nElmtGroup * nquad0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
@@ -426,6 +455,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, ncoord, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
@@ -458,6 +498,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, ncoord, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
@@ -536,6 +587,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, ncoord, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
@@ -568,6 +630,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, ncoord, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
@@ -659,6 +732,17 @@ private:
             const bool colldir2 = expPtr->GetBasis(2)->Collocation();
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
                                                df_tmp, m_nElmtGroup * totPoints,
                                                tmpIn, tmpPtr);
@@ -697,6 +781,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
@@ -731,6 +826,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
@@ -766,6 +872,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,
@@ -854,6 +971,17 @@ private:
             const bool colldir2 = expPtr->GetBasis(2)->Collocation();
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
                                                df_tmp, m_nElmtGroup * totPoints,
                                                tmpIn, tmpPtr);
@@ -892,6 +1020,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
@@ -926,6 +1065,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
@@ -961,6 +1111,17 @@ private:
 
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
+                // Reshape, if necessary.
+                for (int n = 0; n < 3; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, simd_t::width, totPoints,
+                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
+                                             simd_t::width);
+                }
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
+
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                     nquad0, nquad1, nquad2, dfPtr, df_tmp,
                     m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,

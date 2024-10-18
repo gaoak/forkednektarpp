@@ -143,7 +143,7 @@ MACRO(ADD_OPERATOR dir)
 
             UNSET(SERIAL_STDMAT_HEADER)
             UNSET(SERIAL_AVX_SUMFAC_HEADER)
-            UNSET(IMPL_SHARED_HEADER)
+            UNSET(DEVICE_SUMFAC_HEADER)
 
             # These combinations do/should not exist.
             IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
@@ -202,8 +202,8 @@ MACRO(ADD_OPERATOR dir)
                 SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
                 MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
 
-            # Found a ImplShared header.
-            ELSEIF((EXISTS "${dir}/${name}ImplShared.hpp") AND
+            # Found a Device SumFac header.
+            ELSEIF((EXISTS "${dir}/${name}DeviceSumFac.hpp") AND
                    (("${ExecSpace}" STREQUAL "Device") OR # Generic device implementation
                     ("${ExecSpace}" STREQUAL "CUDA") OR 
                     ("${ExecSpace}" STREQUAL "Kokkos") OR 
@@ -211,8 +211,8 @@ MACRO(ADD_OPERATOR dir)
                    (("${Impl}" STREQUAL "SumFac") OR ("${Impl}" STREQUAL "SumFacQP")))
 
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}ImplShared.hpp)
-                SET(IMPL_SHARED_HEADER "#include \"${include_file}\"")
+                    ${dir}/${name}DeviceSumFac.hpp)
+                SET(DEVICE_SUMFAC_HEADER "#include \"${include_file}\"")
                 IF (("${ExecSpace}" STREQUAL "Device" AND EXISTS "${dir}/${name}DeviceSumFacKernels.hpp") OR
                     ("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}CUDASumFacKernels.cuh") OR
                     ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}KokkosSumFacKernels.hpp") OR
@@ -276,6 +276,7 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Field/Field.cpp
     Common/Operator.cpp
+    Common/OperatorHelper.cpp
     )
 
 # Only these cpp files go into the group set below.
@@ -295,12 +296,10 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      Field/UtilsCUDALaunchers.hpp
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      Field/UtilsCUDAKernels.cu
     )
 
     SET(OPERATORS_DEPENDS

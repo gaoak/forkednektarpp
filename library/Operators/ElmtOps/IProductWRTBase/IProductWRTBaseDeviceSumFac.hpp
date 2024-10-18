@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: IProductWRTBaseImplShared.hpp
+// File: IProductWRTBaseDeviceSumFac.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,6 +36,7 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
 #include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
@@ -75,8 +76,8 @@ public:
                 : 1u;
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, interleave_width);
-        const auto jacSize = Operator<TData>::GetGeometricFactorSize(locblocks);
-        auto jac           = Operator<TData>::SetJacobian(jacSize, locblocks);
+        const auto jacSize = GetGeometricFactorSize(expansionList, locblocks);
+        auto jac = SetJacobian<TData>(expansionList, jacSize, locblocks);
 
         const bool device_only = true;
 
@@ -92,14 +93,6 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
-        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
-        {
-            in.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-            out.template ReshapeStorage<
-                ExecSpace, NektarSpaces::vector_width<TData>::value>();
-        }
-
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = (lambda == 1.0)
@@ -112,11 +105,14 @@ public:
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (const auto &block : in.GetBlocks())
+        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
+             ++block_idx)
         {
             // Block dependent
-            const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_padding_elements + nElmts;
+            auto &inblock        = in.GetBlocks()[block_idx];
+            auto &outblock       = out.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad = inblock.num_padding_elements + nElmts;
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
@@ -165,6 +161,24 @@ public:
 
             constexpr bool SharedMemory = true;
             constexpr bool Append       = false;
+
+            // Reshape, if necessary.
+            if constexpr (std::is_same<Implementation,
+                                       Operators::SumFac>::value)
+            {
+                ReshapeStorage<ExecSpace,
+                               NektarSpaces::vector_width<TData>::value>(
+                    inblock.interleave_width, nElmtsPad, inblock.num_pts,
+                    (TData *)inPtr);
+                ReshapeStorage<ExecSpace,
+                               NektarSpaces::vector_width<TData>::value>(
+                    outblock.interleave_width, nElmtsPad, outblock.num_pts,
+                    outPtr);
+                inblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+                outblock.interleave_width =
+                    NektarSpaces::vector_width<TData>::value;
+            }
 
             // Function call to kernel functions.
             if (dimension == 1)
