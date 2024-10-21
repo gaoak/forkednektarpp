@@ -2,42 +2,43 @@
 #if defined(SHAPE_TYPE_Seg)
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
     auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
-    const auto nmodes0  = expPtr->GetBasisNumModes(0);
-    const auto nquad0   = expPtr->GetNumPoints(0);
+
+    const auto nm0 = expPtr->GetBasisNumModes(0);
+    const auto nq0 = expPtr->GetNumPoints(0);
 
     if (Deformed == SpatialDomains::eDeformed)
     {
 
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator1D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(input, output); \
+        Operator1D<LibUtilities::@Shape@, true, NM(i), NQ(i)>(input, output);  \
         break;
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
 
             // templated cases on equi-ordered modes and standard quad usage
             // where quad order goes from mode order to 2(*mode order)
-            switch (nmodes0)
+            switch (nm0)
         {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                          OPERATOR_M)
@@ -50,35 +51,35 @@
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator1D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(input,         \
+        Operator1D<LibUtilities::@Shape@, false, NM(i), NQ(i)>(input,          \
                                                                 output);       \
         break;
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
 
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
-        switch (nmodes0)
+        switch (nm0)
         {
             BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                          OPERATOR_M)
@@ -90,47 +91,48 @@
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
     auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
-    const auto nmodes0  = expPtr->GetBasisNumModes(0);
-    const auto nmodes1  = expPtr->GetBasisNumModes(1);
 
-    const auto nquad0 = expPtr->GetNumPoints(0);
-    const auto nquad1 = expPtr->GetNumPoints(1);
+    const auto nm0 = expPtr->GetBasisNumModes(0);
+    const auto nm1 = expPtr->GetBasisNumModes(1);
+
+    const auto nq0 = expPtr->GetNumPoints(0);
+    const auto nq1 = expPtr->GetNumPoints(1);
 
     if (Deformed == SpatialDomains::eDeformed)
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator2D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),          \
-                   NQ(i)>(input, output);                                   \
+        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
+                   NQ(i)>(input, output);                                      \
         break;
 #elif defined(SHAPE_TYPE_Tri)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),          \
+        Operator2D<LibUtilities::@Shape@, true, NM(i), NM(i), NQ(i),           \
                    NQ_M1(i)>(input, output);                                   \
         break;
 #endif
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
@@ -138,12 +140,12 @@
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Quad)
-        if ((nmodes0 == nmodes1) && (nquad0 == nquad1))
+        if ((nm0 == nm1) && (nq0 == nq1))
 #elif defined(SHAPE_TYPE_Tri)
-        if ((nmodes0 == nmodes1) && (nquad0 == nquad1 + 1))
+        if ((nm0 == nm1) && (nq0 == nq1 + 1))
 #endif
         {
-            switch (nmodes0)
+            switch (nm0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
@@ -161,37 +163,37 @@
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator2D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Quad)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),         \
-                   NQ(i)>(input, output);                                   \
+        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
+                   NQ(i)>(input, output);                                      \
         break;
 #elif defined(SHAPE_TYPE_Tri)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),         \
+        Operator2D<LibUtilities::@Shape@, false, NM(i), NM(i), NQ(i),          \
                    NQ_M1(i)>(input, output);                                   \
         break;
 #endif
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
@@ -199,12 +201,12 @@
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Quad)
-        if ((nmodes0 == nmodes1) && (nquad0 == nquad1))
+        if ((nm0 == nm1) && (nq0 == nq1))
 #elif defined(SHAPE_TYPE_Tri)
-        if ((nmodes0 == nmodes1) && (nquad0 == nquad1 + 1))
+        if ((nm0 == nm1) && (nq0 == nq1 + 1))
 #endif
         {
-            switch (nmodes0)
+            switch (nm0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
@@ -221,56 +223,57 @@
 #else
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
     auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
-    const auto nmodes0  = expPtr->GetBasisNumModes(0);
-    const auto nmodes1  = expPtr->GetBasisNumModes(1);
-    const auto nmodes2  = expPtr->GetBasisNumModes(2);
 
-    const auto nquad0 = expPtr->GetNumPoints(0);
-    const auto nquad1 = expPtr->GetNumPoints(1);
-    const auto nquad2 = expPtr->GetNumPoints(2);
+    const auto nm0 = expPtr->GetBasisNumModes(0);
+    const auto nm1 = expPtr->GetBasisNumModes(1);
+    const auto nm2 = expPtr->GetBasisNumModes(2);
+
+    const auto nq0 = expPtr->GetNumPoints(0);
+    const auto nq1 = expPtr->GetNumPoints(1);
+    const auto nq2 = expPtr->GetNumPoints(2);
 
     if (Deformed == SpatialDomains::eDeformed)
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator3D<LibUtilities::@Shape@, true>(input, output);
 
         // Inner loop case over quarature points Shape dependent
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
-                   NQ(i), NQ(i)>(input, output);                            \
+        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
+                   NQ(i), NQ(i)>(input, output);                               \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
+        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
                    NQ(i), NQ_M1(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),   \
+        Operator3D<LibUtilities::@Shape@, true, NM(i), NM(i), NM(i), NQ(i),    \
                    NQ_M1(i), NQ_M1(i)>(input, output);                         \
         break;
 #endif
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
@@ -278,17 +281,17 @@
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Hex)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1) && (nquad1 == nquad2))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1) && (nq1 == nq2))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1) && (nquad1 == nquad2 + 1))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1) && (nq1 == nq2 + 1))
 #elif defined(SHAPE_TYPE_Tet)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1 + 1) && (nquad1 == nquad2))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1 + 1) && (nq1 == nq2))
 #endif
         {
-            switch (nmodes0)
+            switch (nm0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)
@@ -306,44 +309,44 @@
     {
         // Default case
 #undef OPERATOR_DEF
-#define OPERATOR_DEF                                               \
+#define OPERATOR_DEF                                                           \
     Operator3D<LibUtilities::@Shape@, false>(input, output);
 
         // Inner loop case over quarature points
 #if defined(SHAPE_TYPE_Hex)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
-                   NQ(i), NQ(i)>(input, output);                            \
+        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
+                   NQ(i), NQ(i)>(input, output);                               \
         break;
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
+        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
                    NQ(i), NQ_M1(i)>(input, output);                            \
         break;
 #elif defined(SHAPE_TYPE_Tet)
 #undef OPERATOR_Q
-#define OPERATOR_Q(r, i)                                           \
+#define OPERATOR_Q(r, i)                                                       \
     case NQ(i):                                                                \
-        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),  \
+        Operator3D<LibUtilities::@Shape@, false, NM(i), NM(i), NM(i), NQ(i),   \
                    NQ_M1(i), NQ_M1(i)>(input, output);                         \
         break;
 #endif
 
         // outer loop case over modes
 #undef OPERATOR_M
-#define OPERATOR_M(r, i)                                           \
+#define OPERATOR_M(r, i)                                                       \
     case NM(i):                                                                \
     {                                                                          \
-        switch (nquad0)                                                        \
+        switch (nq0)                                                           \
         {                                                                      \
             BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
                              LEV2TEST1, LEV2UPDATE1,                           \
-                             OPERATOR_Q) default                   \
-                : OPERATOR_DEF break;                              \
+                             OPERATOR_Q) default                               \
+                : OPERATOR_DEF break;                                          \
         }                                                                      \
     }                                                                          \
     break;
@@ -351,17 +354,17 @@
         // templated cases on equi-ordered modes and standard quad usage
         // where quad order goes from mode order to 2(*mode order)
 #if defined(SHAPE_TYPE_Hex)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1) && (nquad1 == nquad2))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1) && (nq1 == nq2))
 #elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1) && (nquad1 == nquad2 + 1))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1) && (nq1 == nq2 + 1))
 #elif defined(SHAPE_TYPE_Tet)
-        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
-            (nquad0 == nquad1 + 1) && (nquad1 == nquad2))
+        if ((nm0 == nm1) && (nm1 == nm2) &&
+            (nq0 == nq1 + 1) && (nq1 == nq2))
 #endif
         {
-            switch (nmodes0)
+            switch (nm0)
             {
                 BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
                              OPERATOR_M)

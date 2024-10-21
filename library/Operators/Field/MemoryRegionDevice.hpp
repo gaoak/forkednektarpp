@@ -54,27 +54,27 @@
 namespace Nektar
 {
 // MemoryCopy
-class HostToHost
+struct HostToHost
 {
 };
-class DeviceToHost
+struct DeviceToHost
 {
 };
-class HostToDevice
+struct HostToDevice
 {
 };
-class DeviceToDevice
+struct DeviceToDevice
 {
 };
 
 // MemoryWrite
-class HostOnly
+struct HostOnly
 {
 };
-class DeviceOnly
+struct DeviceOnly
 {
 };
-class HostDevice
+struct HostDevice
 {
 };
 } // namespace Nektar

@@ -276,7 +276,7 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
 
     for (size_t blk = 0; blk < blocks.size(); ++blk)
     {
-        size_t interleave_width = blocks[blk].interleave_width;
+        size_t interleave_width = blocks[blk].GetInterleaveWidth();
         size_t num_elements     = blocks[blk].num_elements;
         size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
 
@@ -354,7 +354,7 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
 
     for (size_t blk = 0; blk < blocks.size(); ++blk)
     {
-        size_t interleave_width = blocks[blk].interleave_width;
+        size_t interleave_width = blocks[blk].GetInterleaveWidth();
         size_t num_elements     = blocks[blk].num_elements;
         size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
         auto expPtr             = expansionList->GetExp(exp_id);

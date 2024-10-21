@@ -90,7 +90,7 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // check alignment
+        // Check alignment.
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
@@ -112,7 +112,7 @@ public:
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            // Block dependent
+            // Block dependent.
             auto &inblock     = in.GetBlocks()[block_idx];
             auto &outblock    = out.GetBlocks()[block_idx];
             const auto nElmts = inblock.num_elements;
@@ -127,12 +127,12 @@ public:
                                   SpatialDomains::eDeformed;
 
             // Get current interleave width.
-            m_in_interleave_width  = inblock.interleave_width;
-            m_out_interleave_width = outblock.interleave_width;
+            m_in_interleave_width  = inblock.GetInterleaveWidth();
+            m_out_interleave_width = outblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.interleave_width  = simd_t::width;
-            outblock.interleave_width = simd_t::width;
+            inblock.SetInterleaveWidth(simd_t::width);
+            outblock.SetInterleaveWidth(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
@@ -212,7 +212,7 @@ public:
 private:
     int m_nElmtGroup;
     int m_jac_idx, m_exp_idx;
-    int m_in_interleave_width, m_out_interleave_width;
+    unsigned int m_in_interleave_width, m_out_interleave_width;
 
     MemoryRegion<TData> m_jac;
     BasisDataMap<simd_t> m_basisMap;
@@ -258,18 +258,25 @@ private:
         const auto wPtr0 =
             m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -302,18 +309,25 @@ private:
         const auto wPtr0 =
             m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -349,12 +363,13 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const auto bPtr0 =
@@ -365,19 +380,27 @@ private:
             m_weightMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto wPtr1 =
             m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
                 wPtr1, jacPtr, wsp0, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -425,19 +448,26 @@ private:
         const auto wPtr1 =
             m_weightMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
                 wPtr1, jacPtr, wsp0, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -498,19 +528,26 @@ private:
         const auto wPtr2 =
             m_weightMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -543,12 +580,13 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const auto bPtr0 =
@@ -564,19 +602,26 @@ private:
         const auto wPtr2 =
             m_weightMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmTot, tmpOut);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nmTot, tmpOut);
+            }
 
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-
+            // Increment pointers.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;

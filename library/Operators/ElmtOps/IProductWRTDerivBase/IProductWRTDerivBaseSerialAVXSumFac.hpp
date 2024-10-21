@@ -146,12 +146,12 @@ public:
             const auto ndf = dimension * ncoord;
 
             // Get current interleave width.
-            m_in_interleave_width  = inblock.interleave_width;
-            m_out_interleave_width = outblock.interleave_width;
+            m_in_interleave_width  = inblock.GetInterleaveWidth();
+            m_out_interleave_width = outblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.interleave_width  = simd_t::width;
-            outblock.interleave_width = simd_t::width;
+            inblock.SetInterleaveWidth(simd_t::width);
+            outblock.SetInterleaveWidth(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
@@ -236,7 +236,7 @@ private:
     size_t m_df_idx;
     size_t m_exp_idx;
     size_t m_nElmtGroup;
-    int m_in_interleave_width, m_out_interleave_width;
+    unsigned int m_in_interleave_width, m_out_interleave_width;
 
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_derivFac;
@@ -268,8 +268,8 @@ private:
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        const auto nmodes0 = expPtr->GetBasisNumModes(0);
-        const auto nquad0  = expPtr->GetNumPoints(0);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nq0 = expPtr->GetNumPoints(0);
 
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
@@ -282,7 +282,7 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ncoord);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nquad0);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
 
         typename simd_t::scalarType *tmpPtr =
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
@@ -290,7 +290,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= nquad0;
+            ipt *= nq0;
         }
 
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
@@ -302,34 +302,41 @@ private:
         const auto W0 =
             m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        size_t width_ratio = m_in_interleave_width == 1
+                                 ? 1
+                                 : m_in_interleave_width / simd_t::width;
+        size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            for (int n = 0; n < ncoord; ++n)
+            if (e % width_ratio == 0)
             {
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, chunkSize, nq0,
+                        (TData *)inPtr +
+                            ((n * m_nElmtGroup + e) * nq0) * simd_t::width);
+                }
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, simd_t::width, nquad0,
-                    (TData *)inPtr +
-                        ((n * m_nElmtGroup + e) * nquad0) * simd_t::width);
+                    m_out_interleave_width, chunkSize, nm0, tmpOut);
             }
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmodes0, tmpOut);
 
-            StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
-                                          m_nElmtGroup * nquad0, tmpIn, tmpPtr);
+            StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
+                                          m_nElmtGroup * nq0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
-                nmodes0, nquad0, (const typename simd_t::vectorType *)tmpPtr,
-                BD0, W0, jacPtr, tmpOut);
-
-            tmpIn += nquad0;
-            tmpOut += nmodes0 * simd_t::width;
+                nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, BD0, W0,
+                jacPtr, tmpOut);
+            // Increment pointers.
+            tmpIn += nq0;
+            tmpOut += nm0 * simd_t::width;
             jacPtr += ipt;
             dfPtr += ipt * ncoord;
         }
     }
 
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nmodes0,
-              int nquad0>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nq0>
     void Operator1D(const TData *inPtr, TData *outPtr)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
@@ -345,7 +352,7 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ncoord);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nquad0);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
 
         typename simd_t::scalarType *tmpPtr =
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
@@ -353,7 +360,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= nquad0;
+            ipt *= nq0;
         }
 
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
@@ -365,27 +372,34 @@ private:
         const auto W0 =
             m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        size_t width_ratio = m_in_interleave_width == 1
+                                 ? 1
+                                 : m_in_interleave_width / simd_t::width;
+        size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            for (int n = 0; n < ncoord; ++n)
+            if (e % width_ratio == 0)
             {
+                for (int n = 0; n < ncoord; ++n)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        m_in_interleave_width, chunkSize, nq0,
+                        (TData *)inPtr +
+                            ((n * m_nElmtGroup + e) * nq0) * simd_t::width);
+                }
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, simd_t::width, nquad0,
-                    (TData *)inPtr +
-                        ((n * m_nElmtGroup + e) * nquad0) * simd_t::width);
+                    m_out_interleave_width, chunkSize, nm0, tmpOut);
             }
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nmodes0, tmpOut);
 
-            StdAlignDerivBase1D<DEFORMED>(nquad0, ncoord, dfPtr, df_tmp,
-                                          m_nElmtGroup * nquad0, tmpIn, tmpPtr);
+            StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
+                                          m_nElmtGroup * nq0, tmpIn, tmpPtr);
             IProductSegKernel<false, false, DEFORMED>(
-                nmodes0, nquad0, (const typename simd_t::vectorType *)tmpPtr,
-                BD0, W0, jacPtr, tmpOut);
-
-            tmpIn += nquad0;
-            tmpOut += nmodes0 * simd_t::width;
+                nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, BD0, W0,
+                jacPtr, tmpOut);
+            // Increment pointers.
+            tmpIn += nq0;
+            tmpOut += nm0 * simd_t::width;
             jacPtr += ipt;
             dfPtr += ipt * ncoord;
         }
@@ -396,17 +410,17 @@ private:
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        const auto nmodes0 = expPtr->GetBasisNumModes(0);
-        const auto nmodes1 = expPtr->GetBasisNumModes(1);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
 
-        const auto nquad0 = expPtr->GetNumPoints(0);
-        const auto nquad1 = expPtr->GetNumPoints(1);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
 
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
-        auto const ndf       = 2u * ncoord;
-        auto const totPoints = nquad0 * nquad1;
-        auto const totModes  = expPtr->GetNcoeffs();
+        auto const ndf   = 2u * ncoord;
+        auto const nqTot = nq0 * nq1;
+        auto const nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -423,8 +437,8 @@ private:
             m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nquad1),
-            tmp0(totPoints), tmp1(totPoints);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
+            tmp1(nqTot);
 
         // provide pointer to temporary space for use in kernels
         typename simd_t::scalarType *tmpPtr[2];
@@ -436,7 +450,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= totPoints;
+            ipt *= nqTot;
         }
 
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
@@ -453,34 +467,40 @@ private:
             const bool colldir0 = expPtr->GetBasis(0)->Collocation();
             const bool colldir1 = expPtr->GetBasis(1)->Collocation();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < ncoord; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
-                    (simd_t *)nullptr);
+                    nq0, nq1, ncoord, dfPtr, df_tmp, m_nElmtGroup * nqTot,
+                    tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
                 IProductQuadKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1,
+                    nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
                     W1, jacPtr, wsp, tmpOut, 1.0, false, colldir1);
                 IProductQuadKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1,
+                    nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, W0,
                     W1, jacPtr, wsp, tmpOut, 1.0, colldir0, false);
-
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -496,49 +516,57 @@ private:
             const simd_t *F1 =
                 m_Fac1[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
-                // Reshape, if necessary.
-                for (int n = 0; n < ncoord; ++n)
+                if (e % width_ratio == 0)
                 {
+                    // Reshape, if necessary.
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
+                    nq0, nq1, ncoord, dfPtr, df_tmp, m_nElmtGroup * nqTot,
+                    tmpIn, tmpPtr, F0, F1);
                 IProductTriKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1, isModified,
+                    nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
                     W1, jacPtr, wsp, tmpOut);
                 IProductTriKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1, isModified,
+                    nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, W0,
                     W1, jacPtr, wsp, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
         }
     }
 
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nmodes0,
-              int nmodes1, int nquad0, int nquad1>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nm1, int nq0, int nq1>
     void Operator2D(const TData *inPtr, TData *outPtr)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
-        auto const ndf       = 2u * ncoord;
-        auto const totPoints = nquad0 * nquad1;
-        auto const totModes  = expPtr->GetNcoeffs();
+        auto const ndf   = 2u * ncoord;
+        auto const nqTot = nq0 * nq1;
+        auto const nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -556,8 +584,8 @@ private:
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
 
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nquad1),
-            tmp0(totPoints), tmp1(totPoints);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1), tmp0(nqTot),
+            tmp1(nqTot);
 
         // provide pointer to temporary space for use in kernels
         typename simd_t::scalarType *tmpPtr[2];
@@ -569,7 +597,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= totPoints;
+            ipt *= nqTot;
         }
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
@@ -585,34 +613,40 @@ private:
             const bool colldir0 = expPtr->GetBasis(0)->Collocation();
             const bool colldir1 = expPtr->GetBasis(1)->Collocation();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < ncoord; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, (simd_t *)nullptr,
-                    (simd_t *)nullptr);
+                    nq0, nq1, ncoord, dfPtr, df_tmp, m_nElmtGroup * nqTot,
+                    tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
                 IProductQuadKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1,
+                    nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
                     W1, jacPtr, wsp, tmpOut, 1.0, false, colldir1);
                 IProductQuadKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1,
+                    nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, W0,
                     W1, jacPtr, wsp, tmpOut, 1.0, colldir0, false);
-
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -628,32 +662,40 @@ private:
             const simd_t *F1 =
                 m_Fac1[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < ncoord; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, ncoord, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, tmpIn, tmpPtr, F0, F1);
+                    nq0, nq1, ncoord, dfPtr, df_tmp, m_nElmtGroup * nqTot,
+                    tmpIn, tmpPtr, F0, F1);
                 IProductTriKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1, isModified,
+                    nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, W0,
                     W1, jacPtr, wsp, tmpOut);
                 IProductTriKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nquad0, nquad1, isModified,
+                    nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, W0,
                     W1, jacPtr, wsp, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -665,17 +707,17 @@ private:
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        const auto nmodes0 = expPtr->GetBasisNumModes(0);
-        const auto nmodes1 = expPtr->GetBasisNumModes(1);
-        const auto nmodes2 = expPtr->GetBasisNumModes(2);
+        const auto nm0 = expPtr->GetBasisNumModes(0);
+        const auto nm1 = expPtr->GetBasisNumModes(1);
+        const auto nm2 = expPtr->GetBasisNumModes(2);
 
-        const auto nquad0 = expPtr->GetNumPoints(0);
-        const auto nquad1 = expPtr->GetNumPoints(1);
-        const auto nquad2 = expPtr->GetNumPoints(2);
+        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq2 = expPtr->GetNumPoints(2);
 
-        auto const ndf       = 9u;
-        auto const totPoints = nquad0 * nquad1 * nquad2;
-        auto const totModes  = expPtr->GetNcoeffs();
+        auto const ndf   = 9u;
+        auto const nqTot = nq0 * nq1 * nq2;
+        auto const nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -698,8 +740,8 @@ private:
             m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nquad1 * nquad2),
-            wsp0(nquad2), tmp0(totPoints), tmp1(totPoints), tmp2(totPoints);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1 * nq2),
+            wsp0(nq2), tmp0(nqTot), tmp1(nqTot), tmp2(nqTot);
 
         // provide pointer to temporary space for use in kernels
         typename simd_t::scalarType *tmpPtr[3];
@@ -713,7 +755,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= totPoints;
+            ipt *= nqTot;
         }
 
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
@@ -730,39 +772,48 @@ private:
             const bool colldir0 = expPtr->GetBasis(0)->Collocation();
             const bool colldir1 = expPtr->GetBasis(1)->Collocation();
             const bool colldir2 = expPtr->GetBasis(2)->Collocation();
+
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
-                StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
-                                               df_tmp, m_nElmtGroup * totPoints,
-                                               tmpIn, tmpPtr);
+                StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
+                                               m_nElmtGroup * nqTot, tmpIn,
+                                               tmpPtr);
                 IProductHexKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, false, colldir1,
                     colldir2);
                 IProductHexKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, colldir0, false,
                     colldir2);
                 IProductHexKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, colldir0,
                     colldir1, false);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -779,36 +830,44 @@ private:
             F1a = m_Fac1[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             F2  = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0, F1,
+                    F1a, F2, tmpIn, tmpPtr);
                 IProductTetKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductTetKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductTetKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -824,37 +883,44 @@ private:
             F1 = m_Fac0[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             F2 = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
-                    tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0, F1,
+                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPyrKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductPyrKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductPyrKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -862,7 +928,7 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nmodes1);
+            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
             const bool isModified =
                 (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
             const simd_t *F0, *F2;
@@ -870,52 +936,59 @@ private:
             F0 = m_Fac0[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
             F2 = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0,
+                    (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPrismKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
                 IProductPrismKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
                 IProductPrismKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
         }
     }
 
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nmodes0,
-              int nmodes1, int nmodes2, int nquad0, int nquad1, int nquad2>
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(const TData *inPtr, TData *outPtr)
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const ndf       = 9u;
-        auto const totPoints = nquad0 * nquad1 * nquad2;
-        auto const totModes  = expPtr->GetNcoeffs();
+        auto const ndf   = 9u;
+        auto const nqTot = nq0 * nq1 * nq2;
+        auto const nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -938,8 +1011,8 @@ private:
             m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ndf);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nquad1 * nquad2),
-            wsp0(nquad2), tmp0(totPoints), tmp1(totPoints), tmp2(totPoints);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp(nq1 * nq2),
+            wsp0(nq2), tmp0(nqTot), tmp1(nqTot), tmp2(nqTot);
 
         // provide pointer to temporary space for use in kernels
         typename simd_t::scalarType *tmpPtr[3];
@@ -953,7 +1026,7 @@ private:
         size_t ipt = 1;
         if constexpr (DEFORMED)
         {
-            ipt *= totPoints;
+            ipt *= nqTot;
         }
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
@@ -969,39 +1042,48 @@ private:
             const bool colldir0 = expPtr->GetBasis(0)->Collocation();
             const bool colldir1 = expPtr->GetBasis(1)->Collocation();
             const bool colldir2 = expPtr->GetBasis(2)->Collocation();
+
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
-                StdAlignDerivBaseHex<DEFORMED>(nquad0, nquad1, nquad2, dfPtr,
-                                               df_tmp, m_nElmtGroup * totPoints,
-                                               tmpIn, tmpPtr);
+                StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
+                                               m_nElmtGroup * nqTot, tmpIn,
+                                               tmpPtr);
                 IProductHexKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, false, colldir1,
                     colldir2);
                 IProductHexKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, colldir0, false,
                     colldir2);
                 IProductHexKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
+                    nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
                     W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0, colldir0,
                     colldir1, false);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -1018,36 +1100,44 @@ private:
             F1a = m_Fac1[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             F2  = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, F1, F1a, F2, tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0, F1,
+                    F1a, F2, tmpIn, tmpPtr);
                 IProductTetKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductTetKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductTetKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -1063,37 +1153,44 @@ private:
             F1 = m_Fac0[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             F2 = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, F1, (simd_t *)nullptr, F2,
-                    tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0, F1,
+                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPyrKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductPyrKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
                 IProductPyrKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }
@@ -1101,7 +1198,7 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nmodes1);
+            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
             const bool isModified =
                 (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
             const simd_t *F0, *F2;
@@ -1109,37 +1206,44 @@ private:
             F0 = m_Fac0[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
             F2 = m_Fac1[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+            size_t width_ratio = m_in_interleave_width == 1
+                                     ? 1
+                                     : m_in_interleave_width / simd_t::width;
+            size_t chunkSize   = std::max(simd_t::width, m_in_interleave_width);
             for (int e = 0; e < m_nElmtGroup; ++e)
             {
                 // Reshape, if necessary.
-                for (int n = 0; n < 3; ++n)
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < 3; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            m_in_interleave_width, chunkSize, nqTot,
+                            (TData *)inPtr + ((n * m_nElmtGroup + e) * nqTot) *
+                                                 simd_t::width);
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        m_in_interleave_width, simd_t::width, totPoints,
-                        (TData *)inPtr + ((n * m_nElmtGroup + e) * totPoints) *
-                                             simd_t::width);
+                        m_out_interleave_width, chunkSize, nmTot, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, simd_t::width, totModes, tmpOut);
 
                 StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nquad0, nquad1, nquad2, dfPtr, df_tmp,
-                    m_nElmtGroup * totPoints, F0, (simd_t *)nullptr,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    nq0, nq1, nq2, dfPtr, df_tmp, m_nElmtGroup * nqTot, F0,
+                    (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
                 IProductPrismKernel<false, false, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[0],
-                    DB0, B1, B2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[0], DB0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
                 IProductPrismKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[1],
-                    B0, DB1, B2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[1], B0, DB1, B2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
                 IProductPrismKernel<false, true, DEFORMED>(
-                    nmodes0, nmodes1, nmodes2, nquad0, nquad1, nquad2,
-                    isModified, (const typename simd_t::vectorType *)tmpPtr[2],
-                    B0, B1, DB2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
-                tmpIn += totPoints;
-                tmpOut += totModes * simd_t::width;
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified,
+                    (const typename simd_t::vectorType *)tmpPtr[2], B0, B1, DB2,
+                    W0, W1, W2, jacPtr, wsp, wsp0, wsp1, tmpOut);
+                // Increment pointers.
+                tmpIn += nqTot;
+                tmpOut += nmTot * simd_t::width;
                 jacPtr += ipt;
                 dfPtr += ipt * ndf;
             }

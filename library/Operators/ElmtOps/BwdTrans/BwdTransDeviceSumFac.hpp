@@ -129,12 +129,12 @@ public:
             {
                 ReshapeStorage<ExecSpace,
                                NektarSpaces::vector_width<TData>::value>(
-                    inblock.interleave_width, nElmtsPad, inblock.num_pts,
+                    inblock.GetInterleaveWidth(), nElmtsPad, inblock.num_pts,
                     (TData *)inPtr);
-                inblock.interleave_width =
-                    NektarSpaces::vector_width<TData>::value;
-                outblock.interleave_width =
-                    NektarSpaces::vector_width<TData>::value;
+                inblock.SetInterleaveWidth(
+                    NektarSpaces::vector_width<TData>::value);
+                outblock.SetInterleaveWidth(
+                    NektarSpaces::vector_width<TData>::value);
             }
 
             // Function call to kernel functions.

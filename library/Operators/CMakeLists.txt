@@ -15,14 +15,14 @@ IF(NEKTAR_ENABLE_CUDA)
     SET(ExecSpaces ${ExecSpaces} CUDA)
 ENDIF()
 
-# Optional Kokkos execution space.
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET(ExecSpaces ${ExecSpaces} Kokkos)
-ENDIF()
-
 # Optional SYCL execution space.
 IF(NEKTAR_ENABLE_SYCL)
     SET(ExecSpaces ${ExecSpaces} SYCL)
+ENDIF()
+
+# Optional Kokkos execution space.
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(ExecSpaces ${ExecSpaces} Kokkos)
 ENDIF()
 
 # Set implementation types.
@@ -148,8 +148,8 @@ MACRO(ADD_OPERATOR dir)
             # These combinations do/should not exist.
             IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
                 ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") )
+                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
+                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
                 CONTINUE()
             ENDIF()
 
@@ -206,8 +206,8 @@ MACRO(ADD_OPERATOR dir)
             ELSEIF((EXISTS "${dir}/${name}DeviceSumFac.hpp") AND
                    (("${ExecSpace}" STREQUAL "Device") OR # Generic device implementation
                     ("${ExecSpace}" STREQUAL "CUDA") OR 
-                    ("${ExecSpace}" STREQUAL "Kokkos") OR 
-                    ("${ExecSpace}" STREQUAL "SYCL")) AND 
+                    ("${ExecSpace}" STREQUAL "SYCL") OR 
+                    ("${ExecSpace}" STREQUAL "Kokkos")) AND 
                    (("${Impl}" STREQUAL "SumFac") OR ("${Impl}" STREQUAL "SumFacQP")))
 
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
@@ -215,8 +215,8 @@ MACRO(ADD_OPERATOR dir)
                 SET(DEVICE_SUMFAC_HEADER "#include \"${include_file}\"")
                 IF (("${ExecSpace}" STREQUAL "Device" AND EXISTS "${dir}/${name}DeviceSumFacKernels.hpp") OR
                     ("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}CUDASumFacKernels.cuh") OR
-                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}KokkosSumFacKernels.hpp") OR
-                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}SYCLSumFacKernels.hpp"))
+                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}SYCLSumFacKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}KokkosSumFacKernels.hpp"))
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
@@ -309,13 +309,6 @@ IF(NEKTAR_ENABLE_CUDA)
       ${NEKLIB_CUDA_LIBRARIES})
 ENDIF()
 
-# Kokkos specific file
-IF(NEKTAR_ENABLE_KOKKOS)
-    SET(OPERATORS_DEPENDS
-        ${OPERATORS_DEPENDS}
-        ${NEKTAR_KOKKOS_DEPENDS})
-ENDIF()
-
 # SYCL specific file
 IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
@@ -327,6 +320,13 @@ IF(NEKTAR_ENABLE_SYCL)
       ${OPERATORS_SOURCES}
       SYCLQueue.cpp
     )
+ENDIF()
+
+# Kokkos specific file
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(OPERATORS_DEPENDS
+        ${OPERATORS_DEPENDS}
+        ${NEKTAR_KOKKOS_DEPENDS})
 ENDIF()
 
 SOURCE_GROUP(TREE ${CMAKE_CURRENT_SOURCE_DIR}

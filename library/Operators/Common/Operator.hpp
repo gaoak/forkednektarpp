@@ -137,7 +137,11 @@ public:
             std::string cmdValue =
                 session->GetCmdLineArgument<std::string>("opExecSpace");
 
-            if (cmdValue == "AVX")
+            if (cmdValue == "Serial")
+            {
+                g_OpExecSpace = "Serial";
+            }
+            else if (cmdValue == "AVX")
             {
                 g_OpExecSpace = "AVX";
             }
@@ -149,17 +153,13 @@ public:
             {
                 g_OpExecSpace = "HIP";
             }
-            else if (cmdValue == "Kokkos")
-            {
-                g_OpExecSpace = "Kokkos";
-            }
             else if (cmdValue == "SYCL")
             {
                 g_OpExecSpace = "SYCL";
             }
-            else if (cmdValue == "Serial")
+            else if (cmdValue == "Kokkos")
             {
-                g_OpExecSpace = "Serial";
+                g_OpExecSpace = "Kokkos";
             }
             else
             {
@@ -175,17 +175,17 @@ public:
             std::string cmdValue =
                 session->GetCmdLineArgument<std::string>("opImpl");
 
-            if (cmdValue == "SumFac")
+            if (cmdValue == "StdMat")
+            {
+                g_OpImpl = "StdMat";
+            }
+            else if (cmdValue == "SumFac")
             {
                 g_OpImpl = "SumFac";
             }
             else if (cmdValue == "SumFacQP")
             {
                 g_OpImpl = "SumFacQP";
-            }
-            else if (cmdValue == "StdMat")
-            {
-                g_OpImpl = "StdMat";
             }
             else
             {

@@ -66,8 +66,14 @@ public:
             ptr += n;
             inptr += block.block_size;
         }
-        if (testModule.find("sycl") != std::string::npos ||
-            testModule.find("SYCL") != std::string::npos)
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
+        {
+            fixt_cuda_in->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_in);
+        }
+        else if (testModule.find("sycl") != std::string::npos ||
+                 testModule.find("SYCL") != std::string::npos)
         {
             fixt_sycl_in->template copyField<NektarSpaces::DeviceSpace>(
                 *fixt_in);
@@ -76,12 +82,6 @@ public:
                  testModule.find("KOKKOS") != std::string::npos)
         {
             fixt_kokkos_in->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_in);
-        }
-        else if (testModule.find("Cuda") != std::string::npos ||
-                 testModule.find("CUDA") != std::string::npos)
-        {
-            fixt_cuda_in->template copyField<NektarSpaces::DeviceSpace>(
                 *fixt_in);
         }
 
@@ -97,8 +97,14 @@ public:
             ptr += n;
             inptr += block.block_size;
         }
-        if (testModule.find("sycl") != std::string::npos ||
-            testModule.find("SYCL") != std::string::npos)
+        if (testModule.find("Cuda") != std::string::npos ||
+            testModule.find("CUDA") != std::string::npos)
+        {
+            fixt_cuda_out->template copyField<NektarSpaces::DeviceSpace>(
+                *fixt_out);
+        }
+        else if (testModule.find("sycl") != std::string::npos ||
+                 testModule.find("SYCL") != std::string::npos)
         {
             fixt_sycl_out->template copyField<NektarSpaces::DeviceSpace>(
                 *fixt_out);
@@ -107,12 +113,6 @@ public:
                  testModule.find("KOKKOS") != std::string::npos)
         {
             fixt_kokkos_out->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_out);
-        }
-        else if (testModule.find("Cuda") != std::string::npos ||
-                 testModule.find("CUDA") != std::string::npos)
-        {
-            fixt_cuda_out->template copyField<NektarSpaces::DeviceSpace>(
                 *fixt_out);
         }
     }

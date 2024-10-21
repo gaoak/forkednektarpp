@@ -136,12 +136,12 @@ public:
                                   SpatialDomains::eDeformed;
 
             // Get current interleave width.
-            m_in_interleave_width  = inblock.interleave_width;
-            m_out_interleave_width = outblock.interleave_width;
+            m_in_interleave_width  = inblock.GetInterleaveWidth();
+            m_out_interleave_width = outblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.interleave_width  = simd_t::width;
-            outblock.interleave_width = simd_t::width;
+            inblock.SetInterleaveWidth(simd_t::width);
+            outblock.SetInterleaveWidth(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
@@ -178,7 +178,7 @@ public:
                     HexBlock(inPtr, outPtr);
                     break;
                 }
-                    // Tet
+                // Tet
                 case LibUtilities::Tet:
                 {
                     TetBlock(inPtr, outPtr);
@@ -190,7 +190,7 @@ public:
                     PyrBlock(inPtr, outPtr);
                     break;
                 }
-                    // Prism
+                // Prism
                 case LibUtilities::Prism:
                 {
                     PrismBlock(inPtr, outPtr);
@@ -222,8 +222,8 @@ public:
 
 private:
     int m_nElmtGroup, m_df_idx, m_exp_idx;
-    int m_in_interleave_width, m_out_interleave_width;
-    size_t m_coordDim;
+    unsigned int m_in_interleave_width, m_out_interleave_width;
+    unsigned int m_coordDim;
 
     MemoryRegion<TData> m_derivFac;
     BasisDataMap<simd_t> m_zeroMap;
@@ -250,7 +250,8 @@ private:
         const auto nqBlock = nqTot * simd_t::width;
 
         const auto ndf = nCoord;
-        int dfsize     = ndf;
+
+        int dfsize = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
@@ -272,22 +273,29 @@ private:
                 output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+            }
 
-            // Get the basic derivative
+            // Get the basic derivative.
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d)
@@ -305,7 +313,7 @@ private:
         constexpr auto nqTot   = nq0;
         constexpr auto nqBlock = nqTot * simd_t::width;
 
-        // Get size of derivative factor block
+        // Get size of derivative factor block.
         constexpr auto ndf = nCoord;
         int dfsize         = ndf;
         if constexpr (DEFORMED)
@@ -313,7 +321,7 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
             m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
@@ -330,22 +338,29 @@ private:
                 output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+            }
 
-            // Get the basic derivative
+            // Get the basic derivative.
             PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
 
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -375,7 +390,7 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
             m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
@@ -398,24 +413,31 @@ private:
                 output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
+            }
 
-            // Results written to tmpOut0, tmpOut1
+            // Results written to tmpOut0, tmpOut1.
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
                                                     dfPtr, tmpOut);
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -440,7 +462,7 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
             m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
@@ -463,24 +485,31 @@ private:
                 output + d * m_nElmtGroup * simd_t::width * nqTot);
         }
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
+            }
 
-            // Results written to tmpOut0, tmpOut1
+            // Results written to tmpOut0, tmpOut1.
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
                                                     dfPtr, tmpOut);
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -516,7 +545,7 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
             m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
@@ -543,18 +572,25 @@ private:
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
             output + 2 * m_nElmtGroup * simd_t::width * nqTot);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[2]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[2]);
+            }
 
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
@@ -593,7 +629,7 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
             m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
@@ -620,27 +656,33 @@ private:
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
             output + 2 * m_nElmtGroup * simd_t::width * nqTot);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nqTot,
-                (TData *)input + e * nqTot * simd_t::width);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[0]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[1]);
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_out_interleave_width, simd_t::width, nqTot, tmpOut[2]);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nqTot,
+                    (TData *)input + e * nqTot * simd_t::width);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_out_interleave_width, chunkSize, nqTot, tmpOut[2]);
+            }
 
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
-
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;
