@@ -60,27 +60,18 @@ public:
     {
         const FieldState stateIn = FieldState::Phys;
 
-        if (testModule.find("Kokkos") != std::string::npos ||
-            testModule.find("KOKKOS") != std::string::npos)
+        if (testModule.find("AVX") != std::string::npos)
         {
             if (fixt_in)
             {
                 delete fixt_in;
             }
-            if (fixt_kokkos_in)
-            {
-                delete fixt_kokkos_in;
-            }
             auto blocks_in =
                 GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
-                                           NektarSpaces::KOKKOS::alignment);
-            fixt_in        = new Field<double, stateIn>(std::move(f_in));
-            fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
+                                         NektarSpaces::AVX::alignment);
+            fixt_in = new Field<double, stateIn>(std::move(f_in));
         }
         else if (testModule.find("CUDA") != std::string::npos)
         {
@@ -124,18 +115,27 @@ public:
             fixt_in      = new Field<double, stateIn>(std::move(f_in));
             fixt_sycl_in = new Field<double, stateIn>(std::move(fsycl_in));
         }
-        else if (testModule.find("AVX") != std::string::npos)
+        else if (testModule.find("Kokkos") != std::string::npos ||
+                 testModule.find("KOKKOS") != std::string::npos)
         {
             if (fixt_in)
             {
                 delete fixt_in;
             }
+            if (fixt_kokkos_in)
+            {
+                delete fixt_kokkos_in;
+            }
             auto blocks_in =
                 GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
             auto f_in = Field<double, stateIn>::template create<
                 NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::AVX::alignment);
-            fixt_in = new Field<double, stateIn>(std::move(f_in));
+                                         NektarSpaces::KOKKOS::alignment);
+            auto fkokkos_in = Field<double, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
+                                           NektarSpaces::KOKKOS::alignment);
+            fixt_in        = new Field<double, stateIn>(std::move(f_in));
+            fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
         }
         else
         {

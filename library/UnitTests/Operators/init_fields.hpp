@@ -186,15 +186,6 @@ public:
             delete fixt_expected;
         }
 
-        if (fixt_kokkos_in)
-        {
-            delete fixt_kokkos_in;
-        }
-        if (fixt_kokkos_out)
-        {
-            delete fixt_kokkos_out;
-        }
-
         if (fixt_cuda_in)
         {
             delete fixt_cuda_in;
@@ -211,6 +202,15 @@ public:
         if (fixt_sycl_out)
         {
             delete fixt_sycl_out;
+        }
+
+        if (fixt_kokkos_in)
+        {
+            delete fixt_kokkos_in;
+        }
+        if (fixt_kokkos_out)
+        {
+            delete fixt_kokkos_out;
         }
 
         if (session)
@@ -259,29 +259,19 @@ public:
         // Create two Field objects with a MemoryRegionHost backend by default
         auto blocks_in  = GetBlockAttributes<TData>(stateIn, fixt_explist);
         auto blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
-        if (testModule.find("Kokkos") != std::string::npos ||
-            testModule.find("KOKKOS") != std::string::npos)
+        if (testModule.find("AVX") != std::string::npos)
         {
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
+                    "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
             auto f_out = Field<TData, stateOut>::template create<
                 NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
-                                           NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout,
-                                           NektarSpaces::KOKKOS::alignment);
+                                         NektarSpaces::AVX::alignment);
             auto f_expected = Field<TData, stateOut>::template create<
                 NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::KOKKOS::alignment);
-            fixt_in        = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out       = new Field<TData, stateOut>(std::move(f_out));
-            fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
-            fixt_kokkos_out =
-                new Field<TData, stateOut>(std::move(fkokkos_out));
+                                         NektarSpaces::AVX::alignment);
+            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
             fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
         else if (testModule.find("CUDA") != std::string::npos)
@@ -330,19 +320,29 @@ public:
             fixt_sycl_out = new Field<TData, stateOut>(std::move(fsycl_out));
             fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
-        else if (testModule.find("AVX") != std::string::npos)
+        else if (testModule.find("Kokkos") != std::string::npos ||
+            testModule.find("KOKKOS") != std::string::npos)
         {
             auto f_in =
                 Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
+                    "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
             auto f_out = Field<TData, stateOut>::template create<
                 NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::AVX::alignment);
+                                         NektarSpaces::KOKKOS::alignment);
+            auto fkokkos_in = Field<TData, stateIn>::template create<
+                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
+                                           NektarSpaces::KOKKOS::alignment);
+            auto fkokkos_out = Field<TData, stateOut>::template create<
+                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout,
+                                           NektarSpaces::KOKKOS::alignment);
             auto f_expected = Field<TData, stateOut>::template create<
                 NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::AVX::alignment);
-            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+                                         NektarSpaces::KOKKOS::alignment);
+            fixt_in        = new Field<TData, stateIn>(std::move(f_in));
+            fixt_out       = new Field<TData, stateOut>(std::move(f_out));
+            fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
+            fixt_kokkos_out =
+                new Field<TData, stateOut>(std::move(fkokkos_out));
             fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
         }
         else
@@ -396,8 +396,8 @@ public:
         for (size_t bl = 0; bl < in.GetBlocks().size(); ++bl)
         {
             // Check that each block have the same structure
-            if (ref.GetBlocks()[bl].interleave_width !=
-                in.GetBlocks()[bl].interleave_width)
+            if (ref.GetBlocks()[bl].GetInterleaveWidth() !=
+                in.GetBlocks()[bl].GetInterleaveWidth())
             {
                 std::cout << "Mismatch of interleave width." << std::endl;
                 return false;
@@ -470,11 +470,11 @@ public:
                  component++)
             {
                 ReshapeStorage<NektarSpaces::Serial, 1>(
-                    block.interleave_width, numElmtsPad, block.num_pts,
+                    block.GetInterleaveWidth(), numElmtsPad, block.num_pts,
                     ptr + component * block.block_size);
             }
 
-            block.interleave_width = 1;
+            block.SetInterleaveWidth(1);
 
             // Increment pointer and index for next block.
             ptr += block.block_size * in.GetNumComponents();
@@ -486,12 +486,12 @@ protected:
     Field<TData, stateIn> *fixt_in          = nullptr;
     Field<TData, stateOut> *fixt_out        = nullptr;
     Field<TData, stateOut> *fixt_expected   = nullptr;
-    Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
-    Field<TData, stateOut> *fixt_kokkos_out = nullptr;
     Field<TData, stateIn> *fixt_cuda_in     = nullptr;
     Field<TData, stateOut> *fixt_cuda_out   = nullptr;
     Field<TData, stateIn> *fixt_sycl_in     = nullptr;
     Field<TData, stateOut> *fixt_sycl_out   = nullptr;
+    Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
+    Field<TData, stateOut> *fixt_kokkos_out = nullptr;
     std::shared_ptr<TExpList> fixt_explist{nullptr};
 
     LibUtilities::SessionReaderSharedPtr session;

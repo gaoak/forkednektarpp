@@ -32,6 +32,7 @@
 // definitions
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include <boost/preprocessor/arithmetic/inc.hpp>
 #include <boost/preprocessor/arithmetic/mul.hpp>
 #include <boost/preprocessor/comparison/not_equal.hpp>

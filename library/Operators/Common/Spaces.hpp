@@ -45,7 +45,7 @@
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Macros.hpp>
 #include <Kokkos_Random.hpp>
-#endif // defined(NEKTAR_ENABLE_KOKKOS)
+#endif
 
 #if defined(__CUDACC__) || defined(__HIP_DEVICE_COMPILE__) ||                  \
     defined(__SYCL_DEVICE_ONLY__)
@@ -82,6 +82,11 @@ struct vector_width
 {
     static constexpr size_t value = 64u;
 };
+#elif defined(SYCL_ENABLE_CUDA)
+struct vector_width
+{
+    static constexpr size_t value = 32u;
+};
 #elif defined(KOKKOS_ENABLE_CUDA)
 struct vector_width
 {
@@ -96,11 +101,6 @@ struct vector_width
 struct vector_width
 {
     static constexpr size_t value = 64u;
-};
-#elif defined(SYCL_ENABLE_CUDA)
-struct vector_width
-{
-    static constexpr size_t value = 32u;
 };
 #else
 struct vector_width
@@ -154,9 +154,22 @@ struct HIP
     static constexpr unsigned int defaultGridSize  = 1024u;
 };
 
+struct SYCL
+{
+    using memory_space = NektarSpaces::DeviceSpace;
+#if defined(SYCL_ENABLE_CUDA)
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 256u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#else
+    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+    static constexpr unsigned int defaultBlockSize = 16u;
+    static constexpr unsigned int defaultGridSize  = 1024u;
+#endif
+};
+
 struct KOKKOS
 {
-public:
     using memory_space = NektarSpaces::DeviceSpace;
 #if defined(KOKKOS_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -177,20 +190,6 @@ public:
 #endif
 };
 
-struct SYCL
-{
-    using memory_space = NektarSpaces::DeviceSpace;
-#if defined(SYCL_ENABLE_CUDA)
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
-#else
-    static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
-    static constexpr unsigned int defaultBlockSize = 16u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
-#endif
-};
-
 // Specify execution for CMakeList.txt
 #define NEKTAR_DEFAULT_HOST_TAG NektarSpaces::Serial
 
@@ -200,20 +199,20 @@ struct SYCL
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::CUDA
 #elif defined(NEKTAR_ENABLE_HIP)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::HIP
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
 #elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::SYCL
+#elif defined(NEKTAR_ENABLE_KOKKOS)
+#define NEKTAR_DEFAULT_DEVICE_TAG NektarSpaces::KOKKOS
 #endif
 
 // These are used for LoopExecution.hpp
 #if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
-#elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
-#define NEKTAR_LAMBDA KOKKOS_LAMBDA
 #elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=]
+#elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
+#define NEKTAR_LAMBDA KOKKOS_LAMBDA
 #else
 #define NEKTAR_LAMBDA [&]
 #endif

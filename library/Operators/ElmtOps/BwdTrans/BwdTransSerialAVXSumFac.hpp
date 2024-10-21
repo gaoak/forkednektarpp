@@ -76,7 +76,7 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // check alignment
+        // Check alignment.
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
@@ -96,7 +96,7 @@ public:
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            // Block dependent
+            // Block dependent.
             auto &inblock     = in.GetBlocks()[block_idx];
             auto &outblock    = out.GetBlocks()[block_idx];
             const auto nElmts = inblock.num_elements;
@@ -106,11 +106,11 @@ public:
             const auto shapeType = expPtr->DetShapeType();
 
             // Get current interleave width.
-            m_in_interleave_width = inblock.interleave_width;
+            m_in_interleave_width = inblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.interleave_width  = simd_t::width;
-            outblock.interleave_width = simd_t::width;
+            inblock.SetInterleaveWidth(simd_t::width);
+            outblock.SetInterleaveWidth(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
@@ -193,7 +193,7 @@ private:
     std::vector<LibUtilities::BasisKey> m_basisKeys;
 
     int m_nElmtGroup, m_exp_idx;
-    int m_in_interleave_width;
+    unsigned int m_in_interleave_width;
 
     void SegBlock(const TData *inPtr, TData *outPtr);
     void TriBlock(const TData *inPtr, TData *outPtr);
@@ -220,12 +220,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
@@ -256,12 +263,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
@@ -296,12 +310,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
@@ -343,12 +364,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
@@ -387,12 +415,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
@@ -441,12 +476,19 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (int e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();

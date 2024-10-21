@@ -74,7 +74,7 @@ public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmholtz<TData>(expansionList)
     {
-        // Initialise jacobian with paddings
+        // Initialise jacobian with paddings.
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, simd_t::width);
 
@@ -108,7 +108,7 @@ public:
         auto nCoord = this->m_expansionList->GetCoordim(0);
         m_diffCoeff = Array<OneD, TData>(nCoord * (nCoord + 1) / 2, 0.0);
 
-        // set up temprary solution
+        // Set up temprary solution.
         m_diffCoeff[0] = 1.0; // D00
         if (nCoord >= 2)
         {
@@ -125,7 +125,7 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // check alignment
+        // Check alignment.
         WARNINGL1(in.GetAlignment() == simd_t::alignment,
                   "Input Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
@@ -146,7 +146,7 @@ public:
         for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
              ++block_idx)
         {
-            // Block dependent
+            // Block dependent.
             auto &inblock     = in.GetBlocks()[block_idx];
             auto &outblock    = out.GetBlocks()[block_idx];
             const auto nElmts = inblock.num_elements;
@@ -161,11 +161,11 @@ public:
                                   SpatialDomains::eDeformed;
 
             // Get current interleave width.
-            m_in_interleave_width = inblock.interleave_width;
+            m_in_interleave_width = inblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.interleave_width  = simd_t::width;
-            outblock.interleave_width = simd_t::width;
+            inblock.SetInterleaveWidth(simd_t::width);
+            outblock.SetInterleaveWidth(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();
@@ -245,7 +245,7 @@ public:
 
 private:
     int m_nElmtGroup, m_jac_idx, m_exp_idx;
-    int m_in_interleave_width;
+    unsigned int m_in_interleave_width;
 
     MemoryRegion<TData> m_jac;
     MemoryRegion<TData> m_df;
@@ -310,6 +310,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -326,12 +327,19 @@ private:
         const auto W0 =
             m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
@@ -394,6 +402,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -410,12 +419,19 @@ private:
         const auto W0 =
             m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
@@ -511,6 +527,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -535,12 +552,19 @@ private:
         const auto W1 =
             m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
@@ -629,6 +653,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -653,12 +678,19 @@ private:
         const auto W1 =
             m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
@@ -772,6 +804,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -804,12 +837,19 @@ private:
         const auto W2 =
             m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
@@ -839,7 +879,7 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // increment pointers:
+            // Increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
@@ -921,6 +961,7 @@ private:
         {
             dfSize *= nqTot;
         }
+
         // m_jac_idx is an offset, accumulates over blocks
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
             &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
@@ -953,12 +994,19 @@ private:
         const auto W2 =
             m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        auto width_ratio = m_in_interleave_width == 1
+                               ? 1
+                               : m_in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
         for (size_t e = 0; e < m_nElmtGroup; ++e)
         {
             // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, simd_t::width>(
-                m_in_interleave_width, simd_t::width, nmTot,
-                (TData *)input + e * nmTot * simd_t::width);
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    m_in_interleave_width, chunkSize, nmTot,
+                    (TData *)input + e * nmTot * simd_t::width);
+            }
 
             // Step 1: BwdTrans
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
@@ -988,7 +1036,7 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // increment pointers:
+            // Increment pointers:
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;

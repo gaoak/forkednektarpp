@@ -36,7 +36,6 @@
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
-
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include <cstring>
@@ -347,7 +346,7 @@ protected:
             TData *dst = m_host + offset;
 
             // Special handling for the simd_t.
-            using simd_t = tinysimd::simd<double>;
+            using simd_t = tinysimd::simd<TData>;
 
             if constexpr (std::is_same<simd_t, TData>::value)
             {

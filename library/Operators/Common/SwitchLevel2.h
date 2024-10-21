@@ -31,6 +31,7 @@
 // Description: Two level switch statement with definable bounds
 //
 ///////////////////////////////////////////////////////////////////////////////
+
 #include "SwitchLevel2Defs.h"
 
 if (dimension == 1)

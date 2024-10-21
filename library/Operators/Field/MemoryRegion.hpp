@@ -48,13 +48,13 @@
 using default_fp_type = double;
 
 // MemoryQualifier
-class ReadOnly
+struct ReadOnly
 {
 };
-class WriteOnly
+struct WriteOnly
 {
 };
-class ReadWrite
+struct ReadWrite
 {
 };
 

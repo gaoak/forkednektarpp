@@ -50,12 +50,6 @@
 #include <string>
 #include <vector>
 
-namespace Nektar::MultiRegions
-{
-class ExpList;
-typedef std::shared_ptr<ExpList> ExpListSharedPtr;
-} // namespace Nektar::MultiRegions
-
 /**
  * @brief Possible states for Field data.
  *
@@ -94,14 +88,35 @@ struct BlockAttributes
     const size_t num_padding_elements;
     const size_t num_pts;
     const size_t block_size;
-    size_t interleave_width;
+
+    template <typename TData = default_fp_type>
+    void SetInterleaveWidth(size_t interleave_width)
+    {
+        if (interleave_width != 1)
+        {
+            ASSERTL0(
+                (num_elements + num_padding_elements) % interleave_width == 0,
+                "Number of elements is not divisible by interleave width.");
+            ASSERTL0(
+                interleave_width % tinysimd::simd<TData>::width == 0,
+                "interleave width should be divisible by AVX vector width.");
+        }
+
+        this->interleave_width = interleave_width;
+    }
+
+    size_t GetInterleaveWidth(void) const
+    {
+        return interleave_width;
+    }
 
     size_t GetNumElmtGroups(void) const
     {
-        ASSERTL0((num_elements + num_padding_elements) % interleave_width == 0,
-                 "Number of elements is not divisible by interleave width.");
         return (num_elements + num_padding_elements) / interleave_width;
     }
+
+private:
+    size_t interleave_width;
 };
 
 /**
@@ -502,8 +517,8 @@ public:
 
         for (size_t bl = 0; bl < block_attributes.size(); ++bl)
         {
-            ASSERTL0(field.block_attributes[bl].interleave_width ==
-                         block_attributes[bl].interleave_width,
+            ASSERTL0(field.block_attributes[bl].GetInterleaveWidth() ==
+                         block_attributes[bl].GetInterleaveWidth(),
                      "Vector width are not the same!");
         }
 
@@ -546,7 +561,13 @@ public:
               typename MemCopy = HostToDevice>
     void copyMemoryRegion(MemoryRegion<TDataIn> &region)
     {
-        /*if (this->size() != region.size())
+        size_t nSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            nSize += block.num_pts * block.num_elements;
+        }
+
+        if (nSize * this->GetNumComponents() != region.size())
         {
             std::stringstream msg;
 
@@ -554,7 +575,7 @@ public:
                 << "Memory size mismatch between (" << region.getName()
                 << ") and (" << this->getName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }*/
+        }
 
         if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
                       std::is_same<MemCopy, DeviceToHost>::value)
@@ -592,7 +613,13 @@ public:
                      "HostToDevice.");
         }
 
-        /*if (this->size() != array.size())
+        size_t nSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            nSize += block.num_pts * block.num_elements;
+        }
+
+        if (nSize * this->GetNumComponents() != array.size())
         {
             std::stringstream msg;
 
@@ -600,7 +627,7 @@ public:
                 << "Memory size mismatch between (std::vector) and ("
                 << this->getName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }*/
+        }
 
         this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
     }
@@ -625,7 +652,13 @@ public:
                      "HostToDevice.");
         }
 
-        /*if (this->size() != array.size())
+        size_t nSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            nSize += block.num_pts * block.num_elements;
+        }
+
+        if (nSize * this->GetNumComponents() != array.size())
         {
             std::stringstream msg;
 
@@ -633,7 +666,7 @@ public:
                 << "Memory size mismatch between (Nektar::array) and ("
                 << this->getName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }*/
+        }
 
         this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
     }

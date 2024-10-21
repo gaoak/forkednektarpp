@@ -34,8 +34,6 @@
 
 #include "Operators/Common/Operator.hpp"
 
-#include <LibUtilities/BasicUtils/SessionReader.h>
-
 namespace Nektar::Operators
 {
 
