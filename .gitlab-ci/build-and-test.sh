@@ -77,13 +77,13 @@ elif [[ $BUILD_TYPE == "full" ]]; then
     fi
     if [[ $BUILD_SYCL == "Default" ]]; then
         # Load Intel compiler module for SYCL support on Linux
-        [[ $OS_VERSION != "macos" ]] && module load intel/compiler
+        [[ $OS_VERSION != "macos" ]] && module load intel/compiler intel/mkl
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=Default")
     elif [[ $BUILD_SYCL == "CUDA" ]]; then
         # Load CUDA and Intel compiler module for SYCL support on Linux
-        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2 intel/compiler
+        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2 intel/compiler intel/mkl
 
         # Enable SYCL in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_SYCL:STRING=CUDA")

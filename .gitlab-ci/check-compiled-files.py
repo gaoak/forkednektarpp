@@ -55,6 +55,8 @@ ignore_sources = [
     "solvers/CompressibleFlowSolver/Utilities/TimeRoeKernel.cpp",
     # Template for PWS
     "solvers/PulseWaveSolver/EquationSystems/TemplatePressureArea.cpp",
+    # OneMKL
+    "library/Operators/OneMKL.cpp",
 ]
 
 ignore_sources = [ os.path.join(cwd, os.path.normpath(p)) for p in ignore_sources ]

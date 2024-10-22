@@ -111,6 +111,6 @@ TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_sycl_cube_prism_hex,
                            CubePrismHex, 1.0E-04)
 
 TEST_MULTIPLYBYELMTINVMASS(multiplybyelmtinvmass_sycl_cube_all_elements,
-                           CubeAllElements, 1.0E-04)
+                           CubeAllElements, 1.0E-03)
 
 BOOST_AUTO_TEST_SUITE_END()

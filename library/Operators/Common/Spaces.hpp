@@ -209,7 +209,7 @@ struct KOKKOS
 #if (defined(NEKTAR_ENABLE_CUDA) || defined(NEKTAR_ENABLE_HIP)) &&             \
     defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA [=] __device__
-#elif defined(NEKTAR_ENABLE_SYCL) && defined(DEVICE_COMPILE_ONLY)
+#elif defined(NEKTAR_ENABLE_SYCL)
 #define NEKTAR_LAMBDA [=]
 #elif defined(NEKTAR_ENABLE_KOKKOS) && defined(DEVICE_COMPILE_ONLY)
 #define NEKTAR_LAMBDA KOKKOS_LAMBDA
