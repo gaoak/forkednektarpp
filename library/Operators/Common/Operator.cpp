@@ -46,6 +46,6 @@ template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
     return instance;
 }
 
-template OperatorFactory<double> &GetOperatorFactory();
+template OperatorFactory<default_fp_type> &GetOperatorFactory();
 
 } // namespace Nektar::Operators

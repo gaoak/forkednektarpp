@@ -62,6 +62,8 @@
 #define STRV(...) #__VA_ARGS__
 #define STRVX(...) STRV(__VA_ARGS__)
 
+using default_fp_type = double;
+
 namespace NektarSpaces
 {
 
@@ -128,14 +130,16 @@ using DeviceSpace = HostSpace;
 // Execution space.
 struct Serial
 {
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+    using memory_space = NektarSpaces::HostSpace;
+    static constexpr size_t alignment =
+        tinysimd::simd<default_fp_type>::alignment;
 };
 
 struct AVX
 {
-    using memory_space                = NektarSpaces::HostSpace;
-    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
+    using memory_space = NektarSpaces::HostSpace;
+    static constexpr size_t alignment =
+        tinysimd::simd<default_fp_type>::alignment;
 };
 
 struct CUDA

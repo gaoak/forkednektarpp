@@ -104,10 +104,6 @@ struct SumFacQP
 {
 };
 
-// Use typenames to define available implementations to
-// allow extension by users without modifying library
-using default_fp_type = double;
-
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
 

@@ -45,8 +45,6 @@
 #include <numeric>
 #include <stdexcept>
 
-using default_fp_type = double;
-
 // MemoryQualifier
 struct ReadOnly
 {
