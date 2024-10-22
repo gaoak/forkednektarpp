@@ -296,17 +296,17 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      CUBLASHandle.cuh
+       CUBLASHandle.cuh
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      CUBLASHandle.cu
+       CUBLASHandle.cu
     )
 
     SET(OPERATORS_DEPENDS
       ${OPERATORS_DEPENDS}
-      ${NEKLIB_CUDA_LIBRARIES})
+      ${NEKTAR_CUDA_DEPENDS})
 ENDIF()
 
 # SYCL specific file
@@ -314,12 +314,25 @@ IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
       SYCLQueue.hpp
+      OneMKL.hpp 
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
       SYCLQueue.cpp
+      OneMKL.cpp
     )
+
+    SET(OPERATORS_DEPENDS
+      ${OPERATORS_DEPENDS}
+      ${NEKTAR_SYCL_DEPENDS})
+ENDIF()
+
+# Kokkos specific file
+IF(NEKTAR_ENABLE_KOKKOS)
+    SET(OPERATORS_DEPENDS
+        ${OPERATORS_DEPENDS}
+        ${NEKTAR_KOKKOS_DEPENDS})
 ENDIF()
 
 # Kokkos specific file
