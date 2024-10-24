@@ -46,8 +46,8 @@ namespace Nektar::Operators::detail
 // and ensure the ExecSpace is consistent
 template <>
 void OperatorHelmholtzImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
-                                      NekDouble>::@Shape@Block
-                (const NekDouble *input, NekDouble *output)
+                                      default_fp_type>::@Shape@Block
+                (const default_fp_type *input, default_fp_type *output)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call

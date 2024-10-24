@@ -108,8 +108,8 @@ MemoryRegion<TDataOut> GetBasisData(
                     }
                     else
                     {
-                        const Array<OneD, NekDouble> z = basis->GetZ();
-                        const Array<OneD, NekDouble> w = basis->GetW();
+                        const auto z = basis->GetZ();
+                        const auto w = basis->GetW();
                         for (int i = 0; i < ndata; ++i)
                         {
                             wTmp[i] = 0.5 * (1 - z[i]) * w[i];
@@ -131,8 +131,8 @@ MemoryRegion<TDataOut> GetBasisData(
                     else if (basis->GetPointsType() ==
                              LibUtilities::eGaussRadauMAlpha1Beta0)
                     {
-                        const Array<OneD, NekDouble> z = basis->GetZ();
-                        const Array<OneD, NekDouble> w = basis->GetW();
+                        const auto z = basis->GetZ();
+                        const auto w = basis->GetW();
                         for (int i = 0; i < ndata; ++i)
                         {
                             wTmp[i] = 0.25 * (1 - z[i]) * w[i];
@@ -140,8 +140,8 @@ MemoryRegion<TDataOut> GetBasisData(
                     }
                     else
                     {
-                        const Array<OneD, NekDouble> z = basis->GetZ();
-                        const Array<OneD, NekDouble> w = basis->GetW();
+                        const auto z = basis->GetZ();
+                        const auto w = basis->GetW();
                         for (int i = 0; i < ndata; ++i)
                         {
                             wTmp[i] = 0.25 * (1 - z[i]) * (1 - z[i]) * w[i];
@@ -284,7 +284,7 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
 
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
-            Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
+            Array<OneD, Array<OneD, TData>> jacArray(interleave_width);
 
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
             {
@@ -299,7 +299,7 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
                     else
                     {
                         jacArray[i] =
-                            Array<OneD, NekDouble>(expPtr->GetTotPoints(), 0.0);
+                            Array<OneD, TData>(expPtr->GetTotPoints(), 0.0);
                     }
                 }
 
@@ -430,7 +430,7 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
         }
     }
 
-    return MemoryManager<std::vector<NekDouble>>::AllocateSharedPtr(derivFac);
+    return MemoryManager<std::vector<TData>>::AllocateSharedPtr(derivFac);
 }
 
 } // namespace Nektar::Operators
