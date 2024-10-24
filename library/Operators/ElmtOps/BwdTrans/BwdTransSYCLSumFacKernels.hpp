@@ -2563,7 +2563,7 @@ inline
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                  cgh.parallel_for(
                      sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                            blocksize2d,
@@ -2576,12 +2576,22 @@ inline
                          BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1,
                                                       nelmt, basis0, basis1, in,
                                                       out, shmPtr, item);
+#else
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransQuadKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
+                             in, out, shmPtr, item);
+#endif
                      });
              }).wait();
-            // BwdTransQuadKernel_QP_1D<SHMEM>
-            //    <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in,
-            //         out);
         }
         else
         {
@@ -2620,7 +2630,7 @@ inline
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                  cgh.parallel_for(
                      sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                            blocksize2d,
@@ -2633,12 +2643,22 @@ inline
                          BwdTransTriKernel_QP<SHMEM>(
                              nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
                              basis1, in, out, shmPtr, item);
+#else
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransTriKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0,
+                             basis1, in, out, shmPtr, item);
+#endif
                      });
              }).wait();
-            // BwdTransTriKernel_QP_1D<SHMEM>
-            //     <<<nelmt, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-            //                                        nelmt, correct, basis0,
-            //                                        basis1, in, out);
         }
         else
         {
@@ -2708,7 +2728,7 @@ inline
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                  cgh.parallel_for(
                      sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                            blocksize3d,
@@ -2721,13 +2741,22 @@ inline
                          BwdTransHexKernel_QP<SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
                              basis1, basis2, in, out, shmPtr, item);
+#else
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransHexKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0,
+                             basis1, basis2, in, out, shmPtr, item);
+#endif
                      });
              }).wait();
-            // BwdTransHexKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nmTot, nq0,
-            //                                          nq1, nq2, nelmt,
-            //                                          basis0, basis1, basis2,
-            //                                          in, out);
         }
         else
         {
@@ -2768,7 +2797,7 @@ inline
         {
             nshared += (nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
                         (nm0 * nq1 * nq2));
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
@@ -2788,14 +2817,32 @@ inline
                                                      out, shmPtr, item);
                      });
              }).wait();
-            // unsigned int *pindex;
-            // unsigned int *qindex;
-            // cudaMalloc((void **)&pindex, sizeof(unsigned int)*nm01);
-            // cudaMalloc((void **)&qindex, sizeof(unsigned int)*nm01);
-            // BwdTransTetKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         pindex, qindex, basis0, basis1, basis2, in, out);
+#else
+            unsigned int *pindex = sycl::malloc_device<unsigned int>(nm01, Q);
+            unsigned int *qindex = sycl::malloc_device<unsigned int>(nm01, Q);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
+
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransTetKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, pindex, qindex, basis0, basis1, basis2,
+                             in, out, shmPtr, item);
+                     });
+             }).wait();
+
+            sycl::free(pindex, Q);
+            sycl::free(qindex, Q);
+#endif
         }
         else
         {
@@ -2837,7 +2884,7 @@ inline
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                  cgh.parallel_for(
                      sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                            blocksize3d,
@@ -2851,12 +2898,23 @@ inline
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                              correct, basis0, basis1, basis2, in, out, shmPtr,
                              item);
+#else
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransPrismKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, basis0, basis1, basis2, in, out, shmPtr,
+                             item);
+#endif
                      });
              }).wait();
-            // BwdTransPrismKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
         }
         else
         {
@@ -2899,7 +2957,7 @@ inline
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
-
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                  cgh.parallel_for(
                      sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
                                            blocksize3d,
@@ -2913,12 +2971,23 @@ inline
                                                      nq1, nq2, nelmt, correct,
                                                      basis0, basis1, basis2, in,
                                                      out, shmPtr, item);
+#else
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         BwdTransPyrKernel_QP_1D<SHMEM>(
+                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                             correct, basis0, basis1, basis2, in, out, shmPtr,
+                             item);
+#endif
                      });
              }).wait();
-            // BwdTransPyrKernel_QP_1D<SHMEM>
-            //     <<<gridsize, blocksize, nshared>>>(
-            //         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-            //         basis0, basis1, basis2, in, out);
         }
         else
         {

@@ -1111,10 +1111,17 @@ inline
                                               .template get_multi_ptr<
                                                   sycl::access::decorated::no>()
                                               .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                                       PhysDeriv2DKernel_QP<LibUtilities::Quad,
                                                            DEFORMED, SHMEM>(
                                           nq0, nq1, ncoord, nelmts, D0, D1, Z0,
                                           Z1, df, in, out, shmPtr, item);
+#else
+                                      PhysDeriv2DKernel_QP_1D<LibUtilities::Quad,
+                                                           DEFORMED, SHMEM>(
+                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
+                                          Z1, df, in, out, shmPtr, item);
+#endif
                                   });
              }).wait();
         }
@@ -1165,10 +1172,17 @@ inline
                                               .template get_multi_ptr<
                                                   sycl::access::decorated::no>()
                                               .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                                       PhysDeriv2DKernel_QP<LibUtilities::Tri,
                                                            DEFORMED, SHMEM>(
                                           nq0, nq1, ncoord, nelmts, D0, D1, Z0,
                                           Z1, df, in, out, shmPtr, item);
+#else
+                                      PhysDeriv2DKernel_QP_1D<LibUtilities::Tri,
+                                                           DEFORMED, SHMEM>(
+                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
+                                          Z1, df, in, out, shmPtr, item);
+#endif
                                   });
              }).wait();
         }
@@ -1250,10 +1264,17 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                          PhysDeriv3DKernel_QP<LibUtilities::Hex, DEFORMED,
                                               SHMEM>(nq0, nq1, nq2, nelmts, D0,
                                                      D1, D2, Z0, Z1, Z2, df, in,
                                                      out, shmPtr, item);
+#else
+                         PhysDeriv3DKernel_QP_1D<LibUtilities::Hex, DEFORMED,
+                                                 SHMEM>(
+                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
+                             in, out, shmPtr, item);
+#endif
                      });
              }).wait();
         }
@@ -1297,10 +1318,17 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                          PhysDeriv3DKernel_QP<LibUtilities::Tet, DEFORMED,
                                               SHMEM>(nq0, nq1, nq2, nelmts, D0,
                                                      D1, D2, Z0, Z1, Z2, df, in,
                                                      out, shmPtr, item);
+#else
+                         PhysDeriv3DKernel_QP_1D<LibUtilities::Tet, DEFORMED,
+                                                 SHMEM>(
+                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
+                             in, out, shmPtr, item);
+#endif
                      });
              }).wait();
         }
@@ -1345,10 +1373,17 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                          PhysDeriv3DKernel_QP<LibUtilities::Prism, DEFORMED,
                                               SHMEM>(nq0, nq1, nq2, nelmts, D0,
                                                      D1, D2, Z0, Z1, Z2, df, in,
                                                      out, shmPtr, item);
+#else
+                         PhysDeriv3DKernel_QP_1D<LibUtilities::Prism, DEFORMED,
+                                                 SHMEM>(
+                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
+                             in, out, shmPtr, item);
+#endif
                      });
              }).wait();
         }
@@ -1394,10 +1429,17 @@ inline
                                              .template get_multi_ptr<
                                                  sycl::access::decorated::no>()
                                              .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                          PhysDeriv3DKernel_QP<LibUtilities::Pyr, DEFORMED,
                                               SHMEM>(nq0, nq1, nq2, nelmts, D0,
                                                      D1, D2, Z0, Z1, Z2, df, in,
                                                      out, shmPtr, item);
+#else
+                         PhysDeriv3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED,
+                                                 SHMEM>(
+                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
+                             in, out, shmPtr, item);
+#endif
                      });
              }).wait();
         }

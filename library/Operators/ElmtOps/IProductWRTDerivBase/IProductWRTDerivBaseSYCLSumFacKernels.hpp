@@ -751,10 +751,17 @@ inline
                                           blocksize2d,
                                       blocksize2d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad,
                                                         DEFORMED>(
                             nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
                             item_ct1);
+#else
+                        IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad,
+                                                           DEFORMED>(
+                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                            item_ct1);
+#endif
                     })
                 .wait();
         }
@@ -794,10 +801,17 @@ inline
                                           blocksize2d,
                                       blocksize2d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri,
                                                         DEFORMED>(
                             nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
                             item_ct1);
+#else
+                        IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri,
+                                                           DEFORMED>(
+                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                            item_ct1);
+#endif
                     })
                 .wait();
         }
@@ -865,10 +879,17 @@ inline
                                           blocksize3d,
                                       blocksize3d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex,
                                                         DEFORMED>(
                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
                             out, item_ct1);
+#else
+                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex,
+                                                           DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
+#endif
                     })
                 .wait();
         }
@@ -908,10 +929,17 @@ inline
                                           blocksize3d,
                                       blocksize3d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet,
                                                         DEFORMED>(
                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
                             out, item_ct1);
+#else
+                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet,
+                                                           DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
+#endif
                     })
                 .wait();
         }
@@ -953,10 +981,17 @@ inline
                                           blocksize3d,
                                       blocksize3d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism,
                                                         DEFORMED>(
                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
                             out, item_ct1);
+#else
+                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism,
+                                                           DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
+#endif
                     })
                 .wait();
         }
@@ -998,10 +1033,17 @@ inline
                                           blocksize3d,
                                       blocksize3d),
                     [=](sycl::nd_item<3> item_ct1) {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                         IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr,
                                                         DEFORMED>(
                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
                             out, item_ct1);
+#else
+                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr,
+                                                           DEFORMED>(
+                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                            out, item_ct1);
+#endif
                     })
                 .wait();
         }
