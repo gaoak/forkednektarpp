@@ -75,19 +75,19 @@ public:
                 bndConditions[i]->GetBoundaryConditionType() ==
                     SpatialDomains::eRobin)
             {
-                m_nbndcoeff += bndCondExpansions[i]->GetNcoeffs();
+                m_nBndCoeff += bndCondExpansions[i]->GetNcoeffs();
             }
         }
 
         // Return if no Neumann boundary condition.
-        if (m_nbndcoeff == 0)
+        if (m_nBndCoeff == 0)
         {
             return;
         }
 
         // Collecting boundary coefficients
-        Array<OneD, TData> bndcoeff(m_nbndcoeff);
-        Array<OneD, int> index(m_nbndcoeff);
+        Array<OneD, TData> bndcoeff(m_nBndCoeff);
+        Array<OneD, int> index(m_nBndCoeff);
         size_t bndcnt = 0, cnt = 0;
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
@@ -112,44 +112,47 @@ public:
 
         const bool device_only = true;
 
-        m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+        m_bndCoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
             bndcoeff, ExecSpace::alignment, device_only);
 
-        // Set mapping to skip over padding elements
-        int i = 0, j = 0;
-
-        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
+        // Compute block bound.
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        for (auto &block : blocks)
+        Array<OneD, int> blockBound(blocks.size());
+        int bound = 0;
+        for (int block_idx = 0; block_idx < blocks.size(); ++block_idx)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
-            for (unsigned int e = 0; e < nElmts; e++)
-            {
-                for (unsigned int n = 0; n < ncoeff; n++)
-                {
-                    alignmentMap[i++] = j++;
-                }
-            }
-            j += nPadElmts * ncoeff;
+            const auto &block = blocks[block_idx];
+            const auto ncoeff = block.num_pts;
+            const auto nElmts = block.num_elements;
+            bound += nElmts * ncoeff;
+            blockBound[block_idx] = bound;
         }
 
-        // Compute aligned map to skip over padding elements
-        Array<OneD, int> alignedMap(m_nbndcoeff);
-        for (int i = 0; i < m_nbndcoeff; i++)
+        // Compute number of bndcoeff per block.
+        Array<OneD, int> alignedMap(m_nBndCoeff);
+        int block_idx = 0, offset = 0, nbndCoeffBlock = 0;
+        for (int i = 0; i < m_nBndCoeff; i++)
         {
-            alignedMap[i] = alignmentMap[map[index[i]]];
+            while (map[index[i]] - offset > blockBound[block_idx])
+            {
+                offset = blockBound[block_idx];
+                block_idx++;
+                m_nBndCoeffBlock.push_back(nbndCoeffBlock);
+                nbndCoeffBlock = 0;
+            }
+            alignedMap[i] = map[index[i]] - offset;
+            nbndCoeffBlock++;
         }
+        m_nBndCoeffBlock.push_back(nbndCoeffBlock);
 
         m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
             alignedMap, ExecSpace::alignment, device_only);
 
         if (m_signChange)
         {
-            Array<OneD, TData> alignedSign(m_nbndcoeff);
-            for (int i = 0; i < m_nbndcoeff; i++)
+            Array<OneD, TData> alignedSign(m_nBndCoeff);
+            for (int i = 0; i < m_nBndCoeff; i++)
             {
                 alignedSign[i] = sign[index[i]];
             }
@@ -162,28 +165,43 @@ public:
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
         // Return if no Neumann boundary condition.
-        if (m_nbndcoeff == 0)
+        if (m_nBndCoeff == 0)
         {
             return;
         }
 
         auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto *bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto *bndcoeffPtr = m_bndCoeff.template GetPtr<MemSpace, ReadOnly>();
         auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
         auto *signPtr     = m_signChange
                                 ? m_sign.template GetPtr<MemSpace, ReadOnly>()
                                 : nullptr;
 
-        // Add weak boundary conditions to the forcing.
-        if (m_signChange)
+        // Loop over the blocks.
+        for (size_t block_idx = 0; block_idx < inout.GetBlocks().size();
+             ++block_idx)
         {
-            NeuBndCondKernel<ExecSpace, TData>(m_nbndcoeff, signPtr, mapPtr,
-                                               bndcoeffPtr, inoutPtr);
-        }
-        else
-        {
-            NeuBndCondKernel<ExecSpace, TData>(m_nbndcoeff, mapPtr, bndcoeffPtr,
-                                               inoutPtr);
+            // Block dependent
+            auto &block         = inout.GetBlocks()[block_idx];
+            auto nbndCoeffBlock = m_nBndCoeffBlock[block_idx];
+
+            // Add weak boundary conditions to the forcing.
+            if (m_signChange)
+            {
+                NeuBndCondKernel<ExecSpace, TData>(
+                    nbndCoeffBlock, signPtr, mapPtr, bndcoeffPtr, inoutPtr);
+            }
+            else
+            {
+                NeuBndCondKernel<ExecSpace, TData>(nbndCoeffBlock, mapPtr,
+                                                   bndcoeffPtr, inoutPtr);
+            }
+
+            // Increment pointer for the next block.
+            signPtr += nbndCoeffBlock;
+            bndcoeffPtr += nbndCoeffBlock;
+            mapPtr += nbndCoeffBlock;
+            inoutPtr += block.block_size;
         }
     }
 
@@ -202,9 +220,9 @@ public:
 protected:
     MemoryRegion<int> m_map;
     MemoryRegion<TData> m_sign;
-    MemoryRegion<TData> m_bndcoeff;
-
-    size_t m_nbndcoeff = 0;
+    MemoryRegion<TData> m_bndCoeff;
+    std::vector<size_t> m_nBndCoeffBlock;
+    size_t m_nBndCoeff = 0;
     bool m_signChange;
 };
 
