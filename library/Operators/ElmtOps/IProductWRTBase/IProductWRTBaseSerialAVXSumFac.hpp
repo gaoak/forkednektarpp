@@ -40,14 +40,13 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
+#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+
 namespace Nektar::Operators::detail
 {
-
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,

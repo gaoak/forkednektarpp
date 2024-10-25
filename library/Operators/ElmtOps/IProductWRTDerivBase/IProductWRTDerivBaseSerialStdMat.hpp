@@ -108,7 +108,7 @@ public:
 
         // Initialize workspace memory.
         auto nStorage = this->m_expansionList->GetTotPoints();
-        m_wsp         = Array<OneD, TData>(nStorage * dimension);
+        m_wsp         = std::vector<TData>(nStorage * dimension);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -120,7 +120,7 @@ public:
         // Copy memory to the host, if necessary and get raw pointers.
         const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *wspPtr      = m_wsp.get();
+        auto *wspPtr      = m_wsp.data();
         auto *dfPtr       = m_derivFac->data();
         auto *jacPtr      = m_jac->data();
 
@@ -254,7 +254,7 @@ public:
 private:
     std::shared_ptr<std::vector<TData>> m_jac;
     std::shared_ptr<std::vector<TData>> m_derivFac;
-    Array<OneD, TData> m_wsp;
+    std::vector<TData> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>,
              Array<OneD, Array<OneD, TData>>>
         m_matPtr;

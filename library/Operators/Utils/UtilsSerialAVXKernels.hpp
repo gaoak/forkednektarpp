@@ -48,11 +48,11 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
            TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
-    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
+    std::vector<TData> wsp(metaBlockSize);
 
     for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
-        std::copy(inout, inout + metaBlockSize, wsp.get());
+        std::copy(inout, inout + metaBlockSize, wsp.data());
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {
@@ -74,11 +74,11 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
-    Nektar::Array<Nektar::OneD, TData> wsp(metaBlockSize);
+    std::vector<TData> wsp(metaBlockSize);
 
     for (unsigned int metaBlock = 0; metaBlock < numMetaBlocks; ++metaBlock)
     {
-        std::copy(inout, inout + metaBlockSize, wsp.get());
+        std::copy(inout, inout + metaBlockSize, wsp.data());
 
         for (unsigned int idx = 0; idx < npts; ++idx)
         {

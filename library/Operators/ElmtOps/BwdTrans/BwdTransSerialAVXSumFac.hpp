@@ -41,12 +41,11 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
+
+#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
-
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,

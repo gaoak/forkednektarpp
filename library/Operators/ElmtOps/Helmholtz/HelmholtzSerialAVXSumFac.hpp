@@ -44,17 +44,15 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
 
-namespace Nektar::Operators::detail
-{
-
-// Include kernel functions after simd_t definition
 #include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+
+namespace Nektar::Operators::detail
+{
 
 // Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData,
@@ -106,7 +104,7 @@ public:
                                                        simd_t::alignment);
 
         auto nCoord = this->m_expansionList->GetCoordim(0);
-        m_diffCoeff = Array<OneD, TData>(nCoord * (nCoord + 1) / 2, 0.0);
+        m_diffCoeff = std::vector<TData>(nCoord * (nCoord + 1) / 2, 0.0);
 
         // Set up temprary solution.
         m_diffCoeff[0] = 1.0; // D00
@@ -257,7 +255,9 @@ private:
     BasisDataMap<simd_t> m_Wmap;
 
     std::vector<LibUtilities::BasisKey> m_basisKeys;
-    Array<OneD, TData> m_diffCoeff;
+    std::vector<TData> m_diffCoeff;
+
+    std::vector<TData> NullTDataVector;
 
     void SegBlock(const TData *inPtr, TData *outPtr);
 
@@ -350,8 +350,8 @@ private:
             PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                nq0, true, this->m_diffCoeff, false, NullNekDouble1DArray,
-                dfPtr, deriv0);
+                nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                deriv0);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
@@ -442,8 +442,8 @@ private:
             PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                nq0, true, this->m_diffCoeff, false, NullNekDouble1DArray,
-                dfPtr, deriv0);
+                nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                deriv0);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
@@ -577,9 +577,9 @@ private:
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, true, this->m_diffCoeff, false, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray, dfPtr, m_h0, m_h1,
-                deriv0, deriv1);
+                nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
+                deriv1);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
@@ -703,9 +703,9 @@ private:
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, true, this->m_diffCoeff, false, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray, dfPtr, m_h0, m_h1,
-                deriv0, deriv1);
+                nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
+                deriv1);
             // Step 4: Apply Laplacian metrics & inner product
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
@@ -864,11 +864,10 @@ private:
                                     deriv1, deriv2);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, nq2, true, this->m_diffCoeff, false,
-                NullNekDouble1DArray, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray, dfPtr, m_h0, m_h1,
-                m_h2, m_h3, deriv0, deriv1, deriv2);
+                nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
+                NullTDataVector, NullTDataVector, NullTDataVector,
+                NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
+                deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
@@ -1021,11 +1020,10 @@ private:
                                     deriv1, deriv2);
             // Step 4: apply diffusion coefficiets
             DiffusionCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, nq2, true, this->m_diffCoeff, false,
-                NullNekDouble1DArray, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray,
-                NullNekDouble1DArray, NullNekDouble1DArray, dfPtr, m_h0, m_h1,
-                m_h2, m_h3, deriv0, deriv1, deriv2);
+                nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
+                NullTDataVector, NullTDataVector, NullTDataVector,
+                NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
+                deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,

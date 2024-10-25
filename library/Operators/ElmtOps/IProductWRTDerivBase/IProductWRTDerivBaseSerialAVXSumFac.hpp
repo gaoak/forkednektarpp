@@ -40,13 +40,12 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Foundations/Basis.h>
+
+#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
-
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 
 // Sum-factorisation implementation
 template <typename ExecSpace, typename Implementation, typename TData,
