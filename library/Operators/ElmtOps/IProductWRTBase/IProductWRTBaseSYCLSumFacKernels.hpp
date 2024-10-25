@@ -38,7 +38,7 @@
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
 
-#include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Common/Spaces.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -883,18 +883,6 @@ void IProductWRTBaseTriKernel_QP_1D(
     TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_w0              = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
     TData *s_w1              = SHMEM ? s_w0 + nq0 : (TData *)w1;
-
-    // Temporary solution, to be removed - TODO
-    unsigned int *vpindex = (unsigned int *)pindex;
-    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-         p += item_ct1.get_local_range(2))
-    {
-        for (unsigned int q = 0; q < nm1 - p; q++)
-        {
-            const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-            vpindex[mode_pq]           = p;
-        }
-    }
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -2080,7 +2068,6 @@ void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool correct,
     const unsigned int *__restrict__ pindex1,
-    const unsigned int *__restrict__ qindex1,
     const unsigned int *__restrict__ pindex2,
     const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -2104,33 +2091,6 @@ void IProductWRTBaseTetKernel_QP_1D(
     TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    unsigned int *vpindex1 = (unsigned int *)pindex1;
-    unsigned int *vqindex1 = (unsigned int *)qindex1;
-    unsigned int *vpindex2 = (unsigned int *)pindex2;
-    unsigned int *vqindex2 = (unsigned int *)qindex2;
-    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-         p += item_ct1.get_local_range(2))
-    {
-        for (unsigned int q = 0; q < nm1 - p; q++)
-        {
-            const unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-            vpindex1[mode_pq]          = p;
-            vqindex1[mode_pq]          = q;
-            unsigned int mode_pqr      = (2u * (nm2 - p) - q + 1u) * q;
-            mode_pqr += nm2 * (nm2 + 1u) * p;
-            mode_pqr -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-            mode_pqr += (p - 1u) * p * (2u * p - 1u) / 6u;
-            mode_pqr /= 2u;
-            mode_pqr -=
-                ((nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u : 0u);
-            for (unsigned int r = 0; r < nm2 - p - q; r++, mode_pqr++)
-            {
-                vpindex2[mode_pqr] = p;
-                vqindex2[mode_pqr] = q;
-            }
-        }
-    }
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -2836,26 +2796,6 @@ void IProductWRTBasePrismKernel_QP_1D(
     TData *s_w0     = SHMEM ? s_basis2 + nm02 * nq2 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    // Temporary solution, to be removed - TODO
-    unsigned int *vpindex = (unsigned int *)pindex;
-    unsigned int *vqindex = (unsigned int *)qindex;
-    unsigned int *vrindex = (unsigned int *)rindex;
-    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-         p += item_ct1.get_local_range(2))
-    {
-        for (unsigned int q = 0u; q < nm1; q++)
-        {
-            for (unsigned int r = 0u; r < nm2 - p; r++)
-            {
-                unsigned int mode_pr  = (2u * nm2 - p + 1u) * p / 2u;
-                unsigned int mode_pqr = mode_pr * nm1 + (nm2 - p) * q + r;
-                vpindex[mode_pqr]     = p;
-                vqindex[mode_pqr]     = q;
-                vrindex[mode_pqr]     = r;
-            }
-        }
-    }
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -3614,42 +3554,6 @@ void IProductWRTBasePyrKernel_QP_1D(
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
     TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
 
-    // Temporary solution, to be removed - TODO
-    unsigned int *vpindex = (unsigned int *)pindex;
-    unsigned int *vqindex = (unsigned int *)qindex;
-    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-         p += item_ct1.get_local_range(2))
-    {
-        for (unsigned int q = 0u; q < nm1; q++)
-        {
-            unsigned int mode_pq = nm1 * (2u * nm2 + 1u - nm1) * p;
-            mode_pq -= (p - 1u) * p / 2u;
-            mode_pq -= (p - 1u) * p * (2u * p - 1u) / 6u;
-            mode_pq /= 2u;
-
-            if (q < p)
-            {
-                for (unsigned int r = 0; r < nm2 - p; r++)
-                {
-                    const unsigned int mode_pqr = mode_pq + q * (nm2 - p) + r;
-                    vpindex[mode_pqr]           = p;
-                    vqindex[mode_pqr]           = q;
-                }
-            }
-            else
-            {
-                for (unsigned int r = 0; r < nm2 - q; r++)
-                {
-                    unsigned int mode_pqr = mode_pq + p * (nm2 - p);
-                    mode_pqr +=
-                        ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u + r;
-                    vpindex[mode_pqr] = p;
-                    vqindex[mode_pqr] = q;
-                }
-            }
-        }
-    }
-
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
@@ -3913,6 +3817,7 @@ inline
                             const unsigned int nm0, const unsigned int nm1,
                             const unsigned int nq0, const unsigned int nq1,
                             const unsigned int nelmts, const bool correct,
+                            [[maybe_unused]] const unsigned int *index0,
                             const TData *basis0, const TData *basis1,
                             const TData *w0, const TData *w1, const TData *jac,
                             TData *wsp, const TData *in, TData *out,
@@ -4042,9 +3947,6 @@ inline
                 })
                 .wait();
 #else
-            unsigned int *pindex = sycl::malloc_device<unsigned int>(
-                nmTot, SYCLQueue::GetInstance());
-
             SYCLQueue::GetInstance()
                 .submit([&](sycl::handler &cgh) {
                     sycl::local_accessor<TData, 1> shared(
@@ -4063,13 +3965,11 @@ inline
                             IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND,
                                                            DEFORMED, SHMEM>(
                                 nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                pindex, basis0, basis1, w0, w1, jac, in, out,
+                                index0, basis0, basis1, w0, w1, jac, in, out,
                                 item_ct1, shmPtr, scale);
                         });
                 })
                 .wait();
-
-            sycl::free(pindex, SYCLQueue::GetInstance());
 #endif
         }
         else
@@ -4111,6 +4011,9 @@ inline
                             const unsigned int nm2, const unsigned int nq0,
                             const unsigned int nq1, const unsigned int nq2,
                             const unsigned int nelmts, const bool correct,
+                            [[maybe_unused]] const unsigned int *index0,
+                            [[maybe_unused]] const unsigned int *index1,
+                            [[maybe_unused]] const unsigned int *index2,
                             const TData *basis0, const TData *basis1,
                             const TData *basis2, const TData *w0,
                             const TData *w1, const TData *w2, const TData *jac,
@@ -4242,11 +4145,6 @@ inline
                      });
              }).wait();
 #else
-            unsigned int *pindex1 = sycl::malloc_device<unsigned int>(nm01, Q);
-            unsigned int *qindex1 = sycl::malloc_device<unsigned int>(nm01, Q);
-            unsigned int *pindex2 = sycl::malloc_device<unsigned int>(nmTot, Q);
-            unsigned int *qindex2 = sycl::malloc_device<unsigned int>(nmTot, Q);
-
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
@@ -4264,16 +4162,11 @@ inline
                          IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                                         SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, pindex1, qindex1, pindex2, qindex2,
-                             basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-                             item_ct1, shmPtr, scale);
+                             correct, index0, index1, index2, basis0, basis1,
+                             basis2, w0, w1, w2, jac, in, out, item_ct1, shmPtr,
+                             scale);
                      });
              }).wait();
-
-            sycl::free(pindex1, Q);
-            sycl::free(qindex1, Q);
-            sycl::free(pindex2, Q);
-            sycl::free(qindex2, Q);
 #endif
         }
         else
@@ -4335,10 +4228,6 @@ inline
                      });
              }).wait();
 #else
-            unsigned int *pindex = sycl::malloc_device<unsigned int>(nmTot, Q);
-            unsigned int *qindex = sycl::malloc_device<unsigned int>(nmTot, Q);
-            unsigned int *rindex = sycl::malloc_device<unsigned int>(nmTot, Q);
-
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
@@ -4355,15 +4244,11 @@ inline
                          IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND,
                                                           DEFORMED, SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, pindex, qindex, rindex, basis0, basis1,
+                             correct, index0, index1, index2, basis0, basis1,
                              basis2, w0, w1, w2, jac, in, out, item_ct1, shmPtr,
                              scale);
                      });
              }).wait();
-
-            sycl::free(pindex, Q);
-            sycl::free(qindex, Q);
-            sycl::free(rindex, Q);
 #endif
         }
         else
@@ -4425,9 +4310,6 @@ inline
                      });
              }).wait();
 #else
-            unsigned int *pindex = sycl::malloc_device<unsigned int>(nmTot, Q);
-            unsigned int *qindex = sycl::malloc_device<unsigned int>(nmTot, Q);
-
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
@@ -4444,13 +4326,10 @@ inline
                          IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED,
                                                         SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, pindex, qindex, basis0, basis1, basis2,
+                             correct, index0, index1, basis0, basis1, basis2,
                              w0, w1, w2, jac, in, out, item_ct1, shmPtr, scale);
                      });
              }).wait();
-
-            sycl::free(pindex, Q);
-            sycl::free(qindex, Q);
 #endif
         }
         else

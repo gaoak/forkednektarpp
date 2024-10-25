@@ -1330,19 +1330,6 @@ __global__ void BwdTransTetKernel_QP_1D(
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
-    // Temporary solution, to be removed - TODO
-    unsigned int *vpindex = (unsigned int *)pindex;
-    unsigned int *vqindex = (unsigned int *)qindex;
-    for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
-    {
-        for (unsigned int q = 0; q < nm1 - p; q++)
-        {
-            unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-            vpindex[mode_pq]     = p;
-            vqindex[mode_pq]     = q;
-        }
-    }
-
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
@@ -2420,9 +2407,12 @@ inline
                      const unsigned int nm1, const unsigned int nm2,
                      const unsigned int nq0, const unsigned int nq1,
                      const unsigned int nq2, const unsigned int nelmt,
-                     const bool correct, const TData *basis0,
-                     const TData *basis1, const TData *basis2, TData *wsp,
-                     const TData *in, TData *out)
+                     const bool correct,
+                     [[maybe_unused]] const unsigned int *index0,
+                     [[maybe_unused]] const unsigned int *index1,
+                     const TData *basis0, const TData *basis1,
+                     const TData *basis2, TData *wsp, const TData *in,
+                     TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same<Implementation, Operators::SumFacQP>::value;
@@ -2484,15 +2474,9 @@ inline
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
                 basis1, basis2, in, out);
 #else
-            unsigned int *pindex;
-            unsigned int *qindex;
-            cudaMalloc((void **)&pindex, sizeof(unsigned int) * nm01);
-            cudaMalloc((void **)&qindex, sizeof(unsigned int) * nm01);
             BwdTransTetKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, pindex,
-                qindex, basis0, basis1, basis2, in, out);
-            cudaFree(pindex);
-            cudaFree(qindex);
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, index0,
+                index1, basis0, basis1, basis2, in, out);
 #endif
         }
         else

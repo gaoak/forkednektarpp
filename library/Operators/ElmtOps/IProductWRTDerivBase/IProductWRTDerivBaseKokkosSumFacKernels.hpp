@@ -771,7 +771,7 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
                 nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
 #else
             IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, nsize, Z0, Z1, df, in, out);
+                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
 #endif
         }
         else

@@ -287,6 +287,46 @@ public:
             }
             else if (dimension == 2)
             {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                const bool indexing = false;
+#else
+                const bool indexing =
+                    shapeType == LibUtilities::Tri &&
+                    std::is_same_v<Implementation, Operators::SumFacQP>;
+#endif
+                std::vector<LibUtilities::BasisKey> basisKeys{
+                    expPtr->GetBasis(0)->GetBasisKey(),
+                    expPtr->GetBasis(1)->GetBasisKey()};
+
+                // Precompute index, if necessary.
+                if (indexing)
+                {
+                    const bool device_only = true;
+
+                    if (m_index0.find(basisKeys) == m_index0.end())
+                    {
+                        const unsigned int nm01 =
+                            (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                        std::vector<unsigned int> index0(nm01);
+                        for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
+                        {
+                            for (unsigned int q = 0; q < nm1 - p;
+                                 q++, mode_pq++)
+                            {
+                                index0[mode_pq] = p;
+                            }
+                        }
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                    }
+                }
+
+                const unsigned int *index0 =
+                    indexing ? m_index0[basisKeys]
+                                   .template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
 
                 if (deformed)
                 {
@@ -299,12 +339,12 @@ public:
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        dbasis0, basis1, w0, w1, jacPtr, wspPtr, tmpPtr,
+                        index0, dbasis0, basis1, w0, w1, jacPtr, wspPtr, tmpPtr,
                         outPtr);
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        basis0, dbasis1, w0, w1, jacPtr, wspPtr,
+                        index0, basis0, dbasis1, w0, w1, jacPtr, wspPtr,
                         tmpPtr + nElmtsPad * nqTot, outPtr);
                 }
                 else
@@ -318,17 +358,175 @@ public:
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        dbasis0, basis1, w0, w1, jacPtr, wspPtr, tmpPtr,
+                        index0, dbasis0, basis1, w0, w1, jacPtr, wspPtr, tmpPtr,
                         outPtr);
                     IProductWRTBase2DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct,
-                        basis0, dbasis1, w0, w1, jacPtr, wspPtr,
+                        index0, basis0, dbasis1, w0, w1, jacPtr, wspPtr,
                         tmpPtr + nElmtsPad * nqTot, outPtr);
                 }
             }
             else if (dimension == 3)
             {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                const bool indexingTet   = false;
+                const bool indexingPrism = false;
+                const bool indexingPyr   = false;
+#else
+                const bool indexingTet =
+                    shapeType == LibUtilities::Tet &&
+                    std::is_same_v<Implementation, Operators::SumFacQP>;
+                const bool indexingPrism =
+                    shapeType == LibUtilities::Prism &&
+                    std::is_same_v<Implementation, Operators::SumFacQP>;
+                const bool indexingPyr =
+                    shapeType == LibUtilities::Pyr &&
+                    std::is_same_v<Implementation, Operators::SumFacQP>;
+#endif
+                std::vector<LibUtilities::BasisKey> basisKeys{
+                    expPtr->GetBasis(0)->GetBasisKey(),
+                    expPtr->GetBasis(1)->GetBasisKey(),
+                    expPtr->GetBasis(2)->GetBasisKey()};
+
+                // Precompute index, if necessary.
+                if (indexingTet)
+                {
+                    const bool device_only = true;
+
+                    if (m_index0.find(basisKeys) == m_index0.end())
+                    {
+                        const unsigned int nm01 =
+                            (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                        std::vector<unsigned int> index0(nm01);
+                        std::vector<unsigned int> index1(nmTot);
+                        std::vector<unsigned int> index2(nmTot);
+                        for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0;
+                             p < nm0; p++)
+                        {
+                            for (unsigned int q = 0; q < nm1 - p;
+                                 q++, mode_pq++)
+                            {
+                                index0[mode_pq] = p;
+                                for (unsigned int r = 0; r < nm2 - p - q;
+                                     r++, mode_pqr++)
+                                {
+                                    index1[mode_pqr] = p;
+                                    index2[mode_pqr] = q;
+                                }
+                            }
+                        }
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                        m_index1[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index1, ExecSpace::alignment,
+                                          device_only);
+                        m_index2[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index2, ExecSpace::alignment,
+                                          device_only);
+                    }
+                }
+
+                if (indexingPrism)
+                {
+                    const bool device_only = true;
+
+                    if (m_index0.find(basisKeys) == m_index0.end())
+                    {
+                        std::vector<unsigned int> index0(nmTot);
+                        std::vector<unsigned int> index1(nmTot);
+                        std::vector<unsigned int> index2(nmTot);
+                        for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                        {
+                            for (unsigned int q = 0u; q < nm1; q++)
+                            {
+                                for (unsigned int r = 0u; r < nm2 - p;
+                                     r++, mode_pqr++)
+                                {
+                                    unsigned int mode_pr =
+                                        (2u * nm2 - p + 1u) * p / 2u;
+                                    unsigned int mode_pqr =
+                                        mode_pr * nm1 + (nm2 - p) * q + r;
+                                    index0[mode_pqr] = p;
+                                    index1[mode_pqr] = q;
+                                    index2[mode_pqr] = r;
+                                }
+                            }
+                        }
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                        m_index1[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index1, ExecSpace::alignment,
+                                          device_only);
+                        m_index2[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index2, ExecSpace::alignment,
+                                          device_only);
+                    }
+                }
+
+                if (indexingPyr)
+                {
+                    const bool device_only = true;
+
+                    if (m_index0.find(basisKeys) == m_index0.end())
+                    {
+                        std::vector<unsigned int> index0(nmTot);
+                        std::vector<unsigned int> index1(nmTot);
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                        m_index1[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index1, ExecSpace::alignment,
+                                          device_only);
+                        for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                        {
+                            for (unsigned int q = 0u; q < nm1; q++)
+                            {
+                                for (unsigned int r = 0;
+                                     r < nm2 - std::max(p, q); r++, mode_pqr++)
+                                {
+                                    index0[mode_pqr] = p;
+                                    index1[mode_pqr] = q;
+                                }
+                            }
+                        }
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                        m_index1[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index1, ExecSpace::alignment,
+                                          device_only);
+                    }
+                }
+
+                const unsigned int *index0 =
+                    (indexingTet || indexingPrism || indexingPyr)
+                        ? m_index0[basisKeys]
+                              .template GetPtr<MemSpace, ReadOnly>()
+                        : nullptr;
+                const unsigned int *index1 =
+                    (indexingTet || indexingPrism || indexingPyr)
+                        ? m_index1[basisKeys]
+                              .template GetPtr<MemSpace, ReadOnly>()
+                        : nullptr;
+                const unsigned int *index2 =
+                    (indexingTet || indexingPrism)
+                        ? m_index2[basisKeys]
+                              .template GetPtr<MemSpace, ReadOnly>()
+                        : nullptr;
+
                 if (deformed)
                 {
                     constexpr bool Deformed = true;
@@ -340,18 +538,20 @@ public:
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, dbasis0, basis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr, outPtr);
+                        correct, index0, index1, index2, dbasis0, basis1,
+                        basis2, w0, w1, w2, jacPtr, wspPtr, tmpPtr, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + nElmtsPad * nqTot, outPtr);
+                        correct, index0, index1, index2, basis0, dbasis1,
+                        basis2, w0, w1, w2, jacPtr, wspPtr,
+                        tmpPtr + nElmtsPad * nqTot, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
+                        correct, index0, index1, index2, basis0, basis1,
+                        dbasis2, w0, w1, w2, jacPtr, wspPtr,
+                        tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
                 }
                 else
                 {
@@ -364,18 +564,20 @@ public:
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, dbasis0, basis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr, outPtr);
+                        correct, index0, index1, index2, dbasis0, basis1,
+                        basis2, w0, w1, w2, jacPtr, wspPtr, tmpPtr, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, basis0, dbasis1, basis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + nElmtsPad * nqTot, outPtr);
+                        correct, index0, index1, index2, basis0, dbasis1,
+                        basis2, w0, w1, w2, jacPtr, wspPtr,
+                        tmpPtr + nElmtsPad * nqTot, outPtr);
                     IProductWRTBase3DKernel<ExecSpace, Implementation, Scale,
                                             Append, Deformed, SharedMemory>(
                         shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad,
-                        correct, basis0, basis1, dbasis2, w0, w1, w2, jacPtr,
-                        wspPtr, tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
+                        correct, index0, index1, index2, basis0, basis1,
+                        dbasis2, w0, w1, w2, jacPtr, wspPtr,
+                        tmpPtr + 2 * nElmtsPad * nqTot, outPtr);
                 }
             }
 
@@ -479,6 +681,13 @@ private:
     MemoryRegion<TData> m_derivFac;
     MemoryRegion<TData> m_wsp;
     MemoryRegion<TData> m_tmp;
+
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index0;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index1;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index2;
 
     size_t m_wspsize = 0;
     size_t m_tmpsize = 0;

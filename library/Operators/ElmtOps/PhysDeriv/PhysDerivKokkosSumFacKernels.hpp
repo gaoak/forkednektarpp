@@ -1160,8 +1160,8 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                 out);
 #else
             PhysDeriv3DKernel_QP_1D<LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, nsize, D0, D1, D2, Z0, Z1, Z2,
-                df, in, out);
+                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
+                out);
 #endif
         }
         else
