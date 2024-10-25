@@ -49,10 +49,11 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
             for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
             {
@@ -60,47 +61,48 @@ public:
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        outptr[cnt] = phys + k;
+                        inptr[cnt] = phys + k;
                     }
                 }
-                outptr += (padding) ? block.block_size
-                                    : block.num_elements * block.num_pts;
+                inptr += block.block_size;
             }
         }
+        ExpectedSolution();
     }
 
-    void SetTestCaseNektar(const std::vector<BlockAttributes> &blocks,
-                           double *outptr, bool padding = true)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
+        IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_in, *fixt_out);
+    }
+
+    void SetTestCaseNektar()
+    {
+        double *expptr =
+            fixt_expected
+                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
         {
-            for (auto const &block : blocks)
+            for (auto const &block : fixt_expected->GetBlocks())
             {
                 for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
                 {
                     for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                     {
-                        outptr[cnt] = phys + k;
+                        expptr[cnt] = phys + k;
                     }
                 }
-                outptr += (padding) ? block.block_size
-                                    : block.num_elements * block.num_pts;
+                expptr += block.block_size;
             }
         }
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    void ExpectedSolution()
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetCoordim(0) *
-                                      fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-
-        // Set test case
-        SetTestCaseNektar(fixt_in->GetBlocks(), inphys.get(), false);
-
         // Calculate expected result from Nektar++
-        Array<OneD, Array<OneD, NekDouble>> inphysarray(
+        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        Array<OneD, Array<OneD, double>> inphysarray(
             fixt_explist->GetCoordim(0));
         if (fixt_explist->GetCoordim(0) > 0)
         {
@@ -115,20 +117,7 @@ public:
             inphysarray[2] = inphysarray[1] + fixt_explist->GetTotPoints();
         }
         fixt_explist->IProductWRTDerivBase(inphysarray, outcoeffs);
-
-        // Copy expected result from Array to pointer
-        double *ptr = outcoeffs.get();
-        for (auto const &block : blocks)
-        {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    outptr[cnt] = (*ptr++);
-                }
-            }
-            outptr += block.block_size;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

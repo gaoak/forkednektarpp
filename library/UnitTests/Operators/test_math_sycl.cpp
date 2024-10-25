@@ -65,14 +65,14 @@ BOOST_FIXTURE_TEST_CASE(sycl_negkernel, MathKernels)
     std::transform(x, x + n, y, [](const double &xi) { return -xi; });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
-    y = fixt_sycl_out->template GetPtr<MemSpace, WriteOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_out->template GetPtr<MemSpace, WriteOnly>();
     negKernelLauncher(n, x, y);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -86,20 +86,21 @@ BOOST_FIXTURE_TEST_CASE(sycl_addkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi + yi; });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
-    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
-    addKernelLauncher(n, x, z, z);
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_in2->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_out->template GetPtr<MemSpace, ReadWrite>();
+    addKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -113,20 +114,21 @@ BOOST_FIXTURE_TEST_CASE(sycl_subkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi - yi; });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
-    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
-    subKernelLauncher(n, x, z, z);
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_in2->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_out->template GetPtr<MemSpace, ReadWrite>();
+    subKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -141,21 +143,22 @@ BOOST_FIXTURE_TEST_CASE(sycl_daxpykernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z, [=](const double &xi, const double &yi) {
         return alpha * xi + yi;
     });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
-    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
-    daxpyKernelLauncher(n, alpha, x, z, z);
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_in2->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_out->template GetPtr<MemSpace, ReadWrite>();
+    daxpyKernelLauncher(n, alpha, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, 1.0E-14));
+        BOOST_TEST(Compare(1.0E-14));
     }
 }
 
@@ -169,20 +172,21 @@ BOOST_FIXTURE_TEST_CASE(sycl_divkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi / yi; });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
-    z = fixt_sycl_out->template GetPtr<MemSpace, ReadWrite>();
-    divKernelLauncher(n, x, z, z);
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
+    y = fixt_in2->template GetPtr<MemSpace, ReadOnly>();
+    z = fixt_out->template GetPtr<MemSpace, ReadWrite>();
+    divKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -199,7 +203,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_sum, MathKernels)
     out = std::accumulate(x, x + n, 0.0);
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     sumKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -223,7 +227,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_max, MathKernels)
     out = *(std::max_element(x, x + n));
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     maxKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -247,7 +251,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_min, MathKernels)
     out = *(std::min_element(x, x + n));
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     minKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -271,7 +275,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_innerproduct, MathKernels)
     out = std::inner_product(x, x + n, x, 0.0);
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     innerproductKernelLauncher(n, x, x, &h_out);
 
     // Check results
@@ -299,7 +303,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_l1norm, MathKernels)
                           });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     l1normKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -325,7 +329,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_l2norm, MathKernels)
         [](const double &acc, const double &val) { return acc + val * val; });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     l2normKernelLauncher(n, x, &h_out);
 
     // Check results
@@ -355,7 +359,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_lpnorm, MathKernels)
                               });
 
         // SYCL results
-        x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+        x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
         lpnormKernelLauncher(n, p, x, &h_out);
 
         // Check results
@@ -384,7 +388,7 @@ BOOST_FIXTURE_TEST_CASE(sycl_linfnorm, MathKernels)
                           });
 
     // SYCL results
-    x = fixt_sycl_in->template GetPtr<MemSpace, ReadOnly>();
+    x = fixt_in->template GetPtr<MemSpace, ReadOnly>();
     linfnormKernelLauncher(n, x, &h_out);
 
     // Check results

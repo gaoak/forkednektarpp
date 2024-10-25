@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestNeumannCUDA
+
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
@@ -47,17 +48,11 @@
         using ExecSpace = NektarSpaces::CUDA;                                  \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_cuda_out->GetBlocks(),                                        \
-            fixt_cuda_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>());      \
-        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
-            ->apply(*fixt_cuda_out);                                           \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_cuda_out, *fixt_expected, tol));          \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

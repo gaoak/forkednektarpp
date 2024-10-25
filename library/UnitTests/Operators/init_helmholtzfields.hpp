@@ -49,38 +49,40 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {
                 for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
                 {
-                    outptr[cnt] = coeff;
+                    inptr[cnt] = coeff;
                 }
             }
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        ExpectedSolution();
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Array<OneD, NekDouble> incoeffs(fixt_explist->GetNcoeffs());
-        Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs());
-        Array<OneD, NekDouble> tmp;
+        Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_in, *fixt_out);
+    }
 
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), incoeffs.get(), false);
-
+    void ExpectedSolution()
+    {
         // Calculate expected result from Nektar++
         auto e = 0, offset = 0;
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = 1.0;
-        for (auto const &block : blocks)
+        Array<OneD, double> incoeffs       = fixt_in->toArray();
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
+        Array<OneD, double> tmp;
+        for (auto const &block : fixt_expected->GetBlocks())
         {
             auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
             for (size_t el = 0; el < block.num_elements; ++el)
@@ -95,21 +97,7 @@ public:
                 offset += nmTot;
             }
         }
-
-        // Copy expected result from Array to pointer
-        double *coeffptr = outcoeffs.get();
-        for (auto const &block : blocks)
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    outptr[cnt] = (*coeffptr++);
-                }
-            }
-            outptr += block.block_size;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

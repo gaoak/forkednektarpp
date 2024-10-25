@@ -60,144 +60,49 @@ public:
     {
         const FieldState stateIn = FieldState::Phys;
 
-        if (testModule.find("AVX") != std::string::npos)
+        if (fixt_in)
         {
-            if (fixt_in)
-            {
-                delete fixt_in;
-            }
-            auto blocks_in =
-                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-            auto f_in = Field<double, stateIn>::template create<
-                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::AVX::alignment);
-            fixt_in = new Field<double, stateIn>(std::move(f_in));
+            delete fixt_in;
         }
-        else if (testModule.find("CUDA") != std::string::npos)
-        {
-            if (fixt_in)
-            {
-                delete fixt_in;
-            }
-            if (fixt_cuda_in)
-            {
-                delete fixt_cuda_in;
-            }
-            auto blocks_in =
-                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-            auto f_in = Field<double, stateIn>::template create<
-                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::CUDA::alignment);
-            auto fcuda_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin,
-                                           NektarSpaces::CUDA::alignment);
-            fixt_in      = new Field<double, stateIn>(std::move(f_in));
-            fixt_cuda_in = new Field<double, stateIn>(std::move(fcuda_in));
-        }
-        else if (testModule.find("SYCL") != std::string::npos)
-        {
-            if (fixt_in)
-            {
-                delete fixt_in;
-            }
-            if (fixt_sycl_in)
-            {
-                delete fixt_sycl_in;
-            }
-            auto blocks_in =
-                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-            auto f_in = Field<double, stateIn>::template create<
-                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::SYCL::alignment);
-            auto fsycl_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin,
-                                           NektarSpaces::SYCL::alignment);
-            fixt_in      = new Field<double, stateIn>(std::move(f_in));
-            fixt_sycl_in = new Field<double, stateIn>(std::move(fsycl_in));
-        }
-        else if (testModule.find("Kokkos") != std::string::npos ||
-                 testModule.find("KOKKOS") != std::string::npos)
-        {
-            if (fixt_in)
-            {
-                delete fixt_in;
-            }
-            if (fixt_kokkos_in)
-            {
-                delete fixt_kokkos_in;
-            }
-            auto blocks_in =
-                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-            auto f_in = Field<double, stateIn>::template create<
-                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_in = Field<double, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
-                                           NektarSpaces::KOKKOS::alignment);
-            fixt_in        = new Field<double, stateIn>(std::move(f_in));
-            fixt_kokkos_in = new Field<double, stateIn>(std::move(fkokkos_in));
-        }
-        else
-        {
-            if (fixt_in)
-            {
-                delete fixt_in;
-            }
-            auto blocks_in =
-                GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
-            auto f_in = Field<double, stateIn>::template create<
-                NektarSpaces::HostSpace>("f_in", blocks_in, nin,
-                                         NektarSpaces::Serial::alignment);
-            fixt_in = new Field<double, stateIn>(std::move(f_in));
-        }
+        auto blocks_in =
+            GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
+        auto f_in =
+            Field<double, stateIn>::template create<NektarSpaces::HostSpace>(
+                "f_in", blocks_in, nin, alignment);
+        fixt_in = new Field<double, stateIn>(std::move(f_in));
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
-
+    void SetTestCase()
     {
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {
                 for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
-                    outptr[cnt] = phys;
+                    inptr[cnt] = phys;
                 }
             }
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        ExpectedSolution();
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        auto fixt_explist_trace = fixt_explist->GetTrace();
-        Array<OneD, NekDouble> inTracephys(fixt_explist_trace->GetNpoints(),
-                                           0.0);
-        Array<OneD, NekDouble> outFieldcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        AddTraceIntegral<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_in, *fixt_out);
+    }
 
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inTracephys.get(), false);
-
+    void ExpectedSolution()
+    {
         // Calculate expected result from Nektar++
-        fixt_explist->AddTraceIntegral(inTracephys, outFieldcoeffs);
-
-        // Copy expected result from Array to fixt_expected
-        double *ptr = outFieldcoeffs.get();
-        for (auto const &block : blocks)
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    outptr[cnt] = (*ptr++);
-                }
-            }
-            outptr += block.block_size;
-        }
+        Array<OneD, double> inTracephys = fixt_in->toArray();
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 
