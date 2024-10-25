@@ -34,38 +34,16 @@
 
 #pragma once
 
-#include "Operators/Common/Spaces.hpp"
+#include "DeviceMemory.hpp"
+
 #include "Operators/Field/MemoryRegionHost.hpp"
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 
 #include <utility>
 
-#ifdef NEKTAR_ENABLE_CUDA
-#include <cuda_runtime.h>
-#include <thrust/fill.h>
-#elif defined(NEKTAR_ENABLE_HIP)
-#include <hip/hip_runtime.h>
-#elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/SYCLQueue.hpp"
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-#endif
-
 namespace Nektar
 {
-// MemoryCopy
-struct HostToHost
-{
-};
-struct DeviceToHost
-{
-};
-struct HostToDevice
-{
-};
-struct DeviceToDevice
-{
-};
 
 // MemoryWrite
 struct HostOnly
@@ -74,7 +52,7 @@ struct HostOnly
 struct DeviceOnly
 {
 };
-struct HostDevice
+struct HostAndDevice
 {
 };
 } // namespace Nektar
@@ -160,76 +138,26 @@ public:
      * @param alignment - memory alignment
      */
     template <typename TDataIn>
-    MemoryRegionDevice(std::string name, [[maybe_unused]] const TDataIn *src,
-                       const size_t size, size_t alignment, bool device_only)
+    MemoryRegionDevice(std::string name, const TDataIn *src, const size_t size,
+                       size_t alignment, bool device_only)
         : MemoryRegionHost<TData>(name, size, alignment, device_only)
     {
         createMemory();
 
-        if constexpr (std::is_same<TDataIn, TData>::value)
+        if constexpr (std::is_same_v<TDataIn, TData>)
         {
-#if defined(NEKTAR_ENABLE_CUDA)
-            cudaMemcpy(m_device, src, this->m_size * sizeof(TData),
-                       cudaMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_HIP)
-            hipMemcpy(m_device, src, this->m_size * sizeof(TData),
-                      hipMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            SYCLQueue::GetInstance()
-                .memcpy(m_device, src, this->m_size * sizeof(TData))
-                .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            // Create unmanage Kokkos views from the raw pointers.
-            TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TData *, Kokkos::HostSpace> hostView(v_src,
-                                                              this->m_size);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                m_device, this->m_size);
-
-            // Deep copy the host view to the device view.
-            Kokkos::deep_copy(deviceView, hostView);
-#endif
+            deviceMemcpy<HostToDevice>(this->m_device, src, this->m_size);
         }
-        else // if constexpr (!std::is_same<TDataIn, TData>::value)
+        else
         {
-#if defined(NEKTAR_ENABLE_CUDA)
             std::vector<TData> tmp(this->m_size);
-
             std::copy(src, src + size, tmp.begin());
-
-            cudaMemcpy(m_device, tmp.data(), this->m_size * sizeof(TData),
-                       cudaMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_HIP)
-            std::vector<TData> tmp(this->m_size);
-
-            std::copy(src, src + size, tmp.begin());
-
-            hipMemcpy(m_device, tmp.data(), this->m_size * sizeof(TData),
-                      hipMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            std::vector<TData> tmp(this->m_size);
-
-            std::copy(src, src + size, tmp.begin());
-
-            SYCLQueue::GetInstance()
-                .memcpy(m_device, tmp.data(), this->m_size * sizeof(TData))
-                .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            // Create unmanage Kokkos views from the raw pointers.
-            TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TDataIn *, Kokkos::HostSpace> hostView(v_src,
-                                                                this->m_size);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                m_device, this->m_size);
-
-            // Deep copy the host view to the device view.
-            Kokkos::deep_copy(deviceView, hostView);
-#endif
+            deviceMemcpy<HostToDevice>(this->m_device, tmp.data(),
+                                       this->m_size);
         }
 
-        m_device_valid = true;
-
-        this->m_initialize = false;
+        this->m_device_valid = true;
+        this->m_initialize   = false;
     }
 
     /**
@@ -238,19 +166,11 @@ public:
      */
     ~MemoryRegionDevice() override
     {
-        if (m_device != nullptr)
+        if (this->m_device != nullptr)
         {
-#if defined(NEKTAR_ENABLE_CUDA)
-            cudaFree(m_device);
-#elif defined(NEKTAR_ENABLE_HIP)
-            hipFree(m_device);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            sycl::free(m_device, SYCLQueue::GetInstance());
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            Kokkos::kokkos_free(m_device);
-#endif
-            m_device       = nullptr;
-            m_device_valid = false;
+            deviceFree(this->m_device);
+            this->m_device       = nullptr;
+            this->m_device_valid = false;
         }
     }
 
@@ -306,18 +226,7 @@ protected:
      */
     void createMemory()
     {
-#if defined(NEKTAR_ENABLE_CUDA)
-        cudaMalloc((void **)&m_device, this->m_size * sizeof(TData));
-#elif defined(NEKTAR_ENABLE_HIP)
-        hipMalloc((void **)&m_device, this->m_size * sizeof(TData));
-#elif defined(NEKTAR_ENABLE_SYCL)
-        m_device =
-            sycl::malloc_device<TData>(this->m_size, SYCLQueue::GetInstance());
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-        m_device = (TData *)
-            Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
-                this->m_name, this->m_size * sizeof(TData));
-#endif
+        deviceMalloc(this->m_device, this->m_size);
     }
 
     /**
@@ -359,7 +268,7 @@ protected:
             DeviceToHostCopy(); // Move to host if necessary
         }
 
-        m_device_valid = false;
+        this->m_device_valid = false;
 
         return this->m_host;
     }
@@ -382,7 +291,7 @@ protected:
 
         HostToDeviceCopy(); // Move to device if necessary
 
-        return m_device;
+        return this->m_device;
     }
 
     /**
@@ -395,8 +304,8 @@ protected:
     {
         if (write_only)
         {
-            m_device_valid     = true;
-            this->m_initialize = false;
+            this->m_device_valid = true;
+            this->m_initialize   = false;
         }
         else
         {
@@ -405,7 +314,7 @@ protected:
 
         this->m_host_valid = false;
 
-        return m_device;
+        return this->m_device;
     }
 
     /**
@@ -417,20 +326,20 @@ protected:
     template <typename MemWrite = DeviceOnly>
     void initialize(TData val, size_t count = 0, size_t offset = 0)
     {
-        if constexpr (std::is_same<MemWrite, HostOnly>::value ||
-                      std::is_same<MemWrite, HostDevice>::value)
+        if constexpr (std::is_same_v<MemWrite, HostOnly> ||
+                      std::is_same_v<MemWrite, HostAndDevice>)
         {
             MemoryRegionHost<TData>::initialize(val, count, offset);
-            if constexpr (std::is_same<MemWrite, HostOnly>::value)
+            if constexpr (std::is_same_v<MemWrite, HostOnly>)
             {
-                m_device_valid = false;
+                this->m_device_valid = false;
             }
         }
 
-        if constexpr (std::is_same<MemWrite, DeviceOnly>::value ||
-                      std::is_same<MemWrite, HostDevice>::value)
+        if constexpr (std::is_same_v<MemWrite, DeviceOnly> ||
+                      std::is_same_v<MemWrite, HostAndDevice>)
         {
-            if constexpr (std::is_same<MemWrite, DeviceOnly>::value)
+            if constexpr (std::is_same_v<MemWrite, DeviceOnly>)
             {
                 this->m_host_valid = false;
                 this->m_initialize = false;
@@ -441,48 +350,19 @@ protected:
                 }
             }
 
-            m_device_valid = true;
+            this->m_device_valid = true;
 
-            [[maybe_unused]] TData *dst = m_device + offset;
+            TData *dst = this->m_device + offset;
 
             // If the value is zero, memset is the most efficent.
             if (val == TData(0))
             {
-#if defined(NEKTAR_ENABLE_CUDA)
-                cudaMemset(dst, 0, count * sizeof(TData));
-#elif defined(NEKTAR_ENABLE_HIP)
-                hipMemset(dst, 0, count * sizeof(TData));
-#elif defined(NEKTAR_ENABLE_SYCL)
-                SYCLQueue::GetInstance()
-                    .memset(dst, 0, count * sizeof(TData))
-                    .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-                // Create an unmanage Kokkos view from the raw pointer.
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                    dst, count);
-
-                // Deep copy the val to the device view.
-                Kokkos::deep_copy(deviceView, val);
-#endif
+                deviceMemset(dst, 0, count);
             }
             // Nonzero value
             else
             {
-#if defined(NEKTAR_ENABLE_CUDA)
-                thrust::fill(dst, dst + count, val);
-#elif defined(NEKTAR_ENABLE_HIP)
-                hipLaunchKernelGGL(fill_, blocks, threads, 0, 0, count, dst,
-                                   val); // TODO: implement fill_ kernel
-#elif defined(NEKTAR_ENABLE_SYCL)
-                SYCLQueue::GetInstance().fill(dst, val, count).wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-                // Create an unmanage Kokkos view from the raw pointer.
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                    dst, count);
-
-                // Deep copy the val to the device view.
-                Kokkos::deep_copy(deviceView, val);
-#endif
+                deviceFill(dst, val, count);
             }
         }
     }
@@ -498,116 +378,51 @@ protected:
     void copyFrom(const TDataIn *src, const size_t size,
                   const size_t offset = 0)
     {
-        if constexpr (!std::is_same<TDataIn, TData>::value)
+        if constexpr (!std::is_same_v<TDataIn, TData>)
         {
             NEKERROR(
                 Nektar::ErrorUtil::efatal,
                 "non-homogeneous datatype not supported on MemoryRegionDevice");
         }
 
-        if constexpr (std::is_same<MemCopy, HostToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, HostToHost>)
         {
             MemoryRegionHost<TData>::template copyFrom<TData>(src, size,
                                                               offset);
         }
-        else if constexpr (std::is_same<MemCopy, DeviceToHost>::value)
+        else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
         {
             TData *dst = this->m_host + offset;
-
-#if defined(NEKTAR_ENABLE_CUDA)
-            cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost);
-#elif defined(NEKTAR_ENABLE_HIP)
-            hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            SYCLQueue::GetInstance()
-                .memcpy(dst, src, size * sizeof(TData))
-                .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            // Create unmanage Kokkos views from the raw pointers.
-            TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(v_src,
-                                                                         size);
-            Kokkos::View<TData *, Kokkos::HostSpace> hostView(dst, size);
-
-            // Deep copy the host view to the device view.
-            Kokkos::deep_copy(hostView, srcView);
-#endif
-            m_device_valid = false;
-
-            this->m_host_valid = true;
-            this->m_initialize = false;
+            deviceMemcpy<DeviceToHost>(dst, src, size);
+            this->m_device_valid = false;
+            this->m_host_valid   = true;
+            this->m_initialize   = false;
         }
-        else if constexpr (std::is_same<MemCopy, HostToDevice>::value)
+        else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
         {
             TData *dst = m_device + offset;
-
-#if defined(NEKTAR_ENABLE_CUDA)
-            cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_HIP)
-            hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            SYCLQueue::GetInstance()
-                .memcpy(dst, src, size * sizeof(TData))
-                .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            // Create unmanage Kokkos views from the raw pointers.
-            TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TData *, Kokkos::HostSpace> srcView(v_src, size);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                dst, size);
-
-            // Deep copy the host view to the device view.
-            Kokkos::deep_copy(deviceView, srcView);
-#endif
-
-            m_device_valid = true;
-
-            this->m_host_valid = false;
-            this->m_initialize = false;
+            deviceMemcpy<HostToDevice>(dst, src, size);
+            this->m_device_valid = true;
+            this->m_host_valid   = false;
+            this->m_initialize   = false;
         }
-        else if constexpr (std::is_same<MemCopy, DeviceToDevice>::value)
+        else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
         {
             TData *dst = m_device + offset;
-
-#if defined(NEKTAR_ENABLE_CUDA)
-            cudaMemcpy(dst, src, size * sizeof(TData),
-                       cudaMemcpyDeviceToDevice);
-#elif defined(NEKTAR_ENABLE_HIP)
-            hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice);
-#elif defined(NEKTAR_ENABLE_SYCL)
-            SYCLQueue::GetInstance()
-                .memcpy(dst, src, size * sizeof(TData))
-                .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-            // Create unmanage Kokkos views from the raw pointers.
-            TData *v_src = const_cast<TData *>(src);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> srcView(v_src,
-                                                                         size);
-            Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                dst, size);
-
-            // Deep copy the host view to the device view.
-            Kokkos::deep_copy(deviceView, srcView);
-#endif
-
-            m_device_valid = true;
-
-            this->m_host_valid = false;
-            this->m_initialize = false;
+            deviceMemcpy<DeviceToDevice>(dst, src, size);
+            this->m_device_valid = true;
+            this->m_host_valid   = false;
+            this->m_initialize   = false;
         }
     }
 
     /**
      * @brief Perform a host to device copy.
      *
-     * @param force - copy regardless of status
      */
-    void HostToDeviceCopy(bool force = false) override
+    void HostToDeviceCopy(void) override
     {
-        // Because the host pointer is used directly the device data may
-        // be marked as valid as such the force can be used to assure
-        // the copy occurs regardles.
-        if (!this->m_device_only && (force || !m_device_valid))
+        if (!this->m_device_valid)
         {
             if (this->m_host == nullptr)
             {
@@ -619,37 +434,18 @@ protected:
             }
 
             // Make sure the host data is valid. It might not be.
-            if (force || this->m_host_valid)
+            if (this->m_host_valid)
             {
-#if defined(NEKTAR_ENABLE_CUDA)
-                cudaMemcpy(m_device, this->m_host, this->m_size * sizeof(TData),
-                           cudaMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_HIP)
-                hipMemcpy(m_device, this->m_host, this->m_size * sizeof(TData),
-                          hipMemcpyHostToDevice);
-#elif defined(NEKTAR_ENABLE_SYCL)
-                SYCLQueue::GetInstance()
-                    .memcpy(m_device, this->m_host,
-                            this->m_size * sizeof(TData))
-                    .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-                // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,
-                                                                  this->m_size);
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                    m_device, this->m_size);
-
-                // Deep copy the host view to the device view.
-                Kokkos::deep_copy(deviceView, hostView);
-#endif
-                m_device_valid = true;
+                deviceMemcpy<HostToDevice>(this->m_device, this->m_host,
+                                           this->m_size);
+                this->m_device_valid = true;
             }
             // No data on the host so assume the device data is being
             // initialized.
             else if (this->m_initialize)
             {
-                m_device_valid     = true;
-                this->m_initialize = false;
+                this->m_device_valid = true;
+                this->m_initialize   = false;
             }
             else
             {
@@ -665,14 +461,10 @@ protected:
     /**
      * @brief Perform a device to host copy.
      *
-     * @param force - copy regardless of status
      */
-    void DeviceToHostCopy(bool force = false) override
+    void DeviceToHostCopy(void) override
     {
-        // Because the device pointer is used directly the host data may
-        // be marked as valid as such the force can be used to assure
-        // the copy occurs regardles.
-        if (!this->m_device_only && (force || !this->m_host_valid))
+        if (!this->m_host_valid)
         {
             if (this->m_host == nullptr)
             {
@@ -683,29 +475,10 @@ protected:
             }
 
             // Make sure the device data is valid. It might not be.
-            if (force || m_device_valid)
+            if (this->m_device_valid)
             {
-#if defined(NEKTAR_ENABLE_CUDA)
-                cudaMemcpy(this->m_host, m_device, this->m_size * sizeof(TData),
-                           cudaMemcpyDeviceToHost);
-#elif defined(NEKTAR_ENABLE_HIP)
-                hipMemcpy(this->m_host, m_device, this->m_size * sizeof(TData),
-                          hipMemcpyDeviceToHost);
-#elif defined(NEKTAR_ENABLE_SYCL)
-                SYCLQueue::GetInstance()
-                    .memcpy(this->m_host, m_device,
-                            this->m_size * sizeof(TData))
-                    .wait();
-#elif defined(NEKTAR_ENABLE_KOKKOS)
-                // Create unmanage Kokkos views from the raw pointers.
-                Kokkos::View<TData *, Kokkos::HostSpace> hostView(this->m_host,
-                                                                  this->m_size);
-                Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> deviceView(
-                    m_device, this->m_size);
-
-                // Deep copy the host view to the device view.
-                Kokkos::deep_copy(hostView, deviceView);
-#endif
+                deviceMemcpy<DeviceToHost>(this->m_host, this->m_device,
+                                           this->m_size);
                 this->m_host_valid = true;
             }
             // No data on the device so assume the host data is being
@@ -726,7 +499,6 @@ protected:
         }
     }
 
-    TData *m_device = nullptr; ///< Device memory pointer
-
-    bool m_device_valid = false; ///< Flag indicating the device data is valid
+    TData *m_device     = nullptr; ///< Device memory pointer
+    bool m_device_valid = false;   ///< Flag indicating the device data is valid
 };
