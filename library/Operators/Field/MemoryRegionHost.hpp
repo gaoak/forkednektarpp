@@ -125,7 +125,7 @@ public:
 
         if (!m_device_only)
         {
-            if constexpr (std::is_same<TDataIn, TData>::value)
+            if constexpr (std::is_same_v<TDataIn, TData>)
             {
                 std::memcpy(m_host, src, m_size * sizeof(TData));
             }
@@ -348,7 +348,7 @@ protected:
             // Special handling for the simd_t.
             using simd_t = tinysimd::simd<TData>;
 
-            if constexpr (std::is_same<simd_t, TData>::value)
+            if constexpr (std::is_same_v<simd_t, TData>)
             {
                 std::fill(dst, dst + count, val);
             }
@@ -386,7 +386,7 @@ protected:
         {
             TData *dst = m_host + offset;
 
-            if constexpr (std::is_same<TDataIn, TData>::value)
+            if constexpr (std::is_same_v<TDataIn, TData>)
             {
                 std::memcpy(dst, src, size * sizeof(TData));
             }
@@ -408,7 +408,7 @@ protected:
      *
      * This is a virtual function so that subclasses can copy memory.
      */
-    virtual void HostToDeviceCopy([[maybe_unused]] bool force = false)
+    virtual void HostToDeviceCopy()
     {
     }
 
@@ -419,7 +419,7 @@ protected:
      *
      * This is a virtual function so that subclasses can copy memory.
      */
-    virtual void DeviceToHostCopy([[maybe_unused]] bool force = false)
+    virtual void DeviceToHostCopy()
     {
     }
 

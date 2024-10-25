@@ -280,13 +280,12 @@ public:
 
         // Create new a MemoryRegion and polymorphically store as a
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
                 name, size, alignment, false);
         }
-        else if constexpr (std::is_same<MemSpace,
-                                        NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, size, alignment, device_only);
@@ -359,13 +358,12 @@ public:
 
         // Create new a MemoryRegion and polymorphically store as a
         // MemoryRegionHost.
-        if constexpr (std::is_same<MemSpace, NektarSpaces::HostSpace>::value)
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             field.m_storage = std::make_unique<MemoryRegionHost<TData>>(
                 name, size, alignment, false);
         }
-        else if constexpr (std::is_same<MemSpace,
-                                        NektarSpaces::DeviceSpace>::value)
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
             field.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
                 name, size, alignment, device_only);
@@ -532,16 +530,16 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
-                      std::is_same<MemCopy, DeviceToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
+                      std::is_same_v<MemCopy, DeviceToHost>)
         {
             this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
                                                          MemCopy>(
                 field.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(),
                 field.size());
         }
-        else if constexpr (std::is_same<MemCopy, HostToDevice>::value ||
-                           std::is_same<MemCopy, HostToHost>::value)
+        else if constexpr (std::is_same_v<MemCopy, HostToDevice> ||
+                           std::is_same_v<MemCopy, HostToHost>)
         {
             this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
                                                          MemCopy>(
@@ -577,15 +575,15 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
-                      std::is_same<MemCopy, DeviceToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
+                      std::is_same_v<MemCopy, DeviceToHost>)
         {
             this->template copyFrom<MemSpace, TDataIn, MemCopy>(
                 region.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>());
         }
 
-        if constexpr (std::is_same<MemCopy, HostToDevice>::value ||
-                      std::is_same<MemCopy, HostToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, HostToDevice> ||
+                      std::is_same_v<MemCopy, HostToHost>)
         {
             this->template copyFrom<MemSpace, TDataIn, MemCopy>(
                 region.template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
@@ -604,8 +602,8 @@ public:
               class Alloc      = std::allocator<TDataIn>>
     void copyVector(std::vector<TDataIn, Alloc> const &array)
     {
-        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
-                      std::is_same<MemCopy, DeviceToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
+                      std::is_same_v<MemCopy, DeviceToHost>)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
                      "MemoryRegion::copyVector - Can only copy std::vector "
@@ -643,8 +641,8 @@ public:
               typename MemCopy = HostToDevice>
     void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
     {
-        if constexpr (std::is_same<MemCopy, DeviceToDevice>::value ||
-                      std::is_same<MemCopy, DeviceToHost>::value)
+        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
+                      std::is_same_v<MemCopy, DeviceToHost>)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
                      "MemoryRegion::copyArray - Can only copy Nektar::Array "
