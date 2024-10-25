@@ -34,12 +34,13 @@
 
 #define BOOST_TEST_MODULE TestNeumannKokkos
 
-#include "init_neumannfields.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
+#include "init_neumannfields.hpp"
 
 #define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -47,17 +48,11 @@
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_kokkos_out->GetBlocks(),                                      \
-            fixt_kokkos_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>());    \
-        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
-            ->apply(*fixt_kokkos_out);                                         \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_kokkos_out, *fixt_expected, tol));        \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

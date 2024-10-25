@@ -186,33 +186,6 @@ public:
             delete fixt_expected;
         }
 
-        if (fixt_cuda_in)
-        {
-            delete fixt_cuda_in;
-        }
-        if (fixt_cuda_out)
-        {
-            delete fixt_cuda_out;
-        }
-
-        if (fixt_sycl_in)
-        {
-            delete fixt_sycl_in;
-        }
-        if (fixt_sycl_out)
-        {
-            delete fixt_sycl_out;
-        }
-
-        if (fixt_kokkos_in)
-        {
-            delete fixt_kokkos_in;
-        }
-        if (fixt_kokkos_out)
-        {
-            delete fixt_kokkos_out;
-        }
-
         if (session)
         {
             session->Finalise();
@@ -261,105 +234,38 @@ public:
         auto blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
         if (testModule.find("AVX") != std::string::npos)
         {
-            auto f_in =
-                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::AVX::alignment);
-            auto f_out = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::AVX::alignment);
-            auto f_expected = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::AVX::alignment);
-            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+            alignment = NektarSpaces::AVX::alignment;
         }
         else if (testModule.find("CUDA") != std::string::npos)
         {
-            auto f_in =
-                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::CUDA::alignment);
-            auto f_out = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::CUDA::alignment);
-            auto fcuda_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_in", blocks_in, nin,
-                                           NektarSpaces::CUDA::alignment);
-            auto fcuda_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fcuda_out", blocks_out, nout,
-                                           NektarSpaces::CUDA::alignment);
-            auto f_expected = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::CUDA::alignment);
-            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-            fixt_cuda_in  = new Field<TData, stateIn>(std::move(fcuda_in));
-            fixt_cuda_out = new Field<TData, stateOut>(std::move(fcuda_out));
-            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+            alignment = NektarSpaces::CUDA::alignment;
         }
         else if (testModule.find("SYCL") != std::string::npos)
         {
-            auto f_in =
-                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::SYCL::alignment);
-            auto f_out = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::SYCL::alignment);
-            auto fsycl_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_in", blocks_in, nin,
-                                           NektarSpaces::SYCL::alignment);
-            auto fsycl_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fsycl_out", blocks_out, nout,
-                                           NektarSpaces::SYCL::alignment);
-            auto f_expected = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::SYCL::alignment);
-            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-            fixt_sycl_in  = new Field<TData, stateIn>(std::move(fsycl_in));
-            fixt_sycl_out = new Field<TData, stateOut>(std::move(fsycl_out));
-            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+            alignment = NektarSpaces::SYCL::alignment;
         }
         else if (testModule.find("Kokkos") != std::string::npos ||
-            testModule.find("KOKKOS") != std::string::npos)
+                 testModule.find("KOKKOS") != std::string::npos)
         {
-            auto f_in =
-                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::KOKKOS::alignment);
-            auto f_out = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_in = Field<TData, stateIn>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_in", blocks_in, nin,
-                                           NektarSpaces::KOKKOS::alignment);
-            auto fkokkos_out = Field<TData, stateOut>::template create<
-                NektarSpaces::DeviceSpace>("fkokkos_out", blocks_out, nout,
-                                           NektarSpaces::KOKKOS::alignment);
-            auto f_expected = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::KOKKOS::alignment);
-            fixt_in        = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out       = new Field<TData, stateOut>(std::move(f_out));
-            fixt_kokkos_in = new Field<TData, stateIn>(std::move(fkokkos_in));
-            fixt_kokkos_out =
-                new Field<TData, stateOut>(std::move(fkokkos_out));
-            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+            alignment = NektarSpaces::KOKKOS::alignment;
         }
         else
         {
-            auto f_in =
-                Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
-                    "f_in", blocks_in, nin, NektarSpaces::Serial::alignment);
-            auto f_out = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_out", blocks_out, nout,
-                                         NektarSpaces::Serial::alignment);
-            auto f_expected = Field<TData, stateOut>::template create<
-                NektarSpaces::HostSpace>("f_expected", blocks_out, nout,
-                                         NektarSpaces::Serial::alignment);
-            fixt_in       = new Field<TData, stateIn>(std::move(f_in));
-            fixt_out      = new Field<TData, stateOut>(std::move(f_out));
-            fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
+            alignment = NektarSpaces::Serial::alignment;
         }
+
+        auto f_in =
+            Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+                "f_in", blocks_in, nin, alignment);
+        auto f_out =
+            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
+                "f_out", blocks_out, nout, alignment);
+        auto f_expected =
+            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
+                "f_expected", blocks_out, nout, alignment);
+        fixt_in       = new Field<TData, stateIn>(std::move(f_in));
+        fixt_out      = new Field<TData, stateOut>(std::move(f_out));
+        fixt_expected = new Field<TData, stateOut>(std::move(f_expected));
     }
 
     /**
@@ -369,43 +275,38 @@ public:
      *
      * @return bool
      */
-    bool Compare(Field<TData, stateOut> &in, Field<TData, stateOut> &ref,
-                 TData tol)
+    bool Compare(TData tol)
     {
-        if (ref.GetNumComponents() != in.GetNumComponents())
+        if (fixt_expected->GetNumComponents() != fixt_out->GetNumComponents())
         {
             std::cout << "Mismatch of number of components." << std::endl;
             return false;
         }
 
-        if (ref.GetBlocks().size() != in.GetBlocks().size())
+        if (fixt_expected->GetBlocks().size() != fixt_out->GetBlocks().size())
         {
             std::cout << "Mismatch of block size." << std::endl;
             return false;
         }
 
+        ReshapeToScalar(*fixt_out);
+        ReshapeToScalar(*fixt_expected);
+
         const TData *in_store =
-            in.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            fixt_out->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
         const TData *ref_store =
-            ref.template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+            fixt_expected->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
         bool isMatch = true;
 
         printf(
             "#elm #pts output               expected            difference\n");
-        for (size_t bl = 0; bl < in.GetBlocks().size(); ++bl)
+        for (size_t bl = 0; bl < fixt_out->GetBlocks().size(); ++bl)
         {
-            // Check that each block have the same structure
-            if (ref.GetBlocks()[bl].GetInterleaveWidth() !=
-                in.GetBlocks()[bl].GetInterleaveWidth())
-            {
-                std::cout << "Mismatch of interleave width." << std::endl;
-                return false;
-            }
-
-            if ((in.GetBlocks()[bl].num_elements !=
-                 ref.GetBlocks()[bl].num_elements) ||
-                (in.GetBlocks()[bl].num_pts != ref.GetBlocks()[bl].num_pts))
+            if ((fixt_out->GetBlocks()[bl].num_elements !=
+                 fixt_expected->GetBlocks()[bl].num_elements) ||
+                (fixt_out->GetBlocks()[bl].num_pts !=
+                 fixt_expected->GetBlocks()[bl].num_pts))
             {
                 std::cout << "Mismatch of block structure." << std::endl;
                 return false;
@@ -413,13 +314,14 @@ public:
 
             size_t MisMatchcnt = 0, total = 0;
 
-            for (size_t component = 0; component < in.GetNumComponents();
+            for (size_t component = 0; component < fixt_out->GetNumComponents();
                  ++component)
             {
-                for (size_t el = 0; el < in.GetBlocks()[bl].num_elements; ++el)
+                for (size_t el = 0; el < fixt_out->GetBlocks()[bl].num_elements;
+                     ++el)
                 {
-                    for (size_t pts = 0; pts < in.GetBlocks()[bl].num_pts;
-                         ++pts)
+                    for (size_t pts = 0;
+                         pts < fixt_out->GetBlocks()[bl].num_pts; ++pts)
                     {
                         if (std::abs(*in_store - *ref_store) > tol)
                         {
@@ -434,10 +336,11 @@ public:
                     }
                 }
 
-                in_store += in.GetBlocks()[bl].num_pts *
-                            in.GetBlocks()[bl].num_padding_elements;
-                ref_store += ref.GetBlocks()[bl].num_pts *
-                             ref.GetBlocks()[bl].num_padding_elements;
+                in_store += fixt_out->GetBlocks()[bl].num_pts *
+                            fixt_out->GetBlocks()[bl].num_padding_elements;
+                ref_store +=
+                    fixt_expected->GetBlocks()[bl].num_pts *
+                    fixt_expected->GetBlocks()[bl].num_padding_elements;
             }
 
             if (MisMatchcnt)
@@ -482,20 +385,13 @@ public:
     }
 
 protected:
-    std::string meshName                    = "";
-    Field<TData, stateIn> *fixt_in          = nullptr;
-    Field<TData, stateOut> *fixt_out        = nullptr;
-    Field<TData, stateOut> *fixt_expected   = nullptr;
-    Field<TData, stateIn> *fixt_cuda_in     = nullptr;
-    Field<TData, stateOut> *fixt_cuda_out   = nullptr;
-    Field<TData, stateIn> *fixt_sycl_in     = nullptr;
-    Field<TData, stateOut> *fixt_sycl_out   = nullptr;
-    Field<TData, stateIn> *fixt_kokkos_in   = nullptr;
-    Field<TData, stateOut> *fixt_kokkos_out = nullptr;
+    std::string meshName                  = "";
+    Field<TData, stateIn> *fixt_in        = nullptr;
+    Field<TData, stateOut> *fixt_out      = nullptr;
+    Field<TData, stateOut> *fixt_expected = nullptr;
     std::shared_ptr<TExpList> fixt_explist{nullptr};
-
+    size_t alignment;
     LibUtilities::SessionReaderSharedPtr session;
-
     std::string testModule{STRVX(BOOST_TEST_MODULE)};
 };
 

@@ -70,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -84,19 +84,19 @@ BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi + yi; });
 
     // AVX results
     z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    addKernelLauncher(n, x, z, z);
+    addKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -110,19 +110,19 @@ BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi - yi; });
 
     // AVX results
     z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    subKernelLauncher(n, x, z, z);
+    subKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 
@@ -137,7 +137,7 @@ BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z, [=](const double &xi, const double &yi) {
         return alpha * xi + yi;
@@ -145,12 +145,12 @@ BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 
     // AVX results
     z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    daxpyKernelLauncher(n, alpha, x, z, z);
+    daxpyKernelLauncher(n, alpha, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-14));
+        BOOST_TEST(Compare(1.0E-14));
     }
 }
 
@@ -164,19 +164,19 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
 
     // std results
     x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
     z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
     std::transform(x, x + n, y, z,
                    [](const double &xi, const double &yi) { return xi / yi; });
 
     // AVX results
     z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    divKernelLauncher(n, x, z, z);
+    divKernelLauncher(n, x, y, z);
 
     // Check results
     boost::test_tools::output_test_stream output;
     {
-        BOOST_TEST(Compare(*fixt_out, *fixt_expected, 1.0E-15));
+        BOOST_TEST(Compare(1.0E-15));
     }
 }
 

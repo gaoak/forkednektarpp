@@ -34,12 +34,13 @@
 
 #define BOOST_TEST_MODULE TestAddTraceIntegralSYCL
 
-#include "init_addtraceintegralfields.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/OperatorAddTraceIntegral.hpp"
+#include "init_addtraceintegralfields.hpp"
 
 #define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -48,18 +49,11 @@
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
         ReConfigure();                                                         \
-        SetTestCase(                                                           \
-            fixt_sycl_in->GetBlocks(),                                         \
-            fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
-        AddTraceIntegral<>::template create<ExecSpace, Impl>(fixt_explist)     \
-            ->apply(*fixt_sycl_in, *fixt_sycl_out);                            \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        ReshapeToScalar(*fixt_sycl_out);                                       \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, tol));          \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

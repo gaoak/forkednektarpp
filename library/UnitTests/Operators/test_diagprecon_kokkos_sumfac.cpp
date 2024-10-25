@@ -34,14 +34,14 @@
 
 #define BOOST_TEST_MODULE TestDiagPreconKokkos
 
-#include "init_diagpreconfields.hpp"
-
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
+#include "init_diagpreconfields.hpp"
 
 #define TEST_DIAGPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -49,23 +49,11 @@
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_kokkos_in->GetBlocks(),                                       \
-            fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
-        auto HelmholtzOp =                                                     \
-            Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist);       \
-        auto DiagPreconOp =                                                    \
-            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);      \
-        HelmholtzOp->setLambda(1.0);                                           \
-        DiagPreconOp->configure(HelmholtzOp);                                  \
-        DiagPreconOp->apply(*fixt_kokkos_in, *fixt_kokkos_out);                \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
-        ReshapeToScalar(*fixt_kokkos_out);                                     \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_kokkos_out, *fixt_expected, tol));        \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

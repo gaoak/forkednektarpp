@@ -51,48 +51,23 @@ public:
     {
     }
 
-    void SetTestCase(
-        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
-        [[maybe_unused]] double *outptr)
+    void SetTestCase()
     {
+        ExpectedSolution();
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        using ExecSpace     = NektarSpaces::Serial;
-        using Impl          = Operators::StdMat;
-        const auto stateOut = FieldState::Coeff;
-
-        auto blocks_tmp = GetBlockAttributes<double>(stateOut, fixt_explist);
-        auto f_tmp =
-            Field<double, stateOut>::template create<NektarSpaces::HostSpace>(
-                "f_out", blocks_tmp, 1, NektarSpaces::Serial::alignment);
-        auto fixt_tmp = new Field<double, stateOut>(std::move(f_tmp));
-
         NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
-            ->apply(*fixt_tmp);
+            ->apply(*fixt_out);
+    }
 
-        // Copy expected result from Array to fixt_expected
-        const double *ptr =
-            fixt_tmp->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        for (size_t bl = 0; bl < blocks.size(); bl++)
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < blocks[bl].num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < blocks[bl].num_pts;
-                     ++coeff, ++cnt)
-                {
-                    outptr[cnt] = ptr[cnt];
-                }
-            }
-
-            outptr += blocks[bl].block_size;
-            ptr += blocks_tmp[bl].block_size;
-        }
-
-        delete fixt_tmp;
+    void ExpectedSolution()
+    {
+        using ExecSpace = NektarSpaces::Serial;
+        using Impl      = Operators::StdMat;
+        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_expected);
     }
 };
 

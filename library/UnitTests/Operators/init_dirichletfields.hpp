@@ -51,34 +51,23 @@ public:
     {
     }
 
-    void SetTestCase(
-        [[maybe_unused]] const std::vector<BlockAttributes> &blocks,
-        [[maybe_unused]] double *outptr, [[maybe_unused]] bool padding = true)
+    void SetTestCase()
     {
+        ExpectedSolution();
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_out);
+    }
 
+    void ExpectedSolution()
+    {
         // Calculate expected result from Nektar++
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         fixt_explist->ImposeDirichletConditions(outcoeffs);
-
-        // Copy expected result from Array to pointer
-        double *coeffptr = outcoeffs.get();
-        for (auto const &block : blocks)
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    outptr[cnt] = (*coeffptr++);
-                }
-            }
-            outptr += block.block_size;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

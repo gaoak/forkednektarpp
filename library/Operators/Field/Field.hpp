@@ -415,17 +415,27 @@ public:
               typename MemCopy = HostToDevice>
     void copyTo(TDataOut *dst)
     {
+        auto compSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            auto nElmts = block.num_elements;
+            auto nPts   = block.num_pts;
+            compSize += nElmts * nPts;
+        }
+
         auto *src = this->template GetPtr<MemSpace, ReadOnly>();
         for (const auto &block : this->GetBlocks())
         {
             auto nSize  = block.block_size;
             auto nElmts = block.num_elements;
             auto nPts   = block.num_pts;
-
-            std::copy(src, src + nElmts * nPts, dst);
+            for (auto n = 0; n < this->GetNumComponents(); n++)
+            {
+                std::copy(src, src + nElmts * nPts, dst + n * compSize);
+                src += nSize;
+            }
 
             dst += nElmts * nPts;
-            src += nSize;
         }
     }
 
@@ -443,6 +453,8 @@ public:
             {
                 size += block.num_elements * block.num_pts;
             }
+
+            size *= this->GetNumComponents();
         }
 
         std::vector<TDataOut, Alloc> array(size);
@@ -467,6 +479,8 @@ public:
             {
                 size += block.num_elements * block.num_pts;
             }
+
+            size *= this->GetNumComponents();
         }
 
         Nektar::Array<Nektar::OneD, TDataOut> array(size);
@@ -486,19 +500,28 @@ public:
               typename MemCopy = HostToDevice>
     void copyFrom(const TDataIn *src)
     {
-        size_t offset = 0;
+        auto compSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            auto nElmts = block.num_elements;
+            auto nPts   = block.num_pts;
+            compSize += nElmts * nPts;
+        }
+
+        auto offset = 0;
         for (const auto &block : this->GetBlocks())
         {
             auto nSize  = block.block_size;
             auto nElmts = block.num_elements;
             auto nPts   = block.num_pts;
-
-            this->MemoryRegion<TData>::template copyFrom<MemSpace, TDataIn,
-                                                         MemCopy>(
-                src, nElmts * nPts, offset);
-
+            for (auto n = 0; n < this->GetNumComponents(); n++)
+            {
+                this->MemoryRegion<TData>::template copyFrom<MemSpace, TDataIn,
+                                                             MemCopy>(
+                    src + n * compSize, nElmts * nPts, offset);
+                offset += nSize;
+            }
             src += nElmts * nPts;
-            offset += nSize;
         }
     }
 

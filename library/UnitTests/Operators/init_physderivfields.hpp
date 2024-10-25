@@ -47,6 +47,12 @@ public:
     PhysDerivField() : InitFields<double, FieldState::Phys, FieldState::Phys>()
     {
     }
+
+    template <typename ExecSpace, typename Impl> void RunTestCase()
+    {
+        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)
+            ->apply(*fixt_in, *fixt_out);
+    }
 };
 
 class PhysDerivField1D : public PhysDerivField
@@ -56,8 +62,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
         size_t el = 0, pts = 0;
         auto coordim   = fixt_explist->GetCoordim(0);
@@ -76,10 +81,11 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t e = 0; e < block.num_elements; ++e, ++el)
+            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 for (size_t phys = 0; phys < block.num_pts;
@@ -98,67 +104,28 @@ public:
                             }
                         }
                     }
-                    outptr[cnt] = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        NektarSolution();
     }
 
-    void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *outptr)
+    void NektarSolution()
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
-                                       fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys0 = outphys;
-        Array<OneD, NekDouble> outphys1 =
-            outphys0 + fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> outphys2 =
-            outphys1 + fixt_explist->GetTotPoints();
-
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
-
         // Calculate expected result from Nektar++
+        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
+                                    fixt_explist->GetTotPoints());
+        Array<OneD, double> outphys0 = outphys;
+        Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-
-        // Copy expected result from Array to pointer
-        double *ptr0 = outphys.get();
-        double *ptr1 = outphys1.get();
-        double *ptr2 = outphys2.get();
-        for (auto const &block : blocks)
-        {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
-            {
-                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
-                    {
-                        if (n == 0)
-                        {
-                            outptr[cnt] = ptr0[el * block.num_pts + phys];
-                        }
-                        else if (n == 1)
-                        {
-                            outptr[cnt] = ptr1[el * block.num_pts + phys];
-                        }
-                        else if (n == 2)
-                        {
-                            outptr[cnt] = ptr2[el * block.num_pts + phys];
-                        }
-                    }
-                }
-                outptr += block.block_size;
-            }
-            ptr0 += block.num_elements * block.num_pts;
-            ptr1 += block.num_elements * block.num_pts;
-            ptr2 += block.num_elements * block.num_pts;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    void ExpectedSolution()
     {
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
@@ -178,7 +145,10 @@ public:
         }
 
         size_t el = 0, pts = 0;
-        for (auto const &block : blocks)
+        double *expptr =
+            fixt_expected
+                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -218,10 +188,10 @@ public:
                                 }
                             }
                         }
-                        outptr[cnt] = tmp;
+                        expptr[cnt] = tmp;
                     }
                 }
-                outptr += block.block_size;
+                expptr += block.block_size;
             }
             pts += block.num_elements * block.num_pts;
             el += block.num_elements;
@@ -236,8 +206,7 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
         size_t el = 0, pts = 0;
         auto coordim   = fixt_explist->GetCoordim(0);
@@ -250,10 +219,11 @@ public:
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t e = 0; e < block.num_elements; ++e, ++el)
+            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
@@ -275,67 +245,28 @@ public:
                             }
                         }
                     }
-                    outptr[cnt] = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        NektarSolution();
     }
 
-    void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *outptr)
+    void NektarSolution()
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
-                                       fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys0 = outphys;
-        Array<OneD, NekDouble> outphys1 =
-            outphys0 + fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> outphys2 =
-            outphys1 + fixt_explist->GetTotPoints();
-
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
-
         // Calculate expected result from Nektar++
+        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
+                                    fixt_explist->GetTotPoints());
+        Array<OneD, double> outphys0 = outphys;
+        Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-
-        // Copy expected result from Array to fixt_expected
-        double *ptr0 = outphys.get();
-        double *ptr1 = outphys1.get();
-        double *ptr2 = outphys2.get();
-        for (auto const &block : blocks)
-        {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
-            {
-                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
-                    {
-                        if (n == 0)
-                        {
-                            outptr[cnt] = ptr0[el * block.num_pts + phys];
-                        }
-                        else if (n == 1)
-                        {
-                            outptr[cnt] = ptr1[el * block.num_pts + phys];
-                        }
-                        else if (n == 2)
-                        {
-                            outptr[cnt] = ptr2[el * block.num_pts + phys];
-                        }
-                    }
-                }
-                outptr += block.block_size;
-            }
-            ptr0 += block.num_elements * block.num_pts;
-            ptr1 += block.num_elements * block.num_pts;
-            ptr2 += block.num_elements * block.num_pts;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    void ExpectedSolution()
     {
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
@@ -350,7 +281,10 @@ public:
         }
 
         size_t el = 0, pts = 0;
-        for (auto const &block : blocks)
+        double *expptr =
+            fixt_expected
+                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -392,10 +326,10 @@ public:
                                 }
                             }
                         }
-                        outptr[cnt] = tmp;
+                        expptr[cnt] = tmp;
                     }
                 }
-                outptr += block.block_size;
+                expptr += block.block_size;
             }
             pts += block.num_elements * block.num_pts;
             el += block.num_elements;
@@ -410,18 +344,18 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
         size_t el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t e = 0; e < block.num_elements; ++e, ++el)
+            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
                 size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
                 size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
@@ -442,74 +376,38 @@ public:
                             }
                         }
                     }
-                    outptr[cnt] = tmp;
+                    inptr[cnt] = tmp;
                 }
             }
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        NektarSolution();
     }
 
-    void NektarSolution(const std::vector<BlockAttributes> &blocks,
-                        double *outptr)
+    void NektarSolution()
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys(fixt_explist->GetCoordim(0) *
-                                       fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outphys0 = outphys;
-        Array<OneD, NekDouble> outphys1 =
-            outphys0 + fixt_explist->GetTotPoints();
-        Array<OneD, NekDouble> outphys2 =
-            outphys1 + fixt_explist->GetTotPoints();
-
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
-
         // Calculate expected result from Nektar++
+        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
+                                    fixt_explist->GetTotPoints());
+        Array<OneD, double> outphys0 = outphys;
+        Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
+        Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-
-        // Copy expected result from Array to fixt_expected
-        double *ptr0 = outphys.get();
-        double *ptr1 = outphys1.get();
-        double *ptr2 = outphys2.get();
-        for (auto const &block : blocks)
-        {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
-            {
-                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
-                    {
-                        if (n == 0)
-                        {
-                            outptr[cnt] = ptr0[el * block.num_pts + phys];
-                        }
-                        else if (n == 1)
-                        {
-                            outptr[cnt] = ptr1[el * block.num_pts + phys];
-                        }
-                        else if (n == 2)
-                        {
-                            outptr[cnt] = ptr2[el * block.num_pts + phys];
-                        }
-                    }
-                }
-                outptr += block.block_size;
-            }
-            ptr0 += block.num_elements * block.num_pts;
-            ptr1 += block.num_elements * block.num_pts;
-            ptr2 += block.num_elements * block.num_pts;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    void ExpectedSolution()
     {
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
         size_t el = 0, pts = 0;
-        for (auto const &block : blocks)
+        double *expptr =
+            fixt_expected
+                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -549,10 +447,10 @@ public:
                                 }
                             }
                         }
-                        outptr[cnt] = tmp;
+                        expptr[cnt] = tmp;
                     }
                 }
-                outptr += block.block_size;
+                expptr += block.block_size;
             }
             pts += block.num_elements * block.num_pts;
             el += block.num_elements;

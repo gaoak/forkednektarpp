@@ -34,12 +34,13 @@
 
 #define BOOST_TEST_MODULE TestNeumann
 
-#include "init_neumannfields.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
+#include "init_neumannfields.hpp"
 
 #define TEST_NEUMANN(test_name, test, tol)                                     \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -47,16 +48,11 @@
         using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::StdMat;                                   \
         Configure();                                                           \
-        SetTestCase(fixt_out->GetBlocks(),                                     \
-                    fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>());   \
-        NeuBndCond<>::template create<ExecSpace, Impl>(fixt_explist)           \
-            ->apply(*fixt_out);                                                \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

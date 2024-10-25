@@ -34,12 +34,13 @@
 
 #define BOOST_TEST_MODULE TestHelmholtzKokkos
 
-#include "init_helmholtzfields.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
+#include "init_helmholtzfields.hpp"
 
 #define TEST_HELMHOLTZ(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -47,17 +48,11 @@
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFacQP;                                 \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_kokkos_in->GetBlocks(),                                       \
-            fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
-        Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist)            \
-            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_kokkos_out, *fixt_expected, tol));        \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

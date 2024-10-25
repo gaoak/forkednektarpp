@@ -47,16 +47,11 @@
         using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::SumFac;                                   \
         Configure(dim, 1);                                                     \
-        SetTestCase(fixt_in->GetBlocks(),                                      \
-                    fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());    \
-        IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist) \
-            ->apply(*fixt_in, *fixt_out);                                      \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_out, *fixt_expected, tol));               \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

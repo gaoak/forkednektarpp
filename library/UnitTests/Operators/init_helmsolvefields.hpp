@@ -51,13 +51,12 @@ public:
     {
     }
 
-    void SetTestCase(const std::vector<BlockAttributes> &blocks, double *outptr,
-                     bool padding = true)
+    void SetTestCase()
     {
-        Array<OneD, NekDouble> x(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> y(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> z(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> fce(fixt_explist->GetTotPoints());
+        Array<OneD, double> x(fixt_explist->GetTotPoints());
+        Array<OneD, double> y(fixt_explist->GetTotPoints());
+        Array<OneD, double> z(fixt_explist->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
 
         if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
@@ -68,25 +67,26 @@ public:
 
         double *xptr = x.get(), *yptr = y.get(), *zptr = z.get(),
                *fceptr = fce.get();
-        for (auto const &block : blocks)
+        double *inptr =
+            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (auto const &block : fixt_in->GetBlocks())
         {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {
                 for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
                 {
                     if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
                     {
-                        outptr[cnt] = *(fceptr++);
+                        inptr[cnt] = *(fceptr++);
                     }
                     else
                     {
-                        outptr[cnt] = 1.0;
+                        inptr[cnt] = 1.0;
                         if (fixt_explist->GetCoordim(0) == 1)
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                outptr[cnt] += n * std::pow(*xptr, n);
+                                inptr[cnt] += n * std::pow(*xptr, n);
                             }
                             xptr++;
                         }
@@ -94,7 +94,7 @@ public:
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                outptr[cnt] +=
+                                inptr[cnt] +=
                                     n * std::pow(*xptr, n) * std::pow(*yptr, n);
                             }
                             xptr++;
@@ -104,9 +104,9 @@ public:
                         {
                             for (size_t n = 1; n < 4; n++)
                             {
-                                outptr[cnt] += n * std::pow(*xptr, n) *
-                                               std::pow(*yptr, n) *
-                                               std::pow(*zptr, n);
+                                inptr[cnt] += n * std::pow(*xptr, n) *
+                                              std::pow(*yptr, n) *
+                                              std::pow(*zptr, n);
                             }
                             xptr++;
                             yptr++;
@@ -116,41 +116,34 @@ public:
                 }
             }
 
-            outptr += (padding) ? block.block_size : cnt;
+            inptr += block.block_size;
         }
+        ExpectedSolution();
     }
 
-    void ExpectedSolution(const std::vector<BlockAttributes> &blocks,
-                          double *outptr)
+    template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Array<OneD, NekDouble> inphys(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
+        auto HelmSolveOp =
+            HelmSolve<>::template create<ExecSpace, Impl>(fixt_explist);
+        auto DiagPreconOp =
+            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);
+        HelmSolveOp->setPrecon(DiagPreconOp);
+        HelmSolveOp->setLambda(1.0);
+        HelmSolveOp->apply(*fixt_in, *fixt_out);
+    }
 
-        // Set test case
-        SetTestCase(fixt_in->GetBlocks(), inphys.get(), false);
-
+    void ExpectedSolution()
+    {
         // Calculate expected result from Nektar++
+        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] =
             fixt_explist->GetSession()->DefinesParameter("Lambda")
                 ? fixt_explist->GetSession()->GetParameter("Lambda")
                 : 1.0;
         fixt_explist->HelmSolve(inphys, outcoeffs, factors);
-
-        // Copy expected result from Array to pointer
-        double *coeffptr = outcoeffs.get();
-        for (auto const &block : blocks)
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    outptr[cnt] = (*coeffptr++);
-                }
-            }
-            outptr += block.block_size;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

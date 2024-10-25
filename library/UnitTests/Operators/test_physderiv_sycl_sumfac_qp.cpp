@@ -47,17 +47,11 @@
         using ExecSpace = NektarSpaces::SYCL;                                  \
         using Impl      = Operators::SumFacQP;                                 \
         Configure(1, dim);                                                     \
-        SetTestCase(                                                           \
-            fixt_sycl_in->GetBlocks(),                                         \
-            fixt_sycl_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());       \
-        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)            \
-            ->apply(*fixt_sycl_in, *fixt_sycl_out);                            \
-        NektarSolution(                                                        \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_sycl_out, *fixt_expected, tol));          \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 

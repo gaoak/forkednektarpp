@@ -48,12 +48,28 @@ public:
     {
     }
 
+    ~MathKernelsField()
+    {
+        if (fixt_in2)
+        {
+            delete fixt_in2;
+        }
+    }
+
     void SetTestCase()
     {
-        Array<OneD, NekDouble> x(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> y(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> z(fixt_explist->GetTotPoints());
-        Array<OneD, NekDouble> fce(fixt_explist->GetTotPoints());
+        auto blocks_in =
+            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+        auto blocks_out =
+            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
+        auto f_in = Field<double, FieldState::Phys>::template create<
+            NektarSpaces::DeviceSpace>("f_device_in", blocks_in, 1, alignment);
+        fixt_in2 = new Field<double, FieldState::Phys>(std::move(f_in));
+
+        Array<OneD, double> x(fixt_explist->GetTotPoints());
+        Array<OneD, double> y(fixt_explist->GetTotPoints());
+        Array<OneD, double> z(fixt_explist->GetTotPoints());
+        Array<OneD, double> fce(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
         auto func1 = fixt_explist->GetSession()->GetFunction("Forcing", 0);
         func1->Evaluate(x, y, z, fce);
@@ -66,30 +82,12 @@ public:
             ptr += n;
             inptr += block.block_size;
         }
-        if (testModule.find("Cuda") != std::string::npos ||
-            testModule.find("CUDA") != std::string::npos)
-        {
-            fixt_cuda_in->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_in);
-        }
-        else if (testModule.find("sycl") != std::string::npos ||
-                 testModule.find("SYCL") != std::string::npos)
-        {
-            fixt_sycl_in->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_in);
-        }
-        else if (testModule.find("Kokkos") != std::string::npos ||
-                 testModule.find("KOKKOS") != std::string::npos)
-        {
-            fixt_kokkos_in->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_in);
-        }
 
         auto func2 =
             fixt_explist->GetSession()->GetFunction("ExactSolution", 0);
         func2->Evaluate(x, y, z, fce);
         ptr   = fce.get();
-        inptr = fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        inptr = fixt_in2->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (auto const &block : fixt_out->GetBlocks())
         {
             auto n = block.num_elements * block.num_pts;
@@ -97,25 +95,10 @@ public:
             ptr += n;
             inptr += block.block_size;
         }
-        if (testModule.find("Cuda") != std::string::npos ||
-            testModule.find("CUDA") != std::string::npos)
-        {
-            fixt_cuda_out->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_out);
-        }
-        else if (testModule.find("sycl") != std::string::npos ||
-                 testModule.find("SYCL") != std::string::npos)
-        {
-            fixt_sycl_out->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_out);
-        }
-        else if (testModule.find("Kokkos") != std::string::npos ||
-                 testModule.find("KOKKOS") != std::string::npos)
-        {
-            fixt_kokkos_out->template copyField<NektarSpaces::DeviceSpace>(
-                *fixt_out);
-        }
     }
+
+protected:
+    Field<double, FieldState::Phys> *fixt_in2 = nullptr;
 };
 
 class MathKernels : public MathKernelsField

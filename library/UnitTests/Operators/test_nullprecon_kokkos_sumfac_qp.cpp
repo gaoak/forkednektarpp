@@ -34,12 +34,13 @@
 
 #define BOOST_TEST_MODULE TestNullPreconKokkos
 
-#include "init_nullpreconfields.hpp"
-
 #include <boost/test/tools/output_test_stream.hpp>
 
 #include <iostream>
 #include <memory>
+
+#include "Operators/PreconOps/OperatorNullPrecon.hpp"
+#include "init_nullpreconfields.hpp"
 
 #define TEST_NULLPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -47,17 +48,11 @@
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFacQP;                                 \
         Configure();                                                           \
-        SetTestCase(                                                           \
-            fixt_kokkos_in->GetBlocks(),                                       \
-            fixt_kokkos_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>());     \
-        NullPrecon<>::template create<ExecSpace, Impl>(fixt_explist)           \
-            ->apply(*fixt_kokkos_in, *fixt_kokkos_out);                        \
-        ExpectedSolution(                                                      \
-            fixt_expected->GetBlocks(),                                        \
-            fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>());      \
+        SetTestCase();                                                         \
+        RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
         {                                                                      \
-            BOOST_TEST(Compare(*fixt_kokkos_out, *fixt_expected, tol));        \
+            BOOST_TEST(Compare(tol));                                          \
         }                                                                      \
     }
 
