@@ -1420,20 +1420,6 @@ void BwdTransTetKernel_QP_1D(
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
-    // Temporary solution, to be removed - TODO
-    unsigned int *vpindex = (unsigned int *)pindex;
-    unsigned int *vqindex = (unsigned int *)qindex;
-    for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-         p += item_ct1.get_local_range(2))
-    {
-        for (unsigned int q = 0; q < nm1 - p; q++)
-        {
-            unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-            vpindex[mode_pq]     = p;
-            vqindex[mode_pq]     = q;
-        }
-    }
-
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
@@ -2697,9 +2683,12 @@ inline
                      const unsigned int nm1, const unsigned int nm2,
                      const unsigned int nq0, const unsigned int nq1,
                      const unsigned int nq2, const unsigned int nelmt,
-                     const bool correct, const TData *basis0,
-                     const TData *basis1, const TData *basis2,
-                     [[maybe_unused]] TData *wsp, const TData *in, TData *out)
+                     const bool correct,
+                     [[maybe_unused]] const unsigned int *index0,
+                     [[maybe_unused]] const unsigned int *index1,
+                     const TData *basis0, const TData *basis1,
+                     const TData *basis2, [[maybe_unused]] TData *wsp,
+                     const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same<Implementation, Operators::SumFacQP>::value;
@@ -2818,8 +2807,6 @@ inline
                      });
              }).wait();
 #else
-            unsigned int *pindex = sycl::malloc_device<unsigned int>(nm01, Q);
-            unsigned int *qindex = sycl::malloc_device<unsigned int>(nm01, Q);
             Q.submit([&](sycl::handler &cgh) {
                  sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                        cgh);
@@ -2835,13 +2822,10 @@ inline
                                              .get();
                          BwdTransTetKernel_QP_1D<SHMEM>(
                              nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                             correct, pindex, qindex, basis0, basis1, basis2,
+                             correct, index0, index1, basis0, basis1, basis2,
                              in, out, shmPtr, item);
                      });
              }).wait();
-
-            sycl::free(pindex, Q);
-            sycl::free(qindex, Q);
 #endif
         }
         else

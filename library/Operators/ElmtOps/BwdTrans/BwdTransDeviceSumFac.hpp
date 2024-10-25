@@ -151,9 +151,62 @@ public:
             }
             else if (dimension == 3)
             {
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                const bool indexing = false;
+#else
+                const bool indexing =
+                    shapeType == LibUtilities::Tet &&
+                    std::is_same_v<Implementation, Operators::SumFacQP>;
+#endif
+                std::vector<LibUtilities::BasisKey> basisKeys{
+                    expPtr->GetBasis(0)->GetBasisKey(),
+                    expPtr->GetBasis(1)->GetBasisKey(),
+                    expPtr->GetBasis(2)->GetBasisKey()};
+
+                // Precompute index, if necessary.
+                if (indexing)
+                {
+                    const bool device_only = true;
+
+                    if (m_index0.find(basisKeys) == m_index0.end())
+                    {
+                        const unsigned int nm01 =
+                            (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                        std::vector<unsigned int> index0(nm01);
+                        std::vector<unsigned int> index1(nm01);
+                        for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
+                        {
+                            for (unsigned int q = 0; q < nm1 - p;
+                                 q++, mode_pq++)
+                            {
+                                index0[mode_pq] = p;
+                                index1[mode_pq] = q;
+                            }
+                        }
+                        m_index0[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index0, ExecSpace::alignment,
+                                          device_only);
+                        m_index1[basisKeys] =
+                            MemoryRegion<unsigned int>::template fromVector<
+                                MemSpace>(index1, ExecSpace::alignment,
+                                          device_only);
+                    }
+                }
+
+                const unsigned int *index0 =
+                    indexing ? m_index0[basisKeys]
+                                   .template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
+                const unsigned int *index1 =
+                    indexing ? m_index1[basisKeys]
+                                   .template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
+
                 BwdTrans3DKernel<ExecSpace, Implementation, SharedMemory>(
                     shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, correct,
-                    basis0, basis1, basis2, wspPtr, inPtr, outPtr);
+                    index0, index1, basis0, basis1, basis2, wspPtr, inPtr,
+                    outPtr);
             }
 
             // Increment pointer and index for next element type.
@@ -241,6 +294,10 @@ public:
 private:
     BasisDataMap<TData> m_basisMap;
     MemoryRegion<TData> m_wsp;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index0;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index1;
 
     size_t m_wspsize = 0;
 };

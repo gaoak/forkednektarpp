@@ -1151,9 +1151,8 @@ inline
                     nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 #else
             PhysDeriv3DKernel_QP_1D<LibUtilities::Prism, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(nq0, nq1, nq2, nelmts,
-                                                     nsize, D0, D1, D2, Z0, Z1,
-                                                     Z2, df, in, out);
+                <<<gridsize, blocksize3d, nshared>>>(
+                    nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 #endif
         }
         else

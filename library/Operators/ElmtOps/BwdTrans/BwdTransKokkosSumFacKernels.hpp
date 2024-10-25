@@ -1504,19 +1504,6 @@ void BwdTransTetKernel_QP_1D(
             TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
             TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
-            // Temporary solution, to be removed - TODO
-            unsigned int *vpindex = (unsigned int *)pindex;
-            unsigned int *vqindex = (unsigned int *)qindex;
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0), [&](const unsigned int &p) {
-                    for (unsigned int q = 0; q < nm1 - p; q++)
-                    {
-                        unsigned int mode_pq = (2u * nm1 - p + 1u) * p / 2u + q;
-                        vpindex[mode_pq]     = p;
-                        vqindex[mode_pq]     = q;
-                    }
-                });
-
             // Copy to shared memory.
             if (SHMEM)
             {
@@ -2627,9 +2614,11 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  const unsigned int nm1, const unsigned int nm2,
                  const unsigned int nq0, const unsigned int nq1,
                  const unsigned int nq2, const unsigned int nelmt,
-                 const bool correct, const TData *basis0, const TData *basis1,
-                 const TData *basis2, [[maybe_unused]] TData *wsp,
-                 const TData *in, TData *out)
+                 const bool correct,
+                 [[maybe_unused]] const unsigned int *index0,
+                 [[maybe_unused]] const unsigned int *index1,
+                 const TData *basis0, const TData *basis1, const TData *basis2,
+                 [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same<Implementation, Operators::SumFacQP>::value;
@@ -2678,17 +2667,9 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                                         nq2, nelmt, correct, basis0, basis1,
                                         basis2, in, out);
 #else
-            unsigned int *pindex = (unsigned int *)Kokkos::kokkos_malloc<
-                Kokkos::DefaultExecutionSpace::memory_space>(
-                "pindex", nm01 * sizeof(unsigned int));
-            unsigned int *qindex = (unsigned int *)Kokkos::kokkos_malloc<
-                Kokkos::DefaultExecutionSpace::memory_space>(
-                "qindex", nm01 * sizeof(unsigned int));
             BwdTransTetKernel_QP_1D<SHMEM>(
                 nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-                pindex, qindex, basis0, basis1, basis2, in, out);
-            Kokkos::kokkos_free(pindex);
-            Kokkos::kokkos_free(qindex);
+                index0, index1, basis0, basis1, basis2, in, out);
 #endif
         }
         else
