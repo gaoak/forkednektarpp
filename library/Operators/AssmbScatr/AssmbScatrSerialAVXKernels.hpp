@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AssmbScatrKernels.hpp
+// File: AssmbScatrSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

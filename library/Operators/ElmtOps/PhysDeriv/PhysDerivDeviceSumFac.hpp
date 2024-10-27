@@ -46,20 +46,7 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;

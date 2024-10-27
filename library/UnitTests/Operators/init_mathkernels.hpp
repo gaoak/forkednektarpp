@@ -60,10 +60,8 @@ public:
     {
         auto blocks_in =
             GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
-        auto blocks_out =
-            GetBlockAttributes<double>(FieldState::Phys, fixt_explist);
         auto f_in = Field<double, FieldState::Phys>::template create<
-            NektarSpaces::DeviceSpace>("f_device_in", blocks_in, 1, alignment);
+            NektarSpaces::DeviceSpace>("f_in2", blocks_in, 1, alignment);
         fixt_in2 = new Field<double, FieldState::Phys>(std::move(f_in));
 
         Array<OneD, double> x(fixt_explist->GetTotPoints());
@@ -79,6 +77,7 @@ public:
         {
             auto n = block.num_elements * block.num_pts;
             std::copy(ptr, ptr + n, inptr);
+            std::fill(inptr + n, inptr + block.block_size, 0);
             ptr += n;
             inptr += block.block_size;
         }
@@ -92,6 +91,7 @@ public:
         {
             auto n = block.num_elements * block.num_pts;
             std::copy(ptr, ptr + n, inptr);
+            std::fill(inptr + n, inptr + block.block_size, 0);
             ptr += n;
             inptr += block.block_size;
         }

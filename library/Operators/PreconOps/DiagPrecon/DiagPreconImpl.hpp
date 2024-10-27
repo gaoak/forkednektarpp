@@ -42,9 +42,7 @@
 #include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
-#include "Operators/PreconOps/DiagPrecon/DiagPreconCUDAKernels.cuh"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconKernels.hpp"
-#include "Operators/PreconOps/DiagPrecon/DiagPreconSYCLKernels.hpp"
+#include "Operators/PreconOps/DiagPrecon/DiagPreconImplKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -103,7 +101,7 @@ public:
         divKernel<ExecSpace, TData>(m_nGlobal - m_nDir, wkPtr + m_nDir,
                                     diagPtr + m_nDir, wkPtr + m_nDir);
 
-        m_wk.template initialize<DeviceOnly>(0, m_nDir);
+        m_wk.template initialize<MemSpace>(0, m_nDir);
 
         m_assmbScatrOp->GlobalToLocal(m_wk, out);
     }
@@ -136,9 +134,9 @@ public:
                                           this->m_expansionList),
                 1, ExecSpace::alignment);
 
-        m_glodiag.template initialize<DeviceOnly>(0);
-        locdiag.template initialize<DeviceOnly>(0);
-        unit_vec.template initialize<DeviceOnly>(0);
+        m_glodiag.template initialize<MemSpace>(0);
+        locdiag.template initialize<MemSpace>(0);
+        unit_vec.template initialize<MemSpace>(0);
 
         size_t offset1 = 0;
         size_t offset2 = 0;

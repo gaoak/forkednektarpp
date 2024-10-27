@@ -37,9 +37,9 @@
 #include "Operators/OperatorAssmbScatr.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
-#include "Operators/AssmbScatr/AssmbScatrKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
+#include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 
@@ -99,7 +99,7 @@ public:
         // Zeroing Dirichlet BC
         if (zeroDir && m_nDir > 0)
         {
-            m_global.template initialize<DeviceOnly>(0, m_nDir);
+            m_global.template initialize<MemSpace>(0, m_nDir);
         }
 
         this->GlobalToLocal(m_global, out);
@@ -116,7 +116,7 @@ public:
                          : nullptr;
 
         // Zero the output
-        out.template initialize<DeviceOnly>(0, this->m_nGlobal);
+        out.template initialize<MemSpace>(0, this->m_nGlobal);
 
         for (const auto &block : in.GetBlocks())
         {
@@ -164,7 +164,7 @@ public:
                          : nullptr;
 
         // Zero the output
-        out.template initialize<DeviceOnly>(0, this->m_nLocal);
+        out.template initialize<MemSpace>(0);
 
         for (const auto &block : out.GetBlocks())
         {

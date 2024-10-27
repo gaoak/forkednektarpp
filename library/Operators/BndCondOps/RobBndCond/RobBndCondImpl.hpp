@@ -37,9 +37,9 @@
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/RobBndCond/RobBndCondKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
 
 #include <LocalRegions/MatrixKey.h>
 #include <MultiRegions/ContField.h>

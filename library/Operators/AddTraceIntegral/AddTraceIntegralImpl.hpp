@@ -39,9 +39,9 @@
 #include "Operators/OperatorAddTraceIntegral.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
-#include "Operators/AddTraceIntegral/AddTraceIntegralKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
 #include "Operators/AddTraceIntegral/AddTraceIntegralSYCLKernels.hpp"
+#include "Operators/AddTraceIntegral/AddTraceIntegralSerialAVXKernels.hpp"
 
 using namespace Nektar::MultiRegions;
 

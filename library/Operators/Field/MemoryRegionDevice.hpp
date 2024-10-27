@@ -42,21 +42,6 @@
 
 #include <utility>
 
-namespace Nektar
-{
-
-// MemoryWrite
-struct HostOnly
-{
-};
-struct DeviceOnly
-{
-};
-struct HostAndDevice
-{
-};
-} // namespace Nektar
-
 using namespace Nektar;
 
 // If this macro is set when calling the device side creation and copy
@@ -323,47 +308,28 @@ protected:
      * @param val   - value to set
      * @param count - number of values
      */
-    template <typename MemWrite = DeviceOnly>
     void initialize(TData val, size_t count = 0, size_t offset = 0)
     {
-        if constexpr (std::is_same_v<MemWrite, HostOnly> ||
-                      std::is_same_v<MemWrite, HostAndDevice>)
+        this->m_host_valid   = false;
+        this->m_initialize   = false;
+        this->m_device_valid = true;
+
+        if (count == 0)
         {
-            MemoryRegionHost<TData>::initialize(val, count, offset);
-            if constexpr (std::is_same_v<MemWrite, HostOnly>)
-            {
-                this->m_device_valid = false;
-            }
+            count = this->m_size;
         }
 
-        if constexpr (std::is_same_v<MemWrite, DeviceOnly> ||
-                      std::is_same_v<MemWrite, HostAndDevice>)
+        TData *dst = this->m_device + offset;
+
+        // If the value is zero, memset is the most efficent.
+        if (val == TData(0))
         {
-            if constexpr (std::is_same_v<MemWrite, DeviceOnly>)
-            {
-                this->m_host_valid = false;
-                this->m_initialize = false;
-
-                if (count == 0)
-                {
-                    count = this->m_size;
-                }
-            }
-
-            this->m_device_valid = true;
-
-            TData *dst = this->m_device + offset;
-
-            // If the value is zero, memset is the most efficent.
-            if (val == TData(0))
-            {
-                deviceMemset(dst, 0, count);
-            }
-            // Nonzero value
-            else
-            {
-                deviceFill(dst, val, count);
-            }
+            deviceMemset(dst, 0, count);
+        }
+        // Nonzero value
+        else
+        {
+            deviceFill(dst, val, count);
         }
     }
 

@@ -58,21 +58,21 @@ struct ReadWrite
 
 // const_if metafunction return "const T" type if B = true and "T" type
 // otherwise.
-template <bool B, class T = void> struct const_if
+template <bool B, typename TData = void> struct const_if
 {
-    typedef T type;
+    typedef TData type;
 };
 
-template <class T> struct const_if<true, T>
+template <class TData> struct const_if<true, TData>
 {
-    typedef const T type;
+    typedef const TData type;
 };
 
 /**
  * @brief A MemoryRegion represents a memory region
  * @tparam TData  The floating-point representation used by the MemoryRegion.
  */
-template <typename TData = default_fp_type> class MemoryRegion
+template <typename TData> class MemoryRegion
 {
 public:
     /**
@@ -461,7 +461,7 @@ public:
      * @param val   - value to set
      * @param count - number of values
      */
-    template <typename MemWrite = DeviceOnly>
+    template <typename MemSpace>
     void initialize(TData val, size_t count = 0, size_t offset = 0)
     {
         if (m_storage == nullptr)
@@ -469,18 +469,26 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, "Storage has not allocated.");
         }
 
-        try
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            // This cast fails if e.g. a MemoryRegionDevice is requested
-            // from a MemoryRegionHost storage.
-            auto &ret = dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
-            ret.template initialize<MemWrite>(val, count, offset);
-        }
-        catch (const std::bad_cast &e)
-        {
-            // MemWrite is ignored for host-only memory region.
             m_storage->initialize(val, count, offset);
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            try
+            {
+                // This cast fails if e.g. a MemoryRegionDevice is requested
+                // from a MemoryRegionHost storage.
+                auto &ret =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+
+                ret.initialize(val, count, offset);
+            }
+            catch (const std::bad_cast &e)
+            {
+                // MemSpace is ignored for host-only memory region.
+                m_storage->initialize(val, count, offset);
+            }
         }
     }
 

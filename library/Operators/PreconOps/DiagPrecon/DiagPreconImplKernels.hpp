@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondKernels.hpp
+// File: DiagPreconImplKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,37 +34,45 @@
 
 #pragma once
 
+#include "Operators/Field/Field.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
-using namespace Nektar;
+#include <cstddef>
+#include <type_traits>
 
 namespace Nektar::Operators::detail
 {
 
+// Generic kernels except for CUDA.
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
-                 TData *outPtr)
+void SetDiagonalKernel(const size_t nmTot, const size_t nelmts,
+                       const size_t mode, const size_t offset, const TData val,
+                       MemoryRegion<TData> &out)
 {
-    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] += inPtr[i];
-    });
+    using MemSpace = typename ExecSpace::memory_space;
+
+    TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
+    Nektar::parallel_for<ExecSpace>(
+        0, nelmts,
+        NEKTAR_LAMBDA(int e) { outptr[offset + e * nmTot + mode] = val; });
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+void CopyDiagonalKernel(const size_t nmTot, const size_t nelmts,
+                        const size_t mode, const size_t inoffset,
+                        const size_t outoffset,
+                        Field<TData, FieldState::Coeff> &in,
+                        MemoryRegion<TData> &out)
 {
-    Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
-    });
+    using MemSpace = typename ExecSpace::memory_space;
+
+    const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
+    TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();
+    Nektar::parallel_for<ExecSpace>(
+        0, nelmts, NEKTAR_LAMBDA(int e) {
+            outptr[outoffset + e * nmTot + mode] =
+                inptr[inoffset + e * nmTot + mode];
+        });
 }
 
 } // namespace Nektar::Operators::detail

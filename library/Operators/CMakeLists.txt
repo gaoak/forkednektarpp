@@ -26,7 +26,7 @@ IF(NEKTAR_ENABLE_KOKKOS)
 ENDIF()
 
 # Set implementation types.
-SET(Implementations StdMat SumFac SumFacQP)
+SET(Implementations StdMat SumFac SumFacQP Generic)
 
 # Shape types for seperate code compilation.
 SET(Shapes Seg Tri Quad Hex Pyr Prism Tet)
@@ -60,14 +60,14 @@ MACRO(ADD_OPERATOR dir)
 
     # These are variales used to determine the operator.
     # implementation.
-    UNSET(COMMON_HEADER)
+    UNSET(IMPL_HEADER)
 
     # Common header (*Impl.hpp) that can be used without a specific
     # implementation. It may have specific implementation kerenels.
     IF(EXISTS "${dir}/${name}Impl.hpp")
          FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                 ${dir}/${name}Impl.hpp)
-         SET(COMMON_HEADER "#include \"${include_file}\"")
+                 "${dir}/${name}Impl.hpp")
+         SET(IMPL_HEADER "#include \"${include_file}\"")
     ENDIF()
 
     # Check to see if shape specific BlockOpSwitch*.h files have
@@ -122,15 +122,6 @@ MACRO(ADD_OPERATOR dir)
             SET(HEADER_EXT hpp)
         ENDIF()
 
-        # Look for a generic implementation header.
-        UNSET(GENERIC_HEADER)
-
-        IF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
-            FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}${ExecSpace}Generic.${HEADER_EXT})
-            SET(GENERIC_HEADER "#include \"${include_file}\"")
-        ENDIF()
-
         # Set execuation space - see Spaces.hpp
         IF("${ExecSpace}" STREQUAL "Serial")
             SET(EXEC_MEM_SPACE_TAG NEKTAR_DEFAULT_HOST_TAG)
@@ -144,12 +135,14 @@ MACRO(ADD_OPERATOR dir)
             UNSET(SERIAL_STDMAT_HEADER)
             UNSET(SERIAL_AVX_SUMFAC_HEADER)
             UNSET(DEVICE_SUMFAC_HEADER)
+            UNSET(GENERIC_HEADER)
 
             # These combinations do/should not exist.
-            IF( ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
-                ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
+            IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
+               ("${ExecSpace}" STREQUAL "AVX" AND "${Impl}" STREQUAL "StdMat") OR
+               ("${ExecSpace}" STREQUAL "CUDA" AND "${Impl}" STREQUAL "StdMat") OR
+               ("${ExecSpace}" STREQUAL "SYCL" AND "${Impl}" STREQUAL "StdMat") OR
+               ("${ExecSpace}" STREQUAL "Kokkos" AND "${Impl}" STREQUAL "StdMat") )
                 CONTINUE()
             ENDIF()
 
@@ -167,68 +160,118 @@ MACRO(ADD_OPERATOR dir)
                  ${dir}/${name}${ExecSpace}${Impl}*.${HEADER_EXT})
 
             # Found a Serial StdMat header.
-            IF(EXISTS "${dir}/${name}SerialStdMat.hpp" AND
+            IF((EXISTS "${dir}/${name}SerialStdMat.hpp") AND
                 ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
-
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}SerialStdMat.hpp)
+                    "${dir}/${name}SerialStdMat.hpp")
                 SET(SERIAL_STDMAT_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a Serial StdMat implementation: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Serial SumFac header.
             ELSEIF((EXISTS "${dir}/${name}SerialSumFac.hpp") AND
                 ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "SumFac"))
-
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}SerialSumFac.hpp)
+                    "${dir}/${name}SerialSumFac.hpp")
                 SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a AVX SumFac header.
             ELSEIF((EXISTS "${dir}/${name}AVXSumFac.hpp") AND
                 ("${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
-
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}AVXSumFac.hpp)
+                    "${dir}/${name}AVXSumFac.hpp")
                 SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Serial/AVX SumFac header.
             ELSEIF((EXISTS "${dir}/${name}SerialAVXSumFac.hpp") AND
                 ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
-
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}SerialAVXSumFac.hpp)
+                    "${dir}/${name}SerialAVXSumFac.hpp")
                 SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
-                MESSAGE("Adding operator with a ${ExecSpace} SumFac implementation: " "${FactoryDeclName}")
+                MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Device SumFac header.
-            ELSEIF((EXISTS "${dir}/${name}DeviceSumFac.hpp") AND
-                   (("${ExecSpace}" STREQUAL "Device") OR # Generic device implementation
-                    ("${ExecSpace}" STREQUAL "CUDA") OR 
-                    ("${ExecSpace}" STREQUAL "SYCL") OR 
-                    ("${ExecSpace}" STREQUAL "Kokkos")) AND 
-                   (("${Impl}" STREQUAL "SumFac") OR ("${Impl}" STREQUAL "SumFacQP")))
-
+            ELSEIF(EXISTS "${dir}/${name}DeviceSumFac.hpp" AND
+                   ("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR "${ExecSpace}" STREQUAL "Kokkos") AND 
+                   ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacQP"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${dir}/${name}DeviceSumFac.hpp)
+                    "${dir}/${name}DeviceSumFac.hpp")
                 SET(DEVICE_SUMFAC_HEADER "#include \"${include_file}\"")
-                IF (("${ExecSpace}" STREQUAL "Device" AND EXISTS "${dir}/${name}DeviceSumFacKernels.hpp") OR
-                    ("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}CUDASumFacKernels.cuh") OR
-                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}SYCLSumFacKernels.hpp") OR
-                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}KokkosSumFacKernels.hpp"))
+                # Found general kernel
+                IF(EXISTS "${dir}/${name}DeviceSumFacKernels.hpp")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation and a generic device kernel: " "${FactoryDeclName}")
+                # Found specific kernel
+                ELSEIF(EXISTS "${dir}/${name}${ExecSpace}SumFacKernels.${HEADER_EXT}")
+                    MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
+                # No kernel found, generic implementation
+                ELSEIF(
+                    NOT EXISTS "${dir}/${name}CUDASumFacKernels.cuh" AND
+                    NOT EXISTS "${dir}/${name}SYCLSumFacKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}KokkosSumFacKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceSumFacKernels.hpp")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
                 ELSE()
                     CONTINUE() # This avoid creating a *.cpp file
                 ENDIF()
 
             # Found a generic header.
-            ELSEIF(GENERIC_HEADER)
-                MESSAGE("Adding operator with a generic implementation: " "${FactoryDeclName}")
+            ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}" AND "${Impl}" STREQUAL "Generic")
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
+                SET(GENERIC_HEADER "#include \"${include_file}\"")
+                # Found a specific kernel
+                IF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
+                    MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
+                    MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a unified Serial/AVX kernel: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
+                    MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a generic device kernel: " "${FactoryDeclName}")
+                # No kernel found
+                ELSEIF(
+                    NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}CUDA.hpp" AND
+                    NOT EXISTS "${dir}/${name}SYCL.hpp" AND
+                    NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
+                    MESSAGE("Adding operator with a ${ExecSpace} generic implementation: " "${FactoryDeclName}")
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
 
-            # Found a common header.
-            ELSEIF(COMMON_HEADER)
-                MESSAGE("Adding operator with a common implementation: " "${FactoryDeclName}")
+            # Found a impl header.
+            ELSEIF(IMPL_HEADER AND NOT  "${Impl}" STREQUAL "Generic")
+                # Found a general kernel
+                IF(EXISTS "${dir}/${name}ImplKernels.hpp" )
+                    MESSAGE("Adding operator with a common implementation and a general kernel: " "${FactoryDeclName}")
+                # Found a specific kernel
+                ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
+                    MESSAGE("Adding operator with a common implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "Serial" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "AVX" AND EXISTS "${dir}/${name}SerialAVXKernels.hpp"))
+                    MESSAGE("Adding operator with a common implementation and a unified Serial/AVX kernel: " "${FactoryDeclName}")
+                ELSEIF(("${ExecSpace}" STREQUAL "CUDA" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "SYCL" AND EXISTS "${dir}/${name}DeviceKernels.hpp") OR
+                    ("${ExecSpace}" STREQUAL "Kokkos" AND EXISTS "${dir}/${name}DeviceKernels.hpp"))
+                    MESSAGE("Adding operator with a common implementation and a generic device kernel: " "${FactoryDeclName}")
+                # No kernel found
+                ELSEIF(NOT EXISTS "${dir}/${name}ImplKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}SerialKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}AVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}SerialAVXKernels.hpp" AND
+                    NOT EXISTS "${dir}/${name}CUDA.hpp" AND
+                    NOT EXISTS "${dir}/${name}SYCL.hpp" AND
+                    NOT EXISTS "${dir}/${name}Kokkos.hpp" AND
+                    NOT EXISTS "${dir}/${name}DeviceKernels.hpp")
+                    MESSAGE("Adding operator with a common implementation: " "${FactoryDeclName}")
+                ELSE()
+                    CONTINUE() # This avoid creating a *.cpp file
+                ENDIF()
 
             # No implementation, skip.
             ELSE()

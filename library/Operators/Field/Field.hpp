@@ -68,6 +68,8 @@ std::string FieldStateString(FieldState);
 
 static constexpr FieldState DefaultState = FieldState::Phys;
 
+using default_fp_type = double;
+
 /**
  * @brief A block means a group of elements of identical shape,
  * basis and order. BlockAttributes stores the most basic
@@ -300,7 +302,7 @@ public:
         }
 
         // Zero memory
-        field.template initialize<DeviceOnly>(0);
+        field.template initialize<MemSpace>(0);
 
         return field;
     }
@@ -378,7 +380,7 @@ public:
         }
 
         // Zero memory
-        field.template initialize<DeviceOnly>(0);
+        field.template initialize<MemSpace>(0);
 
         return field;
     }

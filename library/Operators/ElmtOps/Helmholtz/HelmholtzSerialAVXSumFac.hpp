@@ -55,12 +55,7 @@ namespace Nektar::Operators::detail
 {
 
 // Matrix-free implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using simd_t =

@@ -104,6 +104,10 @@ struct SumFacQP
 {
 };
 
+struct Generic
+{
+};
+
 // Forward-declare the Operator base class so we can define the factory
 template <typename TData> class Operator;
 
@@ -292,9 +296,9 @@ public:
         bool notFound = true;
 
 #if !defined(OPERATOR_ENABLE_DEFAULTING)
-        constexpr size_t nOpTests = 1;
+        constexpr size_t nOpTests = 2;
 #else
-        constexpr size_t nOpTests = 3;
+        constexpr size_t nOpTests = 4;
 #endif
 
         for (size_t i = 0; i < nOpTests; ++i)
@@ -307,11 +311,16 @@ public:
                     key = descriptStr + fieldStateStr + execStr + implStr;
                     break;
                 case 1:
-                    // Find the operator with the "Serial" ExecSpace and the
-                    // same implementation.
-                    // key = descriptStr + fieldStateStr + "Serial" + implStr;
+                    // Find the operator with the requested ExecSpace and a
+                    // general implementation.
+                    key = descriptStr + fieldStateStr + execStr + "Generic";
                     break;
                 case 2:
+                    // Find the operator with the "Serial" ExecSpace and the
+                    // same implementation.
+                    key = descriptStr + fieldStateStr + "Serial" + implStr;
+                    break;
+                case 3:
                     // Find the operator with the "Serial" ExecSpace and
                     // the "StdMat" implementation.
                     key = descriptStr + fieldStateStr + "Serial" + "StdMat";
@@ -322,7 +331,7 @@ public:
 
             if (factory.ModuleExists(key))
             {
-                if (key != requestedKey)
+                if (key != requestedKey && i != 1)
                 {
                     std::string msg;
                     msg += "The requested operator: " + requestedKey +

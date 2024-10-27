@@ -43,10 +43,7 @@ namespace Nektar::Operators::detail
 {
 
 // Standard matrix implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
-              std::is_same<Implementation, Operators::StdMat>::value>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
