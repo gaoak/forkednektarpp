@@ -114,12 +114,12 @@ public:
                Field<TData, FieldState::Coeff> &out) override
     {
         // Set the fields to zero
-        out.initialize(0);
-        m_w_A.initialize(0);
-        m_s_A.initialize(0);
-        m_p_A.initialize(0);
-        m_q_A.initialize(0);
-        m_wk.initialize(0);
+        out.template initialize<MemSpace>(0);
+        m_w_A.template initialize<MemSpace>(0);
+        m_s_A.template initialize<MemSpace>(0);
+        m_p_A.template initialize<MemSpace>(0);
+        m_q_A.template initialize<MemSpace>(0);
+        m_wk.template initialize<MemSpace>(0);
 
         // Convergence parameters (host)
         size_t totalIterations = 0;
@@ -143,7 +143,7 @@ public:
         ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
         // Calculate rhs magnitude
-        m_wk.initialize(0);
+        m_wk.template initialize<MemSpace>(0);
         m_assmbScatrOp->apply(m_r_A, m_wk);
 
         ddot<ExecSpace, TData>(in, m_wk, vExchangePtr + 3);

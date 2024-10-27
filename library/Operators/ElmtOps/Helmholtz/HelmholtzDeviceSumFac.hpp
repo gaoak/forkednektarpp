@@ -51,20 +51,7 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::CUDA>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::SYCL>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value &&
-               std::is_same<Implementation, Operators::SumFacQP>::value)>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using MemSpace = typename ExecSpace::memory_space;
@@ -87,7 +74,7 @@ public:
     {
         auto nCoord = this->m_expansionList->GetCoordim(0);
 
-        m_diffCoeff.initialize(0);
+        m_diffCoeff.template initialize<MemSpace>(0);
 
         TData *diffCoeff =
             m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();

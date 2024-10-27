@@ -255,10 +255,10 @@ public:
         }
 
         auto f_in =
-            Field<TData, stateIn>::template create<NektarSpaces::HostSpace>(
+            Field<TData, stateIn>::template create<NektarSpaces::DeviceSpace>(
                 "f_in", blocks_in, nin, alignment);
         auto f_out =
-            Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(
+            Field<TData, stateOut>::template create<NektarSpaces::DeviceSpace>(
                 "f_out", blocks_out, nout, alignment);
         auto f_expected =
             Field<TData, stateOut>::template create<NektarSpaces::HostSpace>(

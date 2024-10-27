@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DiagPreconKernels.hpp
+// File: DirBndCondSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,54 +34,59 @@
 
 #pragma once
 
-#include "Operators/Field/Field.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
-
-#include <cstddef>
-#include <type_traits>
 
 namespace Nektar::Operators::detail
 {
 
-// Generic kernels except for CUDA.
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-SetDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
-                  const size_t offset, const TData val,
-                  MemoryRegion<TData> &out)
+DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
+                 const TData *inPtr, TData *outPtr)
 {
-    using MemSpace = typename ExecSpace::memory_space;
-
-    TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
     Nektar::parallel_for<ExecSpace>(
-        0, nelmts,
-        NEKTAR_LAMBDA(int e) { outptr[offset + e * nmTot + mode] = val; });
+        0u, nsize, [&](const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-CopyDiagonalKernel(const size_t nmTot, const size_t nelmts, const size_t mode,
-                   const size_t inoffset, const size_t outoffset,
-                   Field<TData, FieldState::Coeff> &in,
-                   MemoryRegion<TData> &out)
+DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
+                 const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    using MemSpace = typename ExecSpace::memory_space;
+    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+        outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
+    });
+}
 
-    const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
-    TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
+                         TData *outPtr)
+{
     Nektar::parallel_for<ExecSpace>(
-        0, nelmts, NEKTAR_LAMBDA(int e) {
-            outptr[outoffset + e * nmTot + mode] =
-                inptr[inoffset + e * nmTot + mode];
-        });
+        0u, nsize, [&](const unsigned int i) { outPtr[signPtr[i]] *= -1; });
+}
+
+template <typename ExecSpace, typename TData>
+inline typename std::enable_if<
+    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
+        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+    void>::type
+LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
+                      const int *id1Ptr, const TData *signPtr, TData *outPtr)
+{
+    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
+        outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
+    });
 }
 
 } // namespace Nektar::Operators::detail

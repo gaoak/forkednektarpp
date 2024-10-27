@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: RobBndCondKernels.hpp
+// File: RobBndCondSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //

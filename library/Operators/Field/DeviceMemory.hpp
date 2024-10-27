@@ -64,7 +64,8 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-void deviceMalloc(TData *&src, const unsigned int size)
+void deviceMalloc([[maybe_unused]] TData *&src,
+                  [[maybe_unused]] const unsigned int size)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaMalloc((void **)&src, size * sizeof(TData));
@@ -79,7 +80,7 @@ void deviceMalloc(TData *&src, const unsigned int size)
 #endif
 }
 
-template <typename TData> void deviceFree(TData *src)
+template <typename TData> void deviceFree([[maybe_unused]] TData *src)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaFree(src);
@@ -93,7 +94,8 @@ template <typename TData> void deviceFree(TData *src)
 }
 
 template <typename TData>
-void deviceMemset(TData *dst, const int val, const unsigned int size)
+void deviceMemset([[maybe_unused]] TData *dst, [[maybe_unused]] const int val,
+                  [[maybe_unused]] const unsigned int size)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaMemset(dst, val, size * sizeof(TData));
@@ -110,7 +112,8 @@ void deviceMemset(TData *dst, const int val, const unsigned int size)
 }
 
 template <typename TData>
-void deviceFill(TData *dst, const TData val, const unsigned int size)
+void deviceFill([[maybe_unused]] TData *dst, [[maybe_unused]] const TData val,
+                [[maybe_unused]] const unsigned int size)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     thrust::fill(dst, dst + size, val);
@@ -128,7 +131,9 @@ void deviceFill(TData *dst, const TData val, const unsigned int size)
 }
 
 template <typename MemCopy, typename TData>
-void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
+void deviceMemcpy([[maybe_unused]] TData *dst,
+                  [[maybe_unused]] const TData *src,
+                  [[maybe_unused]] const unsigned int size)
 {
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {

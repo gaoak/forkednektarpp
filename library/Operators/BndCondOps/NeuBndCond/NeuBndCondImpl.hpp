@@ -37,9 +37,9 @@
 #include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondKokkosKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondSerialAVXKernels.hpp"
 
 #include <MultiRegions/ContField.h>
 

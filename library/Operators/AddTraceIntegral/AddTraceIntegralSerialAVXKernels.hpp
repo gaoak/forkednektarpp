@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DirBndCondKernels.hpp
+// File: AddTraceIntegralSerialAVXKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -44,49 +44,50 @@ inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
-                 const TData *inPtr, TData *outPtr)
-{
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, [&](const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+AddTraceIntegralKernel(const unsigned int nsize,
+                       const int *traceCoeffsToElmtMapPtr,
+                       const int *traceCoeffsToElmtSignPtr,
+                       const int *traceCoeffsToElmtTracePtr,
+                       const TData *tracePtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
+        outPtr[traceCoeffsToElmtMapPtr[i]] +=
+            traceCoeffsToElmtSignPtr[i] *
+            tracePtr[traceCoeffsToElmtTracePtr[i]];
     });
 }
 
-template <typename ExecSpace, typename TData>
+template <typename ExecSpace>
 inline typename std::enable_if<
     std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
         std::is_same<ExecSpace, NektarSpaces::AVX>::value,
     void>::type
-ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
-                         TData *outPtr)
+ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
 {
-    Nektar::parallel_for<ExecSpace>(
-        0u, nsize, [&](const unsigned int i) { outPtr[signPtr[i]] *= -1; });
-}
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
-                      const int *id1Ptr, const TData *signPtr, TData *outPtr)
-{
-    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
-        outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
+    // sort the trace map and get the permutation
+    std::vector<int> permutation(nsize);
+    std::iota(permutation.begin(), permutation.end(), 0);
+    std::sort(permutation.begin(), permutation.end(), [&](int i, int j) {
+        return traceCoeffsToElmtTracePtr[i] < traceCoeffsToElmtTracePtr[j];
     });
+    // apply the permutation to the map and sign
+    std::vector<int> tempMap(nsize);
+    std::vector<int> tempSign(nsize);
+    std::vector<int> tempTrace(nsize);
+    for (size_t i = 0; i < nsize; i++)
+    {
+        tempMap[i]   = traceCoeffsToElmtMapPtr[permutation[i]];
+        tempSign[i]  = traceCoeffsToElmtSignPtr[permutation[i]];
+        tempTrace[i] = traceCoeffsToElmtTracePtr[permutation[i]];
+    }
+    // copy back to the original map and sign
+    for (size_t i = 0; i < nsize; i++)
+    {
+        traceCoeffsToElmtMapPtr[i]   = tempMap[i];
+        traceCoeffsToElmtSignPtr[i]  = tempSign[i];
+        traceCoeffsToElmtTracePtr[i] = tempTrace[i];
+    }
 }
 
 } // namespace Nektar::Operators::detail

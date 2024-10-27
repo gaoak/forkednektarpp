@@ -35,6 +35,7 @@
 #pragma once
 
 #include "Common/OperatorHelper.hpp"
+#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -48,12 +49,7 @@ namespace Nektar::Operators::detail
 {
 
 // Sum-factorisation implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              (std::is_same<ExecSpace, NektarSpaces::Serial>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value) ||
-              (std::is_same<ExecSpace, NektarSpaces::AVX>::value &&
-               std::is_same<Implementation, Operators::SumFac>::value)>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorIProductWRTDerivBaseImpl
     : public OperatorIProductWRTDerivBase<TData>
 {

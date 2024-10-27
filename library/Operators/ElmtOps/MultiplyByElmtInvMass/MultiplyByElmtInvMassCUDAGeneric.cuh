@@ -45,9 +45,7 @@ namespace Nektar::Operators::detail
 {
 
 // Shared implementation
-template <typename ExecSpace, typename Implementation, typename TData,
-          typename = typename std::enable_if<
-              std::is_same<ExecSpace, NektarSpaces::CUDA>::value>::type>
+template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorMultiplyByElmtInvMassImpl
     : public OperatorMultiplyByElmtInvMass<TData>
 {
