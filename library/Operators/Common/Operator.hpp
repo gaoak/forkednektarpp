@@ -81,14 +81,14 @@ namespace Nektar::Operators
 extern OPERATORS_EXPORT std::string g_OpExecSpace;
 extern OPERATORS_EXPORT std::string g_OpImpl;
 
-template <bool B, typename T> struct simd_type_if
+template <bool B, typename TData> struct simd_type_if
 {
-    typedef tinysimd::scalarT<T> type;
+    typedef tinysimd::scalarT<TData> type;
 };
 
-template <typename T> struct simd_type_if<true, T>
+template <typename TData> struct simd_type_if<true, TData>
 {
-    typedef tinysimd::simd<T> type;
+    typedef tinysimd::simd<TData> type;
 };
 
 // Core implementation types.

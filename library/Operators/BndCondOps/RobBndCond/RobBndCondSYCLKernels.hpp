@@ -37,18 +37,17 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include "Operators/SYCLQueue.hpp"
+#include "Operators/Utils/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
-                       const TData *matPtr, const unsigned int *mapPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
+                   const TData *matPtr, const unsigned int *mapPtr,
+                   const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -87,16 +86,14 @@ inline
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
-                       const unsigned int *ncoeffPtr,
-                       const unsigned int *offsetPtr,
-                       const unsigned int *matOffsetPtr,
-                       const unsigned int *mapOffsetPtr, const TData *matPtr,
-                       const unsigned int *mapPtr, const int *signPtr,
-                       const TData *incoeffPtr, TData *coeffPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
+                   const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
+                   const unsigned int *matOffsetPtr,
+                   const unsigned int *mapOffsetPtr, const TData *matPtr,
+                   const unsigned int *mapPtr, const int *signPtr,
+                   const TData *incoeffPtr, TData *coeffPtr)
 {
     const unsigned int blockSize = NektarSpaces::vector_width<TData>::value;
     const unsigned int gridSize  = nsize;

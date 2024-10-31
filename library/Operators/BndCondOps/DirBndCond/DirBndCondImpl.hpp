@@ -36,9 +36,7 @@
 
 #include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 
-#include "Operators/BndCondOps/DirBndCond/DirBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/DirBndCond/DirBndCondKokkosKernels.hpp"
-#include "Operators/BndCondOps/DirBndCond/DirBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/DirBndCond/DirBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondSerialAVXKernels.hpp"
 
 #include <MultiRegions/ContField.h>

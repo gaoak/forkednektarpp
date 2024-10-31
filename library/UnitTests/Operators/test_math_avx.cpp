@@ -46,26 +46,18 @@
 #undef min
 #endif
 
-using MemSpace = NektarSpaces::HostSpace;
-
 BOOST_AUTO_TEST_SUITE(TestMathAVX)
 
 BOOST_FIXTURE_TEST_CASE(avx_negkernel, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    const double *x;
-    double *y;
 
     // std results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    std::transform(x, x + n, y, [](const double &xi) { return -xi; });
+    neg();
 
     // Serial results
-    y = fixt_out->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    negKernelLauncher(n, x, y);
+    negKernelLauncher(*fixt_in, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -78,20 +70,12 @@ BOOST_FIXTURE_TEST_CASE(avx_addkernel, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    const double *x, *y;
-    double *z;
 
     // std results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    std::transform(x, x + n, y, z,
-                   [](const double &xi, const double &yi) { return xi + yi; });
+    add();
 
     // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    addKernelLauncher(n, x, y, z);
+    addKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -104,20 +88,12 @@ BOOST_FIXTURE_TEST_CASE(avx_subkernel, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    const double *x, *y;
-    double *z;
 
     // std results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    std::transform(x, x + n, y, z,
-                   [](const double &xi, const double &yi) { return xi - yi; });
+    sub();
 
     // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    subKernelLauncher(n, x, y, z);
+    subKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -130,22 +106,13 @@ BOOST_FIXTURE_TEST_CASE(avx_daxpykernel, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n     = fixt_in->size();
     double alpha = 1.5;
-    const double *x, *y;
-    double *z;
 
     // std results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    std::transform(x, x + n, y, z, [=](const double &xi, const double &yi) {
-        return alpha * xi + yi;
-    });
+    daxpy(alpha);
 
     // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    daxpyKernelLauncher(n, alpha, x, y, z);
+    daxpyKernelLauncher(alpha, *fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -158,20 +125,12 @@ BOOST_FIXTURE_TEST_CASE(avx_divkernel, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    const double *x, *y;
-    double *z;
 
     // std results
-    x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-    std::transform(x, x + n, y, z,
-                   [](const double &xi, const double &yi) { return xi / yi; });
+    div();
 
     // AVX results
-    z = fixt_out->GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-    divKernelLauncher(n, x, y, z);
+    divKernelLauncher(*fixt_in, *fixt_in2, *fixt_out);
 
     // Check results
     boost::test_tools::output_test_stream output;
@@ -184,16 +143,12 @@ BOOST_FIXTURE_TEST_CASE(avx_sum, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = std::accumulate(x, x + n, 0.0);
+    auto out = sum();
 
     // AVX results
-    sumKernelLauncher(n, x, &h_out);
+    auto h_out = sumKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -207,16 +162,12 @@ BOOST_FIXTURE_TEST_CASE(avx_max, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = *(std::max_element(x, x + n));
+    auto out = max();
 
     // AVX results
-    maxKernelLauncher(n, x, &h_out);
+    auto h_out = maxKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -230,16 +181,12 @@ BOOST_FIXTURE_TEST_CASE(avx_min, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = *(std::min_element(x, x + n));
+    auto out = min();
 
     // AVX results
-    minKernelLauncher(n, x, &h_out);
+    auto h_out = minKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-12);
@@ -253,16 +200,12 @@ BOOST_FIXTURE_TEST_CASE(avx_innerproduct, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = std::inner_product(x, x + n, x, 0.0);
+    auto out = inner_product();
 
     // AVX results
-    innerproductKernelLauncher(n, x, x, &h_out);
+    auto h_out = innerproductKernelLauncher(*fixt_in, *fixt_in2);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -277,19 +220,12 @@ BOOST_FIXTURE_TEST_CASE(avx_l1norm, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = std::accumulate(x, x + n, 0.0,
-                          [](const double &acc, const double &val) {
-                              return acc + std::abs(val);
-                          });
+    auto out = l1norm();
 
     // AVX results
-    l1normKernelLauncher(n, x, &h_out);
+    auto h_out = l1normKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-11);
@@ -303,18 +239,12 @@ BOOST_FIXTURE_TEST_CASE(avx_l2norm, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = std::accumulate(
-        x, x + n, 0.0,
-        [](const double &acc, const double &val) { return acc + val * val; });
+    auto out = l2norm();
 
     // AVX results
-    l2normKernelLauncher(n, x, &h_out);
+    auto h_out = l2normKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -329,21 +259,14 @@ BOOST_FIXTURE_TEST_CASE(avx_lpnorm, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
-    for (int p = 1; p < 4; p++)
+    for (unsigned int p = 1; p < 4; p++)
     {
         // std results
-        x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        out = std::accumulate(x, x + n, 0.0,
-                              [&](const double &acc, const double &val) {
-                                  return acc + std::pow(std::abs(val), p);
-                              });
+        auto out = lpnorm(p);
 
         // AVX results
-        lpnormKernelLauncher(n, p, x, &h_out);
+        auto h_out = lpnormKernelLauncher(p, *fixt_in);
 
         // Check results
         BOOST_TEST(fabs(h_out - out) < 5.0E-10);
@@ -359,19 +282,12 @@ BOOST_FIXTURE_TEST_CASE(avx_linfnorm, MathKernels)
 {
     Configure();
     SetTestCase();
-    size_t n = fixt_in->size();
-    double out, h_out;
-    const double *x;
 
     // std results
-    x   = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-    out = std::accumulate(x, x + n, std::numeric_limits<double>::min(),
-                          [](const double &acc, const double &val) {
-                              return std::max(std::abs(acc), std::abs(val));
-                          });
+    auto out = linfnorm();
 
     // AVX results
-    linfnormKernelLauncher(n, x, &h_out);
+    auto h_out = linfnormKernelLauncher(*fixt_in);
 
     // Check results
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);

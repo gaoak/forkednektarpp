@@ -426,7 +426,7 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
-        l1norm<ExecSpace>(nElmts * nPts, xptr, &reduce);
+        l1normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
         xptr += block.block_size;
         *out += reduce;
     }
@@ -445,7 +445,7 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
-        l2norm<ExecSpace>(nElmts * nPts, xptr, &reduce);
+        l2normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
         xptr += block.block_size;
         *out += reduce;
     }
@@ -464,7 +464,7 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
-        lpnorm<ExecSpace>(nElmts * nPts, p, xptr, &reduce);
+        lpnormKernel<ExecSpace>(nElmts * nPts, p, xptr, &reduce);
         xptr += block.block_size;
         *out += reduce;
     }
@@ -483,7 +483,7 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
     {
         auto nElmts = block.num_elements;
         auto nPts   = block.num_pts;
-        linfnorm<ExecSpace>(nElmts * nPts, xptr, &reduce);
+        linfnormKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
         xptr += block.block_size;
         *out = std::max(*out, reduce);
     }

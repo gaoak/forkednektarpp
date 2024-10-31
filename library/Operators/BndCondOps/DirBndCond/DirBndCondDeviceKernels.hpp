@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: DirBndCondSerialAVXKernels.hpp
+// File: DirBndCondDeviceKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -41,53 +41,61 @@ namespace Nektar::Operators::detail
 
 template <typename ExecSpace, typename TData>
 inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
                      const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, nsize, [&](const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
+        0u, nsize,
+        NEKTAR_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
 inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
                      const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
-    });
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
+        });
 }
 
 template <typename ExecSpace, typename TData>
 inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
                              TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
-        0u, nsize, [&](const unsigned int i) { outPtr[signPtr[i]] *= -1; });
+        0u, nsize,
+        NEKTAR_LAMBDA(const unsigned int i) { outPtr[signPtr[i]] *= -1; });
 }
 
 template <typename ExecSpace, typename TData>
 inline
-    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
-                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                           const int *id1Ptr, const TData *signPtr,
                           TData *outPtr)
 {
-    Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
-        outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
-    });
+    Nektar::parallel_for<ExecSpace>(
+        0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
+            outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
+        });
 }
 
 } // namespace Nektar::Operators::detail

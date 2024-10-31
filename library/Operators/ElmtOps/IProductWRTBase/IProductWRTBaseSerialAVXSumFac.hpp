@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Common/OperatorHelper.hpp"
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -54,7 +53,7 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorIProductWRTBaseImpl : public OperatorIProductWRTBase<TData>
 {
     using simd_t =
-        typename simd_type_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -239,7 +238,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
@@ -291,12 +290,13 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const auto bPtr0 =
@@ -348,11 +348,11 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -416,22 +416,23 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const auto bPtr0 =
@@ -490,24 +491,25 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
+
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
         const auto bPtr0 =
@@ -563,13 +565,13 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =

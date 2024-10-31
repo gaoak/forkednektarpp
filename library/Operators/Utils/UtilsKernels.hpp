@@ -54,7 +54,7 @@
  */
 template <typename ExecSpace, size_t interleave_width, typename TData>
 void ReshapeStorage(const int curr_interleave_width, const int numElmt,
-                    const int num_pts, TData *inoutPtr)
+                    const int ndata, TData *inoutPtr)
 {
     if (curr_interleave_width != interleave_width)
     {
@@ -62,7 +62,7 @@ void ReshapeStorage(const int curr_interleave_width, const int numElmt,
         if (curr_interleave_width != 1)
         {
             deInterleave<ExecSpace>(curr_interleave_width,
-                                    numElmt / curr_interleave_width, num_pts,
+                                    numElmt / curr_interleave_width, ndata,
                                     inoutPtr);
         }
 
@@ -74,7 +74,7 @@ void ReshapeStorage(const int curr_interleave_width, const int numElmt,
                 "Number of elements is not divisible by interleave width.");
 
             interleave<interleave_width, ExecSpace>(numElmt / interleave_width,
-                                                    num_pts, inoutPtr);
+                                                    ndata, inoutPtr);
         }
     }
 }
@@ -128,7 +128,7 @@ void BuildInterleaveMap(std::vector<BlockAttributes> &blocks,
     for (auto &block : blocks)
     {
         block.interleave_width   = new_interleave_width;
-        auto const ncoeff        = block.num_pts;
+        const auto ncoeff        = block.ndata;
         const size_t nElmtGroups = block.GetNumElmtGroups();
 
         // this function fills both InterleaveMap and deInterleaveMap;

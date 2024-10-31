@@ -100,7 +100,7 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
-    [[maybe_unused]] const bool correct, const simd_type *basis0,
+    [[maybe_unused]] const bool isModified, const simd_type *basis0,
     const simd_type *basis1,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     const typename simd_type::vectorType *in,
@@ -108,8 +108,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
-        BwdTransTriKernel(nm0, nm1, nq0, nq1, correct, basis0, basis1, wsp0, in,
-                          out);
+        BwdTransTriKernel(nm0, nm1, nq0, nq1, isModified, basis0, basis1, wsp0,
+                          in, out);
     }
     else
     {
@@ -120,7 +120,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename simd_type>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
-    const size_t nq1, const size_t nq2, [[maybe_unused]] const bool correct,
+    const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
     const simd_type *basis0, const simd_type *basis1, const simd_type *basis2,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
@@ -134,17 +134,17 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
-        BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0, basis1,
-                          basis2, wsp0, wsp1, in, out);
+        BwdTransTetKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                          basis1, basis2, wsp0, wsp1, in, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
-        BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0,
+        BwdTransPrismKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
                             basis1, basis2, wsp0, wsp1, in, out);
     }
     else
     {
-        BwdTransPyrKernel(nm0, nm1, nm2, nq0, nq1, nq2, correct, basis0, basis1,
-                          basis2, wsp0, wsp1, in, out);
+        BwdTransPyrKernel(nm0, nm1, nm2, nq0, nq1, nq2, isModified, basis0,
+                          basis1, basis2, wsp0, wsp1, in, out);
     }
 }

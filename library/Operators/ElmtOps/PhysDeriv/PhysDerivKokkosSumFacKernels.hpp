@@ -1059,14 +1059,14 @@ void PhysDeriv3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
                   const unsigned int nelmts, const TData *D0, const TData *df,
                   const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if constexpr (MULTILEVEL)
     {
@@ -1080,8 +1080,8 @@ PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           bool SHMEM, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const unsigned int nq1, const unsigned int ncoord,
                   const unsigned int nelmts, const TData *D0, const TData *D1,
@@ -1089,7 +1089,7 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 : 0u;
 
@@ -1136,8 +1136,8 @@ PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           bool SHMEM, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const unsigned int nq1, const unsigned int nq2,
                   const unsigned int nelmts, const TData *D0, const TData *D1,
@@ -1145,7 +1145,7 @@ PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
                   const TData *Z2, const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 + nq2 * nq2 : 0u;
 

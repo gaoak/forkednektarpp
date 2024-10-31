@@ -1,7 +1,7 @@
 // clang-format off
 #if defined(SHAPE_TYPE_Seg)
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
-    auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto Deformed = expPtr->GetMetricInfo()->GetGtype();
 
     const auto nm0 = expPtr->GetBasisNumModes(0);
     const auto nq0 = expPtr->GetNumPoints(0);
@@ -90,7 +90,7 @@
     }
 #elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
-    auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto Deformed = expPtr->GetMetricInfo()->GetGtype();
 
     const auto nm0 = expPtr->GetBasisNumModes(0);
     const auto nm1 = expPtr->GetBasisNumModes(1);
@@ -222,7 +222,7 @@
     }
 #else
     const auto expPtr   = this->m_expansionList->GetExp(m_exp_idx);
-    auto const Deformed = expPtr->GetMetricInfo()->GetGtype();
+    const auto Deformed = expPtr->GetMetricInfo()->GetGtype();
 
     const auto nm0 = expPtr->GetBasisNumModes(0);
     const auto nm1 = expPtr->GetBasisNumModes(1);

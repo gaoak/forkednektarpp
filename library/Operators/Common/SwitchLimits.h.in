@@ -32,6 +32,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
 #define MIN1D @NEKTAR_SWITCH_MIN@
 #define MAX1D @NEKTAR_SWITCH_MAX@
 
@@ -40,3 +41,4 @@
 
 #define MIN3D @NEKTAR_SWITCH_MIN@
 #define MAX3D @NEKTAR_SWITCH_MAX@
+// clang-format on

@@ -40,12 +40,12 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *signPtr, const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
@@ -54,12 +54,12 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
-               const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData sign, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
@@ -68,12 +68,12 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+                   const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
@@ -82,12 +82,12 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *signPtr, const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
@@ -96,12 +96,12 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData sign, const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData sign, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
@@ -110,12 +110,12 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                        const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {

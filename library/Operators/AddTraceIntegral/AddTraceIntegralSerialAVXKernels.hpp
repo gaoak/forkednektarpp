@@ -40,15 +40,15 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-AddTraceIntegralKernel(const unsigned int nsize,
-                       const int *traceCoeffsToElmtMapPtr,
-                       const int *traceCoeffsToElmtSignPtr,
-                       const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    AddTraceIntegralKernel(const unsigned int nsize,
+                           const int *traceCoeffsToElmtMapPtr,
+                           const int *traceCoeffsToElmtSignPtr,
+                           const int *traceCoeffsToElmtTracePtr,
+                           const TData *tracePtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
         outPtr[traceCoeffsToElmtMapPtr[i]] +=
@@ -58,12 +58,13 @@ AddTraceIntegralKernel(const unsigned int nsize,
 }
 
 template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
-                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+                     int *traceCoeffsToElmtSignPtr,
+                     int *traceCoeffsToElmtTracePtr)
 {
     // sort the trace map and get the permutation
     std::vector<int> permutation(nsize);

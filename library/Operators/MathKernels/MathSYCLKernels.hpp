@@ -46,13 +46,12 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    negKernel(const unsigned int nsize, const TData *x, TData *y)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -70,14 +69,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    addKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -95,14 +92,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    subKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -120,14 +115,13 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
-                const TData *y, TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -145,14 +139,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    divKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -581,13 +573,12 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -602,13 +593,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -623,13 +613,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -644,14 +633,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
-               TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -666,13 +653,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -687,13 +673,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -708,14 +693,13 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
-                 TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+             TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -730,13 +714,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (syclBuffer == nullptr)
     {

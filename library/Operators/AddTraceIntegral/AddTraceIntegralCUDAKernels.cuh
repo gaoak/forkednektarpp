@@ -63,14 +63,13 @@ __global__ void AddTraceIntegralKernel(
 
 // Launchers
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    AddTraceIntegralKernel(const unsigned int nsize,
-                           const int *traceCoeffsToElmtMapPtr,
-                           const int *traceCoeffsToElmtSignPtr,
-                           const int *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+AddTraceIntegralKernel(const unsigned int nsize,
+                       const int *traceCoeffsToElmtMapPtr,
+                       const int *traceCoeffsToElmtSignPtr,
+                       const int *traceCoeffsToElmtTracePtr,
+                       const TData *tracePtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -82,12 +81,10 @@ inline
 
 // Launchers
 template <typename ExecSpace>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
-                     int *traceCoeffsToElmtSignPtr,
-                     int *traceCoeffsToElmtTracePtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+ReOrderMapKernel(const unsigned int nsize, int *traceCoeffsToElmtMapPtr,
+                 int *traceCoeffsToElmtSignPtr, int *traceCoeffsToElmtTracePtr)
 {
 }
 

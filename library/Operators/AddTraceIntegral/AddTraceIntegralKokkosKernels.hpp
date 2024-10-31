@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
                        const int *traceCoeffsToElmtSignPtr,
@@ -63,8 +63,8 @@ AddTraceIntegralKernel(const unsigned int nsize,
 
 // Launchers
 template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
                  [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
                  [[maybe_unused]] int *traceCoeffsToElmtSignPtr,

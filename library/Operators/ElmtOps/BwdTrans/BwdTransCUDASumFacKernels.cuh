@@ -2294,15 +2294,14 @@ __global__ void BwdTransPyrKernel_QP_1D(
 // Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
-                     const unsigned int nelmt, const TData *basis0,
-                     const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
+                 const unsigned int nelmt, const TData *basis0, const TData *in,
+                 TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
@@ -2327,18 +2326,16 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                     const unsigned int nm1, const unsigned int nq0,
-                     const unsigned int nq1, const unsigned int nelmt,
-                     const bool correct, const TData *basis0,
-                     const TData *basis1, TData *wsp, const TData *in,
-                     TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
+                 const unsigned int nm1, const unsigned int nq0,
+                 const unsigned int nq1, const unsigned int nelmt,
+                 const bool correct, const TData *basis0, const TData *basis1,
+                 TData *wsp, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
@@ -2400,22 +2397,20 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                     const unsigned int nm1, const unsigned int nm2,
-                     const unsigned int nq0, const unsigned int nq1,
-                     const unsigned int nq2, const unsigned int nelmt,
-                     const bool correct,
-                     [[maybe_unused]] const unsigned int *index0,
-                     [[maybe_unused]] const unsigned int *index1,
-                     const TData *basis0, const TData *basis1,
-                     const TData *basis2, TData *wsp, const TData *in,
-                     TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
+                 const unsigned int nm1, const unsigned int nm2,
+                 const unsigned int nq0, const unsigned int nq1,
+                 const unsigned int nq2, const unsigned int nelmt,
+                 const bool correct,
+                 [[maybe_unused]] const unsigned int *index0,
+                 [[maybe_unused]] const unsigned int *index1,
+                 const TData *basis0, const TData *basis1, const TData *basis2,
+                 TData *wsp, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));

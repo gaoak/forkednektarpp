@@ -47,16 +47,16 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     std::transform(x, x + nsize, y, std::negate<TData>());
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -64,8 +64,8 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -73,8 +73,8 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
@@ -84,8 +84,8 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     std::transform(x, x + nsize, y, z,
@@ -93,40 +93,40 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(x, x + nsize, (TData)0.0);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = *(std::max_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = *(std::min_element(x, x + nsize));
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     *out = std::inner_product(x, x + nsize, y, 0.0);
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(
@@ -135,8 +135,8 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(
@@ -145,8 +145,8 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
@@ -157,8 +157,8 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial>,
+                               void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     *out = std::accumulate(x, x + nsize, 0.0,

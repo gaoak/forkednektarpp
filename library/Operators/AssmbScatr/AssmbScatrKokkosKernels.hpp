@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
@@ -57,8 +57,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
                const TData *inPtr, TData *outPtr)
 {
@@ -72,8 +72,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
                const TData *inPtr, TData *outPtr)
 {
@@ -87,8 +87,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
@@ -102,8 +102,8 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData sign, const TData *inPtr, TData *outPtr)
 {
@@ -117,8 +117,8 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
                     const TData *inPtr, TData *outPtr)
 {

@@ -3736,16 +3736,15 @@ void IProductWRTBasePyrKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
-                            const unsigned int nelmts, const TData *basis0,
-                            const TData *w0, const TData *jac, const TData *in,
-                            TData *out, const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
+                        const unsigned int nelmts, const TData *basis0,
+                        const TData *w0, const TData *jac, const TData *in,
+                        TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
@@ -3756,75 +3755,71 @@ inline
 
     unsigned int nshared = SHMEM ? nm0 * nq0 + nq0 : 0u;
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if constexpr (MULTILEVEL)
     {
         nshared += nq0;
 
-        SYCLQueue::GetInstance()
-            .submit([&](sycl::handler &cgh) {
-                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                      cgh);
+        Q.submit([&](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 
-                cgh.parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          sycl::range<3>(1, 1, blocksize),
-                                      sycl::range<3>(1, 1, blocksize)),
-                    [=](sycl::nd_item<3> item_ct1) {
-                        TData *shmPtr = shared
-                                            .template get_multi_ptr<
-                                                sycl::access::decorated::no>()
-                                            .get();
-                        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED,
-                                                    SHMEM>(
-                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
-                            item_ct1, shmPtr, scale);
-                    });
-            })
-            .wait();
+             cgh.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                       sycl::range<3>(1, 1, blocksize),
+                                   sycl::range<3>(1, 1, blocksize)),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmPtr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED,
+                                                 SHMEM>(
+                         nm0, nq0, nelmts, basis0, w0, jac, in, out, item_ct1,
+                         shmPtr, scale);
+                 });
+         }).wait();
     }
     else
     {
-        SYCLQueue::GetInstance()
-            .submit([&](sycl::handler &cgh) {
-                sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                      cgh);
+        Q.submit([&](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 
-                cgh.parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          sycl::range<3>(1, 1, blocksize),
-                                      sycl::range<3>(1, 1, blocksize)),
-                    [=](sycl::nd_item<3> item_ct1) {
-                        TData *shmPtr = shared
-                                            .template get_multi_ptr<
-                                                sycl::access::decorated::no>()
-                                            .get();
-                        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED,
-                                                 SHMEM>(
-                            nm0, nq0, nelmts, basis0, w0, jac, in, out,
-                            item_ct1, shmPtr, scale);
-                    });
-            })
-            .wait();
+             cgh.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                       sycl::range<3>(1, 1, blocksize),
+                                   sycl::range<3>(1, 1, blocksize)),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmPtr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                         nm0, nq0, nelmts, basis0, w0, jac, in, out, item_ct1,
+                         shmPtr, scale);
+                 });
+         }).wait();
     }
 }
 
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
-                            const unsigned int nm0, const unsigned int nm1,
-                            const unsigned int nq0, const unsigned int nq1,
-                            const unsigned int nelmts, const bool correct,
-                            [[maybe_unused]] const unsigned int *index0,
-                            const TData *basis0, const TData *basis1,
-                            const TData *w0, const TData *w1, const TData *jac,
-                            TData *wsp, const TData *in, TData *out,
-                            const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
+                        const unsigned int nm0, const unsigned int nm1,
+                        const unsigned int nq0, const unsigned int nq1,
+                        const unsigned int nelmts, const bool correct,
+                        [[maybe_unused]] const unsigned int *index0,
+                        const TData *basis0, const TData *basis1,
+                        const TData *w0, const TData *w1, const TData *jac,
+                        TData *wsp, const TData *in, TData *out,
+                        const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const sycl::range<3> blocksize2d =
         sycl::range<3>(1, std::min(nq0, 16u), std::min(nq1, 16u));
@@ -3834,6 +3829,8 @@ inline
     const unsigned int gridsize =
         std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
                  2147483647u);
+
+    sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -3845,72 +3842,63 @@ inline
         {
             nshared += nq0 * nq1 + nm0 * nq1;
 
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              blocksize2d,
-                                          blocksize2d),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseQuadKernel_QP<SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
-                                basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
-                                scale);
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize2d,
+                                       blocksize2d),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED,
+                                                      SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
+                             w0, w1, jac, in, out, item_ct1, shmPtr, scale);
 #else
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND,
-                                                            DEFORMED, SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
-                                basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
-                                scale);
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND,
+                                                         DEFORMED, SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
+                             w0, w1, jac, in, out, item_ct1, shmPtr, scale);
 #endif
-                        });
-                })
-                .wait();
+                     });
+             }).wait();
         }
         else
         {
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED,
-                                                      SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, basis0,
-                                basis1, w0, w1, jac, wsp, in, out, item_ct1,
-                                shmPtr, scale);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED,
+                                                   SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
+                             w0, w1, jac, wsp, in, out, item_ct1, shmPtr,
+                             scale);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tri)
@@ -3923,105 +3911,94 @@ inline
         {
             nshared += nq0 * nq1 + nm0 * nq1 + 1u;
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              blocksize2d,
-                                          blocksize2d),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED,
-                                                        SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                basis0, basis1, w0, w1, jac, in, out, item_ct1,
-                                shmPtr, scale);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           blocksize2d,
+                                       blocksize2d),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED,
+                                                     SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
+                             basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
+                             scale);
+                     });
+             }).wait();
 #else
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND,
-                                                           DEFORMED, SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                index0, basis0, basis1, w0, w1, jac, in, out,
-                                item_ct1, shmPtr, scale);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED,
+                                                        SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, index0,
+                             basis0, basis1, w0, w1, jac, in, out, item_ct1,
+                             shmPtr, scale);
+                     });
+             }).wait();
 #endif
         }
         else
         {
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED,
-                                                     SHMEM>(
-                                nm0, nm1, nmTot, nq0, nq1, nelmts, correct,
-                                basis0, basis1, w0, w1, jac, wsp, in, out,
-                                item_ct1, shmPtr, scale);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED,
+                                                  SHMEM>(
+                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
+                             basis1, w0, w1, jac, wsp, in, out, item_ct1,
+                             shmPtr, scale);
+                     });
+             }).wait();
         }
     }
 }
 
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
-                            const unsigned int nm0, const unsigned int nm1,
-                            const unsigned int nm2, const unsigned int nq0,
-                            const unsigned int nq1, const unsigned int nq2,
-                            const unsigned int nelmts, const bool correct,
-                            [[maybe_unused]] const unsigned int *index0,
-                            [[maybe_unused]] const unsigned int *index1,
-                            [[maybe_unused]] const unsigned int *index2,
-                            const TData *basis0, const TData *basis1,
-                            const TData *basis2, const TData *w0,
-                            const TData *w1, const TData *w2, const TData *jac,
-                            TData *wsp, const TData *in, TData *out,
-                            const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
+                        const unsigned int nm0, const unsigned int nm1,
+                        const unsigned int nm2, const unsigned int nq0,
+                        const unsigned int nq1, const unsigned int nq2,
+                        const unsigned int nelmts, const bool correct,
+                        [[maybe_unused]] const unsigned int *index0,
+                        [[maybe_unused]] const unsigned int *index1,
+                        [[maybe_unused]] const unsigned int *index2,
+                        const TData *basis0, const TData *basis1,
+                        const TData *basis2, const TData *w0, const TData *w1,
+                        const TData *w2, const TData *jac, TData *wsp,
+                        const TData *in, TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const sycl::range<3> blocksize3d =
         sycl::range<3>(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
@@ -4032,6 +4009,7 @@ inline
     const unsigned int gridsize =
         std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
                  2147483647u);
+
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if (shapetype == LibUtilities::Hex)

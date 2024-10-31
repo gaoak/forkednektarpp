@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Common/OperatorHelper.hpp"
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -54,7 +53,7 @@ class OperatorIProductWRTDerivBaseImpl
     : public OperatorIProductWRTDerivBase<TData>
 {
     using simd_t =
-        typename simd_type_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -413,9 +412,9 @@ private:
 
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
-        auto const ndf   = 2u * ncoord;
-        auto const nqTot = nq0 * nq1;
-        auto const nmTot = expPtr->GetNcoeffs();
+        const auto ndf   = 2u * ncoord;
+        const auto nqTot = nq0 * nq1;
+        const auto nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -559,9 +558,9 @@ private:
 
         const auto ncoord = this->m_expansionList->GetCoordim(0);
 
-        auto const ndf   = 2u * ncoord;
-        auto const nqTot = nq0 * nq1;
-        auto const nmTot = expPtr->GetNcoeffs();
+        const auto ndf   = 2u * ncoord;
+        const auto nqTot = nq0 * nq1;
+        const auto nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -710,9 +709,9 @@ private:
         const auto nq1 = expPtr->GetNumPoints(1);
         const auto nq2 = expPtr->GetNumPoints(2);
 
-        auto const ndf   = 9u;
-        auto const nqTot = nq0 * nq1 * nq2;
-        auto const nmTot = expPtr->GetNcoeffs();
+        const auto ndf   = 9u;
+        const auto nqTot = nq0 * nq1 * nq2;
+        const auto nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =
@@ -981,9 +980,9 @@ private:
     {
         const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
 
-        auto const ndf   = 9u;
-        auto const nqTot = nq0 * nq1 * nq2;
-        auto const nmTot = expPtr->GetNcoeffs();
+        const auto ndf   = 9u;
+        const auto nqTot = nq0 * nq1 * nq2;
+        const auto nmTot = expPtr->GetNcoeffs();
 
         // Get Basis and weight data
         const auto B0 =

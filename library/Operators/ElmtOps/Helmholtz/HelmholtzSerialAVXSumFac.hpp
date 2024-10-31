@@ -59,7 +59,7 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 {
     using simd_t =
-        typename simd_type_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -90,7 +90,7 @@ public:
         m_Dmap = GetBasisData<MemSpace, TData, simd_t>(
             expansionList, eDerivative, simd_t::alignment);
 
-        // Initialize the BD data
+        // Initialize the BD data.
         m_BDmap = GetBasisData<MemSpace, TData, simd_t>(
             expansionList, eBasisDerivative, simd_t::alignment);
 
@@ -299,7 +299,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -312,7 +312,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto D0 =
@@ -336,28 +336,28 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in collapsed coordinate space
+            // Step 3: Take derivatives in collapsed coordinate space.
             PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                 nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
                 deriv0);
-            // Step 5: Apply Laplacian metrics & inner product
+            // Step 5: Apply Laplacian metrics & inner product.
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
-            // increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
             tmpOut += nmTot * simd_t::width;
         }
 
-        // free aligned memory
+        // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
     }
@@ -391,7 +391,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -404,7 +404,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto D0 =
@@ -428,28 +428,28 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in collapsed coordinate space
+            // Step 3: Take derivatives in collapsed coordinate space.
             PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeffSegKernel<DEFORMED, simd_t>(
                 nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
                 deriv0);
-            // Step 5: Apply Laplacian metrics & inner product
+            // Step 5: Apply Laplacian metrics & inner product.
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
-            // increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
             tmpOut += nmTot * simd_t::width;
         }
 
-        // free aligned memory
+        // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
     }
@@ -475,11 +475,10 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> m_h0, m_h1;
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -492,7 +491,7 @@ private:
                                                         m_h1);
         }
 
-        // allocate workspace
+        // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         TData *bwd = static_cast<TData *>(
@@ -516,7 +515,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -561,35 +560,35 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1, jacPtr,
                 wsp0, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in collapsed coordinate space
+            // Step 3: Take derivatives in collapsed coordinate space.
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                 nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
                 deriv1);
-            // Step 5: Apply Laplacian metrics & inner product
+            // Step 5: Apply Laplacian metrics & inner product.
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
                 jacPtr, wsp0, tmpOut);
-            // increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
             tmpOut += nmTot * simd_t::width;
         }
 
-        // free aligned memory
+        // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv1, std::align_val_t(simd_t::alignment));
@@ -609,11 +608,10 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> m_h0, m_h1;
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
@@ -642,7 +640,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -655,7 +653,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto B1 =
@@ -687,28 +685,28 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
                                          wsp0, tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct2DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1, jacPtr,
                 wsp0, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in collapsed coordinate space
+            // Step 3: Take derivatives in collapsed coordinate space.
             PhysDerivTensor2DKernel(nq0, nq1, bwdvec, D0, D1, deriv0, deriv1);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                 nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
                 deriv1);
-            // Step 4: Apply Laplacian metrics & inner product
+            // Step 4: Apply Laplacian metrics & inner product.
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
                 jacPtr, wsp0, tmpOut);
-            // increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
@@ -738,13 +736,12 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> m_h0, m_h1, m_h2, m_h3;
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron ||
@@ -793,7 +790,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -806,7 +803,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto B1 =
@@ -846,24 +843,24 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,
                                          tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
                 W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in standard space
+            // Step 3: Take derivatives in standard space.
             PhysDerivTensor3DKernel(nq0, nq1, nq2, bwdvec, D0, D1, D2, deriv0,
                                     deriv1, deriv2);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                 nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
                 NullTDataVector, NullTDataVector, NullTDataVector,
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
                 deriv0, deriv1, deriv2);
-            // Step 5: Apply Laplacian metrics & inner product
+            // Step 5: Apply Laplacian metrics & inner product.
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
@@ -873,14 +870,14 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // Increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;
             tmpOut += nmTot * simd_t::width;
         }
 
-        // free aligned memory
+        // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv1, std::align_val_t(simd_t::alignment));
@@ -902,13 +899,12 @@ private:
         const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
         IProduct3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size, wsp2Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> m_h0, m_h1, m_h2, m_h3;
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron ||
@@ -949,7 +945,7 @@ private:
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers
+        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -962,7 +958,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto B1 =
@@ -1002,24 +998,24 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
-            // Step 1: BwdTrans
+            // Step 1: BwdTrans.
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, B0, B1, B2, wsp0, wsp1,
                                          tmpIn, bwd);
-            // Step 2: inner product for mass matrix operation
+            // Step 2: Inner product for mass matrix operation.
             IProduct3DKernel<SHAPE_TYPE, true, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
                 W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut, this->m_lambda);
-            // Step 3: take derivatives in standard space
+            // Step 3: Take derivatives in standard space.
             PhysDerivTensor3DKernel(nq0, nq1, nq2, bwdvec, D0, D1, D2, deriv0,
                                     deriv1, deriv2);
-            // Step 4: apply diffusion coefficiets
+            // Step 4: Apply diffusion coefficiets.
             DiffusionCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
                 nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
                 NullTDataVector, NullTDataVector, NullTDataVector,
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
                 deriv0, deriv1, deriv2);
-            // Step 5: Apply Laplacian metrics & inner product
+            // Step 5: Apply Laplacian metrics & inner product.
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
@@ -1029,7 +1025,7 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // Increment pointers:
+            // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
             tmpIn += nmTot;

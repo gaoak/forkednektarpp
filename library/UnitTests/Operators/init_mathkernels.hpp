@@ -34,6 +34,11 @@
 
 #include "init_fields.hpp"
 
+#if defined(_MSC_VER)
+#undef max
+#undef min
+#endif
+
 using namespace Nektar::LibUtilities;
 using namespace Nektar;
 
@@ -73,12 +78,12 @@ public:
         func1->Evaluate(x, y, z, fce);
         auto ptr   = fce.get();
         auto inptr = fixt_in->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
-            auto n = block.num_elements * block.num_pts;
-            std::copy(ptr, ptr + n, inptr);
-            std::fill(inptr + n, inptr + block.block_size, 0);
-            ptr += n;
+            auto size = block.num_elements * block.num_pts;
+            std::copy(ptr, ptr + size, inptr);
+            std::fill(inptr + size, inptr + block.block_size, 0);
+            ptr += size;
             inptr += block.block_size;
         }
 
@@ -87,14 +92,241 @@ public:
         func2->Evaluate(x, y, z, fce);
         ptr   = fce.get();
         inptr = fixt_in2->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_out->GetBlocks())
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in2->GetBlocks().size(); ++block_idx)
         {
-            auto n = block.num_elements * block.num_pts;
-            std::copy(ptr, ptr + n, inptr);
-            std::fill(inptr + n, inptr + block.block_size, 0);
-            ptr += n;
+            auto &block = fixt_in2->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::copy(ptr, ptr + size, inptr);
+            ptr += size;
             inptr += block.block_size;
         }
+    }
+
+    void neg()
+    {
+        auto x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::transform(x, x + size, y,
+                           [](const double &xi) { return -xi; });
+            x += block.block_size;
+            y += block.block_size;
+        }
+    }
+
+    void add()
+    {
+        auto x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::transform(
+                x, x + size, y, z,
+                [](const double &xi, const double &yi) { return xi + yi; });
+            x += block.block_size;
+            y += block.block_size;
+            z += block.block_size;
+        }
+    }
+
+    void sub()
+    {
+        auto x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::transform(
+                x, x + size, y, z,
+                [](const double &xi, const double &yi) { return xi - yi; });
+            x += block.block_size;
+            y += block.block_size;
+            z += block.block_size;
+        }
+    }
+
+    void daxpy(double alpha)
+    {
+        auto x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::transform(x, x + size, y, z,
+                           [=](const double &xi, const double &yi) {
+                               return alpha * xi + yi;
+                           });
+            x += block.block_size;
+            y += block.block_size;
+            z += block.block_size;
+        }
+    }
+
+    void div()
+    {
+        auto x = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto z = fixt_expected->GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            std::transform(
+                x, x + size, y, z,
+                [](const double &xi, const double &yi) { return xi / yi; });
+            x += block.block_size;
+            y += block.block_size;
+            z += block.block_size;
+        }
+    }
+
+    double sum()
+    {
+        double out = 0;
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::accumulate(x, x + size, out);
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double max()
+    {
+        double out = std::numeric_limits<double>::min();
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::max(out, *(std::max_element(x, x + size)));
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double min()
+    {
+        double out = std::numeric_limits<double>::max();
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::min(out, *(std::min_element(x, x + size)));
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double inner_product()
+    {
+        double out = 0;
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        auto y     = fixt_in2->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::inner_product(x, x + size, y, out);
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double l1norm()
+    {
+        double out = 0;
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::accumulate(x, x + size, out,
+                                          [](const double &acc, const double &val) {
+                                      return acc + std::abs(val);
+                                  });
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double l2norm()
+    {
+        double out = 0;
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::accumulate(x, x + size, out,
+                                          [](const double &acc, const double &val) {
+                                      return acc + val * val;
+                                  });
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double lpnorm(const unsigned int p)
+    {
+        double out = 0;
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::accumulate(x, x + size, out,
+                                          [&](const double &acc, const double &val) {
+                                      return acc + std::pow(std::abs(val), p);
+                                  });
+            x += block.block_size;
+        }
+        return out;
+    }
+
+    double linfnorm()
+    {
+        double out = std::numeric_limits<double>::min();
+        auto x     = fixt_in->GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (unsigned int block_idx = 0;
+             block_idx < fixt_in->GetBlocks().size(); ++block_idx)
+        {
+            auto &block = fixt_in->GetBlocks()[block_idx];
+            auto size   = block.num_elements * block.num_pts;
+            out         = std::accumulate(
+                x, x + size, out, [](const double &acc, const double &val) {
+                    return std::max(std::abs(acc), std::abs(val));
+                });
+            x += block.block_size;
+        }
+        return out;
     }
 
 protected:

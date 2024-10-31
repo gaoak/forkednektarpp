@@ -2524,14 +2524,14 @@ void BwdTransPyrKernel_QP_1D(
 // Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
                  const unsigned int nelmt, const TData *basis0, const TData *in,
                  TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if constexpr (MULTILEVEL)
     {
@@ -2547,8 +2547,8 @@ BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
 
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  const unsigned int nm1, const unsigned int nq0,
                  const unsigned int nq1, const unsigned int nelmt,
@@ -2556,7 +2556,7 @@ BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -2608,8 +2608,8 @@ BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
 
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  const unsigned int nm1, const unsigned int nm2,
                  const unsigned int nq0, const unsigned int nq1,
@@ -2621,7 +2621,7 @@ BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
                  [[maybe_unused]] TData *wsp, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if (shapetype == LibUtilities::Hex)
     {

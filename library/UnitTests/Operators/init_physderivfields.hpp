@@ -83,7 +83,7 @@ public:
 
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
             for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
@@ -148,7 +148,7 @@ public:
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_expected->GetBlocks())
+        for (const auto &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -221,7 +221,7 @@ public:
         }
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
             for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
@@ -284,7 +284,7 @@ public:
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_expected->GetBlocks())
+        for (const auto &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -353,7 +353,7 @@ public:
         fixt_explist->GetCoords(x, y, z);
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
             for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
             {
@@ -407,7 +407,7 @@ public:
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_expected->GetBlocks())
+        for (const auto &block : fixt_expected->GetBlocks())
         {
             for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
             {

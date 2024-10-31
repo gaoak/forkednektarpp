@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NeuBndCondKokkosKernels.hpp
+// File: NeuBndCondDeviceKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,9 +34,7 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 using namespace Nektar;
 
@@ -44,33 +42,32 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
-                 TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                            void>::type
+    NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
+                     const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
-
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<>(0u, bndExpSize, Kokkos::ChunkSize(blockSize)),
-        KOKKOS_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] += inPtr[i]; });
+    Nektar::parallel_for<ExecSpace>(
+        0u, bndExpSize,
+        NEKTAR_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] += inPtr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
-NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::SYCL> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                            void>::type
+    NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+                     const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
-    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
-
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<>(0u, bndExpSize, Kokkos::ChunkSize(blockSize)),
-        KOKKOS_LAMBDA(const unsigned int i) {
+    Nektar::parallel_for<ExecSpace>(
+        0u, bndExpSize, NEKTAR_LAMBDA(const unsigned int i) {
             outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
         });
 }
 
 } // namespace Nektar::Operators::detail
-
-#endif

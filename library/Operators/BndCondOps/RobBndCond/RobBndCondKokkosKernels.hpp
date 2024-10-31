@@ -42,8 +42,8 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
                    const TData *matPtr, const unsigned int *mapPtr,
                    const TData *incoeffPtr, TData *coeffPtr)
@@ -69,8 +69,8 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
                    const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
                    const unsigned int *matOffsetPtr,

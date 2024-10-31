@@ -61,7 +61,7 @@ public:
         size_t scaleSize = 0;
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr   = this->m_expansionList->GetExp(e);
+            const auto expPtr   = this->m_expansionList->GetExp(e);
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             if (!deformed)
@@ -76,7 +76,7 @@ public:
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             // Copy scaling factor.
-            auto const expPtr   = this->m_expansionList->GetExp(e);
+            const auto expPtr   = this->m_expansionList->GetExp(e);
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto &InvMass = expPtr->GetLocMatrix(StdRegions::eInvMass);
@@ -106,13 +106,13 @@ public:
              ++block_idx)
         {
             // Block dependent.
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
-            auto const nElmtsPad = nElmts + inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad = nElmts + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr   = this->m_expansionList->GetExp(exp_idx);
-            auto const nmTot    = expPtr->GetNcoeffs();
+            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
+            const auto nmTot    = expPtr->GetNcoeffs();
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
@@ -123,11 +123,11 @@ public:
                 // Perform matrix-vector multiply.
                 for (size_t e = 0; e < nElmts; e++)
                 {
-                    auto const expPtr =
+                    const auto expPtr =
                         this->m_expansionList->GetExp(exp_idx + e);
                     const auto &InvMass =
                         expPtr->GetLocMatrix(StdRegions::eInvMass);
-                    auto const matPtr = InvMass->GetRawPtr();
+                    const auto matPtr = InvMass->GetRawPtr();
                     Blas::Dgemv('N', nmTot, nmTot, alpha, matPtr, nmTot, inPtr,
                                 1, beta, outPtr, 1);
                     inPtr += nmTot;
@@ -139,7 +139,7 @@ public:
                 // Perform matrix-matrix multiply.
                 const auto &InvMass =
                     expPtr->GetLocMatrix(StdRegions::eInvMass);
-                auto const matPtr = InvMass->GetRawPtr();
+                const auto matPtr = InvMass->GetRawPtr();
                 Blas::Dgemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr,
                             nmTot, inPtr, nmTot, beta, outPtr, nmTot);
                 Nektar::parallel_for<ExecSpace>(

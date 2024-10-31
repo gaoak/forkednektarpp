@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/SYCLQueue.hpp"
+#include "Operators/Utils/SYCLQueue.hpp"
 
 namespace Nektar
 {
@@ -45,10 +45,9 @@ static unsigned int syclBufferSize = 0u;
 static void *syclBuffer            = nullptr;
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    atomic_add(TData *const dest, const TData val)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+atomic_add(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -67,10 +66,9 @@ inline
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    atomic_sub(TData *const dest, const TData val)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+atomic_sub(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -89,10 +87,9 @@ inline
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    atomic_max(TData *const dest, const TData val)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+atomic_max(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -111,10 +108,9 @@ inline
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    atomic_min(TData *const dest, const TData val)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+atomic_min(TData *const dest, const TData val)
 {
     if constexpr (std::is_same_v<Scope, NektarSpaces::GlobalScope>)
     {
@@ -133,13 +129,12 @@ inline
 }
 
 template <typename ExecSpace, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    parallel_for(const int begin, const int end, const Functor &functor)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+parallel_for(const int begin, const int end, const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
@@ -316,14 +311,13 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    parallel_reduce(const unsigned int begin, const unsigned int end,
-                    const Functor &functor, typename Reduction::value_type *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+parallel_reduce(const unsigned int begin, const unsigned int end,
+                const Functor &functor, typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::SYCL::defaultGridSize;
+    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     using TData = typename Reduction::value_type;
 

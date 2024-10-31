@@ -37,9 +37,9 @@
 
 #include <LocalRegions/Expansion.h>
 
-#include "Operators/CUBLASHandle.cuh"
 #include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
+#include "Operators/Utils/CUBLASHandle.cuh"
 
 namespace Nektar::Operators::detail
 {
@@ -70,8 +70,8 @@ public:
         size_t scaleSize = 0;
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr   = this->m_expansionList->GetExp(e);
-            auto const nmTot    = expPtr->GetNcoeffs();
+            const auto expPtr   = this->m_expansionList->GetExp(e);
+            const auto nmTot    = expPtr->GetNcoeffs();
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             if (deformed)
@@ -91,8 +91,8 @@ public:
         TData *dmatPtr  = dmat.data();
         for (size_t e = 0; e < nTotElmts; ++e)
         {
-            auto const expPtr   = this->m_expansionList->GetExp(e);
-            auto const nmTot    = expPtr->GetNcoeffs();
+            const auto expPtr   = this->m_expansionList->GetExp(e);
+            const auto nmTot    = expPtr->GetNcoeffs();
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto &InvMass = expPtr->GetLocMatrix(StdRegions::eInvMass);
@@ -160,13 +160,13 @@ public:
              ++block_idx)
         {
             // Block dependent.
-            auto const &inblock  = in.GetBlocks()[block_idx];
-            auto const nElmts    = inblock.num_elements;
-            auto const nElmtsPad = nElmts + inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[block_idx];
+            const auto nElmts    = inblock.num_elements;
+            const auto nElmtsPad = nElmts + inblock.num_padding_elements;
 
             // Determine shape and type of the element.
-            auto const expPtr   = this->m_expansionList->GetExp(exp_idx);
-            auto const nmTot    = expPtr->GetNcoeffs();
+            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
+            const auto nmTot    = expPtr->GetNcoeffs();
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
 
@@ -190,7 +190,7 @@ public:
                 }
 
                 // Perform matrix-matrix multiply.
-                auto const matPtr =
+                const auto matPtr =
                     m_matPtr[basisKeys].template GetPtr<MemSpace, ReadOnly>();
                 cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
                             nmTot, &alpha, matPtr, nmTot, inPtr, nmTot, &beta,
