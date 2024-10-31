@@ -264,9 +264,9 @@ BOOST_AUTO_TEST_CASE(TestFullSystemWithWrappedVectors)
         -42, 88,  -76, -65, 25,  28,  -61, -60, 9,   29,  -66, -32, 78,
         39,  94,  68,  -17, -98, -36, 40,  22,  5};
 
-    double b_buf[] = {12719, -3169, -16810, 7408, -14945,
-                      -6822, 10166, 7023,   8679, -11826};
-    double result_buf[10];
+    double b_buf[]        = {12719, -3169, -16810, 7408, -14945,
+                             -6822, 10166, 7023,   8679, -11826};
+    double result_buf[10] = {0};
 
     std::shared_ptr<NekMatrix<double>> A(
         new NekMatrix<double>(10, 10, matrix_buf, eFULL));

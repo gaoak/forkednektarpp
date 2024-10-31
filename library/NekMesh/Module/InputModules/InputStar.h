@@ -100,6 +100,15 @@ private:
         std::unordered_map<int, std::vector<int>> &FacesNodes,
         Array<OneD, std::vector<int>> &ElementFaces);
 
+    void TraversePyraPrismLine(
+        int currElemId, int currFaceId, int currApexNode,
+        std::vector<std::vector<int>> FaceToPrisms,
+        std::vector<std::vector<int>> GlobTriFaces,
+        std::vector<NodeSharedPtr> &Vnodes,
+        Array<OneD, std::vector<int>> &ElementFaces,
+        std::unordered_map<int, std::vector<int>> &FaceNodes,
+        Array<OneD, int> &NodeReordering, int &revNodeid);
+
     void ReadBoundaryFaces(
         std::vector<std::vector<int>> &BndElementFaces,
         std::unordered_map<int, std::vector<int>> &FacesNodes,

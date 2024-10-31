@@ -1,5 +1,12 @@
 Changelog
 =========
+
+v5.8.0
+------
+**Library**
+- Use GLL quadrature points on Tri Dirichlet BCs with CG (!1895)
+
+
 v5.7.0
 -----
 **Library**
@@ -12,11 +19,14 @@ v5.7.0
 - Fix fieldconvert filter incorrect boundary values (!1789)
 - Fix numerical precision issues with filters OutputStartTime (!1789)
 - Fix AdaptiveSFD for MPI (!1821)
+- Fix interpolation on manifold (!1840)
 - Fix IterativeStaticCond when using absolute tolerance (!1850)
 - Fix deadlock by scotch with multi-threading support (!1853)
 - Fixed L2norm for FilterError (!1871)
 - Fix variable p in tetrahedrons (!1881)
 - Fix BwdTrans for Pyr with var P (!1886)
+- Allow wrapper array around a existing raw pointer (!1848)
+- Tweaked some long tests to make them faster (!!1918)
 
 **IncNavierStokesSolver**
 - Fix initial and boundary conditions in the moving reference frame (!1692, !1820)
@@ -27,8 +37,17 @@ v5.7.0
 **ShallowWaterSolver**
 - Implement implicit time-discritization (!1784)
 
+**CompressibleSolver**
+- Add synthetic turbulence generator for the compressible solver (!1859)
+
 **NekMesh**
 - Added revolve module (!1825)
+- Fix Prism Reordering in Process PerAlign (!1899)
+- Extend quality measures in ProcessJac and add histogram generation(!1751)
+- Reducing run time of some tests in NekMesh(!1922)
+- Extend quality measures in ProcessJac and add histogram generation (!1751)
+- Reducing run time of some tests in NekMesh (!1922)
+- Added a reader for the CGNS input format (!1889)
 
 **FieldConvert**
 - Add vortexinducedvelocity module to compute the vortex-induced velocity (!1824)
@@ -39,6 +58,14 @@ v5.7.0
 
 **Documentation**
 - Add initial documentation for the IncNavierStokesSolver (!1822)
+- Updated the supported packages in Userguid (!1904)
+- Added a example for RayleighBenardConvection in the user-guide for IncNS (!1919)
+- Fix some typos in tutorials (!1929)
+
+**CI and Packaging**
+- Debian 10 (BUSTER) is no longer supported (!1902)
+- Support is added for Ubuntu Noble Numbat and droped for Bionic Beaver (!1910)
+- Removed Fedora 35/36, added Fedora 39/40 (!1909)
 
 v5.6.0
 ------

@@ -3570,8 +3570,14 @@ void MoveOutsidePointsNnormpos(
         Vmath::Vadd(nvertl, norm, 1, tmp, 1, norm, 1);
         qp_closernormup = Vmath::Imin(nvertl, norm, 1);
 
+// Apparently a bug in GCC 13.2.0 triggers this warning incorrectly
+#pragma GCC diagnostic push
+#if defined(__GNUC__) && (__GNUC__ > 12)
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
         Vmath::Zero(nvertl, norm, 1);
         Vmath::Zero(nvertl, tmp, 1);
+#pragma GCC diagnostic pop
 
         int qp_closernormdown;
         Vmath::Sadd(nvertl, -x, xnew_down, 1, tmp, 1);

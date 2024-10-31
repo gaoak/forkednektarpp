@@ -1352,10 +1352,10 @@
         <DOMAIN> C[0] </DOMAIN>
     </GEOMETRY>
     <EXPANSIONS>
-        <E COMPOSITE="C[0]" NUMMODES="6" FIELDS="p" TYPE="MODIFIED"/>
-        <E COMPOSITE="C[0]" NUMMODES="6" FIELDS="u" TYPE="MODIFIED"/>
-        <E COMPOSITE="C[0]" NUMMODES="6" FIELDS="v" TYPE="MODIFIED"/>
-        <E COMPOSITE="C[0]" NUMMODES="6" FIELDS="w" TYPE="MODIFIED"/>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="p" TYPE="MODIFIED"/>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="u" TYPE="MODIFIED"/>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="v" TYPE="MODIFIED"/>
+        <E COMPOSITE="C[0]" NUMMODES="4" FIELDS="w" TYPE="MODIFIED"/>
     </EXPANSIONS>
     <CONDITIONS>
         <SOLVERINFO>
@@ -1366,7 +1366,7 @@
         </SOLVERINFO>
         <PARAMETERS>
             <P> TimeStep       = 0.00001            </P>
-            <P> NumSteps       = 300                </P>
+            <P> NumSteps       = 100                </P>
             <P> FinTime        = TimeStep*NumSteps  </P>
             <P> IO_CheckSteps  = NumSteps * 2       </P>
             <P> IO_InfoSteps   = NumSteps * 2       </P>

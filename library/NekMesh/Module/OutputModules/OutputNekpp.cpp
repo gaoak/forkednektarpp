@@ -82,6 +82,7 @@ OutputNekpp::OutputNekpp(MeshSharedPtr m) : OutputModule(m)
     m_config["testcond"] = ConfigOption(false, "", "Test a condition.");
     m_config["varopti"] =
         ConfigOption(true, "0", "Run the variational optimser");
+    m_config["orient"] = ConfigOption(true, "0", "Reorder Prisms and Tets");
 }
 
 OutputNekpp::~OutputNekpp()
@@ -194,6 +195,12 @@ void OutputNekpp::Process()
     if (m_config["stats"].beenSet)
     {
         m_mesh->PrintStats(m_log);
+    }
+
+    if (m_config["orient"].beenSet)
+    {
+        PerMap empty;
+        ReorderPrisms(empty);
     }
 
     // Default to compressed XML output.

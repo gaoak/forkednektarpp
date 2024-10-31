@@ -34,6 +34,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/Interp.h>
 #include <StdRegions/StdExpansion2D.h>
 
 #ifdef max
@@ -405,6 +406,17 @@ void StdExpansion2D::v_GetTraceToElementMap(const int eid,
     {
         maparray[i] = map1[map2[i]];
     }
+}
+
+void StdExpansion2D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
+                                  const Array<OneD, const NekDouble> &fromData,
+                                  Array<OneD, NekDouble> &toData)
+{
+
+    LibUtilities::Interp2D(fromExp->GetBasis(0)->GetPointsKey(),
+                           fromExp->GetBasis(1)->GetPointsKey(), fromData,
+                           m_base[0]->GetPointsKey(), m_base[1]->GetPointsKey(),
+                           toData);
 }
 
 } // namespace Nektar::StdRegions

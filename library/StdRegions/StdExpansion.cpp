@@ -1272,8 +1272,17 @@ void StdExpansion::v_LocCollapsedToLocCoord(
     NEKERROR(ErrorUtil::efatal, "This function is not defined for this shape");
 }
 
+void StdExpansion::v_PhysInterp(
+    [[maybe_unused]] std::shared_ptr<StdExpansion> FromExp,
+    [[maybe_unused]] const Array<OneD, const NekDouble> &fromData,
+    [[maybe_unused]] Array<OneD, NekDouble> &toData)
+{
+    ASSERTL0(false, "This function is not valid or not defined");
+}
+
 const LibUtilities::BasisKey StdExpansion::v_GetTraceBasisKey(
-    [[maybe_unused]] const int i, [[maybe_unused]] const int k) const
+    [[maybe_unused]] const int i, [[maybe_unused]] const int k,
+    [[maybe_unused]] bool UseGLL) const
 {
     ASSERTL0(false, "This function is not valid or not defined");
     return LibUtilities::NullBasisKey;

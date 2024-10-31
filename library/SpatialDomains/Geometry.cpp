@@ -277,7 +277,18 @@ bool Geometry::v_ContainsPoint(const Array<OneD, const NekDouble> &gloCoord,
     {
         Array<OneD, NekDouble> eta(GetShapeDim(), 0.);
         m_xmap->LocCoordToLocCollapsed(locCoord, eta);
-        return !ClampLocCoords(eta, tol);
+        if (ClampLocCoords(eta, tol))
+        {
+            if (GetMetricInfo()->GetGtype() == eRegular)
+            {
+                dist = std::numeric_limits<double>::max();
+            }
+            return false;
+        }
+        return 3 != m_coordim ||
+               (LibUtilities::eTriangle != m_shapeType &&
+                LibUtilities::eQuadrilateral != m_shapeType) ||
+               dist <= tol;
     }
 }
 

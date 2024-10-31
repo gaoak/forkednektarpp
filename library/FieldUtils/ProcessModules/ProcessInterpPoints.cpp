@@ -97,6 +97,8 @@ ProcessInterpPoints::ProcessInterpPoints(FieldSharedPtr f) : ProcessModule(f)
                      "Parameters p0 and q to determine pressure coefficients");
     m_config["realmodetoimag"] =
         ConfigOption(false, "NotSet", "Take fields as sin mode");
+    m_config["distTolerance"] =
+        ConfigOption(false, "1e-5", "The maximum acceptable distance.");
 }
 
 ProcessInterpPoints::~ProcessInterpPoints()
@@ -259,9 +261,10 @@ void ProcessInterpPoints::v_Process(po::variables_map &vm)
     NekDouble clamp_low = m_config["clamptolowervalue"].as<NekDouble>();
     NekDouble clamp_up  = m_config["clamptouppervalue"].as<NekDouble>();
     NekDouble def_value = m_config["defaultvalue"].as<NekDouble>();
+    NekDouble tolerance = m_config["distTolerance"].as<NekDouble>();
 
     InterpolateFieldToPts(fromField->m_exp, m_f->m_fieldPts, clamp_low,
-                          clamp_up, def_value);
+                          clamp_up, def_value, tolerance);
 
     if (!boost::iequals(m_config["cp"].as<string>(), "NotSet"))
     {
@@ -495,7 +498,7 @@ void ProcessInterpPoints::CreateFieldPts([[maybe_unused]] po::variables_map &vm)
 void ProcessInterpPoints::InterpolateFieldToPts(
     vector<MultiRegions::ExpListSharedPtr> &field0,
     LibUtilities::PtsFieldSharedPtr &pts, NekDouble clamp_low,
-    NekDouble clamp_up, [[maybe_unused]] NekDouble def_value)
+    NekDouble clamp_up, NekDouble def_value, NekDouble tolerance)
 {
     ASSERTL0(pts->GetNFields() == field0.size(), "ptField has too few fields");
 
@@ -507,7 +510,7 @@ void ProcessInterpPoints::InterpolateFieldToPts(
         interp.SetProgressCallback(&ProcessInterpPoints::PrintProgressbar,
                                    this);
     }
-    interp.Interpolate(field0, pts);
+    interp.Interpolate(field0, pts, def_value, tolerance);
 
     if (m_f->m_comm->GetRank() == 0)
     {

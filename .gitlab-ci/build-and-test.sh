@@ -43,6 +43,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
                "-DNEKTAR_USE_METIS:BOOL=ON"
                "-DNEKTAR_USE_MESHGEN:BOOL=ON"
                "-DNEKTAR_USE_CCM:BOOL=ON"
+               "-DNEKTAR_USE_CGNS:BOOL=ON"
                "-DNEKTAR_CCMIO_URL=https://www.nektar.info/ccmio/libccmio-2.6.1.tar.gz"
                "-DNEKTAR_USE_CWIPI:BOOL=ON"
                "-DNEKTAR_USE_VTK:BOOL=ON"

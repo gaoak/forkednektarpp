@@ -1297,6 +1297,10 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
     map<int, vector<SpatialDomains::ExpansionInfoShPtr>> ExpOrder;
     LibUtilities::BasisKeyVector PtBvec;
 
+    bool UseGLLOnTri = false;
+    // use GLL in all directions on Triangles if Continuous Expansion
+    pSession->MatchSolverInfo("Projection", "Continuous", UseGLLOnTri, false);
+
     bool DoOptOnCollection =
         m_session->DefinesCmdLineArgument("no-exp-opt") ? false : true;
     int cnt = 0;
@@ -1406,9 +1410,9 @@ ExpList::ExpList(const LibUtilities::SessionReaderSharedPtr &pSession,
                 // Then, get the trace basis key from the element stdExp,
                 // which may be different from Ba, Bb and Bc.
                 LibUtilities::BasisKey TriBa =
-                    elmtStdExp->GetTraceBasisKey(face_id, 0);
+                    elmtStdExp->GetTraceBasisKey(face_id, 0, UseGLLOnTri);
                 LibUtilities::BasisKey TriBb =
-                    elmtStdExp->GetTraceBasisKey(face_id, 1);
+                    elmtStdExp->GetTraceBasisKey(face_id, 1, UseGLLOnTri);
                 // swap TriBa and TriBb orientation is transposed
                 if (geom->GetForient(face_id) >= 9)
                 {
@@ -3270,18 +3274,21 @@ int ExpList::GetExpIndex(const Array<OneD, const NekDouble> &gloCoords,
     // that. Otherwise return -1 to indicate no matching elemenet found.
     if (returnNearestElmt && nearpt_min <= maxDistance)
     {
-
-        std::string msg = "Failed to find point within element to "
-                          "tolerance of " +
-                          boost::lexical_cast<std::string>(tol) +
-                          " using local point (" +
-                          boost::lexical_cast<std::string>(locCoords[0]) + "," +
-                          boost::lexical_cast<std::string>(locCoords[1]) + "," +
-                          boost::lexical_cast<std::string>(locCoords[1]) +
-                          ") in element: " + std::to_string(min_id);
-        WARNINGL1(false, msg.c_str());
-
         Vmath::Vcopy(locCoords.size(), savLocCoords, 1, locCoords, 1);
+        std::string msg = "Failed to find point within a tolerance of " +
+                          boost::lexical_cast<std::string>(tol) +
+                          ", using local point (";
+        for (size_t j = 0; j < locCoords.size(); ++j)
+        {
+            msg += boost::lexical_cast<std::string>(savLocCoords[j]);
+            if (j < locCoords.size())
+            {
+                msg += ", ";
+            }
+        }
+        msg += ") in element: " + std::to_string(min_id) +
+               " with a distance of " + std::to_string(nearpt_min);
+        WARNINGL1(false, msg.c_str());
         return min_id;
     }
     else
@@ -5633,7 +5640,7 @@ void ExpList::v_ExtractPhysToBnd(int i,
 void ExpList::v_GetBoundaryNormals(int i,
                                    Array<OneD, Array<OneD, NekDouble>> &normals)
 {
-    int j, n, cnt, nq;
+    int j, n, cnt;
     int coordim = GetCoordim(0);
     Array<OneD, NekDouble> tmp;
     LocalRegions::ExpansionSharedPtr elmt;
@@ -5659,15 +5666,16 @@ void ExpList::v_GetBoundaryNormals(int i,
     for (n = 0; n < GetBndCondExpansions()[i]->GetExpSize(); ++n)
     {
         offset = GetBndCondExpansions()[i]->GetPhys_Offset(n);
-        nq     = GetBndCondExpansions()[i]->GetExp(n)->GetTotPoints();
 
         elmt = GetExp(ElmtID[cnt + n]);
         const Array<OneD, const Array<OneD, NekDouble>> normalsElmt =
             elmt->GetTraceNormal(EdgeID[cnt + n]);
-        // Copy to result
+
+        // Interp/Copy to result
         for (j = 0; j < coordim; ++j)
         {
-            Vmath::Vcopy(nq, normalsElmt[j], 1, tmp = normals[j] + offset, 1);
+            GetBndCondExpansions()[i]->GetExp(n)->PhysInterp(
+                elmt, normalsElmt[j], tmp = normals[j] + offset);
         }
     }
 }

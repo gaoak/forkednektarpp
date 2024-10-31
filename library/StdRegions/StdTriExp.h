@@ -179,7 +179,7 @@ protected:
         Array<OneD, NekDouble> &coords_z) override;
     STD_REGIONS_EXPORT bool v_IsBoundaryInteriorExpansion() const override;
     STD_REGIONS_EXPORT const LibUtilities::BasisKey v_GetTraceBasisKey(
-        const int i, const int j) const override;
+        const int i, const int j, bool UseGLL = false) const override;
 
     //--------------------------
     // Mappings

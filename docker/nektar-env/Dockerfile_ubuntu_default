@@ -11,6 +11,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 	&& rm -rf /var/lib/apt/lists/*
 RUN ln -s /usr/bin/ccache /usr/local/bin/cc && ln -s /usr/bin/ccache /usr/local/bin/c++ 
 
+RUN if id -u ubuntu 2>/dev/null; then deluser ubuntu; fi
+
 RUN groupadd nektar && useradd -m -g nektar nektar
 USER nektar:nektar
 RUN mkdir /home/nektar/nektar

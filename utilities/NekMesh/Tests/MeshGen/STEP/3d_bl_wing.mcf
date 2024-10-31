@@ -6,14 +6,14 @@
         </INFORMATION>
 
         <PARAMETERS>
-            <P PARAM="MinDelta" VALUE="0.005" />
+            <P PARAM="MinDelta" VALUE="0.05" />
             <P PARAM="MaxDelta" VALUE="0.5"   />
             <P PARAM="EPS"      VALUE="0.05"  />
-            <P PARAM="Order"    VALUE="4"     />
+            <P PARAM="Order"    VALUE="3"     />
 
             <P PARAM="BndLayerSurfaces"    VALUE="7,8,9" />
             <P PARAM="BndLayerThickness"   VALUE="0.02"  />
-            <P PARAM="BndLayerLayers"      VALUE="6"     />
+            <P PARAM="BndLayerLayers"      VALUE="3"     />
             <P PARAM="BndLayerProgression" VALUE="1.5"   />
         </PARAMETERS>
 

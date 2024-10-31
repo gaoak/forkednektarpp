@@ -1969,9 +1969,9 @@ note that this will only affect the polynomial order. The initial condition
 still needs to be set correctly, and does not need to come from the same file
 used for the expansions.
 
-\section{Advecting extra passive scalar fields}
+\section{Advecting extra scalar fields}
 
-In some cases, it might be useful to advect passive scalar fields with the velocity obtained from the
+In some cases, it might be useful to advect scalar fields with the velocity obtained from the
 solution of the Navier-Stokes equation. For example, in study of mass transfer or heat transfer problems
 where getting analytical expression for advection velocity is not possible, the transport (advection-diffusion)
 equation needs to be solved along with the Navier-Stokes equation to get the scalar concentration or
@@ -2006,7 +2006,7 @@ In addition, diffusion coefficients for each extra variable can be specified by 
 \end{lstlisting}
 
 Boundary conditions for the extra fields are set up in the same way as the velocity and pressure
-\begin{lstlisting}[style=XMLStyle]
+\begin{lstlisting}[style=XMLStyle, label=lst:scalarbc]
 <BOUNDARYCONDITIONS>
   <REGION REF="0">
     <D VAR="u"  VALUE="0" />
@@ -2023,6 +2023,70 @@ This leads to small grid spacing required to resolve all physical scales associa
 (the ratio of resolution required for transport to Navier Stokes equation scales with $Sc^{3/4}$, where $Sc$ is the
 Schmidt number = kinematic viscosity/diffusion coefficient). Hence, small diffusion coefficient might lead to spurious
 oscillations if the mesh spacing is not small enough.
+
+Next, we consider an example of an active scalar in the case of Rayleigh-B\'{e}nard convection (RBC) where the temperature (scalar) field is coupled with the momentum equations. RBC describes the motion of a layer of fluid sandwiched between two infinite parallel plates, separated by a distance, $d$, heated from the bottom and cooled from the top - a canonical fluid configuration of natural convection. The governing equations of RBC can be described by the non-dimensional Navier-Stokes equations with Boussinesq approximations given as,
+\begin{subequations}
+    \begin{equation}\label{eq:RBCmmt}
+        \frac{\partial \mathbf{u}}{\partial t} + \mathbf{u} \cdot \nabla \mathbf{u} = -\nabla p + Pr \nabla^2 \mathbf{u} + RaPr\theta \mathbf{j},
+    \end{equation}
+
+    \begin{equation}\label{eq:RBCeng}
+        \frac{\partial \theta}{\partial t} + \mathbf{u} \cdot \nabla \theta = \nabla^2 \theta,
+    \end{equation}
+
+    \begin{equation}
+    \nabla \cdot \mathbf{u} = 0,
+    \end{equation}
+\end{subequations}
+with the following boundary conditions,
+\begin{equation}
+    \mathbf{u}|_{y=0,d} = 0, \quad \theta|_{y=0} = 1, \quad \theta|_{y=d} = 0, 
+\end{equation}
+where the $Ra, Pr, \theta, \mathbf{u}, p$ refers to the Rayleigh number, Prandtl number, non-dimensional temperature and velocities respectively.
+To setup a simulation for a 2D simulation of RBC, the expansions and variables are prescribed as,
+\begin{lstlisting}[style=XMLStyle]
+<EXPANSIONS>
+    <E COMPOSITE="C[0]" NUMMODES="5" FIELDS="u,v,theta,p" TYPE="MODIFIED" />
+</EXPANSIONS>
+
+<VARIABLES>
+    <V ID="0"> u     </V>
+    <V ID="1"> v     </V>
+    <V ID="2"> theta </V>
+    <V ID="3"> p     </V>
+</VARIABLES>
+\end{lstlisting}
+The boundary conditions are set up in the same way as listing \ref{lst:scalarbc}.
+Note that the boundary conditions on the left/right edges are periodic, and its setup is shown in section \ref{sec:periodicBC}.
+Next, the diffusion coefficient for the momentum equations (equation \ref{eq:RBCmmt}) is prescribed directly by setting \inltt{Kinvis} (within \inltt{PARAMETERS}) to the Prandtl number, i.e \inltt{Kinvis = Pr}.
+The diffusion coefficient for the non-dimensional temperature equation (equation \ref{eq:RBCeng}) in this case is 1, which is prescribed in \inltt{DiffusionCoefficient} as,
+
+\begin{lstlisting}[style=XMLStyle]
+<FUNCTION NAME="DiffusionCoefficient">
+    <E VAR="theta" VALUE="1" />
+</FUNCTION>
+\end{lstlisting}
+
+The $RaPr\theta \mathbf{j}$ term refers to the temperature (scalar) field acting as a body force on the $v-$momentum equations (equation \ref{eq:RBCmmt}), which is prescribed using the \inltt{BodyForce} function,
+\begin{lstlisting}[style=XMLStyle]
+<FUNCTION NAME="BodyForce">                                                        
+    <E VAR="u"     VALUE="0"                                  EVARS="u v theta" />
+    <E VAR="v"     VALUE="Ra * Pr * theta"                    EVARS="u v theta" />
+    <E VAR="theta" VALUE="0"                                  EVARS="u v theta" /> 
+</FUNCTION>                                                                        
+\end{lstlisting}
+
+The onset of convection occurs above the critical Rayleigh number, $Ra_{c} = 1708$.
+The solution for $Ra = 2000, Pr = 1$, consisting of two pairs of counter-rotating convection rolls are shown below.
+Note that the wavelength of a pair of rolls is close to the critical wavelength i.e $\lambda_c \approx 2d$.
+\begin{figure}
+\begin{center}
+\includegraphics[width=10cm]{img/Ra2000Rolls.png}
+\caption{Convection rolls at $Ra = 2000$}
+\label{f:incns:RBC}
+\end{center}
+\end{figure}
+
 
 \section{Imposing a constant flowrate}
 

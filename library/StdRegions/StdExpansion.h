@@ -335,14 +335,17 @@ public:
      *
      *  \param i specifies which trace id
      *  \param k is the direction of the basis key for 2D traces
+     *  \param UseGll use GLL quadrature points in Trace Expansion (defaulted to
+     * false)
      *
      *  \return returns the number of Basis key of the ith
      *  trace in the k th direction (when trace is a 2D
      *  object)
      */
-    const LibUtilities::BasisKey GetTraceBasisKey(const int i, int k = -1) const
+    const LibUtilities::BasisKey GetTraceBasisKey(const int i, int k = -1,
+                                                  bool UseGLL = false) const
     {
-        return v_GetTraceBasisKey(i, k);
+        return v_GetTraceBasisKey(i, k, UseGLL);
     }
 
     /** \brief This function returns the basis key belonging
@@ -1050,6 +1053,17 @@ public:
         v_LocCollapsedToLocCoord(eta, xi);
     }
 
+    /** \brief interpolate from one set of quadrature points available from
+     * FromExp to the set of quadrature points in the current expansion. If the
+     * points are the same this routine will just copy the data
+     **/
+    void PhysInterp(std::shared_ptr<StdExpansion> fromExp,
+                    const Array<OneD, const NekDouble> &fromData,
+                    Array<OneD, NekDouble> &toData)
+    {
+        v_PhysInterp(fromExp, fromData, toData);
+    }
+
     STD_REGIONS_EXPORT virtual int v_CalcNumberOfCoefficients(
         const std::vector<unsigned int> &nummodes, int &modes_offset);
 
@@ -1534,7 +1548,7 @@ private:
     STD_REGIONS_EXPORT virtual int v_GetTraceNumPoints(const int i) const  = 0;
 
     STD_REGIONS_EXPORT virtual const LibUtilities::BasisKey v_GetTraceBasisKey(
-        const int i, const int k) const;
+        const int i, const int k, bool UseGLL = false) const;
 
     STD_REGIONS_EXPORT virtual LibUtilities::PointsKey v_GetTracePointsKey(
         const int i, const int j) const;
@@ -1653,8 +1667,13 @@ private:
     STD_REGIONS_EXPORT virtual void v_LocCollapsedToLocCoord(
         const Array<OneD, const NekDouble> &eta, Array<OneD, NekDouble> &xi);
 
-    STD_REGIONS_EXPORT virtual void v_FillMode(
-        const int mode, Array<OneD, NekDouble> &outarray);
+    STD_REGIONS_EXPORT virtual void v_PhysInterp(
+        std::shared_ptr<StdExpansion> FromExp,
+        const Array<OneD, const NekDouble> &fromData,
+        Array<OneD, NekDouble> &toData);
+
+    STD_REGIONS_EXPORT
+    virtual void v_FillMode(const int mode, Array<OneD, NekDouble> &outarray);
 
     STD_REGIONS_EXPORT virtual DNekMatSharedPtr v_GenMatrix(
         const StdMatrixKey &mkey);

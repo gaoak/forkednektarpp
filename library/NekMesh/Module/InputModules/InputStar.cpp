@@ -138,7 +138,7 @@ void InputStar::SetupElements(void)
     // consistent numbering for singular vertex re-ordering
     ResetNodes(m_mesh->m_node, ElementFaces, FaceNodes);
 
-    // create Prisms/Pyramids first
+    // create Prisms first
     int nelements = ElementFaces.size();
     m_log(VERBOSE) << nelements << " Elements" << endl;
     m_log(VERBOSE) << "Generating 3D Zones: " << endl;
@@ -147,7 +147,7 @@ void InputStar::SetupElements(void)
     {
         Array<OneD, int> Nodes =
             SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
-        if (ElementFaces[i].size() == 5 && Nodes.size() == 6)
+        if (ElementFaces[i].size() == 5 && Nodes.size() == 6) // if a prism
         {
             GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
                          nComposite, true);
@@ -158,25 +158,28 @@ void InputStar::SetupElements(void)
 
     nComposite++;
 
+    // create Pyras second
     cnt = 0;
     for (i = 0; i < nelements; ++i)
     {
         Array<OneD, int> Nodes =
             SortFaceNodes(m_mesh->m_node, ElementFaces[i], FaceNodes);
-        if (ElementFaces[i].size() == 5 && Nodes.size() == 5)
+        if (ElementFaces[i].size() == 5 && Nodes.size() == 5) // if a pyra
         {
             GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
                          nComposite, true);
             ++cnt;
         }
     }
+    m_log(VERBOSE) << "  - # of pyramids: " << cnt << endl;
+
     nComposite++;
 
-    // create Tets second
+    // create Tets third
     cnt = 0;
     for (i = 0; i < nelements; ++i)
     {
-        if (ElementFaces[i].size() == 4)
+        if (ElementFaces[i].size() == 4) // if a tetra
         {
             GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
                          nComposite, true);
@@ -184,6 +187,20 @@ void InputStar::SetupElements(void)
         }
     }
     m_log(VERBOSE) << "  - # of tetrahedra: " << cnt << endl;
+    nComposite++;
+
+    // create Hexes fourth
+    cnt = 0;
+    for (i = 0; i < nelements; ++i)
+    {
+        if (ElementFaces[i].size() == 6) // if a hexa
+        {
+            GenElement3D(m_mesh->m_node, i, ElementFaces[i], FaceNodes,
+                         nComposite, true);
+            ++cnt;
+        }
+    }
+    m_log(VERBOSE) << "  - # of hexa: " << cnt << endl;
     nComposite++;
 
     // Insert vertices into map.
@@ -195,8 +212,8 @@ void InputStar::SetupElements(void)
     // Add boundary zones/composites
     for (i = 0; i < BndElementFaces.size(); ++i)
     {
-        m_log(VERBOSE) << "Generating 2D Zone (composite = " << nComposite
-                       << ", label = " << Facelabels[i] << ")" << endl;
+        // m_log(VERBOSE) << "Generating 2D Zone (composite = " << nComposite
+        //                << ", label = " << Facelabels[i] << ")" << endl;
 
         for (int j = 0; j < BndElementFaces[i].size(); ++j)
         {
@@ -212,7 +229,7 @@ void InputStar::SetupElements(void)
             }
         }
 
-        m_mesh->m_faceLabels[nComposite] = Facelabels[i];
+        // m_mesh->m_faceLabels[nComposite] = Facelabels[i];
         nComposite++;
     }
 }
@@ -222,6 +239,24 @@ static void PrismLineFaces(int prismid, map<int, int> &facelist,
                            vector<vector<int>> &PrismsToFaces,
                            vector<bool> &PrismDone);
 
+/**
+ * Algorithm:
+ * 0. Setup
+ *  - generate maps and vectors that contain information relevant for the next
+ *    steps
+ * 1. Pyra-prism lines
+ *  - for each pyra,
+ *      a) number the apex node in reverse order to ensure they have
+ *         a higher global ID than the base nodes
+ *      b) label prism nodes for any prism lines with a pyra on either end
+ *         NOTE: this may raise an error if two pyras on opposite ends are
+ *               misaligned
+ * 2. Non-pyra prism lines
+ *  - label prism nodes for prism lines with orientation not dictated by pyra
+ * 3. Number everything else
+ *  - order doesn't matter for quad faces and there is no coupling between the
+ *    tri faces in tets
+ */
 void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
                            Array<OneD, vector<int>> &ElementFaces,
                            unordered_map<int, vector<int>> &FaceNodes)
@@ -231,6 +266,7 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
     int face1_map[3] = {0, 1, 4};
     int face3_map[3] = {3, 2, 5};
     int nodeid       = 0;
+    int revNodeid    = Vnodes.size() - 1;
     map<int, bool> FacesRenumbered;
 
     // Determine Prism triangular face connectivity.
@@ -238,6 +274,13 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
     vector<vector<int>> PrismToFaces(ElementFaces.size());
     map<int, int> Prisms;
 
+    map<int, int> Pyras;
+
+    // the global tri/quad face IDs for each prism/pyra
+    vector<vector<int>> GlobTriFaces(ElementFaces.size());
+    vector<vector<int>> GlobQuadFaces(ElementFaces.size());
+
+    // 0.
     // generate map of prism-faces to prisms and prism to
     // triangular-faces as well as ids of each prism.
     for (i = 0; i < ElementFaces.size(); ++i)
@@ -246,12 +289,17 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         if (ElementFaces[i].size() == 5)
         {
             vector<int> LocTriFaces;
-            // Find triangular faces
+            // Find tri and quad faces faces
             for (j = 0; j < ElementFaces[i].size(); ++j)
             {
                 if (FaceNodes[ElementFaces[i][j]].size() == 3)
                 {
                     LocTriFaces.push_back(j);
+                    GlobTriFaces[i].push_back(ElementFaces[i][j]);
+                }
+                else
+                {
+                    GlobQuadFaces[i].push_back(ElementFaces[i][j]);
                 }
             }
 
@@ -267,18 +315,7 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
             }
             else if (LocTriFaces.size() == 4)
             {
-                continue; // do nothing
-                Prisms[i] = i;
-
-                PrismToFaces[i].push_back(ElementFaces[i][LocTriFaces[0]]);
-                PrismToFaces[i].push_back(ElementFaces[i][LocTriFaces[1]]);
-                PrismToFaces[i].push_back(ElementFaces[i][LocTriFaces[2]]);
-                PrismToFaces[i].push_back(ElementFaces[i][LocTriFaces[3]]);
-
-                FaceToPrisms[ElementFaces[i][LocTriFaces[0]]].push_back(i);
-                FaceToPrisms[ElementFaces[i][LocTriFaces[1]]].push_back(i);
-                FaceToPrisms[ElementFaces[i][LocTriFaces[2]]].push_back(i);
-                FaceToPrisms[ElementFaces[i][LocTriFaces[3]]].push_back(i);
+                Pyras[i] = i;
             }
             else
             {
@@ -289,12 +326,57 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    vector<bool> FacesDone(FaceNodes.size(), false);
-    vector<bool> PrismDone(ElementFaces.size(), false);
+    // 1.
+    for (auto &PyraIt : Pyras)
+    {
+        // find the ID of the apex node (the node in any of the tri faces which
+        // is not also in the quad (base) face)
+        int apexNode          = -1;
+        vector<int> baseNodes = FaceNodes[GlobQuadFaces[PyraIt.second][0]];
 
+        // assert that none of the base nodes have already been ID'd
+        for (int id : baseNodes)
+        {
+            ASSERTL0(NodeReordering[id] == -1,
+                     "Impossible mesh: cannot enforce apex as collapsed point");
+        }
+
+        // the choice of the 0th tri face is arbitrary
+        for (int id : FaceNodes[GlobTriFaces[PyraIt.second][0]])
+        {
+            // if a node `id` is not in the base, it must be the apex
+            if (find(baseNodes.begin(), baseNodes.end(), id) == baseNodes.end())
+            {
+                apexNode = id;
+                break;
+            }
+        }
+
+        ASSERTL0(apexNode != -1, "Apex node not found in pyramid");
+
+        // if apex node hasn't already been given an ID (because of sharing it
+        // with another pyramid)
+        if (NodeReordering[apexNode] == -1)
+        {
+            NodeReordering[apexNode] = revNodeid--;
+        }
+
+        // traverse along each prism line that exists out of the pyra
+        for (int faceId : GlobTriFaces[PyraIt.second]) // for each tri face
+        {
+            TraversePyraPrismLine(PyraIt.second, faceId, apexNode, FaceToPrisms,
+                                  GlobTriFaces, Vnodes, ElementFaces, FaceNodes,
+                                  NodeReordering, revNodeid);
+        }
+    }
+
+    // 2.
     // For every prism find the list of prismatic elements
     // that represent an aligned block of cells. Then renumber
     // these blocks consecutively
+    vector<bool> FacesDone(FaceNodes.size(), false);
+    vector<bool> PrismDone(ElementFaces.size(), false);
+
     for (auto &PrismIt : Prisms)
     {
         int elmtid = PrismIt.first;
@@ -324,14 +406,10 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
                 {
                     continue;
                 }
-                // ISSUE ON PYRAMIDS
+
                 Array<OneD, int> Nodes =
                     SortFaceNodes(Vnodes, ElementFaces[prismid], FaceNodes);
 
-                if (Nodes.size() == 5)
-                {
-                    continue;
-                }
                 if ((FacesDone[PrismToFaces[prismid][0]] == false) &&
                     (FacesDone[PrismToFaces[prismid][1]] == false))
                 {
@@ -423,7 +501,8 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    // fill in any unset nodes at from other shapes
+    // 3.
+    // fill in any unset nodes from other shapes
     for (i = 0; i < NodeReordering.size(); ++i)
     {
         if (NodeReordering[i] == -1)
@@ -432,7 +511,7 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
         }
     }
 
-    ASSERTL1(nodeid == NodeReordering.size(), "Have not renumbered all nodes");
+    ASSERTL1(nodeid == revNodeid + 1, "Have not renumbered all nodes");
 
     // Renumbering successfull so reset nodes and faceNodes;
     for (auto &it : FaceNodes)
@@ -448,6 +527,102 @@ void InputStar::ResetNodes(vector<NodeSharedPtr> &Vnodes,
     {
         Vnodes[NodeReordering[i]] = save[i];
         Vnodes[NodeReordering[i]]->SetID(NodeReordering[i]);
+    }
+}
+
+void InputStar::TraversePyraPrismLine(
+    int currElemId, int currFaceId, int currApexNode,
+    std::vector<std::vector<int>> FaceToPrisms,
+    std::vector<std::vector<int>> GlobTriFaces,
+    std::vector<NodeSharedPtr> &Vnodes,
+    Array<OneD, std::vector<int>> &ElementFaces,
+    unordered_map<int, std::vector<int>> &FaceNodes,
+    Array<OneD, int> &NodeReordering, int &revNodeid)
+{
+    // these convert between the node ordering generated by OrderFaceNodes()
+    // and the node ordering for the two triangular faces
+    int face1_map[3] = {0, 1, 4};
+    int face3_map[3] = {3, 2, 5};
+
+    // iterate over the one/two prisms that connect the face
+    for (int nextElemId : FaceToPrisms[currFaceId])
+    {
+        // only carry out the rest of the function if travelling in the right
+        // direction
+        if (nextElemId == currElemId)
+        {
+            continue;
+        }
+
+        // iterate over the two tri faces (one at each end)
+        for (int nextFaceId : GlobTriFaces[nextElemId])
+        {
+            // ensure that we are travelling in the right direction
+            if (nextFaceId == currFaceId)
+            {
+                continue;
+            }
+
+            // reorder the nodes
+            Array<OneD, int> Nodes =
+                SortFaceNodes(Vnodes, ElementFaces[nextElemId], FaceNodes);
+
+            int nextApexNode = -1; // the ID of the opposite collapsed point
+            int currFace     = -1; // either 1 or 3
+
+            // highest ID for each face
+            int highestId1 = -1;
+            int highestId3 = -1;
+
+            // find the orientation of the prism (face 1 vs 3)
+            for (int i = 0; i < 3; ++i)
+            {
+                highestId1 = (NodeReordering[Nodes[face1_map[i]]] > highestId1)
+                                 ? NodeReordering[Nodes[face1_map[i]]]
+                                 : highestId1;
+
+                highestId3 = (NodeReordering[Nodes[face3_map[i]]] > highestId3)
+                                 ? NodeReordering[Nodes[face3_map[i]]]
+                                 : highestId3;
+
+                if (Nodes[face1_map[i]] == currApexNode)
+                {
+                    nextApexNode = Nodes[face3_map[i]];
+                    currFace     = 1;
+                }
+
+                if (Nodes[face3_map[i]] == currApexNode)
+                {
+                    nextApexNode = Nodes[face1_map[i]];
+                    currFace     = 3;
+                }
+            }
+
+            if (currFace == 1)
+            {
+                ASSERTL0(highestId3 == NodeReordering[nextApexNode],
+                         "Error meshing: incompatible collapsed point");
+            }
+            else if (currFace == 3)
+            {
+                ASSERTL0(highestId1 == NodeReordering[nextApexNode],
+                         "Error meshing: incompatible collapsed point");
+            }
+            else
+            {
+                m_log(FATAL) << "Error meshing: collapsed point not found";
+            }
+
+            if (NodeReordering[nextApexNode] == -1)
+            {
+                NodeReordering[nextApexNode] = revNodeid--;
+            }
+
+            // continue traversing along the line
+            TraversePyraPrismLine(nextElemId, nextFaceId, -1, FaceToPrisms,
+                                  GlobTriFaces, Vnodes, ElementFaces, FaceNodes,
+                                  NodeReordering, revNodeid);
+        }
     }
 }
 
@@ -537,10 +712,13 @@ void InputStar::GenElement3D(vector<NodeSharedPtr> &VertNodes,
     {
         elType = LibUtilities::ePrism;
     }
+    else if (nnodes == 8)
+    {
+        elType = LibUtilities::eHexahedron;
+    }
     else if (nnodes != 4)
     {
-        m_log(FATAL) << "Not set up for elements which are not tets or prisms"
-                     << endl;
+        m_log(FATAL) << "Unknown element type" << endl;
     }
 
     // Create element tags
@@ -619,7 +797,6 @@ Array<OneD, int> InputStar::SortFaceNodes(
     vector<NodeSharedPtr> &Vnodes, vector<int> &ElementFaces,
     unordered_map<int, vector<int>> &FaceNodes)
 {
-
     int i, j;
     Array<OneD, int> returnval;
 
@@ -918,6 +1095,81 @@ Array<OneD, int> InputStar::SortFaceNodes(
                 returnval[2] = indx3;
                 returnval[3] = indx2;
             }
+        }
+    }
+    else if (ElementFaces.size() == 6) // hexahedron
+    {
+        ASSERTL1(FaceNodes[ElementFaces[0]].size() == 4 &&
+                     FaceNodes[ElementFaces[1]].size() == 4 &&
+                     FaceNodes[ElementFaces[2]].size() == 4 &&
+                     FaceNodes[ElementFaces[3]].size() == 4 &&
+                     FaceNodes[ElementFaces[4]].size() == 4 &&
+                     FaceNodes[ElementFaces[5]].size() == 4,
+                 "Shape not recognised");
+
+        returnval = Array<OneD, int>(8);
+
+        // neighbours map contains a set of each neighbouring node for every
+        // node
+        map<int, unordered_set<int>> neighbours;
+
+        // populate neighbours
+        for (int faceId : ElementFaces)
+        {
+            vector<int> nodes = FaceNodes[faceId];
+            neighbours[nodes[0]].insert({nodes[1], nodes[3]});
+            neighbours[nodes[1]].insert({nodes[2], nodes[0]});
+            neighbours[nodes[2]].insert({nodes[3], nodes[1]});
+            neighbours[nodes[3]].insert({nodes[0], nodes[2]});
+        }
+
+        // the bottom face is chosen arbitrarily as the 0th indexed one
+        vector<int> bottomFace = FaceNodes[ElementFaces[0]];
+        unordered_set<int> bottomFaceSet(bottomFace.begin(), bottomFace.end());
+
+        // the top face is the face opposite, sharing no edges or vertices
+        vector<int> topFace;
+
+        // find the top face
+        for (int i = 1; i < 6; i++)
+        {
+            bool sharedEdge = false;
+            for (int id : FaceNodes[ElementFaces[i]])
+            {
+                if (bottomFaceSet.count(id)) // if node @ id is in the
+                                             // bottom face
+                {
+                    sharedEdge = true;
+                    break;
+                }
+            }
+            if (sharedEdge)
+            {
+                continue;
+            }
+            topFace = FaceNodes[ElementFaces[i]];
+        }
+
+        ASSERTL0(topFace.size() == 4, "Top face of hex not found");
+
+        // insert the bottom face nodes into returnval[0:4]
+        // insert the top face nodes into returnval[4:]
+        // returnval[i+4] is the node opposite returnval[i]
+        for (int i = 0; i < 4; i++)
+        {
+            returnval[i]     = bottomFace[i];
+            bool oppositeSet = false;
+
+            for (int id : neighbours[bottomFace[i]])
+            {
+                if (!bottomFaceSet.count(id))
+                {
+                    returnval[i + 4] = id;
+                    oppositeSet      = true;
+                    break;
+                }
+            }
+            ASSERTL0(oppositeSet, "Node in the top face of hex not numbered");
         }
     }
     else

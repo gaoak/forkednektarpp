@@ -68,6 +68,7 @@ void MMFMaxwell::v_InitObject(bool DeclareFields)
 
     int nq       = m_fields[0]->GetNpoints();
     int shapedim = m_fields[0]->GetShapeDimension();
+    ASSERTL0(shapedim <= 2, "This solver is only for 1D lines or 2D surfaces");
 
     m_session->LoadParameter("ElemtGroup0", m_ElemtGroup0, 0);
     m_session->LoadParameter("ElemtGroup1", m_ElemtGroup1, 0);
@@ -2870,7 +2871,7 @@ void MMFMaxwell::AddCoriolis(Array<OneD, Array<OneD, NekDouble>> &physarray,
             indx = 2;
         }
 
-        else if (j == 1)
+        else
         {
             indx = 1;
         }

@@ -49,7 +49,6 @@ namespace Nektar::NekMesh
 class ProcessJac : public NekMesh::ProcessModule
 {
 public:
-    /// Creates an instance of this class
     static std::shared_ptr<Module> create(NekMesh::MeshSharedPtr m)
     {
         return MemoryManager<ProcessJac>::AllocateSharedPtr(m);
@@ -66,6 +65,89 @@ public:
     {
         return "ProcessJac";
     }
+    /**
+     * @brief Outputing space in the jac.txt using std::setw().
+     */
+    enum
+    {
+        ElementID        = 10,
+        Jac              = 15,
+        type             = 15,
+        Boundary_edge_ID = 20,
+        VertexID         = 15,
+        Boundary_face_ID = 20,
+        EdgeID           = 10,
+        CoordX           = 15,
+        CoordY           = 15,
+        CoordZ           = 15,
+        CompositeName    = 15,
+        CompositeID      = 15,
+        NeighborElID     = 30
+    };
+    typedef struct
+    {
+        NekDouble Jac;
+        ElementSharedPtr El;
+    } element_reorder;
+
+private:
+    /// The maximum value shown on the on-screen histogram. Defined by the user
+    /// in the first value of "histo".
+    NekDouble m_histo_max_value;
+    /// The number of bins with positive Jacobians of the histogram shown on the
+    /// screen. Defined by the user in the second value of "histo".
+    int m_ScalePos;
+    /// The number of bins with negative Jacobians of the histogram shown on the
+    /// screen. Defined by the user in the third value of "histo"
+    int m_ScaleNeg;
+    /// The interval of the bin of the histogram shown on the screen, which is
+    /// calculated by m_histo_max_value/m_ScalePos
+    NekDouble m_interval;
+
+    /**
+     * @brief Get the coordinates of the boundary vertices of the boundary
+     * face/edge and export them to the text file.
+     *
+     * @param el SharedPointer to the evaluated element.
+     * @param output_file The file where information is writtern to.
+     * @param detail True also gets and writes the composite name the element
+     * boundary is on.
+     */
+    void GetBoundaryCoordinate(const ElementSharedPtr &el,
+                               std::ofstream &output_file, bool detail);
+    /**
+     * @brief Get the composite name and ID of a boundary element, which can be
+     * further exported into a text file.
+     *
+     * @param el SharedPointer to the evaluated element.
+     * @param CompositeNamed The composite name of the boundary element.
+     * @param CompositeID The ID of the composite where the boundary element
+     * lies on.
+     * @return False if the imported mesh does not set name for
+     * composites.
+     */
+
+    bool GetCompositeName(const ElementSharedPtr &el,
+                          std::string &CompositeNamed,
+                          unsigned int &CompositeID);
+    /**
+     * @brief  Output histogram of scaled Jacobian on the screen.
+     *
+     * @param histo Array which contains the number of elements in each interval
+     * between 0.0 and 1.0.
+     */
+    void GetHistogram(const Array<OneD, NekDouble> &histo);
+
+    /**
+     * @brief Check quality based on scaled Jacobians. The scaled Jacobian is
+     * between 0.0 to 1.0, and is divided to 10 columns (by default, this number
+     * is the same as that in the function GetHistogram), this function shows
+     * the number of elements in each columns
+     *
+     * @param QuaHisto Array which contains the number of elements in each
+     * interval between 0.0 and 1.0.
+     */
+    void Qualitycheck(Array<OneD, NekDouble> QuaHisto);
 };
 } // namespace Nektar::NekMesh
 

@@ -169,6 +169,11 @@ protected:
     STD_REGIONS_EXPORT void v_GenStdMatBwdDeriv(const int dir,
                                                 DNekMatSharedPtr &mat) override;
 
+    STD_REGIONS_EXPORT void v_PhysInterp(
+        std::shared_ptr<StdExpansion> fromExp,
+        const Array<OneD, const NekDouble> &fromData,
+        Array<OneD, NekDouble> &toData) override;
+
 private:
     int v_GetShapeDimension() const final
     {

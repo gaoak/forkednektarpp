@@ -702,33 +702,22 @@ void Module::ReorderPrisms(PerMap &perFaces)
                 // Determine which of the three vertices on the 'other'
                 // face corresponds to the highest ID - this signifies
                 // the singular point of the line of prisms.
-                int tmp1[3] = {nodes[prismTris[o][0]]->m_id,
-                               nodes[prismTris[o][1]]->m_id,
-                               nodes[prismTris[o][2]]->m_id};
-                int tmp2[3] = {0, 1, 2};
-
-                if (tmp1[0] > tmp1[1])
+                std::vector<std::pair<NekInt, NekInt>> tmp;
+                for (int j = 0; j < 3; ++j)
                 {
-                    swap(tmp1[0], tmp1[1]);
-                    swap(tmp2[0], tmp2[1]);
+                    tmp.push_back(
+                        std::make_pair(j, nodes[prismTris[o][j]]->m_id));
                 }
-
-                if (tmp1[1] > tmp1[2])
-                {
-                    swap(tmp1[1], tmp1[2]);
-                    swap(tmp2[1], tmp2[2]);
-                }
-
-                if (tmp1[0] > tmp1[2])
-                {
-                    swap(tmp1[0], tmp1[2]);
-                    swap(tmp2[0], tmp2[2]);
-                }
+                std::sort(tmp.begin(), tmp.end(),
+                          [&](std::pair<NekInt, NekInt> a,
+                              std::pair<NekInt, NekInt> b) {
+                              return a.second < b.second;
+                          });
 
                 // Renumber this face so that highest ID matches.
                 for (j = 0; j < 3; ++j)
                 {
-                    NodeSharedPtr n = nodes[prismTris[t][tmp2[j]]];
+                    NodeSharedPtr n = nodes[prismTris[t][tmp[j].first]];
                     if (n->m_id == -1)
                     {
                         n->m_id = nodeId++;
@@ -761,7 +750,7 @@ void Module::ReorderPrisms(PerMap &perFaces)
                         e2->m_edgeNodes = e1->m_edgeNodes;
                         e2->m_curveType = e1->m_curveType;
                     }
-                    else if (e1->m_n1 == e2->m_n1 && e1->m_n2 == e2->m_n2)
+                    else if (e1->m_n1 == e2->m_n2 && e1->m_n2 == e2->m_n1)
                     {
                         e2->m_edgeNodes = e1->m_edgeNodes;
                         std::reverse(e2->m_edgeNodes.begin(),

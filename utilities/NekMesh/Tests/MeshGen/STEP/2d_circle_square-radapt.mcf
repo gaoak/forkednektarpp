@@ -7,31 +7,31 @@
         </INFORMATION>
 
         <PARAMETERS>
-            <P PARAM="MinDelta" VALUE="0.01"/>
-            <P PARAM="MaxDelta" VALUE="0.01"/>
+            <P PARAM="MinDelta" VALUE="0.05"/>
+            <P PARAM="MaxDelta" VALUE="0.1"/>
             <P PARAM="EPS"      VALUE="0.1"/>
-            <P PARAM="Order"    VALUE="4"/>
+            <P PARAM="Order"    VALUE="3"/>
         </PARAMETERS>
 
         <REFINEMENT>
             <CURVE>
                 <ID> 1 </ID>
-                <R> 0.001 </R>
+                <R> 0.008 </R>
                 <D> 0.0015 </D>
             </CURVE>
             <CURVE>
                 <ID> 2 </ID>
-                <R> 0.001 </R>
+                <R> 0.008 </R>
                 <D> 0.0015 </D>
             </CURVE>
             <CURVE>
                 <ID> 3 </ID>
-                <R> 0.001 </R>
+                <R> 0.008 </R>
                 <D> 0.0015 </D>
             </CURVE>
             <CURVE>
                 <ID> 4 </ID>
-                <R> 0.001 </R>
+                <R> 0.008 </R>
                 <D> 0.0015 </D>
             </CURVE>
         </REFINEMENT>

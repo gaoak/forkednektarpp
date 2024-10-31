@@ -74,13 +74,14 @@ public:
     }
 
     /// Interpolate from an expansion to an expansion
-    FIELD_UTILS_EXPORT void Interpolate(const T expInField, T &expOutField,
-                                        NekDouble def_value = 0.0);
+    FIELD_UTILS_EXPORT void Interpolate(
+        const T expInField, T &expOutField, NekDouble def_value = 0.,
+        NekDouble tolerance = NekConstants::kFindDistanceMin);
 
     /// Interpolate from an expansion to a pts field
     FIELD_UTILS_EXPORT void Interpolate(
         const T expInField, LibUtilities::PtsFieldSharedPtr &ptsOutField,
-        NekDouble def_value = 0.0);
+        NekDouble def_value = 0., NekDouble tolerance = 1.E-5);
 
     /// Interpolate from a pts field to an expansion
     FIELD_UTILS_EXPORT void Interpolate(

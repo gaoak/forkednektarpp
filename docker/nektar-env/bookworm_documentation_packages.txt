@@ -6,5 +6,7 @@ imagemagick
 texlive-base
 texlive-fonts-recommended
 texlive-latex-extra
+texlive-latex-recommended
+texlive-pictures
 texlive-pstricks
 texlive-science

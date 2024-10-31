@@ -174,16 +174,58 @@ Prism::Prism(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
                 {
                     face = (face + 2) % 6;
                 }
+
+                for (int i = 0; i < facenodes; ++i)
+                {
+                    faceNodes.push_back(pNodeList[face_offset[face] + i]);
+                }
+
+                // Find the original face vertex IDs.
+                vector<int> origFaceIds(4);
+                origFaceIds[0] = pNodeList[m_faceIds[face][0]]->m_id;
+                origFaceIds[1] = pNodeList[m_faceIds[face][1]]->m_id;
+                origFaceIds[2] = pNodeList[m_faceIds[face][2]]->m_id;
+                origFaceIds[3] = pNodeList[m_faceIds[face][3]]->m_id;
+
+                // Construct a HOQuadrilateral object which performs the
+                // orientation magically for us.
+                HOQuadrilateral<NodeSharedPtr> hoq(origFaceIds, faceNodes);
+                vector<int> faceVertIds(4);
+                faceVertIds[0] = m_vertex[m_faceIds[j][0]]->m_id;
+                faceVertIds[1] = m_vertex[m_faceIds[j][1]]->m_id;
+                faceVertIds[2] = m_vertex[m_faceIds[j][2]]->m_id;
+                faceVertIds[3] = m_vertex[m_faceIds[j][3]]->m_id;
+                hoq.Align(faceVertIds);
+
+                // Copy the face nodes back again.
+                faceNodes = hoq.surfVerts;
             }
             else
             {
-                // TODO: need to rotate these too.
                 facenodes = n * (n - 1) / 2;
-            }
 
-            for (int i = 0; i < facenodes; ++i)
-            {
-                faceNodes.push_back(pNodeList[face_offset[face] + i]);
+                for (int i = 0; i < facenodes; ++i)
+                {
+                    faceNodes.push_back(pNodeList[face_offset[face] + i]);
+                }
+
+                // Find the original face vertex IDs.
+                vector<int> origFaceIds(3);
+                origFaceIds[0] = pNodeList[m_faceIds[face][0]]->m_id;
+                origFaceIds[1] = pNodeList[m_faceIds[face][1]]->m_id;
+                origFaceIds[2] = pNodeList[m_faceIds[face][2]]->m_id;
+
+                // Construct a HOTriangle object which performs the
+                // orientation magically for us.
+                HOTriangle<NodeSharedPtr> hoTri(origFaceIds, faceNodes);
+                vector<int> faceVertIds(3);
+                faceVertIds[0] = m_vertex[m_faceIds[j][0]]->m_id;
+                faceVertIds[1] = m_vertex[m_faceIds[j][1]]->m_id;
+                faceVertIds[2] = m_vertex[m_faceIds[j][2]]->m_id;
+                hoTri.Align(faceVertIds);
+
+                // Copy the face nodes back again.
+                faceNodes = hoTri.surfVerts;
             }
         }
 

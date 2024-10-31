@@ -85,7 +85,7 @@ private:
     void InterpolateFieldToPts(
         std::vector<MultiRegions::ExpListSharedPtr> &field0,
         LibUtilities::PtsFieldSharedPtr &pts, NekDouble clamp_low,
-        NekDouble clamp_up, NekDouble def_value);
+        NekDouble clamp_up, NekDouble def_value, NekDouble tolerance);
 
     void calcCp0();
 };

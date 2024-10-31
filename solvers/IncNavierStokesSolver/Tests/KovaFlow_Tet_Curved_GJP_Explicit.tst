@@ -8,16 +8,16 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-14">0.000543901</value>
-            <value variable="v" tolerance="1e-14">0.000254741</value>
-            <value variable="w" tolerance="1e-14">0.000170741</value>
-            <value variable="p" tolerance="1e-14">0.00178814</value>
+            <value variable="u" tolerance="1e-14">0.000310725</value>
+            <value variable="v" tolerance="1e-14">0.000193532</value>
+            <value variable="w" tolerance="1e-14">0.000106357</value>
+            <value variable="p" tolerance="1e-14">0.000774736</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-14">0.0020482</value>
-            <value variable="v" tolerance="1e-14">0.000806377</value>
-            <value variable="w" tolerance="1e-14">0.000652387</value>
-            <value variable="p" tolerance="1e-14">0.00930501</value>
+            <value variable="u" tolerance="1e-14">0.00084534</value>
+            <value variable="v" tolerance="1e-14">0.00060458</value>
+            <value variable="w" tolerance="1e-14">0.000341788</value>
+            <value variable="p" tolerance="1e-14">0.00744588</value>
         </metric>
     </metrics>
 </test>

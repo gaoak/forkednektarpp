@@ -1012,7 +1012,8 @@ bool StdTriExp::v_IsBoundaryInteriorExpansion() const
 }
 
 const LibUtilities::BasisKey StdTriExp::v_GetTraceBasisKey(
-    const int i, [[maybe_unused]] const int j) const
+    const int i, [[maybe_unused]] const int j,
+    [[maybe_unused]] bool UseGLL) const
 {
     ASSERTL2(i >= 0 && i <= 2, "edge id is out of range");
 

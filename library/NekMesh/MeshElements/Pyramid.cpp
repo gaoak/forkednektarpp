@@ -132,8 +132,17 @@ Pyramid::Pyramid(ElmtConfig pConf, vector<NodeSharedPtr> pNodeList,
             }
             faceoffset += facenodes;
         }
-        m_face.push_back(FaceSharedPtr(new Face(
-            faceVertices, faceNodes, faceEdges, m_conf.m_faceCurveType)));
+
+        // Try to translate between common face curve types
+        LibUtilities::PointsType pType = m_conf.m_faceCurveType;
+
+        if (pType == LibUtilities::ePolyEvenlySpaced && (j > 0))
+        {
+            pType = LibUtilities::eNodalTriEvenlySpaced;
+        }
+
+        m_face.push_back(
+            FaceSharedPtr(new Face(faceVertices, faceNodes, faceEdges, pType)));
     }
 
     // Reorder edges to align with Nektar++ order.
@@ -172,14 +181,15 @@ unsigned int Pyramid::GetNumNodes(ElmtConfig pConf)
 {
     int n = pConf.m_order;
 
-    if (pConf.m_faceNodes)
-    {
-        // @todo currently only valid for 2nd order pyramids
-        return 5 + 8 * (n - 1) + (n - 1) * (n - 1);
-    }
-    else
-    {
-        return 5 + 8 * (n - 1);
-    }
+    // valid for any order pyramid
+    return (5             // corners
+            + 8 * (n - 1) // mid-edge
+            +
+            pConf.m_faceNodes * ((n - 1) * (n - 1) +
+                                 4 * (n - 1) * (n - 2) /
+                                     2) // square base + 4xtriangle-number faces
+            + pConf.m_volumeNodes * (n - 2) * (n - 1) * (2 * n - 3) /
+                  6 // square pyramidal numbers
+    );
 }
 } // namespace Nektar::NekMesh

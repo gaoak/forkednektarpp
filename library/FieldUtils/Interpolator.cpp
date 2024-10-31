@@ -60,7 +60,7 @@ namespace Nektar::FieldUtils
  */
 template <typename T>
 void Interpolator<T>::Interpolate(const T expInField, T &expOutField,
-                                  NekDouble def_value)
+                                  NekDouble def_value, NekDouble tolerance)
 {
     ASSERTL0(expInField.size() == expOutField.size(),
              "number of fields does not match");
@@ -111,7 +111,7 @@ void Interpolator<T>::Interpolate(const T expInField, T &expOutField,
         tmpPts->AddField(expOutField[f]->GetPhys(), "DefaultVar");
     }
     // interpolate m_ptsInField to this intermediate field
-    Interpolate(expInField, tmpPts, def_value);
+    Interpolate(expInField, tmpPts, def_value, tolerance);
     // write the intermediate fields data into our expOutField
     for (int i = 0; i < nFields; i++)
     {
@@ -137,7 +137,7 @@ void Interpolator<T>::Interpolate(const T expInField, T &expOutField,
 template <typename T>
 void Interpolator<T>::Interpolate(const T expInField,
                                   LibUtilities::PtsFieldSharedPtr &ptsOutField,
-                                  NekDouble def_value)
+                                  NekDouble def_value, NekDouble tolerance)
 {
     ASSERTL0(expInField.size() == ptsOutField->GetNFields(),
              "number of fields does not match");
@@ -169,9 +169,9 @@ void Interpolator<T>::Interpolate(const T expInField,
         }
 
         // Obtain Element and LocalCoordinate to interpolate.
-        elmtid = expInField[0]->GetExpIndex(
-            coords, Lcoords, NekConstants::kGeomFactorsTol, true, elmtid,
-            NekConstants::kGeomFactorsTol * 1e3);
+        elmtid = expInField[0]->GetExpIndex(coords, Lcoords,
+                                            NekConstants::kGeomFactorsTol, true,
+                                            elmtid, tolerance);
 
         // we use kGeomFactorsTol as tolerance, while StdPhysEvaluate has
         // kNekZeroTol hardcoded, so we need to limit Lcoords to not produce

@@ -501,14 +501,6 @@ void CommMpi::v_SplitComm(int pRows, int pColumns, int pTime)
     MPI_Comm gridComm;
     if (pTime == 1)
     {
-        // There is a bug in OpenMPI 3.1.3. This bug cause some cases to fail in
-        // buster-full-build-and-test. Failed cases are:
-        //
-        // IncNavierStokesSolver_ChanFlow_3DH1D_FlowrateExplicit_MVM_par
-        // IncNavierStokesSolver_ChanFlow_3DH1D_FlowrateExplicit_MVM_par_hybrid
-
-        // See: https://github.com/open-mpi/ompi/issues/6522
-
         // Compute row and column in grid.
         int myCol = m_rank % pColumns;
         int myRow = (m_rank - myCol) / pColumns;

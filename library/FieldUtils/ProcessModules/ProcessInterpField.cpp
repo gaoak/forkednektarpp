@@ -73,6 +73,8 @@ ProcessInterpField::ProcessInterpField(FieldSharedPtr f) : ProcessModule(f)
         ConfigOption(false, "0", "Default value if point is outside domain");
     m_config["realmodetoimag"] =
         ConfigOption(false, "NotSet", "Take fields as sin mode");
+    m_config["distTolerance"] =
+        ConfigOption(false, "1e-5", "The maximum acceptable distance.");
 }
 
 ProcessInterpField::~ProcessInterpField()
@@ -238,14 +240,7 @@ void ProcessInterpField::v_Process(po::variables_map &vm)
     NekDouble clamp_low = m_config["clamptolowervalue"].as<NekDouble>();
     NekDouble clamp_up  = m_config["clamptouppervalue"].as<NekDouble>();
     NekDouble def_value = m_config["defaultvalue"].as<NekDouble>();
-
-    for (int i = 0; i < nfields; i++)
-    {
-        for (int j = 0; j < nq1; ++j)
-        {
-            m_f->m_exp[i]->UpdatePhys()[j] = def_value;
-        }
-    }
+    NekDouble tolerance = m_config["distTolerance"].as<NekDouble>();
 
     Interpolator<std::vector<MultiRegions::ExpListSharedPtr>> interp;
     if (m_f->m_verbose && m_f->m_comm->TreatAsRankZero())
@@ -253,7 +248,7 @@ void ProcessInterpField::v_Process(po::variables_map &vm)
         interp.SetProgressCallback(&ProcessInterpField::PrintProgressbar, this);
     }
 
-    interp.Interpolate(fromField->m_exp, m_f->m_exp);
+    interp.Interpolate(fromField->m_exp, m_f->m_exp, def_value, tolerance);
 
     if (m_f->m_verbose && m_f->m_comm->TreatAsRankZero())
     {

@@ -754,7 +754,8 @@ int StdQuadExp::v_GetTraceNumPoints(const int i) const
 }
 
 const LibUtilities::BasisKey StdQuadExp::v_GetTraceBasisKey(
-    const int i, [[maybe_unused]] const int j) const
+    const int i, [[maybe_unused]] const int j,
+    [[maybe_unused]] bool UseGLL) const
 {
     ASSERTL2((i >= 0) && (i <= 3), "edge id is out of range");
 

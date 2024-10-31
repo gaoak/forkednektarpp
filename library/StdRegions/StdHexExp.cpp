@@ -859,8 +859,8 @@ int StdHexExp::v_CalcNumberOfCoefficients(
     return nmodes;
 }
 
-const LibUtilities::BasisKey StdHexExp::v_GetTraceBasisKey(const int i,
-                                                           const int k) const
+const LibUtilities::BasisKey StdHexExp::v_GetTraceBasisKey(
+    const int i, const int k, [[maybe_unused]] bool UseGLL) const
 {
     ASSERTL2(i >= 0 && i <= 5, "face id is out of range");
     ASSERTL2(k >= 0 && k <= 1, "basis key id is out of range");

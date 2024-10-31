@@ -267,6 +267,11 @@ protected:
     STD_REGIONS_EXPORT void v_GenStdMatBwdDeriv(const int dir,
                                                 DNekMatSharedPtr &mat) override;
 
+    STD_REGIONS_EXPORT void v_PhysInterp(
+        std::shared_ptr<StdExpansion> fromExp,
+        const Array<OneD, const NekDouble> &fromData,
+        Array<OneD, NekDouble> &toData) override;
+
 private:
     int v_GetShapeDimension() const final
     {
@@ -276,7 +281,7 @@ private:
 
 STD_REGIONS_EXPORT LibUtilities::BasisKey EvaluateTriFaceBasisKey(
     const int facedir, const LibUtilities::BasisType faceDirBasisType,
-    const int numpoints, const int nummodes);
+    const int numpoints, const int nummodes, bool UseGLL = false);
 
 STD_REGIONS_EXPORT LibUtilities::BasisKey EvaluateQuadFaceBasisKey(
     const int facedir, const LibUtilities::BasisType faceDirBasisType,

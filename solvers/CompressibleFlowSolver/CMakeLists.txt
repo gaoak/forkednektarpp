@@ -38,6 +38,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         EquationSystems/NavierStokesCFEAxisym.cpp
         EquationSystems/NavierStokesImplicitCFE.cpp
         Forcing/ForcingAxiSymmetric.cpp
+        Forcing/ForcingCFSSyntheticEddy.cpp
         Forcing/ForcingQuasi1D.cpp
        )
 
@@ -95,6 +96,7 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
         EquationSystems/NavierStokesCFE.h
         EquationSystems/NavierStokesImplicitCFE.h
         Forcing/ForcingAxiSymmetric.h
+        Forcing/ForcingCFSSyntheticEddy.h
         Forcing/ForcingQuasi1D.h
         Misc/EquationOfState.h
         Misc/IdealGasEoS.h
@@ -144,13 +146,15 @@ IF( NEKTAR_SOLVER_COMPRESSIBLE_FLOW )
     ADD_NEKTAR_TEST(IsentropicVortex16_P8 LENGTHY)
     IF (NOT APPLE OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
         ADD_NEKTAR_PERFORMANCE_TEST(Perf_IsentropicVortex16Implicit_P8)
-        ADD_NEKTAR_TEST(IsentropicVortex16Implicit_P8 LENGTHY)
+        ADD_NEKTAR_TEST(IsentropicVortex16Implicit_P4 LENGTHY)
     ENDIF()
     ADD_NEKTAR_TEST(IsentropicVortex16_P3_GAUSS LENGTHY)
     ADD_NEKTAR_TEST(IsentropicVortex16_P8_GAUSS LENGTHY)
     ADD_NEKTAR_TEST(IsentropicVortex_WeakDG_HexDeformed)
     ADD_NEKTAR_TEST(RinglebFlow_P3)
     ADD_NEKTAR_TEST(RinglebFlow_P8 LENGTHY)
+    ADD_NEKTAR_TEST(ChanFlow3D_infTurbExpl)
+    ADD_NEKTAR_TEST(ChanFlow3D_infTurbImpl)
     #ADD_NEKTAR_TEST(Couette_WeakDG_LDG_MODIFIED)
     ADD_NEKTAR_TEST(Couette_WeakDG_IP_MODIFIED_IM)
     #ADD_NEKTAR_TEST(Couette_WeakDG_LDGNS_MODIFIED_IM)

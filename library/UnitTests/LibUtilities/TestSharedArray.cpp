@@ -60,6 +60,36 @@ BOOST_AUTO_TEST_CASE(TestArrayConstructionFromConstantArray)
     BOOST_CHECK_EQUAL(const_array_2[2], 3.0);
 }
 
+BOOST_AUTO_TEST_CASE(TestArrayWapper)
+{
+    // create a array
+    Array<OneD, double> array_1(10, 7.0);
+    {
+        // create a array wrapper
+        Array<OneD, double> array_wrapper_1(array_1.size(), array_1.data(),
+                                            eArrayWrapper);
+        // check size and value
+        BOOST_CHECK_EQUAL(array_wrapper_1.size(), array_1.size());
+        BOOST_CHECK_EQUAL(array_wrapper_1[0], 7.0);
+        // modify via wrapper
+        array_wrapper_1[0] = -1.0;
+        // check that the original array is modified as well
+        BOOST_CHECK_EQUAL(array_1[0], -1.0);
+    }
+    {
+        // create a array copy
+        Array<OneD, double> array_copy_1(array_1.size(), array_1.data(),
+                                         eArrayCopy);
+        // check size and value
+        BOOST_CHECK_EQUAL(array_copy_1.size(), array_1.size());
+        BOOST_CHECK_EQUAL(array_copy_1[1], 7.0);
+        // modify via copy
+        array_copy_1[1] = 0.0;
+        // check that the original array is not modified
+        BOOST_CHECK_EQUAL(array_1[1], 7.0);
+    }
+}
+
 void CheckAddresses(Array<TwoD, double>::reference d, double *expectedAddress)
 {
     BOOST_CHECK_EQUAL(d.size(), 7);

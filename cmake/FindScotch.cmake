@@ -3,7 +3,7 @@
 # Finds the graph partitioning library Scotch.
 #
 # This module defines the following variables
-#   SCOTCH_INCLUDE_DIRS - Location of scotch.h
+#   SCOTCH_INCLUDE_DIR - Location of scotch.h
 #   SCOTCH_LIBRARY - Location of main scotch library
 #   SCOTCHERR_LIBRARY - Location of scotcherr library
 #   SCOTCH_FOUND - TRUE if Scotch found
@@ -12,6 +12,7 @@
 # If the component 'ptscotch' is specified
 #   PTSCOTCH_LIBRARY - Location of the ptscotch main library
 #   PTSCOTCHERR_LIBRARY - Location of the ptscotcherr library
+#   PTSCOTCH_INCLUDE_DIR - Location of ptscotch.h
 #
 # The following environmental variables are used to help find the library:
 #   SCOTCH_DIR
@@ -73,7 +74,7 @@ IF (SCOTCH_HEADERS_DIRS)
         MESSAGE(ERROR "ERROR checking for Scotch version.")
     ENDIF()
 ELSE ()
-    SET(SCOTCH_INCLUDE_DIR "SCOTCH_INCLUDE_DIRS-NOTFOUND")
+    SET(SCOTCH_INCLUDE_DIR "SCOTCH_INCLUDE_DIR-NOTFOUND")
     IF (NOT SCOTCH_FIND_QUIETLY)
         MESSAGE(STATUS "Looking for Scotch -- scotch.h not found")
     ENDIF ()
@@ -134,6 +135,20 @@ IF (SCOTCH_LIBRARY AND SCOTCHERR_LIBRARY AND SCOTCH_INCLUDE_DIR)
                         CACHE FILEPATH "PtScotch library" FORCE)
                 ENDIF()
             ENDIF()
+
+            FIND_PATH(PTSCOTCH_HEADERS_DIRS NAMES ptscotch.h
+                HINTS ${MACPORTS_PREFIX}/include ${MPI_CXX_INCLUDE_PATH}
+                PATH_SUFFIXES "scotch")
+
+            IF (PTSCOTCH_HEADERS_DIRS)
+                SET(PTSCOTCH_INCLUDE_DIR ${PTSCOTCH_HEADERS_DIRS})
+            ELSE ()
+                SET(PTSCOTCH_INCLUDE_DIR "PTSCOTCH_INCLUDE_DIR-NOTFOUND")
+                IF (NOT SCOTCH_FIND_QUIETLY)
+                    MESSAGE(STATUS "Looking for Scotch -- ptscotch.h not found")
+                ENDIF()
+            ENDIF()
+            LIST(REMOVE_DUPLICATES PTSCOTCH_INCLUDE_DIR)
         ENDIF()
     ENDIF()
 ENDIF()

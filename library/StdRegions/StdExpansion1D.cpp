@@ -34,6 +34,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Foundations/Interp.h>
 #include <StdRegions/StdExpansion1D.h>
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
@@ -123,6 +124,14 @@ NekDouble StdExpansion1D::v_PhysEvaluate(
     [[maybe_unused]] std::array<NekDouble, 6> &secondOrderDerivs)
 {
     return 0;
+}
+
+void StdExpansion1D::v_PhysInterp(std::shared_ptr<StdExpansion> fromExp,
+                                  const Array<OneD, const NekDouble> &fromData,
+                                  Array<OneD, NekDouble> &toData)
+{
+    LibUtilities::Interp1D(fromExp->GetBasis(0)->GetPointsKey(), fromData,
+                           m_base[0]->GetPointsKey(), toData);
 }
 
 } // namespace Nektar::StdRegions

@@ -11,8 +11,14 @@
         </SOLVERINFO>
 
         <PARAMETERS>
-            <P> Re            = 1e3  </P>
-            <P> Lambda        = 1/Re </P>
+            <P> TimeStep      = 5e-4 </P>
+            <P> T             = 5    </P>
+            <P> NumSteps      = 2    </P>
+            <P> IO_CheckSteps = 40   </P>
+            <P> IO_InfoSteps  = 10   </P>
+            <P> IO_CFLSteps   = 10    </P>
+            <P> Re            = 1e1  </P>
+            <P> Kinvis        = 1/Re </P>
         </PARAMETERS>
 
         <VARIABLES>

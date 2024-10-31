@@ -473,36 +473,36 @@ package-debian-bullseye-deploy:
     - package-debian-bullseye-build
 
 ##
-## Debian buster
+## Ubuntu noble
 ##
-package-debian-buster-env:
+package-ubuntu-noble-env:
   <<: *package-env-build
 
-package-debian-buster-build:
+package-ubuntu-noble-build:
   <<: *package-deb-build
-  needs: ["package-debian-buster-env"]
+  needs: ["package-ubuntu-noble-env"]
   variables:
-    image_name: pkg/debian-buster
+    image_name: pkg/ubuntu-noble
 
-package-debian-buster-test:
+package-ubuntu-noble-test:
   <<: *package-deb-test
-  needs: ["package-debian-buster-build"]
+  needs: ["package-ubuntu-noble-build"]
   dependencies:
-    - package-debian-buster-build
+    - package-ubuntu-noble-build
   variables:
-    image_name: debian:buster
+    image_name: ubuntu:noble
 
-package-debian-buster-deploy-dev:
+package-ubuntu-noble-deploy-dev:
   <<: *package-deb-deploy-dev
-  needs: ["package-debian-buster-build", "package-debian-buster-test"]
+  needs: ["package-ubuntu-noble-build", "package-ubuntu-noble-test"]
   dependencies:
-    - package-debian-buster-build
+    - package-ubuntu-noble-build
 
-package-debian-buster-deploy:
+package-ubuntu-noble-deploy:
   <<: *package-deb-deploy
-  needs: ["package-debian-buster-build", "package-debian-buster-deploy-dev"]
+  needs: ["package-ubuntu-noble-build", "package-ubuntu-noble-deploy-dev"]
   dependencies:
-    - package-debian-buster-build
+    - package-ubuntu-noble-build
 
 ##
 ## Ubuntu jammy
@@ -570,103 +570,70 @@ package-ubuntu-focal-deploy:
     - package-ubuntu-focal-build
 
 ##
-## Ubuntu bionic
+## Fedora 39
 ##
-package-ubuntu-bionic-env:
+package-fedora-39-env:
   <<: *package-env-build
 
-package-ubuntu-bionic-build:
-  <<: *package-deb-build
-  needs: ["package-ubuntu-bionic-env"]
-  variables:
-    image_name: pkg/ubuntu-bionic
-
-package-ubuntu-bionic-test:
-  <<: *package-deb-test
-  needs: ["package-ubuntu-bionic-build"]
-  dependencies:
-    - package-ubuntu-bionic-build
-  variables:
-    image_name: ubuntu:bionic
-
-package-ubuntu-bionic-deploy-dev:
-  <<: *package-deb-deploy-dev
-  needs: ["package-ubuntu-bionic-build", "package-ubuntu-bionic-test"]
-  dependencies:
-    - package-ubuntu-bionic-build
-
-package-ubuntu-bionic-deploy:
-  <<: *package-deb-deploy
-  needs: ["package-ubuntu-bionic-build", "package-ubuntu-bionic-deploy-dev"]
-  dependencies:
-    - package-ubuntu-bionic-build
-
-
-##
-## Fedora 35
-##
-package-fedora-35-env:
-  <<: *package-env-build
-
-package-fedora-35-build:
+package-fedora-39-build:
   <<: *package-rpm-build
-  needs: ["package-fedora-35-env"]
+  needs: ["package-fedora-39-env"]
   variables:
-    image_name: pkg/fedora-35
-    version_file: fedora-35.json
+    image_name: pkg/fedora-39
+    version_file: fedora-39.json
 
-package-fedora-35-test:
+package-fedora-39-test:
   <<: *package-rpm-test
-  needs: ["package-fedora-35-build"]
+  needs: ["package-fedora-39-build"]
   dependencies:
-    - package-fedora-35-build
+    - package-fedora-39-build
   variables:
-    image_name: fedora:35
+    image_name: fedora:39
     cmake_exe: cmake
 
-package-fedora-35-deploy-dev:
+package-fedora-39-deploy-dev:
   <<: *package-rpm-deploy-dev
-  needs: ["package-fedora-35-build", "package-fedora-35-test"]
+  needs: ["package-fedora-39-build", "package-fedora-39-test"]
   dependencies:
-    - package-fedora-35-build
+    - package-fedora-39-build
 
-package-fedora-35-deploy:
+package-fedora-39-deploy:
   <<: *package-rpm-deploy
-  needs: ["package-fedora-35-build", "package-fedora-35-deploy-dev"]
+  needs: ["package-fedora-39-build", "package-fedora-39-deploy-dev"]
   dependencies:
-    - package-fedora-35-build
+    - package-fedora-39-build
 
 ##
-## Fedora 36
+## Fedora 40
 ##
-package-fedora-36-env:
+package-fedora-40-env:
   <<: *package-env-build
 
-package-fedora-36-build:
+package-fedora-40-build:
   <<: *package-rpm-build
-  needs: ["package-fedora-36-env"]
+  needs: ["package-fedora-40-env"]
   variables:
-    image_name: pkg/fedora-36
-    version_file: fedora-36.json
+    image_name: pkg/fedora-40
+    version_file: fedora-40.json
 
-package-fedora-36-test:
+package-fedora-40-test:
   <<: *package-rpm-test
-  needs: ["package-fedora-36-build"]
+  needs: ["package-fedora-40-build"]
   dependencies:
-    - package-fedora-36-build
+    - package-fedora-40-build
   variables:
-    image_name: fedora:36
+    image_name: fedora:40
     cmake_exe: cmake
 
-package-fedora-36-deploy-dev:
+package-fedora-40-deploy-dev:
   <<: *package-rpm-deploy-dev
-  needs: ["package-fedora-36-build", "package-fedora-36-test"]
+  needs: ["package-fedora-40-build", "package-fedora-40-test"]
   dependencies:
-    - package-fedora-36-build
+    - package-fedora-40-build
 
-package-fedora-36-deploy:
+package-fedora-40-deploy:
   <<: *package-rpm-deploy
-  needs: ["package-fedora-36-build", "package-fedora-36-deploy-dev"]
+  needs: ["package-fedora-40-build", "package-fedora-40-deploy-dev"]
   dependencies:
-    - package-fedora-36-build
+    - package-fedora-40-build
 

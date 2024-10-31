@@ -1077,7 +1077,8 @@ LibUtilities::PointsKey StdPrismExp::v_GetTracePointsKey(const int i,
 }
 
 const LibUtilities::BasisKey StdPrismExp::v_GetTraceBasisKey(const int i,
-                                                             const int k) const
+                                                             const int k,
+                                                             bool UseGLL) const
 {
     ASSERTL2(i >= 0 && i <= 4, "face id is out of range");
     ASSERTL2(k >= 0 && k <= 1, "basis key id is out of range");
@@ -1100,9 +1101,9 @@ const LibUtilities::BasisKey StdPrismExp::v_GetTraceBasisKey(const int i,
         case 1:
         case 3:
         {
-            return EvaluateTriFaceBasisKey(k, m_base[2 * k]->GetBasisType(),
-                                           m_base[2 * k]->GetNumPoints(),
-                                           m_base[2 * k]->GetNumModes());
+            return EvaluateTriFaceBasisKey(
+                k, m_base[2 * k]->GetBasisType(), m_base[2 * k]->GetNumPoints(),
+                m_base[2 * k]->GetNumModes(), UseGLL);
         }
         break;
     }

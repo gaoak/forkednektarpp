@@ -55,6 +55,7 @@ SET(SOLVER_UTILS_SOURCES
   Forcing/ForcingMovingReferenceFrame.cpp
   Forcing/ForcingNoise.cpp
   Forcing/ForcingProgrammatic.cpp
+  Forcing/ForcingSyntheticEddy.cpp
 )
 
 SET(SOLVER_UTILS_HEADERS
@@ -116,6 +117,7 @@ SET(SOLVER_UTILS_HEADERS
   Forcing/ForcingMovingReferenceFrame.h
   Forcing/ForcingNoise.h
   Forcing/ForcingProgrammatic.h
+  Forcing/ForcingSyntheticEddy.h
 )
 
 IF (NEKTAR_USE_ARPACK)

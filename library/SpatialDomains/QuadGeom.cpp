@@ -307,7 +307,7 @@ void QuadGeom::v_GenGeomFactors()
         //     x_i^A - x_i^B = x_i^D - x_i^C
         //
         // This corresponds to quadrilaterals which are paralellograms.
-        m_manifold    = Array<OneD, int>(2);
+        m_manifold    = Array<OneD, int>(m_coordim);
         m_manifold[0] = 0;
         m_manifold[1] = 1;
         if (m_coordim == 3)
@@ -329,6 +329,7 @@ void QuadGeom::v_GenGeomFactors()
             }
             m_manifold[0] = (tmpi + 1) % 3;
             m_manifold[1] = (tmpi + 2) % 3;
+            m_manifold[2] = (tmpi + 3) % 3;
         }
 
         if (Gtype == eRegular)

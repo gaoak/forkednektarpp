@@ -1161,15 +1161,6 @@
             </REGION>
         </BOUNDARYCONDITIONS>
 
-        <!-- Initial conditions not necessary
-            since they are imposed analitically -->
-        <!--FUNCTION NAME="InitialConditions">
-            <E VAR="rho"    VALUE="1"/>
-            <E VAR="rhou"   VALUE="1"/>
-            <E VAR="rhov"   VALUE="1"/>
-            <E VAR="E"      VALUE="1"/>
-        </FUNCTION-->
-
     </CONDITIONS>
 
 </NEKTAR>

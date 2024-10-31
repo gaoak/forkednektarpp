@@ -28,7 +28,8 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Derived base class - Synthetic turbulence forcing
+// Description: Derived base class - Synthetic turbulence forcing for the
+//              Incompressible solver
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -36,12 +37,14 @@
 #define NEKTAR_SOLVERUTILS_FORCINGINCNSSYNTHETICEDDY
 
 #include <SolverUtils/Forcing/Forcing.h>
+#include <SolverUtils/Forcing/ForcingSyntheticEddy.h>
 #include <string>
 
 namespace Nektar::SolverUtils
 {
-
-class ForcingIncNSSyntheticEddy : public SolverUtils::Forcing
+class ForcingIncNSSyntheticEddy
+    : virtual public SolverUtils::Forcing,
+      virtual public SolverUtils::ForcingSyntheticEddy
 {
 public:
     friend class MemoryManager<ForcingIncNSSyntheticEddy>;
@@ -64,112 +67,14 @@ public:
     static std::string className;
 
 protected:
-    void v_InitObject(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        const unsigned int &pNumForcingFields,
-        const TiXmlElement *pForce) override;
-
+    // Apply forcing term
     void v_Apply(const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
                  const Array<OneD, Array<OneD, NekDouble>> &inarray,
                  Array<OneD, Array<OneD, NekDouble>> &outarray,
                  const NekDouble &time) override;
-
-    // Set Cholesky decomposition of the Reynolds Stresses in the domain
-    void SetCholeskyReyStresses(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Set the Number of the Eddies in the box
-    void SetNumberOfEddies();
-    /// Set reference lengths
-    void ComputeRefLenghts();
-    /// Set Xi max
-    void ComputeXiMax();
-    /// Compute Random 1 or -1 value
-    Array<OneD, Array<OneD, int>> GenerateRandomOneOrMinusOne();
-    /// Compute Constant C
-    NekDouble ComputeConstantC(int row, int col);
-    /// Compute Gaussian
-    NekDouble ComputeGaussian(NekDouble coord, NekDouble xiMaxVal,
-                              NekDouble constC = 1.0);
-    /// Check if point is inside the box of eddies
-    bool InsideBoxOfEddies(NekDouble coord0, NekDouble coord1,
-                           NekDouble coord2);
-    /// Compute Stochastic Signal
-    Array<OneD, Array<OneD, NekDouble>> ComputeStochasticSignal(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Compute Velocity Fluctuation
-    Array<OneD, Array<OneD, NekDouble>> ComputeVelocityFluctuation(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        Array<OneD, Array<OneD, NekDouble>> stochasticSignal);
-    /// Compute Characteristic Convective Turbulent Time
-    Array<OneD, Array<OneD, NekDouble>> ComputeCharConvTurbTime(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Compute Smoothing Factor
-    Array<OneD, Array<OneD, NekDouble>> ComputeSmoothingFactor(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields,
-        Array<OneD, Array<OneD, NekDouble>> convTurb);
-    /// Set box of eddies mask
-    void SetBoxOfEddiesMask(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Compute the initial position of the eddies inside the box
-    void ComputeInitialRandomLocationOfEddies();
-    /// Update positions of the eddies inside the box
-    void UpdateEddiesPositions();
     /// Calculate Forcing
     void CalculateForcing(
         const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Compute the initial location of the eddies for the test case
-    void ComputeInitialLocationTestCase();
-    /// Remove eddy from forcing term
-    void RemoveEddiesFromForcing(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-    /// Initialise forcing term for each eddy
-    void InitialiseForcingEddy(
-        const Array<OneD, MultiRegions::ExpListSharedPtr> &pFields);
-
-    // Members
-    // Expressions (functions) of the prescribed Reynolds stresses
-    std::map<int, LibUtilities::EquationSharedPtr> m_R;
-    /// Cholesky decomposition of the Reynolds Stresses
-    /// for all points in the mesh
-    Array<OneD, Array<OneD, NekDouble>> m_Cholesky;
-    /// Bulk velocity
-    NekDouble m_Ub;
-    /// Standard deviation
-    NekDouble m_sigma;
-    /// Inlet length in the y-direction and z-direction
-    Array<OneD, NekDouble> m_lyz;
-    /// Center of the inlet plane
-    Array<OneD, NekDouble> m_rc;
-    /// Number of eddies in the box
-    int m_N;
-    /// Characteristic lenght scales
-    Array<OneD, NekDouble> m_l;
-    /// Reference lenghts
-    Array<OneD, NekDouble> m_lref;
-    /// Xi max
-    Array<OneD, NekDouble> m_xiMax;
-    // XiMaxMin - Value form Giangaspero et al. 2022
-    NekDouble m_xiMaxMin = 0.4;
-    /// Space dimension
-    int m_spacedim;
-    /// Ration of specific heats
-    NekDouble m_gamma;
-    /// Box of eddies mask
-    Array<OneD, int> m_mask;
-    /// Eddy position
-    Array<OneD, Array<OneD, NekDouble>> m_eddyPos;
-    /// Check when the forcing should be applied
-    bool m_calcForcing{true};
-    /// Eddies that add to the domain
-    std::vector<unsigned int> m_eddiesIDForcing;
-    /// Current time
-    NekDouble m_currTime;
-    /// Keep applying force during GMRES iteration
-    bool m_implicitForcing{false};
-    /// Check for test case
-    bool m_tCase;
-    /// Forcing for each eddy
-    Array<OneD, Array<OneD, Array<OneD, NekDouble>>> m_ForcingEddy;
 
 private:
     ForcingIncNSSyntheticEddy(

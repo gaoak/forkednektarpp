@@ -178,7 +178,7 @@ protected:
     STD_REGIONS_EXPORT int v_CalcNumberOfCoefficients(
         const std::vector<unsigned int> &nummodes, int &modes_offset) override;
     STD_REGIONS_EXPORT const LibUtilities::BasisKey v_GetTraceBasisKey(
-        const int i, const int k) const override;
+        const int i, const int k, bool useGLL = false) const override;
     STD_REGIONS_EXPORT bool v_IsBoundaryInteriorExpansion() const override;
     STD_REGIONS_EXPORT void v_GetCoords(
         Array<OneD, NekDouble> &coords_x, Array<OneD, NekDouble> &coords_y,

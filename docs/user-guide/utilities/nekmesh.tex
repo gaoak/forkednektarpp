@@ -364,6 +364,7 @@ where it exists. The table below indicates support currently implemented.
     \toprule
     \textbf{Format} & \textbf{Extension} & \textbf{High-order} & \textbf{Notes}\\
     \midrule
+    CGNS & \texttt{cgns} & \cmark & Based on the output currently provide by ANSA. Have support for high order elements supported. Requires NEKTAR\_USE\_CGNS option to be activated in cmake which then requires cgns library 4.4 to be  available or compiled \\
     Gmsh & \texttt{msh} & \cmark & Only reads nodes, elements and physical groups (which are mapped to composites). File format versions 2.x and 4.x currently supported.\\
     Nektar & \texttt{rea} & \cmark & Reads elements, fluid boundary conditions. Most curve types are unsupported: high-order information must be defined in an accompanying .hsf file. \\
     Nektar++ & \texttt{xml} & \cmark & Fully supported. \\
@@ -546,7 +547,7 @@ NekMesh -m extract:surf=2,3-5:detectbnd Mesh.xml output.xml
 \end{lstlisting}
 which will produce new composites for the extracted boundary.
 
-\subsection{Negative Jacobian detection}
+\subsection{Negative Jacobian detection and histogram visualisation}
 
 To detect elements with negative Jacobian determinant, use the \inltt{jac}
 module:
@@ -562,12 +563,40 @@ the \inltt{list} option:
 NekMesh -m jac:list Mesh.xml output.xml
 \end{lstlisting}
 %
-and to extract the elements for the purposes of visualisation within the domain,
-use the \inltt{extract} boolean parameter:
+To extract the elements whose Jacobian is under a specific value for the purposes of visualisation within the domain,
+use the \inltt{extract} boolean parameter. The \inltt{value} should be a number below 1.0 and is 0.0 by default. This means if \inltt{extract} is set by user with no value, the output mesh file will only have invalid mesh elements:
 %
 \begin{lstlisting}[style=BashInputStyle]
-NekMesh -m jac:extract Mesh.xml MeshWithNegativeElements.xml
+NekMesh -m jac:extract=value Mesh.xml MeshWithNegativeElements.xml
 \end{lstlisting}
+
+To show the histogram of Jacobian on the screen, use the \inltt{histo} parameter.
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m jac:histo=value1,value2,value3:quality:detail:histofile=filename Mesh.xml output.xml
+\end{lstlisting}
+
+The \inltt{histo} takes 3 input values: The maximum value shown on the histogram, the number of positive bins on the histogram and the number of negative bins. Each value is separated with a comma. By default the values are: 1.0,10,1. This means by default the histogram will have 10 positive bins between (0.0, 1.0) with an interval 0.1, and will have 1 negative bins which shows all the invalid elememnts. An example can be found below in figure \ref{fig:util:mesh:histo} (a).
+
+This command \inltt{histo} also generates a text file called "jacs.txt" which contains the information of each element in the histogram. The name of the file can be changed by using the command \inltt{histofile}. The information in this text file are: Element ID, Jacobian value, element type, if this element is a boundary element, the boundary edge/face ID, vertex coordinates and neighbor element ID will also be included. Note that only elements whose Jacobian is smaller than "value1" will be counted, and they will be outputted in the histogram and text file. If command \inltt{detail} is added, the composite ID and name of each element will also be outputted into the text file. An example is shown in figure \ref{fig:util:mesh:histo} (c). 
+
+The command \inltt{quality} is an option which show the percentage of each bin of the histogram. The results of \inltt{quality} always match the histogram. An example is shown in figure \ref{fig:util:mesh:histo} (b). 
+
+An example with the following command is shown in figure \ref {fig:util:mesh:histo}. The results of \inltt{quality} and text file always correspond to the histogram.
+
+\begin{lstlisting}[style=BashInputStyle]
+NekMesh -m jac:histo=0.9,3,2:quality:detail Mesh.xml output.xml
+\end{lstlisting}
+
+\begin{figure}[!htbp]
+  \begin{center}
+    \includegraphics[width = 0.47 \textwidth]{img/ProcessJac_histo.png}
+    \includegraphics[width = 0.47 \textwidth]{img/ProcessJac_quality.png}
+    \includegraphics[width = 1.0 \textwidth]{img/ProcessJac_output.png}
+    \caption{(a) Results of option "histo": histogram shown on the screen, (b) Results of option "quality", (c) Part of the text file "jacs.txt"}
+    \label{fig:util:mesh:histo}
+  \end{center}
+\end{figure}
 
 To turn off curvature associated with negative jacobians one can try to use the
 \inltt{linearise} module:

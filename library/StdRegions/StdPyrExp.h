@@ -189,7 +189,7 @@ protected:
     STD_REGIONS_EXPORT int v_CalcNumberOfCoefficients(
         const std::vector<unsigned int> &nummodes, int &modes_offset) override;
     STD_REGIONS_EXPORT const LibUtilities::BasisKey v_GetTraceBasisKey(
-        const int i, const int k) const override;
+        const int i, const int k, bool UseGLL = false) const override;
 
     //---------------------------------------
     // Mappings

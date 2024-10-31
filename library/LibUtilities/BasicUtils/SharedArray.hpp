@@ -47,6 +47,12 @@ namespace Nektar
 {
 class LinearSystem;
 
+enum ArrayWrapperType
+{
+    eArrayCopy,
+    eArrayWrapper
+};
+
 // Forward declaration for a ConstArray constructor.
 template <typename Dim, typename DataType> class Array;
 
@@ -145,6 +151,36 @@ public:
                                                         data);
     }
 
+    /// \brief Create a 1D array that wrap around a given pointer.
+    /// \param dim1Size The array's size.
+    /// \param data The data to wrap around.
+    /// \param wrap If true, the Array won't create new storage and copy
+    ///  data. If false, it will create storage and copy data as usual.
+    Array(size_type dim1Size, DataType *data,
+          const ArrayWrapperType wrap = eArrayCopy)
+        :
+#ifdef WITH_PYTHON
+          m_pythonInfo(nullptr),
+#endif
+          m_size(dim1Size), m_capacity(dim1Size), m_data(nullptr),
+          m_count(nullptr), m_offset(0)
+    {
+        switch (wrap)
+        {
+            case eArrayCopy:
+            {
+                CreateStorage(m_capacity);
+                ArrayInitializationPolicy<DataType>::Initialize(
+                    m_data, m_capacity, data);
+            }
+            break;
+            case eArrayWrapper:
+            {
+                m_data = data;
+            }
+        }
+    }
+
     /// \brief Creates a 1D array that references rhs.
     /// \param dim1Size The size of the array.  This is useful
     ///                 when you want this array to reference
@@ -162,7 +198,10 @@ public:
           m_size(dim1Size), m_capacity(rhs.m_capacity), m_data(rhs.m_data),
           m_count(rhs.m_count), m_offset(rhs.m_offset)
     {
-        *m_count += 1;
+        if (m_count != nullptr)
+        {
+            *m_count += 1;
+        }
         ASSERTL0(m_size <= rhs.size(), "Requested size is \
                     larger than input array size.");
     }
@@ -197,7 +236,10 @@ public:
           m_size(rhs.m_size), m_capacity(rhs.m_capacity), m_data(rhs.m_data),
           m_count(rhs.m_count), m_offset(rhs.m_offset)
     {
-        *m_count += 1;
+        if (m_count != nullptr)
+        {
+            *m_count += 1;
+        }
     }
 
 // Disable use-after-free warning with these two functions as it appears to be
@@ -246,8 +288,12 @@ public:
     Array<OneD, const DataType> &operator=(
         const Array<OneD, const DataType> &rhs)
     {
-        *m_count -= 1;
-        if (*m_count == 0)
+        if (m_count != nullptr)
+        {
+            *m_count -= 1;
+        }
+
+        if (m_count != nullptr && *m_count == 0)
         {
 #ifdef WITH_PYTHON
             if (*m_pythonInfo == nullptr)
@@ -277,7 +323,10 @@ public:
         m_data     = rhs.m_data;
         m_capacity = rhs.m_capacity;
         m_count    = rhs.m_count;
-        *m_count += 1;
+        if (m_count != nullptr)
+        {
+            *m_count += 1;
+        }
         m_offset = rhs.m_offset;
         m_size   = rhs.m_size;
 #ifdef WITH_PYTHON
@@ -561,11 +610,6 @@ protected:
 private:
 };
 
-enum AllowWrappingOfConstArrays
-{
-    eVECTOR_WRAPPER
-};
-
 /// \brief 1D Array
 ///
 /// \ref pageNekArrays
@@ -606,8 +650,9 @@ public:
     {
     }
 
-    Array(size_type dim1Size, DataType *data, bool WrapArray)
-        : BaseType(dim1Size, data, WrapArray)
+    Array(size_type dim1Size, DataType *data,
+          const ArrayWrapperType wrap = eArrayCopy)
+        : BaseType(dim1Size, data, wrap)
     {
     }
 
@@ -702,12 +747,6 @@ public:
     friend class LinearSystem;
 
 protected:
-    Array(const Array<OneD, const DataType> &rhs,
-          [[maybe_unused]] AllowWrappingOfConstArrays a)
-        : BaseType(rhs)
-    {
-    }
-
     void ChangeSize(size_type newSize)
     {
         ASSERTL1(newSize <= this->m_capacity,
