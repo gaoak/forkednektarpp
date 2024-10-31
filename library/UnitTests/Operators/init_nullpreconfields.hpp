@@ -59,7 +59,7 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
             for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {

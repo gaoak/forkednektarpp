@@ -34,81 +34,101 @@
 
 #include <cuda_runtime.h>
 
-#include "Operators/Field/MemoryRegionDevice.hpp"
-#include "Operators/MathKernels/MathCUDAKernels.cuh"
+#include "Operators/MathKernels/MathKernels.hpp"
 
 #include "MathKernelsLauncher.hpp"
 
 using namespace Nektar;
 using ExecSpace = NektarSpaces::CUDA;
 
-void negKernelLauncher(const size_t n, const double *x, double *y)
+void negKernelLauncher(Field<double, FieldState::Phys> &x,
+                       Field<double, FieldState::Phys> &y)
 {
-    negKernel<ExecSpace, double>(n, x, y);
+    neg<ExecSpace, double>(x, y);
 }
 
-void addKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
+void addKernelLauncher(Field<double, FieldState::Phys> &x,
+                       Field<double, FieldState::Phys> &y,
+                       Field<double, FieldState::Phys> &z)
 {
-    addKernel<ExecSpace, double>(n, x, y, z);
+    add<ExecSpace, double>(x, y, z);
 }
 
-void subKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
+void subKernelLauncher(Field<double, FieldState::Phys> &x,
+                       Field<double, FieldState::Phys> &y,
+                       Field<double, FieldState::Phys> &z)
 {
-    subKernel<ExecSpace, double>(n, x, y, z);
+    sub<ExecSpace, double>(x, y, z);
 }
 
-void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
-                         const double *y, double *z)
+void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &x,
+                         Field<double, FieldState::Phys> &y,
+                         Field<double, FieldState::Phys> &z)
 {
-    daxpyKernel<ExecSpace, double>(n, alpha, x, y, z);
+    daxpy<ExecSpace, double>(alpha, x, y, z);
 }
 
-void divKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z)
+void divKernelLauncher(Field<double, FieldState::Phys> &x,
+                       Field<double, FieldState::Phys> &y,
+                       Field<double, FieldState::Phys> &z)
 {
-    divKernel<ExecSpace, double>(n, x, y, z);
+    div<ExecSpace, double>(x, y, z);
 }
 
-void sumKernelLauncher(const size_t n, const double *x, double *out)
+double sumKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    reduceSumKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    reduceSum<ExecSpace, double>(x, &ans);
+    return ans;
 }
 
-void maxKernelLauncher(const size_t n, const double *x, double *out)
+double maxKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    reduceMaxKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    reduceMax<ExecSpace, double>(x, &ans);
+    return ans;
 }
 
-void minKernelLauncher(const size_t n, const double *x, double *out)
+double minKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    reduceMinKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    reduceMin<ExecSpace, double>(x, &ans);
+    return ans;
 }
 
-void innerproductKernelLauncher(const size_t n, const double *x,
-                                const double *y, double *out)
+double innerproductKernelLauncher(Field<double, FieldState::Phys> &x,
+                                  Field<double, FieldState::Phys> &y)
 {
-    ddotKernel<ExecSpace, double>(n, x, y, out);
+    double ans;
+    ddot<ExecSpace, double>(x, y, &ans);
+    return ans;
 }
 
-void l1normKernelLauncher(const size_t n, const double *x, double *out)
+double l1normKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    l1normKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    l1norm<ExecSpace, double>(x, &ans);
+    return ans;
 }
 
-void l2normKernelLauncher(const size_t n, const double *x, double *out)
+double l2normKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    l2normKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    l2norm<ExecSpace, double>(x, &ans);
+    return ans;
 }
 
-void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *out)
+double lpnormKernelLauncher(const unsigned int p,
+                            Field<double, FieldState::Phys> &x)
 {
-    lpnormKernel<ExecSpace, double>(n, p, x, out);
+    double ans;
+    lpnorm<ExecSpace, double>(p, x, &ans);
+    return ans;
 }
 
-void linfnormKernelLauncher(const size_t n, const double *x, double *out)
+double linfnormKernelLauncher(Field<double, FieldState::Phys> &x)
 {
-    linfnormKernel<ExecSpace, double>(n, x, out);
+    double ans;
+    linfnorm<ExecSpace, double>(x, &ans);
+    return ans;
 }

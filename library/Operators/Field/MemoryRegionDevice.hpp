@@ -225,7 +225,9 @@ protected:
         if (this->m_initialize)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "attempt to get a const host pointer (" + this->m_name +
+                     "MemoryRegionDevice::GetHostConstPtr - attempt to get a "
+                     "const host pointer (" +
+                         this->m_name +
                          ") before the data is "
                          "initialized.");
         }
@@ -269,7 +271,9 @@ protected:
         if (this->m_initialize)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "attempt to get a const device pointer (" + this->m_name +
+                     "MemoryRegionDevice::GetDeviceConstPtr - attempt to get a "
+                     "const device pointer (" +
+                         this->m_name +
                          ") before the data is "
                          "initialized.");
         }
@@ -305,8 +309,9 @@ protected:
     /**
      * @brief initialize the storage memory.
      *
-     * @param val   - value to set
-     * @param count - number of values
+     * @param val    - value to set
+     * @param count  - number of values
+     * @param offset - offset to m_device pointer
      */
     void initialize(TData val, size_t count = 0, size_t offset = 0)
     {
@@ -336,9 +341,9 @@ protected:
     /**
      * @brief Templated copy method.
      *
-     * @param src       - pointer data type TDataIn to copy from
-     * @param size      - number of element of type TDataIn to copy
-     * @param offset    - offset to m_device pointer
+     * @param src    - pointer data type TDataIn to copy from
+     * @param size   - number of element of type TDataIn to copy
+     * @param offset - offset to m_device pointer
      */
     template <typename TDataIn, typename MemCopy>
     void copyFrom(const TDataIn *src, const size_t size,
@@ -346,9 +351,9 @@ protected:
     {
         if constexpr (!std::is_same_v<TDataIn, TData>)
         {
-            NEKERROR(
-                Nektar::ErrorUtil::efatal,
-                "non-homogeneous datatype not supported on MemoryRegionDevice");
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionDevice::CopyFrom - non-homogeneous datatype "
+                     "not supported on MemoryRegionDevice");
         }
 
         if constexpr (std::is_same_v<MemCopy, HostToHost>)
@@ -393,7 +398,8 @@ protected:
             if (this->m_host == nullptr)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "attempt to transfer data from the host (" +
+                         "MemoryRegionDevice::HostToDeviceCopy - attempt to "
+                         "transfer data from the host (" +
                              this->m_name +
                              ") without any "
                              "valid host memory allocated.");
@@ -417,7 +423,9 @@ protected:
             {
                 // Throw an error.
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "attempt to transfer data (" + this->m_name +
+                         "MemoryRegionDevice::HostToDeviceCopy - attempt to "
+                         "transfer data (" +
+                             this->m_name +
                              ") to the device without any "
                              "valid host data.");
             }
@@ -435,7 +443,9 @@ protected:
             if (this->m_host == nullptr)
             {
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "attempt to transfer data (" + this->m_name +
+                         "MemoryRegionDevice::DeviceToHostCopy - attempt to "
+                         "transfer data (" +
+                             this->m_name +
                              ") to the host without any "
                              "valid host memory allocated.");
             }
@@ -458,13 +468,16 @@ protected:
             {
                 // Throw an error.
                 NEKERROR(Nektar::ErrorUtil::efatal,
-                         "attempt to transfer data (" + this->m_name +
+                         "MemoryRegionDevice::DeviceToHostCopy - attempt to "
+                         "transfer data (" +
+                             this->m_name +
                              ") to the host without any "
                              "valid device data.");
             }
         }
     }
 
+    // Member variables:
     TData *m_device     = nullptr; ///< Device memory pointer
     bool m_device_valid = false;   ///< Flag indicating the device data is valid
 };

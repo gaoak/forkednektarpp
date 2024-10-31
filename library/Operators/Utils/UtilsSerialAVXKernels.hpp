@@ -40,12 +40,12 @@ namespace Nektar
 {
 
 template <size_t VectorWidth, typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-interleave(const unsigned int numMetaBlocks, const unsigned int npts,
-           TData *inout)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    interleave(const unsigned int numMetaBlocks, const unsigned int npts,
+               TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
     std::vector<TData> wsp(metaBlockSize);
@@ -66,12 +66,13 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
-             const unsigned int npts, TData *inout)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    deInterleave(const unsigned int VectorWidth,
+                 const unsigned int numMetaBlocks, const unsigned int npts,
+                 TData *inout)
 {
     const unsigned int metaBlockSize = npts * VectorWidth;
     std::vector<TData> wsp(metaBlockSize);
@@ -92,13 +93,14 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 }
 
 template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
-                   const unsigned int newVecWidth, const unsigned int offset,
-                   int *deInterleaveMapPtr, int *interleaveMapPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    BuildInterleaveMap(const unsigned int numMetaBlocks,
+                       const unsigned int npts, const unsigned int newVecWidth,
+                       const unsigned int offset, int *deInterleaveMapPtr,
+                       int *interleaveMapPtr)
 {
     auto MetaBlockSize = newVecWidth * npts;
     std::vector<int> tmp(MetaBlockSize);

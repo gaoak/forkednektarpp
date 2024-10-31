@@ -339,12 +339,12 @@ SET(OPERATORS_DEPENDS
 IF(NEKTAR_ENABLE_CUDA)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-       CUBLASHandle.cuh
+       Utils/CUBLASHandle.cuh
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-       CUBLASHandle.cu
+       Utils/CUBLASHandle.cu
     )
 
     SET(OPERATORS_DEPENDS
@@ -356,14 +356,14 @@ ENDIF()
 IF(NEKTAR_ENABLE_SYCL)
     SET(OPERATORS_HEADERS
       ${OPERATORS_HEADERS}
-      SYCLQueue.hpp
-      OneMKL.hpp 
+      Utils/SYCLQueue.hpp
+      Utils/OneMKL.hpp 
     )
 
     SET(OPERATORS_SOURCES
       ${OPERATORS_SOURCES}
-      SYCLQueue.cpp
-      OneMKL.cpp
+      Utils/SYCLQueue.cpp
+      Utils/OneMKL.cpp
     )
 
     SET(OPERATORS_DEPENDS

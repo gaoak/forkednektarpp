@@ -38,13 +38,13 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
-                   const TData *matPtr, const unsigned int *mapPtr,
-                   const TData *incoeffPtr, TData *coeffPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
+                       const TData *matPtr, const unsigned int *mapPtr,
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     if constexpr (negflag)
     {
@@ -67,16 +67,17 @@ RobBndCond1DKernel(const unsigned int nsize, const unsigned int *offsetPtr,
 }
 
 template <typename ExecSpace, bool negflag, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
-                   const unsigned int *ncoeffPtr, const unsigned int *offsetPtr,
-                   const unsigned int *matOffsetPtr,
-                   const unsigned int *mapOffsetPtr, const TData *matPtr,
-                   const unsigned int *mapPtr, const int *signPtr,
-                   const TData *incoeffPtr, TData *coeffPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    RobBndCond2DKernel(const unsigned int nmaxcoeff, const unsigned int nsize,
+                       const unsigned int *ncoeffPtr,
+                       const unsigned int *offsetPtr,
+                       const unsigned int *matOffsetPtr,
+                       const unsigned int *mapOffsetPtr, const TData *matPtr,
+                       const unsigned int *mapPtr, const int *signPtr,
+                       const TData *incoeffPtr, TData *coeffPtr)
 {
     std::vector<TData> vEdgeCoeffs(nmaxcoeff);
     for (unsigned int j = 0; j < nsize; j++)

@@ -90,7 +90,6 @@ public:
     {
         // IProductWRT of RHS
         m_IProdOp->apply(in, m_rhs);
-
         neg<ExecSpace, TData>(m_rhs, m_rhs);
 
         // Handle Neumann BCs on RHS
@@ -99,7 +98,6 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_HelmOp->apply(out, m_tmp);
-
         sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs
@@ -125,6 +123,9 @@ public:
         m_CGOp->setPrecon(precon);
     }
 
+    // className - for OperatorFactory
+    static std::string className;
+
     // instantiation function for CreatorFunction in OperatorFactory
     static std::unique_ptr<Operator<TData>> instantiate(
         const MultiRegions::ExpListSharedPtr &expansionList)
@@ -133,9 +134,6 @@ public:
             OperatorHelmSolveImpl<ExecSpace, Implementation, TData>>(
             expansionList);
     }
-
-    // className - for OperatorFactory
-    static std::string className;
 
 protected:
     std::shared_ptr<OperatorConjGrad<TData>> m_CGOp;

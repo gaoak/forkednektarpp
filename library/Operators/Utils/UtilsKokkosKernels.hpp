@@ -42,8 +42,8 @@ namespace Nektar
 {
 
 template <size_t VectorWidth, typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 interleave(const unsigned int numMetaBlocks, const unsigned int npts,
            TData *inout)
 {
@@ -83,8 +83,8 @@ interleave(const unsigned int numMetaBlocks, const unsigned int npts,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
              const unsigned int npts, TData *inout)
 {
@@ -124,8 +124,8 @@ deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
 }
 
 template <typename ExecSpace>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
                    const unsigned int newVecWidth, const unsigned int offset,
                    int *deInterleaveMapPtr, int *interleaveMapPtr)

@@ -89,7 +89,6 @@ public:
         // Handle Dirichlet BCs
         m_DirBCOp->apply(out);
         m_MassOp->apply(out, m_tmp);
-
         sub<ExecSpace, TData>(m_rhs, m_tmp, m_rhs);
 
         // Handle Robin BCs

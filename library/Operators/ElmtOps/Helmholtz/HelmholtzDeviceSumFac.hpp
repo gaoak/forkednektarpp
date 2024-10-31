@@ -162,6 +162,7 @@ public:
                 derivPtr += 3 * nqTot * nElmtsPad;
             }
 
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }

@@ -146,11 +146,10 @@ __global__ void GlobalToLocalKernel(const unsigned int nsize,
 
 // Launchers
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *signPtr, const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+               const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -160,11 +159,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData sign, const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
+               const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -174,11 +172,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+AssembleKernel(const unsigned int nsize, const int *assmbPtr,
+               const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -188,11 +185,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *signPtr, const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                    const TData *signPtr, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -202,11 +198,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData sign, const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                    const TData sign, const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -216,11 +211,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *inPtr, TData *outPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
+                    const TData *inPtr, TData *outPtr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;

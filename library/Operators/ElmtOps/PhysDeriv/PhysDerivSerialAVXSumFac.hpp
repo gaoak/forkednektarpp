@@ -38,7 +38,6 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
@@ -55,7 +54,7 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorPhysDerivImpl : public OperatorPhysDeriv<TData>
 {
     using simd_t =
-        typename simd_type_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -73,7 +72,7 @@ public:
         m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
 
-        // Initialize the zeros
+        // Initialize the zeros.
         m_zeroMap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eZeros,
                                                           simd_t::alignment);
 
@@ -535,7 +534,7 @@ private:
             dfsize *= nqTot;
         }
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
@@ -590,12 +589,12 @@ private:
 
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
-            // Calculate physical derivative
+            // Calculate physical derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
 
-            // Increment pointers
+            // Increment pointers.
             dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;
@@ -619,7 +618,7 @@ private:
             dfsize *= nqTot;
         }
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),

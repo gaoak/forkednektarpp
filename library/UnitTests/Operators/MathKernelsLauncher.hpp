@@ -32,22 +32,29 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-void negKernelLauncher(const size_t n, const double *x, double *y);
-void addKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
-void subKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
-void daxpyKernelLauncher(const size_t n, const double alpha, const double *x,
-                         const double *y, double *z);
-void divKernelLauncher(const size_t n, const double *x, const double *y,
-                       double *z);
-void sumKernelLauncher(const size_t n, const double *x, double *h_out);
-void maxKernelLauncher(const size_t n, const double *x, double *h_out);
-void minKernelLauncher(const size_t n, const double *x, double *h_out);
-void innerproductKernelLauncher(const size_t n, const double *x,
-                                const double *y, double *h_out);
-void l1normKernelLauncher(const size_t n, const double *x, double *h_out);
-void l2normKernelLauncher(const size_t n, const double *x, double *h_out);
-void lpnormKernelLauncher(const size_t n, const int p, const double *x,
-                          double *h_out);
-void linfnormKernelLauncher(const size_t n, const double *x, double *h_out);
+#include <Operators/Field/Field.hpp>
+
+void negKernelLauncher(Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &);
+void addKernelLauncher(Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &);
+void subKernelLauncher(Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &);
+void daxpyKernelLauncher(const double alpha, Field<double, FieldState::Phys> &,
+                         Field<double, FieldState::Phys> &,
+                         Field<double, FieldState::Phys> &);
+void divKernelLauncher(Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &,
+                       Field<double, FieldState::Phys> &);
+double sumKernelLauncher(Field<double, FieldState::Phys> &);
+double maxKernelLauncher(Field<double, FieldState::Phys> &);
+double minKernelLauncher(Field<double, FieldState::Phys> &);
+double innerproductKernelLauncher(Field<double, FieldState::Phys> &,
+                                  Field<double, FieldState::Phys> &);
+double l1normKernelLauncher(Field<double, FieldState::Phys> &);
+double l2normKernelLauncher(Field<double, FieldState::Phys> &);
+double lpnormKernelLauncher(const unsigned int p,
+                            Field<double, FieldState::Phys> &);
+double linfnormKernelLauncher(Field<double, FieldState::Phys> &);

@@ -52,7 +52,7 @@ template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
     using simd_t =
-        typename simd_type_if<std::is_same<ExecSpace, NektarSpaces::AVX>::value,
+        typename simd_type_if<std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -206,7 +206,8 @@ private:
     {
         constexpr auto nqTot = nq0;
         constexpr auto nmTot = nm0;
-        // Workspace for kernels - also checks preconditions
+
+        // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
         const typename simd_t::vectorType *tmpIn =
@@ -250,6 +251,7 @@ private:
         const auto nqTot = nq0;
         const auto nmTot = nm0;
 
+        // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
         const typename simd_t::vectorType *tmpIn =
@@ -291,14 +293,15 @@ private:
         constexpr auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        const bool correct =
+
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -323,7 +326,7 @@ private:
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
@@ -345,14 +348,15 @@ private:
         const auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-        const bool correct =
+
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -377,7 +381,7 @@ private:
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, correct, bPtr0,
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
@@ -394,16 +398,17 @@ private:
         constexpr auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        const bool correct =
+
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -430,9 +435,9 @@ private:
             const auto bPtr2 = m_basisMap[m_basisKeys[2]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
-                                         tmpOut);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, bPtr0, bPtr1, bPtr2, wsp0,
+                                         wsp1, tmpIn, tmpOut);
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -455,16 +460,17 @@ private:
         const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-        const bool correct =
+
+        const bool isModified =
             (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
-        // Workspace for kernels - also checks preconditions
+        // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         BwdTrans3DWorkspace<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, wsp0Size,
                                         wsp1Size);
-
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
+
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -491,9 +497,9 @@ private:
             const auto bPtr2 = m_basisMap[m_basisKeys[2]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2, correct,
-                                         bPtr0, bPtr1, bPtr2, wsp0, wsp1, tmpIn,
-                                         tmpOut);
+            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                         isModified, bPtr0, bPtr1, bPtr2, wsp0,
+                                         wsp1, tmpIn, tmpOut);
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }

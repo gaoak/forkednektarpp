@@ -37,7 +37,7 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 
 #include "Operators/Common/Spaces.hpp"
-#include "Operators/SYCLQueue.hpp"
+#include "Operators/Utils/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -125,11 +125,10 @@ void DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -146,11 +145,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0, TData *deriv1)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0, TData *deriv1)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -174,11 +172,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0, TData *deriv1, TData *deriv2)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0, TData *deriv1, TData *deriv2)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;

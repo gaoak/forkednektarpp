@@ -42,12 +42,12 @@ namespace Nektar::Operators::detail
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
-                 TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
+                     const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
         outPtr[mapPtr[i]] += inPtr[i];
@@ -55,12 +55,12 @@ NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr, const TData *inPtr,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                 const int *mapPtr, const TData *inPtr, TData *outPtr)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
+                     const int *mapPtr, const TData *inPtr, TData *outPtr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
         outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];

@@ -119,11 +119,10 @@ __global__ void DiffusionCoeff3DKernel(const unsigned int nsize,
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -132,11 +131,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0, TData *deriv1)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0, TData *deriv1)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -146,11 +144,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
-                           TData *deriv0, TData *deriv1, TData *deriv2)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
+                       TData *deriv0, TData *deriv1, TData *deriv2)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;

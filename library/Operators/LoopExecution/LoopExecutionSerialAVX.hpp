@@ -38,51 +38,51 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-atomic_add(TData *const dest, const TData val)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_add(TData *const dest, const TData val)
 {
     *dest += val;
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-atomic_sub(TData *const dest, const TData val)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_sub(TData *const dest, const TData val)
 {
     *dest -= val;
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-atomic_max(TData *const dest, const TData val)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_max(TData *const dest, const TData val)
 {
     *dest = max(*dest, val);
 }
 
 template <typename ExecSpace, typename Scope, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-atomic_min(TData *const dest, const TData val)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    atomic_min(TData *const dest, const TData val)
 {
     *dest = min(*dest, val);
 }
 
 template <typename ExecSpace, typename Functor>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-parallel_for(const int begin, const int end, const Functor &functor)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    parallel_for(const int begin, const int end, const Functor &functor)
 {
     for (int i = begin; i < end; ++i)
     {
@@ -91,24 +91,24 @@ parallel_for(const int begin, const int end, const Functor &functor)
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-parallel_reduce(const int begin, const int end, const Functor &functor,
-                typename Reduction::value_type &red)
+inline
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::Serial> ||
+                                std::is_same_v<ExecSpace, NektarSpaces::AVX>,
+                            void>::type
+    parallel_reduce(const int begin, const int end, const Functor &functor,
+                    typename Reduction::value_type &red)
 {
     using TData = typename Reduction::value_type;
 
-    if constexpr (std::is_same<Reduction, Nektar::ReduceSum<TData>>::value)
+    if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
         red = 0.0;
     }
-    else if constexpr (std::is_same<Reduction, Nektar::ReduceMax<TData>>::value)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
         red = std::numeric_limits<TData>::min();
     }
-    else if constexpr (std::is_same<Reduction, Nektar::ReduceMin<TData>>::value)
+    else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
         red = std::numeric_limits<TData>::max();
     }

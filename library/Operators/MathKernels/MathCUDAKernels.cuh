@@ -850,77 +850,68 @@ __global__ void linfnormKernel(const unsigned int nsize, const TData *x,
 // Launchers for the kernels
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    negKernel(const unsigned int nsize, const TData *x, TData *y)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     negKernel<<<gridSize, blockSize>>>(nsize, x, y);
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    addKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     addKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    subKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     subKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
-                const TData *y, TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
+            const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     daxpyKernel<<<gridSize, blockSize>>>(nsize, alpha, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    divKernel(const unsigned int nsize, const TData *x, const TData *y,
-              TData *z)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     vdivKernel<<<gridSize, blockSize>>>(nsize, x, y, z);
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -940,13 +931,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -964,13 +954,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -988,14 +977,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    ddotKernel(const unsigned int nsize, const TData *x, const TData *y,
-               TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1013,13 +1000,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    l1normKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1036,13 +1022,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    l2normKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1059,14 +1044,13 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
-                 TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
+             TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1084,13 +1068,12 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     if (cudaBuffer == nullptr)
     {

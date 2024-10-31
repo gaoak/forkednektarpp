@@ -59,7 +59,7 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_in->GetBlocks())
+        for (const auto &block : fixt_in->GetBlocks())
         {
             for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
             {
@@ -102,24 +102,7 @@ public:
             GetPreconFactory().CreateInstance("Diagonal", globalSys, map);
         precond->BuildPreconditioner();
         precond->DoPreconditioner(incoeffs, outcoeffs, true);
-
-        // Copy expected result from Array to pointer
-        double *coeffptr = outcoeffs.get();
-        double *expptr =
-            fixt_expected
-                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (auto const &block : fixt_expected->GetBlocks())
-        {
-            size_t cnt = 0;
-            for (size_t el = 0; el < block.num_elements; ++el)
-            {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
-                {
-                    expptr[cnt] = (*coeffptr++);
-                }
-            }
-            expptr += block.block_size;
-        }
+        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

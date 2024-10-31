@@ -709,14 +709,14 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
                              const unsigned int nelmts, const TData *df,
                              const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if constexpr (MULTILEVEL)
     {
@@ -732,8 +732,8 @@ IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
                              const unsigned int nq0, const unsigned int nq1,
                              const unsigned int ncoord,
@@ -742,7 +742,7 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
                              TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if (shapetype == LibUtilities::Quad)
     {
@@ -785,8 +785,8 @@ IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
                              const unsigned int nq0, const unsigned int nq1,
                              const unsigned int nq2, const unsigned int ncoord,
@@ -795,7 +795,7 @@ IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
                              const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if (shapetype == LibUtilities::Hex)
     {

@@ -3508,16 +3508,15 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
 
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
-                            const unsigned int nelmts, const TData *basis0,
-                            const TData *w0, const TData *jac, const TData *in,
-                            TData *out, const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
+                        const unsigned int nelmts, const TData *basis0,
+                        const TData *w0, const TData *jac, const TData *in,
+                        TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
@@ -3545,21 +3544,20 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
-                            const unsigned int nm0, const unsigned int nm1,
-                            const unsigned int nq0, const unsigned int nq1,
-                            const unsigned int nelmts, const bool correct,
-                            [[maybe_unused]] const unsigned int *index0,
-                            const TData *basis0, const TData *basis1,
-                            const TData *w0, const TData *w1, const TData *jac,
-                            TData *wsp, const TData *in, TData *out,
-                            const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
+                        const unsigned int nm0, const unsigned int nm1,
+                        const unsigned int nq0, const unsigned int nq1,
+                        const unsigned int nelmts, const bool correct,
+                        [[maybe_unused]] const unsigned int *index0,
+                        const TData *basis0, const TData *basis1,
+                        const TData *w0, const TData *w1, const TData *jac,
+                        TData *wsp, const TData *in, TData *out,
+                        const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
@@ -3633,25 +3631,23 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
-                            const unsigned int nm0, const unsigned int nm1,
-                            const unsigned int nm2, const unsigned int nq0,
-                            const unsigned int nq1, const unsigned int nq2,
-                            const unsigned int nelmts, const bool correct,
-                            [[maybe_unused]] const unsigned int *index0,
-                            [[maybe_unused]] const unsigned int *index1,
-                            [[maybe_unused]] const unsigned int *index2,
-                            const TData *basis0, const TData *basis1,
-                            const TData *basis2, const TData *w0,
-                            const TData *w1, const TData *w2, const TData *jac,
-                            TData *wsp, const TData *in, TData *out,
-                            const TData scale = 1.0)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
+                        const unsigned int nm0, const unsigned int nm1,
+                        const unsigned int nm2, const unsigned int nq0,
+                        const unsigned int nq1, const unsigned int nq2,
+                        const unsigned int nelmts, const bool correct,
+                        [[maybe_unused]] const unsigned int *index0,
+                        [[maybe_unused]] const unsigned int *index1,
+                        [[maybe_unused]] const unsigned int *index2,
+                        const TData *basis0, const TData *basis1,
+                        const TData *basis2, const TData *w0, const TData *w1,
+                        const TData *w2, const TData *jac, TData *wsp,
+                        const TData *in, TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));

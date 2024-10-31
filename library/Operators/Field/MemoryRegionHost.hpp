@@ -69,8 +69,9 @@ public:
     /**
      * @brief Constructor methods - create a new memory region.
      *
-     * @param size      - size of memory
-     * @param alignment - memory alignment
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionHost(std::string name, size_t size, size_t alignment,
                      bool device_only)
@@ -110,9 +111,10 @@ public:
      *        new MemoryRegion that copies data from a
      *        src pointer
      *
-     * @param src       - pointer data type TDataIn to copy from
-     * @param size      - number of element of type TDataIn to copy
-     * @param alignment - memory alignment
+     * @param src         - pointer data type TDataIn to copy from
+     * @param size        - number of element of type TDataIn to copy
+     * @param alignment   - memory alignment
+     * @param device_only - flag to only allocated memory on device
      */
     template <typename TDataIn>
     MemoryRegionHost(std::string name, const TDataIn *src, const size_t size,
@@ -135,7 +137,6 @@ public:
             }
 
             m_host_valid = true;
-
             m_initialize = false;
         }
     }
@@ -330,8 +331,9 @@ protected:
     /**
      * @brief Initialize the storage memory.
      *
-     * @param val   - value to set
-     * @param count - number of values
+     * @param val    - value to set
+     * @param count  - number of values
+     * @param offset - offset to m_host pointer
      *
      */
     void initialize(TData val, size_t count = 0, size_t offset = 0)
@@ -374,9 +376,9 @@ protected:
     /**
      * @brief Templated copy method.
      *
-     * @param src       - pointer data type TDataIn to copy from
-     * @param size      - number of element of type TDataIn to copy
-     * @param offset    - offset to m_host pointer
+     * @param src    - pointer data type TDataIn to copy from
+     * @param size   - number of element of type TDataIn to copy
+     * @param offset - offset to m_host pointer
      */
     template <typename TDataIn>
     void copyFrom(const TDataIn *src, const size_t size,
@@ -396,7 +398,6 @@ protected:
             }
 
             m_host_valid = true;
-
             m_initialize = false;
         }
     }
@@ -423,6 +424,7 @@ protected:
     {
     }
 
+    // Member variables:
     TData *m_host      = nullptr;
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;

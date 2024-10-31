@@ -100,19 +100,19 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // Step 1: BwdTrans
+        // Step 1: BwdTrans.
         this->m_BwdTransOp->apply(in, this->m_bwd);
 
-        // Step 2: PhysDeriv
+        // Step 2: PhysDeriv.
         this->m_PhysDerivOp->apply(this->m_bwd, this->m_deriv);
 
-        // Step 3: Inner product for mass matrix operation
+        // Step 3: Inner product for mass matrix operation.
         this->m_IProductWRTBaseOp->apply(this->m_bwd, out, this->m_lambda);
 
-        // Step 4: Multiply by diffusion coefficient
+        // Step 4: Multiply by diffusion coefficient.
         DiffusionCoeff(this->m_deriv, m_derivCoeff);
 
-        // Step 5: Inner product
+        // Step 5: Inner product.
         this->m_IProductWRTDerivBaseOp->apply(m_derivCoeff, out, true);
     }
 

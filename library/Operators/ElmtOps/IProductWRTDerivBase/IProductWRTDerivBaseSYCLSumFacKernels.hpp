@@ -37,7 +37,7 @@
 #if defined(NEKTAR_ENABLE_SYCL)
 
 #include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <Operators/SYCLQueue.hpp>
+#include <Operators/Utils/SYCLQueue.hpp>
 
 #include "Operators/Common/Spaces.hpp"
 
@@ -675,16 +675,14 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTDerivBase1DKernel(const unsigned int nq0,
-                                 const unsigned int ncoord,
-                                 const unsigned int nelmts, const TData *df,
-                                 const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
+                             const unsigned int nelmts, const TData *df,
+                             const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const unsigned int blocksize =
         std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
@@ -692,46 +690,45 @@ inline
         std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
                  2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if constexpr (MULTILEVEL)
     {
-        SYCLQueue::GetInstance()
-            .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                sycl::range<3>(1, 1, blocksize),
-                                            sycl::range<3>(1, 1, blocksize)),
-                          [=](sycl::nd_item<3> item_ct1) {
-                              IProductWRTDerivBase1DKernel_QP<DEFORMED>(
-                                  nq0, ncoord, nelmts, df, in, out, item_ct1);
-                          })
+        Q.parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                             sycl::range<3>(1, 1, blocksize),
+                                         sycl::range<3>(1, 1, blocksize)),
+                       [=](sycl::nd_item<3> item_ct1) {
+                           IProductWRTDerivBase1DKernel_QP<DEFORMED>(
+                               nq0, ncoord, nelmts, df, in, out, item_ct1);
+                       })
             .wait();
     }
     else
     {
-        SYCLQueue::GetInstance()
-            .parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                                sycl::range<3>(1, 1, blocksize),
-                                            sycl::range<3>(1, 1, blocksize)),
-                          [=](sycl::nd_item<3> item_ct1) {
-                              IProductWRTDerivBase1DKernel<DEFORMED>(
-                                  nq0, ncoord, nelmts, df, in, out, item_ct1);
-                          })
+        Q.parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                             sycl::range<3>(1, 1, blocksize),
+                                         sycl::range<3>(1, 1, blocksize)),
+                       [=](sycl::nd_item<3> item_ct1) {
+                           IProductWRTDerivBase1DKernel<DEFORMED>(
+                               nq0, ncoord, nelmts, df, in, out, item_ct1);
+                       })
             .wait();
     }
 }
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
-                                 const unsigned int nq0, const unsigned int nq1,
-                                 const unsigned int ncoord,
-                                 const unsigned int nelmts, const TData *Z0,
-                                 const TData *Z1, const TData *df,
-                                 const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
+                             const unsigned int nq0, const unsigned int nq1,
+                             const unsigned int ncoord,
+                             const unsigned int nelmts, const TData *Z0,
+                             const TData *Z1, const TData *df, const TData *in,
+                             TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const sycl::range<3> blocksize2d =
         sycl::range<3>(1, std::min(nq1, 16u), std::min(nq0, 16u));
@@ -741,125 +738,114 @@ inline
         std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
                  2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if (shapetype == LibUtilities::Quad)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize2d,
-                                      blocksize2d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize2d,
+                                   blocksize2d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad,
-                                                        DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                            item_ct1);
+                     IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad,
+                                                     DEFORMED>(
+                         nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad,
-                                                           DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                            item_ct1);
+                     IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad,
+                                                        DEFORMED>(
+                         nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
-                                                          cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(0), cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase2DKernel<LibUtilities::Quad,
-                                                         DEFORMED>(
-                                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                                item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase2DKernel<LibUtilities::Quad,
+                                                      DEFORMED>(
+                             nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                             item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tri)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize2d,
-                                      blocksize2d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize2d,
+                                   blocksize2d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri,
-                                                        DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                            item_ct1);
+                     IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri,
+                                                     DEFORMED>(
+                         nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri,
-                                                           DEFORMED>(
-                            nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                            item_ct1);
+                     IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri,
+                                                        DEFORMED>(
+                         nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
             unsigned int nshared = nq0 + nq1;
 
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase2DKernel<LibUtilities::Tri,
-                                                         DEFORMED>(
-                                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
-                                item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase2DKernel<LibUtilities::Tri,
+                                                      DEFORMED>(
+                             nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out,
+                             item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
 }
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
-                                 const unsigned int nq0, const unsigned int nq1,
-                                 const unsigned int nq2,
-                                 const unsigned int ncoord,
-                                 const unsigned int nelmts, const TData *Z0,
-                                 const TData *Z1, const TData *Z2,
-                                 const TData *df, const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
+                             const unsigned int nq0, const unsigned int nq1,
+                             const unsigned int nq2, const unsigned int ncoord,
+                             const unsigned int nelmts, const TData *Z0,
+                             const TData *Z1, const TData *Z2, const TData *df,
+                             const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const sycl::range<3> blocksize3d =
         sycl::range<3>(std::min(nq2, 8u), std::min(nq1, 8u), std::min(nq0, 8u));
@@ -869,210 +855,191 @@ inline
         std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
                  2147483647u);
 
+    sycl::queue &Q = SYCLQueue::GetInstance();
+
     if (shapetype == LibUtilities::Hex)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize3d,
-                                      blocksize3d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize3d,
+                                   blocksize3d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex,
-                                                        DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex,
+                                                     DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex,
-                                                           DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex,
+                                                        DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(sycl::range<1>(0),
-                                                          cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(0), cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase3DKernel<LibUtilities::Hex,
-                                                         DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
-                                in, out, item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase3DKernel<LibUtilities::Hex,
+                                                      DEFORMED>(
+                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                             out, item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Tet)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize3d,
-                                      blocksize3d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize3d,
+                                   blocksize3d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet,
-                                                        DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet,
+                                                     DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet,
-                                                           DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet,
+                                                        DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
             unsigned int nshared = nq0 + 2 * nq1 + nq2;
 
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase3DKernel<LibUtilities::Tet,
-                                                         DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
-                                in, out, item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase3DKernel<LibUtilities::Tet,
+                                                      DEFORMED>(
+                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                             out, item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Prism)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize3d,
-                                      blocksize3d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize3d,
+                                   blocksize3d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism,
-                                                        DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism,
+                                                     DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism,
-                                                           DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism,
+                                                        DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
             unsigned int nshared = nq0 + nq2;
 
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase3DKernel<LibUtilities::Prism,
-                                                         DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
-                                in, out, item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase3DKernel<LibUtilities::Prism,
+                                                      DEFORMED>(
+                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                             out, item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
     else if (shapetype == LibUtilities::Pyr)
     {
         if constexpr (MULTILEVEL)
         {
-            SYCLQueue::GetInstance()
-                .parallel_for(
-                    sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                          blocksize3d,
-                                      blocksize3d),
-                    [=](sycl::nd_item<3> item_ct1) {
+            Q.parallel_for(
+                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) * blocksize3d,
+                                   blocksize3d),
+                 [=](sycl::nd_item<3> item_ct1) {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                        IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr,
-                                                        DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr,
+                                                     DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #else
-                        IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr,
-                                                           DEFORMED>(
-                            nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                            out, item_ct1);
+                     IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr,
+                                                        DEFORMED>(
+                         nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out,
+                         item_ct1);
 #endif
-                    })
+                 })
                 .wait();
         }
         else
         {
             unsigned int nshared = nq0 + nq1 + nq2;
 
-            SYCLQueue::GetInstance()
-                .submit([&](sycl::handler &cgh) {
-                    sycl::local_accessor<TData, 1> shared(
-                        sycl::range<1>(nshared), cgh);
+            Q.submit([&](sycl::handler &cgh) {
+                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                       cgh);
 
-                    cgh.parallel_for(
-                        sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                              sycl::range<3>(1, 1, blocksize),
-                                          sycl::range<3>(1, 1, blocksize)),
-                        [=](sycl::nd_item<3> item_ct1) {
-                            TData *shmPtr =
-                                shared
-                                    .template get_multi_ptr<
-                                        sycl::access::decorated::no>()
-                                    .get();
-                            IProductWRTDerivBase3DKernel<LibUtilities::Pyr,
-                                                         DEFORMED>(
-                                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df,
-                                in, out, item_ct1, shmPtr);
-                        });
-                })
-                .wait();
+                 cgh.parallel_for(
+                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
+                                           sycl::range<3>(1, 1, blocksize),
+                                       sycl::range<3>(1, 1, blocksize)),
+                     [=](sycl::nd_item<3> item_ct1) {
+                         TData *shmPtr = shared
+                                             .template get_multi_ptr<
+                                                 sycl::access::decorated::no>()
+                                             .get();
+                         IProductWRTDerivBase3DKernel<LibUtilities::Pyr,
+                                                      DEFORMED>(
+                             nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
+                             out, item_ct1, shmPtr);
+                     });
+             }).wait();
         }
     }
 }

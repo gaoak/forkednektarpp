@@ -152,7 +152,7 @@ __device__ __forceinline__ double atomicMin_block(double *address, double val)
 
 template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_add(TData *const dest, const TData val)
 {
@@ -168,7 +168,7 @@ __device__ __forceinline__
 
 template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_sub(TData *const dest, const TData val)
 {
@@ -184,7 +184,7 @@ __device__ __forceinline__
 
 template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_max(TData *const dest, const TData val)
 {
@@ -200,7 +200,7 @@ __device__ __forceinline__
 
 template <typename ExecSpace, typename Scope, typename TData>
 __device__ __forceinline__
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
+    typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
                             void>::type
     atomic_min(TData *const dest, const TData val)
 {
@@ -355,27 +355,25 @@ __global__ void reduceMinKernel(const unsigned int begin,
 
 // Launchers for the kernels
 template <typename ExecSpace, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    parallel_for(const unsigned int begin, const unsigned int end,
-                 const Functor &functor)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+parallel_for(const unsigned int begin, const unsigned int end,
+             const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     parallel_for<<<gridSize, blockSize>>>(begin, end, functor);
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    parallel_reduce(const unsigned int begin, const unsigned int end,
-                    const Functor &functor, typename Reduction::value_type *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+parallel_reduce(const unsigned int begin, const unsigned int end,
+                const Functor &functor, typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = NektarSpaces::CUDA::defaultGridSize;
+    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
 
     using TData = typename Reduction::value_type;
 

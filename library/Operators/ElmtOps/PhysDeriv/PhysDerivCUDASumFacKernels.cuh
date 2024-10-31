@@ -966,15 +966,14 @@ __global__ void PhysDeriv3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                      const unsigned int nelmts, const TData *D0,
-                      const TData *df, const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
+                  const unsigned int nelmts, const TData *D0, const TData *df,
+                  const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const unsigned int blocksize =
         MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
@@ -998,17 +997,16 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                      const unsigned int nq1, const unsigned int ncoord,
-                      const unsigned int nelmts, const TData *D0,
-                      const TData *D1, const TData *Z0, const TData *Z1,
-                      const TData *df, const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
+                  const unsigned int nq1, const unsigned int ncoord,
+                  const unsigned int nelmts, const TData *D0, const TData *D1,
+                  const TData *Z0, const TData *Z1, const TData *df,
+                  const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
     const unsigned int blocksize =
@@ -1069,18 +1067,16 @@ inline
 
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           bool SHMEM, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::CUDA>::value,
-                            void>::type
-    PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                      const unsigned int nq1, const unsigned int nq2,
-                      const unsigned int nelmts, const TData *D0,
-                      const TData *D1, const TData *D2, const TData *Z0,
-                      const TData *Z1, const TData *Z2, const TData *df,
-                      const TData *in, TData *out)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
+                               void>::type
+PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
+                  const unsigned int nq1, const unsigned int nq2,
+                  const unsigned int nelmts, const TData *D0, const TData *D1,
+                  const TData *D2, const TData *Z0, const TData *Z1,
+                  const TData *Z2, const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
-        std::is_same<Implementation, Operators::SumFacQP>::value;
+        std::is_same_v<Implementation, Operators::SumFacQP>;
 
     const dim3 blocksize3d =
         dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));

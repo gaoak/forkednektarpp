@@ -65,7 +65,7 @@ public:
         // Set mapping to skip over padding elements
         int i = 0, j = 0;
 
-        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
+        std::vector<int> alignmentMap(expansionList->GetNcoeffs());
         auto blocks =
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
@@ -109,9 +109,9 @@ public:
             }
 
             // Initialize data
-            Array<OneD, TData> mat(m_nBndEdge);
-            Array<OneD, unsigned int> map(m_nBndEdge);
-            Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
+            std::vector<TData> mat(m_nBndEdge);
+            std::vector<unsigned int> map(m_nBndEdge);
+            std::vector<unsigned int> offset(m_nBndEdge, 0u);
             unsigned int i = 0;
             for (auto &r : robinBCInfo)
             {
@@ -130,13 +130,13 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            m_mat = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment, device_only);
-            m_map = MemoryRegion<unsigned int>::template fromArray<
+            m_map = MemoryRegion<unsigned int>::template fromVector<
                 MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
             m_offset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
+                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                                                                unsigned int>(
                     offset, ExecSpace::alignment, device_only);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 2)
@@ -171,13 +171,13 @@ public:
             }
 
             // Initialize data
-            Array<OneD, TData> mat(matSize);
-            Array<OneD, unsigned int> map(mapSize);
-            Array<OneD, int> sign(mapSize);
-            Array<OneD, unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
-            Array<OneD, unsigned int> offset(m_nBndEdge, 0u);
-            Array<OneD, unsigned int> matOffset(m_nBndEdge, 0u);
-            Array<OneD, unsigned int> mapOffset(m_nBndEdge, 0u);
+            std::vector<TData> mat(matSize);
+            std::vector<unsigned int> map(mapSize);
+            std::vector<int> sign(mapSize);
+            std::vector<unsigned int> nEdgeCoeff(m_nBndEdge, 0u);
+            std::vector<unsigned int> offset(m_nBndEdge, 0u);
+            std::vector<unsigned int> matOffset(m_nBndEdge, 0u);
+            std::vector<unsigned int> mapOffset(m_nBndEdge, 0u);
             unsigned int i = 0;
             for (auto &r : robinBCInfo)
             {
@@ -227,27 +227,27 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            m_mat = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment, device_only);
-            m_map = MemoryRegion<unsigned int>::template fromArray<
+            m_map = MemoryRegion<unsigned int>::template fromVector<
                 MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
-            m_sign = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            m_sign = MemoryRegion<int>::template fromVector<MemSpace, int>(
                 sign, ExecSpace::alignment, device_only);
             m_nEdgeCoeff =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
+                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                                                                unsigned int>(
                     nEdgeCoeff, ExecSpace::alignment, device_only);
             m_offset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
+                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                                                                unsigned int>(
                     offset, ExecSpace::alignment, device_only);
             m_matOffset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
+                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                                                                unsigned int>(
                     matOffset, ExecSpace::alignment, device_only);
             m_mapOffset =
-                MemoryRegion<unsigned int>::template fromArray<MemSpace,
-                                                               unsigned int>(
+                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                                                                unsigned int>(
                     mapOffset, ExecSpace::alignment, device_only);
         }
         else if (expansionList->GetExp(0)->GetShapeDimension() == 3)

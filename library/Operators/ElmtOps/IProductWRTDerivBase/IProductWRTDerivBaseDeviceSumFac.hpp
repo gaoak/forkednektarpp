@@ -61,10 +61,9 @@ public:
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
         // Initialise the jacobian and the derivative factor.
-        auto transpose =
-            std::is_same<Implementation, Operators::SumFacQP>::value;
+        auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
         auto interleave_width =
-            std::is_same<Implementation, Operators::SumFac>::value
+            std::is_same_v<Implementation, Operators::SumFac>
                 ? NektarSpaces::vector_width<TData>::value
                 : 1u;
         auto locblocks = GetBlockAttributes<TData>(

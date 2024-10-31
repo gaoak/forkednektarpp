@@ -36,9 +36,7 @@
 
 #include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondCUDAKernels.cuh"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondKokkosKernels.hpp"
-#include "Operators/BndCondOps/NeuBndCond/NeuBndCondSYCLKernels.hpp"
+#include "Operators/BndCondOps/NeuBndCond/NeuBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondSerialAVXKernels.hpp"
 
 #include <MultiRegions/ContField.h>
@@ -67,7 +65,7 @@ public:
         auto &map               = assmbMap->GetBndCondCoeffsToLocalCoeffsMap();
         m_signChange            = assmbMap->GetSignChange();
 
-        // Compute number boundary coefficients
+        // Compute number boundary coefficients.
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
             if (bndConditions[i]->GetBoundaryConditionType() ==

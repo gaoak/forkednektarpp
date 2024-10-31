@@ -42,11 +42,10 @@ namespace Nektar
 {
 
 template <size_t VectorWidth, typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    interleave(const unsigned int numMetaBlocks, const unsigned int npts,
-               TData *inout)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+interleave(const unsigned int numMetaBlocks, const unsigned int npts,
+           TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -86,12 +85,10 @@ inline
 }
 
 template <typename ExecSpace, typename TData>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    deInterleave(const unsigned int VectorWidth,
-                 const unsigned int numMetaBlocks, const unsigned int npts,
-                 TData *inout)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+deInterleave(const unsigned int VectorWidth, const unsigned int numMetaBlocks,
+             const unsigned int npts, TData *inout)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -131,13 +128,11 @@ inline
 }
 
 template <typename ExecSpace>
-inline
-    typename std::enable_if<std::is_same<ExecSpace, NektarSpaces::SYCL>::value,
-                            void>::type
-    BuildInterleaveMap(const unsigned int numMetaBlocks,
-                       const unsigned int npts, const unsigned int newVecWidth,
-                       const unsigned int offset, int *deInterleaveMapPtr,
-                       int *interleaveMapPtr)
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
+                               void>::type
+BuildInterleaveMap(const unsigned int numMetaBlocks, const unsigned int npts,
+                   const unsigned int newVecWidth, const unsigned int offset,
+                   int *deInterleaveMapPtr, int *interleaveMapPtr)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 

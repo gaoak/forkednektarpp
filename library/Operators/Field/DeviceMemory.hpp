@@ -42,7 +42,7 @@
 #elif defined(NEKTAR_ENABLE_HIP)
 #include <hip/hip_runtime.h>
 #elif defined(NEKTAR_ENABLE_SYCL)
-#include "Operators/SYCLQueue.hpp"
+#include "Operators/Utils/SYCLQueue.hpp"
 #elif defined(NEKTAR_ENABLE_KOKKOS)
 #endif
 
@@ -64,23 +64,31 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-void deviceMalloc([[maybe_unused]] TData *&src,
-                  [[maybe_unused]] const unsigned int size)
+void deviceMalloc(TData *&src, const unsigned int size)
 {
+    if (size > 0)
+    {
 #if defined(NEKTAR_ENABLE_CUDA)
-    cudaMalloc((void **)&src, size * sizeof(TData));
+        cudaMalloc((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
-    hipMalloc((void **)&src, size * sizeof(TData));
+        hipMalloc((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    src = sycl::malloc_device<TData>(size, SYCLQueue::GetInstance());
+        src = sycl::malloc_device<TData>(size, SYCLQueue::GetInstance());
 #elif defined(NEKTAR_ENABLE_KOKKOS)
-    src = (TData *)
-        Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
-            size * sizeof(TData));
+        src = (TData *)
+            Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
+                size * sizeof(TData));
+#else
+        src = (TData *)malloc(size * sizeof(TData));
 #endif
+    }
+    else
+    {
+        src = nullptr;
+    }
 }
 
-template <typename TData> void deviceFree([[maybe_unused]] TData *src)
+template <typename TData> void deviceFree(TData *src)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaFree(src);
@@ -90,12 +98,13 @@ template <typename TData> void deviceFree([[maybe_unused]] TData *src)
     sycl::free(src, SYCLQueue::GetInstance());
 #elif defined(NEKTAR_ENABLE_KOKKOS)
     Kokkos::kokkos_free(src);
+#else
+    free(src);
 #endif
 }
 
 template <typename TData>
-void deviceMemset([[maybe_unused]] TData *dst, [[maybe_unused]] const int val,
-                  [[maybe_unused]] const unsigned int size)
+void deviceMemset(TData *dst, const int val, const unsigned int size)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     cudaMemset(dst, val, size * sizeof(TData));
@@ -108,12 +117,13 @@ void deviceMemset([[maybe_unused]] TData *dst, [[maybe_unused]] const int val,
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
     // Deep copy the val to the device view.
     Kokkos::deep_copy(dstView, val);
+#else
+    memset(dst, val, size * sizeof(TData));
 #endif
 }
 
 template <typename TData>
-void deviceFill([[maybe_unused]] TData *dst, [[maybe_unused]] const TData val,
-                [[maybe_unused]] const unsigned int size)
+void deviceFill(TData *dst, const TData val, const unsigned int size)
 {
 #if defined(NEKTAR_ENABLE_CUDA)
     thrust::fill(dst, dst + size, val);
@@ -127,13 +137,13 @@ void deviceFill([[maybe_unused]] TData *dst, [[maybe_unused]] const TData val,
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
     // Deep copy the val to the device view.
     Kokkos::deep_copy(dstView, val);
+#else
+    std::fill(dst, dst + size, val);
 #endif
 }
 
 template <typename MemCopy, typename TData>
-void deviceMemcpy([[maybe_unused]] TData *dst,
-                  [[maybe_unused]] const TData *src,
-                  [[maybe_unused]] const unsigned int size)
+void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
 {
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {
@@ -150,6 +160,8 @@ void deviceMemcpy([[maybe_unused]] TData *dst,
         Kokkos::View<TData *, Kokkos::HostSpace> dstView(dst, size);
         // Deep copy the host view to the device view.
         Kokkos::deep_copy(dstView, srcView);
+#else
+        memcpy(dst, src, size * sizeof(TData));
 #endif
     }
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
@@ -168,6 +180,8 @@ void deviceMemcpy([[maybe_unused]] TData *dst,
         Kokkos::View<TData *, Kokkos::HostSpace> dstView(dst, size);
         // Deep copy the host view to the device view.
         Kokkos::deep_copy(dstView, srcView);
+#else
+        memcpy(dst, src, size * sizeof(TData));
 #endif
     }
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
@@ -185,6 +199,8 @@ void deviceMemcpy([[maybe_unused]] TData *dst,
         Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
         // Deep copy the host view to the device view.
         Kokkos::deep_copy(dstView, srcView);
+#else
+        memcpy(dst, src, size * sizeof(TData));
 #endif
     }
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
@@ -203,6 +219,8 @@ void deviceMemcpy([[maybe_unused]] TData *dst,
         Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
         // Deep copy the host view to the device view.
         Kokkos::deep_copy(dstView, srcView);
+#else
+        memcpy(dst, src, size * sizeof(TData));
 #endif
     }
 }

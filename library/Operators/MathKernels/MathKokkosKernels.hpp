@@ -46,8 +46,8 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 negKernel(const unsigned int nsize, const TData *x, TData *y)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -55,8 +55,8 @@ negKernel(const unsigned int nsize, const TData *x, TData *y)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -64,8 +64,8 @@ addKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -73,8 +73,8 @@ subKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
             const TData *y, TData *z)
 {
@@ -84,8 +84,8 @@ daxpyKernel(const unsigned int nsize, const TData alpha, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 {
     Nektar::parallel_for<ExecSpace>(
@@ -93,8 +93,8 @@ divKernel(const unsigned int nsize, const TData *x, const TData *y, TData *z)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
@@ -103,8 +103,8 @@ reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
@@ -116,8 +116,8 @@ reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMin<TData>>(
@@ -129,8 +129,8 @@ reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
@@ -140,8 +140,8 @@ ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
@@ -153,8 +153,8 @@ l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceSum<TData>>(
@@ -164,8 +164,8 @@ l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
@@ -178,8 +178,8 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value, void>::type
+inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
+                               void>::type
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     Nektar::parallel_reduce<ExecSpace, Nektar::ReduceMax<TData>>(
