@@ -413,8 +413,8 @@ void IProductWRTBaseQuadKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq1, nm0),
-                [&](const unsigned int &j, const unsigned int &p) {
+                    team, nm0, nq1),
+                [&](const unsigned int &p, const unsigned int &j) {
                     const unsigned int cnt_pj = nq1 * p + j;
                     unsigned int cnt_ji       = nq0 * j;
 
@@ -430,8 +430,8 @@ void IProductWRTBaseQuadKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nm0, nm1),
-                [&](const unsigned int &p, const unsigned int &q) {
+                    team, nm1, nm0),
+                [&](const unsigned int &q, const unsigned int &p) {
                     const unsigned int cnt_pq = nm0 * q + p;
                     const unsigned int index  = outoffset + cnt_pq;
                     unsigned int cnt_pj       = nq1 * p;
@@ -825,8 +825,8 @@ void IProductWRTBaseTriKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq1, nm0),
-                [&](const unsigned int &j, const unsigned int &p) {
+                    team, nm0, nq1),
+                [&](const unsigned int &p, const unsigned int &j) {
                     const unsigned int cnt_pj = nq1 * p + j;
                     unsigned int cnt_ji       = nq0 * j;
 
@@ -842,8 +842,8 @@ void IProductWRTBaseTriKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nm1, nm0),
-                [&](const unsigned int &q, const unsigned int &p) {
+                    team, nm0, nm1),
+                [&](const unsigned int &p, const unsigned int &q) {
                     if (q < nm1 - p)
                     {
                         const unsigned int mode_pq =
@@ -886,8 +886,8 @@ void IProductWRTBaseTriKernel_QP(
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                        team, nq0, nq1),
-                    [&](const unsigned int &i, const unsigned int &j) {
+                        team, nq1, nq0),
+                    [&](const unsigned int &j, const unsigned int &i) {
                         TData tmp                 = s_w1[j] * s_basis1[nq1 + j];
                         const unsigned int cnt_ji = nq0 * j + i;
                         TData prod = s_wsp0[cnt_ji] * tmp * s_w0[i];
@@ -917,10 +917,10 @@ void IProductWRTBaseTriKernel_QP(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP_1D(
-    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const bool correct,
-    const unsigned int *KOKKOS_RESTRICT pindex,
+    const unsigned int ssize, const unsigned int nm0,
+    [[maybe_unused]] const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool correct, const unsigned int *KOKKOS_RESTRICT pindex,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT w0, const TData *KOKKOS_RESTRICT w1,
     const TData *KOKKOS_RESTRICT jac, const TData *KOKKOS_RESTRICT in,
@@ -1320,9 +1320,9 @@ void IProductWRTBaseHexKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq1, nq2, nm0),
-                [&](const unsigned int &j, const unsigned int &k,
-                    const unsigned int &p) {
+                    team, nm0, nq2, nq1),
+                [&](const unsigned int &p, const unsigned int &k,
+                    const unsigned int &j) {
                     const unsigned int cnt_pkj = nq2 * nq1 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq0 * nq1 * k + nq0 * j;
 
@@ -1339,9 +1339,9 @@ void IProductWRTBaseHexKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nm1, nm0),
-                [&](const unsigned int &k, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nq2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &k) {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq2 * nq1 * p + nq1 * k;
 
@@ -1358,9 +1358,9 @@ void IProductWRTBaseHexKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm2, nm1, nm0),
-                [&](const unsigned int &r, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nm2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &r) {
                     const unsigned int cnt_rqp = nm0 * nm1 * r + nm0 * q + p;
                     const unsigned int index   = outoffset + cnt_rqp;
                     unsigned int cnt_pqk       = nm1 * nq2 * p + nq2 * q;
@@ -1908,9 +1908,9 @@ void IProductWRTBaseTetKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq1, nq2, nm0),
-                [&](const unsigned int &j, const unsigned int &k,
-                    const unsigned int &p) {
+                    team, nm0, nq2, nq1),
+                [&](const unsigned int &p, const unsigned int &k,
+                    const unsigned int &j) {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq0 * nq1 * k + nq0 * j;
 
@@ -1927,9 +1927,9 @@ void IProductWRTBaseTetKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nm1, nm0),
-                [&](const unsigned int &k, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nq2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &k) {
                     if (q < nm1 - p)
                     {
                         const unsigned int mode_pq =
@@ -1950,9 +1950,9 @@ void IProductWRTBaseTetKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm2, nm1, nm0),
-                [&](const unsigned int &r, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nm2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &r) {
                     if (q < nm1 - p)
                     {
                         if (r < nm2 - p - q)
@@ -2006,9 +2006,9 @@ void IProductWRTBaseTetKernel_QP(
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                        team, nq0, nq1, nq2),
-                    [&](const unsigned int &i, const unsigned int &j,
-                        const unsigned int &k) {
+                        team, nq2, nq1, nq0),
+                    [&](const unsigned int &k, const unsigned int &j,
+                        const unsigned int &i) {
                         TData tmpQ2 = s_w2[k];
                         TData tmpQ1 = tmpQ2 * s_w1[j];
                         const unsigned int cnt_kji =
@@ -2624,9 +2624,9 @@ void IProductWRTBasePrismKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq1, nq2, nm0),
-                [&](const unsigned int &j, const unsigned int &k,
-                    const unsigned int &p) {
+                    team, nm0, nq2, nq1),
+                [&](const unsigned int &p, const unsigned int &k,
+                    const unsigned int &j) {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = nq1 * nq0 * k + nq0 * j;
 
@@ -2643,9 +2643,9 @@ void IProductWRTBasePrismKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nm1, nm0),
-                [&](const unsigned int &k, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nq2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &k) {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq1 * nq2 * p + nq1 * k;
 
@@ -2662,9 +2662,9 @@ void IProductWRTBasePrismKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm2, nm1, nm0),
-                [&](const unsigned int &r, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nm2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &r) {
                     if (r < nm2 - p)
                     {
                         unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q;
@@ -2709,9 +2709,9 @@ void IProductWRTBasePrismKernel_QP(
 
                 Kokkos::parallel_for(
                     Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                        team, nq0, nq1, nq2),
-                    [&](const unsigned int &i, const unsigned int &j,
-                        const unsigned int &k) {
+                        team, nq2, nq1, nq0),
+                    [&](const unsigned int &k, const unsigned int &j,
+                        const unsigned int &i) {
                         TData k_weight  = s_w2[k];
                         TData kj_weight = k_weight * s_w1[j];
                         const unsigned int cnt_kji =
@@ -3316,9 +3316,9 @@ void IProductWRTBasePyrKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq1, nq2, nm0),
-                [&](const unsigned int &j, const unsigned int &k,
-                    const unsigned int &p) {
+                    team, nm0, nq2, nq1),
+                [&](const unsigned int &p, const unsigned int &k,
+                    const unsigned int &j) {
                     const unsigned int cnt_pkj = nq1 * nq2 * p + nq1 * k + j;
                     unsigned int cnt_kji       = k * nq1 * nq0 + j * nq0;
 
@@ -3335,9 +3335,9 @@ void IProductWRTBasePyrKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nm1, nm0),
-                [&](const unsigned int &k, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nq2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &k) {
                     const unsigned int cnt_pqk = nm1 * nq2 * p + nq2 * q + k;
                     unsigned int cnt_pkj       = nq1 * nq2 * p + k * nq1;
 
@@ -3354,9 +3354,9 @@ void IProductWRTBasePyrKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm2, nm1, nm0),
-                [&](const unsigned int &r, const unsigned int &q,
-                    const unsigned int &p) {
+                    team, nm0, nm1, nm2),
+                [&](const unsigned int &p, const unsigned int &q,
+                    const unsigned int &r) {
                     unsigned int mode2 =
                         (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
                                     : 0u;

@@ -253,8 +253,8 @@ void IProductWRTDerivBase2DKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq0, nq1),
-                [&](const unsigned int &i, const unsigned int &j) {
+                    team, nq1, nq0),
+                [&](const unsigned int &j, const unsigned int &i) {
                     TData f0, f1;
 
                     if (SHAPETYPE == LibUtilities::Tri)
@@ -551,9 +551,9 @@ void IProductWRTDerivBase3DKernel_QP(
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq0, nq1, nq2),
-                [&](const unsigned int &i, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nq0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &i) {
                     TData f0, f1, f2, f3;
 
                     if (SHAPETYPE == LibUtilities::Tet ||

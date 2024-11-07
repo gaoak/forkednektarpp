@@ -320,8 +320,8 @@ void BwdTransQuadKernel_QP(const unsigned int ssize, const unsigned int nm0,
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nm1, nq0),
-                [&](const unsigned int &q, const unsigned int &i) {
+                    team, nq0, nm1),
+                [&](const unsigned int &i, const unsigned int &q) {
                     const unsigned int cnt_iq = nm1 * i + q;
                     unsigned int cnt_qp       = nm0 * q;
 
@@ -614,8 +614,8 @@ void BwdTransTriKernel_QP(const unsigned int ssize, const unsigned int nm0,
             // direction 1
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nm0, nq1),
-                [&](const unsigned int &p, const unsigned int &j) {
+                    team, nq1, nm0),
+                [&](const unsigned int &j, const unsigned int &p) {
                     const unsigned int cnt_jp = nm0 * j + p;
                     unsigned int mode_pq      = (2u * nm1 - p + 1u) * p / 2u;
 
@@ -632,8 +632,8 @@ void BwdTransTriKernel_QP(const unsigned int ssize, const unsigned int nm0,
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq0, nq1),
-                [&](const unsigned int &i, const unsigned int &j) {
+                    team, nq1, nq0),
+                [&](const unsigned int &j, const unsigned int &i) {
                     const unsigned int cnt_ij = nq0 * j + i;
                     unsigned int cnt_jp       = nm0 * j;
 
@@ -951,9 +951,9 @@ void BwdTransHexKernel_QP(
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm1, nm2, nq0),
-                [&](const unsigned int &q, const unsigned int &r,
-                    const unsigned int &i) {
+                    team, nq0, nm2, nm1),
+                [&](const unsigned int &i, const unsigned int &r,
+                    const unsigned int &q) {
                     const unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r + q;
                     unsigned int cnt_rqp       = nm1 * nm0 * r + nm0 * q;
 
@@ -970,9 +970,9 @@ void BwdTransHexKernel_QP(
             // direction 1
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm2, nq0, nq1),
-                [&](const unsigned int &r, const unsigned int &i,
-                    const unsigned int &j) {
+                    team, nq1, nq0, nm2),
+                [&](const unsigned int &j, const unsigned int &i,
+                    const unsigned int &r) {
                     const unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i + r;
                     unsigned int cnt_irq       = nm1 * nm2 * i + nm1 * r;
 
@@ -989,9 +989,9 @@ void BwdTransHexKernel_QP(
             // direction 2
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq0, nq1, nq2),
-                [&](const unsigned int &i, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nq0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &i) {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     unsigned int cnt_jir       = nq0 * nm2 * j + nm2 * i;
 
@@ -1369,9 +1369,9 @@ void BwdTransTetKernel_QP(
             // direction 2
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm1, nm0, nq2),
-                [&](const unsigned int &q, const unsigned int &p,
-                    const unsigned int &k) {
+                    team, nq2, nm0, nm1),
+                [&](const unsigned int &k, const unsigned int &p,
+                    const unsigned int &q) {
                     if (q < nm1 - p)
                     {
                         const unsigned int cnt_kpq =
@@ -1401,9 +1401,9 @@ void BwdTransTetKernel_QP(
             // direction 1
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm0, nq1, nq2),
-                [&](const unsigned int &p, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nm0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &p) {
                     const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
                     unsigned int mode_pq        = (2u * nm1 - p + 1u) * p / 2u;
                     unsigned int cnt_kpq        = nm01 * k + mode_pq;
@@ -1422,9 +1422,9 @@ void BwdTransTetKernel_QP(
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq0, nq1, nq2),
-                [&](const unsigned int &i, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nq0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &i) {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
@@ -1840,9 +1840,9 @@ void BwdTransPrismKernel_QP(
             // direction 2
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm1, nm0, nq2),
-                [&](const unsigned int &q, const unsigned int &p,
-                    const unsigned int &k) {
+                    team, nq2, nm0, nm1),
+                [&](const unsigned int &k, const unsigned int &p,
+                    const unsigned int &q) {
                     const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
                     unsigned int mode_pr        = (2u * nm2 - p + 1u) * p / 2u;
                     unsigned int mode_pqr       = mode_pr * nm1 + (nm2 - p) * q;
@@ -1861,9 +1861,9 @@ void BwdTransPrismKernel_QP(
             // direction 1
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm0, nq1, nq2),
-                [&](const unsigned int &p, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nm0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &p) {
                     const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
                     unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
 
@@ -1880,9 +1880,9 @@ void BwdTransPrismKernel_QP(
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq0, nq1, nq2),
-                [&](const unsigned int &i, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nq0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &i) {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
@@ -2263,9 +2263,9 @@ void BwdTransPyrKernel_QP(
             // direction 2
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm1, nm0, nq2),
-                [&](const unsigned int &q, const unsigned int &p,
-                    const unsigned int &k) {
+                    team, nq2, nm0, nm1),
+                [&](const unsigned int &k, const unsigned int &p,
+                    const unsigned int &q) {
                     const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
                     unsigned int mode2 =
                         (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
@@ -2309,9 +2309,9 @@ void BwdTransPyrKernel_QP(
             // direction 1
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nm0, nq1, nq2),
-                [&](const unsigned int &p, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nm0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &p) {
                     const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
                     unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
 
@@ -2328,9 +2328,9 @@ void BwdTransPyrKernel_QP(
             // direction 0
             Kokkos::parallel_for(
                 Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq0, nq1, nq2),
-                [&](const unsigned int &i, const unsigned int &j,
-                    const unsigned int &k) {
+                    team, nq2, nq1, nq0),
+                [&](const unsigned int &k, const unsigned int &j,
+                    const unsigned int &i) {
                     const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
                     unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
 
