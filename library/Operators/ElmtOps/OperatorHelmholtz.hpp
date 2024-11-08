@@ -74,9 +74,6 @@ template <typename TData = default_fp_type> struct Helmholtz
 {
     using class_name = OperatorHelmholtz<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
     Helmholtz() = delete;
 
     template <typename ExecSpace, typename Impl>

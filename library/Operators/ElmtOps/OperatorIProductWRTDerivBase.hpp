@@ -70,9 +70,6 @@ template <typename TData = default_fp_type> struct IProductWRTDerivBase
 {
     using class_name = OperatorIProductWRTDerivBase<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Phys>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
     IProductWRTDerivBase() = delete;
 
     template <typename ExecSpace, typename Impl>

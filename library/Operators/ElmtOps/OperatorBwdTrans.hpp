@@ -66,9 +66,6 @@ template <typename TData = default_fp_type> struct BwdTrans
 {
     using class_name = OperatorBwdTrans<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Phys>;
-
     BwdTrans() = delete;
 
     template <typename ExecSpace, typename Impl>

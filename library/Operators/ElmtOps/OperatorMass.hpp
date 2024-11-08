@@ -66,9 +66,6 @@ template <typename TData = default_fp_type> struct Mass
 {
     using class_name = OperatorMass<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
     Mass() = delete;
 
     template <typename ExecSpace, typename Impl>

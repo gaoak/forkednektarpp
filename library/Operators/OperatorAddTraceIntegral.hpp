@@ -68,8 +68,7 @@ template <typename TData = default_fp_type> struct AddTraceIntegral
 {
     using class_name = OperatorAddTraceIntegral<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Phys>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
+    AddTraceIntegral() = delete;
 
     template <typename ExecSpace, typename Impl>
     static std::shared_ptr<class_name> Create(

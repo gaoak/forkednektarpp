@@ -65,9 +65,6 @@ template <typename TData = default_fp_type> struct PhysDeriv
 {
     using class_name = OperatorPhysDeriv<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Phys>;
-    using FieldOut = Field<TData, FieldState::Phys>;
-
     PhysDeriv() = delete;
 
     template <typename ExecSpace, typename Impl>

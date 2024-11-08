@@ -67,9 +67,6 @@ template <typename TData = default_fp_type> struct IProductWRTBase
 {
     using class_name = OperatorIProductWRTBase<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Phys>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
     IProductWRTBase() = delete;
 
     template <typename ExecSpace, typename Impl>
