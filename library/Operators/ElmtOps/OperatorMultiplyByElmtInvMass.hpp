@@ -67,9 +67,6 @@ template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
 {
     using class_name = OperatorMultiplyByElmtInvMass<TData>;
 
-    using FieldIn  = Field<TData, FieldState::Coeff>;
-    using FieldOut = Field<TData, FieldState::Coeff>;
-
     MultiplyByElmtInvMass() = delete;
 
     template <typename ExecSpace, typename Impl>

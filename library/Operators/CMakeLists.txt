@@ -58,18 +58,6 @@ MACRO(ADD_OPERATOR dir)
     # which requires two delcarations.
     SET(CONFIG_FILE OperatorFactoryDec.cpp.in)
 
-    # These are variales used to determine the operator.
-    # implementation.
-    UNSET(IMPL_HEADER)
-
-    # Common header (*Impl.hpp) that can be used without a specific
-    # implementation. It may have specific implementation kerenels.
-    IF(EXISTS "${dir}/${name}Impl.hpp")
-         FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
-                 "${dir}/${name}Impl.hpp")
-         SET(IMPL_HEADER "#include \"${include_file}\"")
-    ENDIF()
-
     # Check to see if shape specific BlockOpSwitch*.h files have
     # been generated and if not generate for later potential use.
     IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchCodeSeg.h")
@@ -132,10 +120,7 @@ MACRO(ADD_OPERATOR dir)
         # Loop through each possible implementation.
         FOREACH (Impl IN LISTS Implementations)
 
-            UNSET(SERIAL_STDMAT_HEADER)
-            UNSET(SERIAL_AVX_SUMFAC_HEADER)
-            UNSET(DEVICE_SUMFAC_HEADER)
-            UNSET(GENERIC_HEADER)
+            UNSET(IMPL_HEADER)
 
             # These combinations do/should not exist.
             IF(("${ExecSpace}" STREQUAL "Serial" AND "${Impl}" STREQUAL "SumFacQP") OR
@@ -164,7 +149,7 @@ MACRO(ADD_OPERATOR dir)
                 ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "StdMat"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}SerialStdMat.hpp")
-                SET(SERIAL_STDMAT_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Serial SumFac header.
@@ -172,7 +157,7 @@ MACRO(ADD_OPERATOR dir)
                 ("${ExecSpace}" STREQUAL "Serial") AND ("${Impl}" STREQUAL "SumFac"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}SerialSumFac.hpp")
-                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a AVX SumFac header.
@@ -180,7 +165,7 @@ MACRO(ADD_OPERATOR dir)
                 ("${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}AVXSumFac.hpp")
-                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Serial/AVX SumFac header.
@@ -188,7 +173,7 @@ MACRO(ADD_OPERATOR dir)
                 ("${ExecSpace}" STREQUAL "Serial" OR "${ExecSpace}" STREQUAL "AVX") AND ("${Impl}" STREQUAL "SumFac"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}SerialAVXSumFac.hpp")
-                SET(SERIAL_AVX_SUMFAC_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation: " "${FactoryDeclName}")
 
             # Found a Device SumFac header.
@@ -197,7 +182,7 @@ MACRO(ADD_OPERATOR dir)
                    ("${Impl}" STREQUAL "SumFac" OR "${Impl}" STREQUAL "SumFacQP"))
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}DeviceSumFac.hpp")
-                SET(DEVICE_SUMFAC_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 # Found general kernel
                 IF(EXISTS "${dir}/${name}DeviceSumFacKernels.hpp")
                     MESSAGE("Adding operator with a ${ExecSpace} ${Impl} implementation and a generic device kernel: " "${FactoryDeclName}")
@@ -219,7 +204,7 @@ MACRO(ADD_OPERATOR dir)
             ELSEIF(EXISTS "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}" AND "${Impl}" STREQUAL "Generic")
                 FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
                     "${dir}/${name}${ExecSpace}Generic.${HEADER_EXT}")
-                SET(GENERIC_HEADER "#include \"${include_file}\"")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 # Found a specific kernel
                 IF(EXISTS "${dir}/${name}${ExecSpace}Kernels.${HEADER_EXT}")
                     MESSAGE("Adding operator with a ${ExecSpace} generic implementation and a specific ${ExecSpace} kernel: " "${FactoryDeclName}")
@@ -245,7 +230,10 @@ MACRO(ADD_OPERATOR dir)
                 ENDIF()
 
             # Found a impl header.
-            ELSEIF(IMPL_HEADER AND NOT  "${Impl}" STREQUAL "Generic")
+            ELSEIF(EXISTS "${dir}/${name}Impl.hpp" AND NOT  "${Impl}" STREQUAL "Generic")
+                FILE(RELATIVE_PATH include_file ${CMAKE_CURRENT_SOURCE_DIR}
+                    "${dir}/${name}Impl.hpp")
+                SET(IMPL_HEADER "#include \"${include_file}\"")
                 # Found a general kernel
                 IF(EXISTS "${dir}/${name}ImplKernels.hpp" )
                     MESSAGE("Adding operator with a common implementation and a general kernel: " "${FactoryDeclName}")

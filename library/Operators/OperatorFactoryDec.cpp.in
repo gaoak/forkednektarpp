@@ -44,10 +44,6 @@
 // used in the header files.
 
 // clang-format off
-@SERIAL_STDMAT_HEADER@
-@SERIAL_AVX_SUMFAC_HEADER@
-@DEVICE_SUMFAC_HEADER@
-@GENERIC_HEADER@
 @IMPL_HEADER@
 
 namespace Nektar::Operators::detail
