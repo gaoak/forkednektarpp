@@ -34,12 +34,12 @@
 
 #pragma once
 
+#include <MultiRegions/ContField.h>
+
 #include "Operators/BndCondOps/OperatorDirBndCond.hpp"
 
 #include "Operators/BndCondOps/DirBndCond/DirBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/DirBndCond/DirBndCondSerialAVXKernels.hpp"
-
-#include <MultiRegions/ContField.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -114,9 +114,9 @@ public:
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto ncoeff    = block.GetNumData();
+            const auto nElmts    = block.GetNumElements();
+            const auto nPadElmts = block.GetNumPaddingElements();
             for (unsigned int e = 0; e < nElmts; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)
@@ -136,7 +136,7 @@ public:
 
         const bool device_only = true;
 
-        m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
+        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
             alignedMap, ExecSpace::alignment, device_only);
 
         Array<OneD, TData> alignedSign(m_nbndcoeff);
@@ -147,7 +147,7 @@ public:
                 alignedSign[i] = sign[index[i]];
             }
 
-            m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
                 alignedSign, ExecSpace::alignment, device_only);
         }
 
@@ -201,7 +201,7 @@ public:
         }
         // -------------------------- END ------------------------------------
 
-        m_bndcoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+        m_bndcoeff = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
             bndcoeff, ExecSpace::alignment, device_only);
 
         m_parallelDirBndSignSize = parallelDirBndSign.size();
@@ -215,7 +215,7 @@ public:
             }
 
             m_parallelDirBndSign =
-                MemoryRegion<int>::template fromArray<MemSpace, int>(
+                MemoryRegion<int>::template FromArray<MemSpace, int>(
                     alignedParallelDirBndSign, ExecSpace::alignment,
                     device_only);
         }
@@ -237,12 +237,12 @@ public:
                 cnt++;
             }
 
-            m_locid0 = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            m_locid0 = MemoryRegion<int>::template FromArray<MemSpace, int>(
                 locid0, ExecSpace::alignment, device_only);
-            m_locid1 = MemoryRegion<int>::template fromArray<MemSpace, int>(
+            m_locid1 = MemoryRegion<int>::template FromArray<MemSpace, int>(
                 locid1, ExecSpace::alignment, device_only);
             m_locsign =
-                MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+                MemoryRegion<TData>::template FromArray<MemSpace, TData>(
                     locsign, ExecSpace::alignment, device_only);
         }
     }
@@ -251,10 +251,9 @@ public:
     {
         if (m_nbndcoeff > 0)
         {
-            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto *mapPtr   = m_map.template GetPtr<MemSpace, ReadOnly>();
-            auto *bndcoeffPtr =
-                m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
+            auto inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
+            auto bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
             const TData *signPtr =
                 m_signChange ? m_sign.template GetPtr<MemSpace, ReadOnly>()
                              : nullptr;
@@ -273,8 +272,8 @@ public:
 
         if (m_parallelDirBndSignSize > 0)
         {
-            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto *parallelDirBndSignPtr =
+            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto parallelDirBndSignPtr =
                 m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
 
             ParallelDirBndSignKernel<ExecSpace>(
@@ -287,18 +286,18 @@ public:
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
             // Copy the data from the input field.
-            auto inoutarr = inout.toArray();
+            auto inoutarr = inout.ToArray();
 
             contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
 
             // Copy the data to the output field.
-            inout.template copyArray<MemSpace>(inoutarr);
+            inout.template CopyArray<MemSpace>(inoutarr);
         }
 
         if (m_parallelDirBndSignSize > 0)
         {
-            auto *inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto *parallelDirBndSignPtr =
+            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto parallelDirBndSignPtr =
                 m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
 
             ParallelDirBndSignKernel<ExecSpace>(
@@ -307,10 +306,10 @@ public:
 
         if (m_localDirSize > 0)
         {
-            auto *inoutPtr   = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto *locid0Ptr  = m_locid0.template GetPtr<MemSpace, ReadOnly>();
-            auto *locid1Ptr  = m_locid1.template GetPtr<MemSpace, ReadOnly>();
-            auto *locsignPtr = m_locsign.template GetPtr<MemSpace, ReadOnly>();
+            auto inoutPtr   = inout.template GetPtr<MemSpace, ReadWrite>();
+            auto locid0Ptr  = m_locid0.template GetPtr<MemSpace, ReadOnly>();
+            auto locid1Ptr  = m_locid1.template GetPtr<MemSpace, ReadOnly>();
+            auto locsignPtr = m_locsign.template GetPtr<MemSpace, ReadOnly>();
 
             LocalDirBndCondKernel<ExecSpace>(m_localDirSize, locid0Ptr,
                                              locid1Ptr, locsignPtr, inoutPtr);

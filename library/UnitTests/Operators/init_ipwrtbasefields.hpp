@@ -53,33 +53,36 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                 ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                for (unsigned int phys = 0; phys < block.GetNumData();
+                     ++phys, ++cnt)
                 {
                     inptr[cnt] = phys;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         ExpectedSolution();
     }
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        IProductWRTBase<>::template create<ExecSpace, Impl>(fixt_explist)
+        IProductWRTBase<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
         fixt_explist->IProductWRTBase(inphys, outcoeffs);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

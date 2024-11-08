@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestAssmbScatr
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_assmbscatrfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/OperatorAssmbScatr.hpp"
-#include "init_assmbscatrfields.hpp"
 
 #define TEST_ASSMBSCATR(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

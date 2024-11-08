@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
@@ -43,11 +42,11 @@ namespace Nektar::Operators
 // Precon base class
 template <typename TData>
 class OperatorPrecon
-    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
+    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     OperatorPrecon(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
@@ -62,8 +61,7 @@ public:
 
     virtual void configure(
         const std::shared_ptr<
-            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
-            &op) = 0;
+            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &op) = 0;
 };
 
 } // namespace Nektar::Operators

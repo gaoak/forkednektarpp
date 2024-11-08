@@ -51,7 +51,6 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
-        const auto nTotElmts = this->m_expansionList->GetNumElmts();
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize basiskey.
@@ -59,6 +58,7 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
+        const auto nTotElmts = this->m_expansionList->GetNumElmts();
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             const auto expPtr = this->m_expansionList->GetExp(e);
@@ -69,14 +69,14 @@ public:
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
-            // Copy data to m_matPtr, if necessary.
-            if (m_matPtr.find(basisKeys) == m_matPtr.end())
+            // Copy data to m_mat, if necessary.
+            if (m_mat.find(basisKeys) == m_mat.end())
             {
                 const auto nqTot = expPtr->GetTotPoints();
                 const auto nmTot = expPtr->GetNcoeffs();
                 Array<OneD, TData> tmp(nmTot), t;
                 // Get BwdTrans matrix.
-                auto &matPtr = m_matPtr[basisKeys];
+                auto &matPtr = m_mat[basisKeys];
                 matPtr       = Array<OneD, TData>(nmTot * nqTot);
                 for (size_t i = 0; i < nmTot; ++i)
                 {
@@ -94,24 +94,23 @@ public:
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize pointers.
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-
-        // Initialize index.
-        size_t exp_idx = 0;
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
+        // Initialize index.
+        size_t exp_idx = 0;
+
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
+            // Block dependent.
+            auto &inblock     = in.GetBlocks()[blk];
+            auto &outblock    = out.GetBlocks()[blk];
+            const auto nElmts = inblock.GetNumElements();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -119,21 +118,21 @@ public:
             const auto nqTot  = expPtr->GetTotPoints();
 
             // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; d++)
+            for (unsigned int d = 0; d < dimension; d++)
             {
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
             // Fetch matrix.
-            const auto &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_mat[basisKeys];
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
                         nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
 
             // Increment pointer and index for next element type.
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
+            inPtr += inblock.size();
+            outPtr += outblock.size();
             exp_idx += nElmts;
         }
     }
@@ -151,7 +150,7 @@ public:
     }
 
 private:
-    std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_matPtr;
+    std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_mat;
 };
 
 } // namespace Nektar::Operators::detail

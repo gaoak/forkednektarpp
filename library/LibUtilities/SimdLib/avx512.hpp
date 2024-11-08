@@ -35,7 +35,7 @@
 #ifndef NEKTAR_LIB_LIBUTILITES_SIMDLIB_AVX512_H
 #define NEKTAR_LIB_LIBUTILITES_SIMDLIB_AVX512_H
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && !defined(__NVCC__)
 #include <immintrin.h>
 #if defined(__INTEL_COMPILER) && !defined(TINYSIMD_HAS_SVML)
 #define TINYSIMD_HAS_SVML

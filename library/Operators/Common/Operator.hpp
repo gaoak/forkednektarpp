@@ -36,15 +36,17 @@
 
 #include <string>
 
+#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/BasicUtils/NekInline.hpp>
 #include <LibUtilities/Communication/Comm.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 #include <MultiRegions/ExpList.h>
 
+#include "Operators/Common/OperatorsDeclspec.hpp"
 #include "Operators/Common/Spaces.hpp"
 #include "Operators/Field/Field.hpp"
-#include <Operators/Common/OperatorsDeclspec.hpp>
 
 namespace Nektar::LibUtilities
 {
@@ -196,7 +198,7 @@ public:
     }
 
     template <typename TDescriptor, typename ExecSpace, typename Implementation>
-    static std::shared_ptr<typename TDescriptor::class_name> create(
+    static std::shared_ptr<typename TDescriptor::class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
         // The TDescriptor name contains the namespace as well as the <TData>

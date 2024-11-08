@@ -35,6 +35,7 @@
 #include "init_fields.hpp"
 
 #include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
+#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
@@ -65,15 +66,18 @@ public:
             func->Evaluate(x, y, z, fce);
         }
 
-        double *xptr = x.get(), *yptr = y.get(), *zptr = z.get(),
-               *fceptr = fce.get();
+        auto xptr = x.data(), yptr = y.data(), zptr = z.data(),
+             fceptr = fce.data();
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                 ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                for (unsigned int phys = 0; phys < block.GetNumData();
+                     ++phys, ++cnt)
                 {
                     if (fixt_explist->GetSession()->DefinesFunction("Forcing"))
                     {
@@ -84,7 +88,7 @@ public:
                         inptr[cnt] = 1.0;
                         if (fixt_explist->GetCoordim(0) == 1)
                         {
-                            for (size_t n = 1; n < 4; n++)
+                            for (unsigned int n = 1; n < 4; n++)
                             {
                                 inptr[cnt] += n * std::pow(*xptr, n);
                             }
@@ -92,7 +96,7 @@ public:
                         }
                         else if (fixt_explist->GetCoordim(0) == 2)
                         {
-                            for (size_t n = 1; n < 4; n++)
+                            for (unsigned int n = 1; n < 4; n++)
                             {
                                 inptr[cnt] +=
                                     n * std::pow(*xptr, n) * std::pow(*yptr, n);
@@ -102,7 +106,7 @@ public:
                         }
                         else
                         {
-                            for (size_t n = 1; n < 4; n++)
+                            for (unsigned int n = 1; n < 4; n++)
                             {
                                 inptr[cnt] += n * std::pow(*xptr, n) *
                                               std::pow(*yptr, n) *
@@ -116,7 +120,7 @@ public:
                 }
             }
 
-            inptr += block.block_size;
+            inptr += block.size();
         }
         ExpectedSolution();
     }
@@ -124,9 +128,9 @@ public:
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
         auto HelmSolveOp =
-            HelmSolve<>::template create<ExecSpace, Impl>(fixt_explist);
+            HelmSolve<>::template Create<ExecSpace, Impl>(fixt_explist);
         auto DiagPreconOp =
-            DiagPrecon<>::template create<ExecSpace, Impl>(fixt_explist);
+            DiagPrecon<>::template Create<ExecSpace, Impl>(fixt_explist);
         HelmSolveOp->setPrecon(DiagPreconOp);
         HelmSolveOp->setLambda(1.0);
         HelmSolveOp->apply(*fixt_in, *fixt_out);
@@ -135,7 +139,7 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         StdRegions::ConstFactorMap factors;
         factors[StdRegions::eFactorLambda] =
@@ -143,7 +147,7 @@ public:
                 ? fixt_explist->GetSession()->GetParameter("Lambda")
                 : 1.0;
         fixt_explist->HelmSolve(inphys, outcoeffs, factors);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

@@ -38,10 +38,6 @@
 
 #include "Operators/Field/MemoryRegionHost.hpp"
 
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-
-#include <utility>
-
 using namespace Nektar;
 
 // If this macro is set when calling the device side creation and copy
@@ -79,11 +75,11 @@ public:
      * @param size      - size of memory
      * @param alignment - memory alignment
      */
-    MemoryRegionDevice(std::string name, size_t size, size_t alignment,
-                       bool device_only)
+    MemoryRegionDevice(const std::string name, const size_t size,
+                       const size_t alignment, const bool device_only)
         : MemoryRegionHost<TData>(name, size, alignment, device_only)
     {
-        createMemory();
+        CreateMemory();
     }
 
     /**
@@ -110,7 +106,7 @@ public:
     MemoryRegionDevice<TData>(MemoryRegionHost<TData> &&host)
         : MemoryRegionHost<TData>(std::move(host))
     {
-        createMemory();
+        CreateMemory();
     }
 
     /**
@@ -123,11 +119,12 @@ public:
      * @param alignment - memory alignment
      */
     template <typename TDataIn>
-    MemoryRegionDevice(std::string name, const TDataIn *src, const size_t size,
-                       size_t alignment, bool device_only)
+    MemoryRegionDevice(const std::string name, const TDataIn *src,
+                       const size_t size, const size_t alignment,
+                       const bool device_only)
         : MemoryRegionHost<TData>(name, size, alignment, device_only)
     {
-        createMemory();
+        CreateMemory();
 
         if constexpr (std::is_same_v<TDataIn, TData>)
         {
@@ -183,7 +180,7 @@ public:
      *
      * @return    - stream
      */
-    friend auto operator<<(std::ostream &os, MemoryRegionDevice const &mr)
+    friend auto operator<<(std::ostream &os, const MemoryRegionDevice &mr)
         -> std::ostream &
     {
         std::stringstream msg;
@@ -209,7 +206,7 @@ protected:
      * @brief Create hostmemory
      *
      */
-    void createMemory()
+    void CreateMemory()
     {
         deviceMalloc(this->m_device, this->m_size);
     }
@@ -243,7 +240,7 @@ protected:
      *
      * @return - TData*
      */
-    TData *GetHostPtr(bool write_only) override
+    TData *GetHostPtr(const bool write_only) override
     {
         if (write_only)
         {
@@ -289,7 +286,7 @@ protected:
      *
      * @return - TData*
      */
-    TData *GetDevicePtr(bool write_only = false)
+    TData *GetDevicePtr(const bool write_only = false)
     {
         if (write_only)
         {
@@ -313,28 +310,26 @@ protected:
      * @param count  - number of values
      * @param offset - offset to m_device pointer
      */
-    void initialize(TData val, size_t count = 0, size_t offset = 0)
+    void Initialize(const TData val, const size_t count = 0,
+                    const size_t offset = 0)
     {
         this->m_host_valid   = false;
         this->m_initialize   = false;
         this->m_device_valid = true;
 
-        if (count == 0)
-        {
-            count = this->m_size;
-        }
+        auto size = (count == 0) ? this->m_size : count;
 
         TData *dst = this->m_device + offset;
 
         // If the value is zero, memset is the most efficent.
         if (val == TData(0))
         {
-            deviceMemset(dst, 0, count);
+            deviceMemset(dst, 0, size);
         }
         // Nonzero value
         else
         {
-            deviceFill(dst, val, count);
+            deviceFill(dst, val, size);
         }
     }
 
@@ -345,21 +340,20 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_device pointer
      */
-    template <typename TDataIn, typename MemCopy>
-    void copyFrom(const TDataIn *src, const size_t size,
-                  const size_t offset = 0)
+    template <typename MemCopy, typename TDataIn>
+    void CopySRC(const TDataIn *src, const size_t size, const size_t offset = 0)
     {
         if constexpr (!std::is_same_v<TDataIn, TData>)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::CopyFrom - non-homogeneous datatype "
+                     "MemoryRegionDevice::CopySRC - non-homogeneous datatype "
                      "not supported on MemoryRegionDevice");
         }
 
         if constexpr (std::is_same_v<MemCopy, HostToHost>)
         {
-            MemoryRegionHost<TData>::template copyFrom<TData>(src, size,
-                                                              offset);
+            MemoryRegionHost<TData>::template CopySRC<MemCopy, TData>(src, size,
+                                                                      offset);
         }
         else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
         {
@@ -371,7 +365,7 @@ protected:
         }
         else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
         {
-            TData *dst = m_device + offset;
+            TData *dst = this->m_device + offset;
             deviceMemcpy<HostToDevice>(dst, src, size);
             this->m_device_valid = true;
             this->m_host_valid   = false;
@@ -379,7 +373,7 @@ protected:
         }
         else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
         {
-            TData *dst = m_device + offset;
+            TData *dst = this->m_device + offset;
             deviceMemcpy<DeviceToDevice>(dst, src, size);
             this->m_device_valid = true;
             this->m_host_valid   = false;

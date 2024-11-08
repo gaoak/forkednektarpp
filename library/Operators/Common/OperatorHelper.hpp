@@ -42,14 +42,13 @@ namespace Nektar::Operators
 enum BasisDataType
 {
     eUnknown         = 0,
-    eBasis           = 1, // was BASIS_BASIS_DATA
-    eBasisDerivative = 2, // Was BASIS_BASIS_DERIVATIVE_DATA
-    eWeights         = 3, // Was BASIS_WEIGHT_DATA
-    eZeros           = 4, // Was BASIS_POINT_DATA
-    eDerivative      = 5, // Was BASIS_DERIVATIVE_DATA
+    eBasis           = 1,
+    eBasisDerivative = 2,
+    eWeights         = 3,
+    eZeros           = 4,
+    eDerivative      = 5,
     eHalfMultOnePlusZero,
     eTwoOverOneMinusZero
-
 };
 
 template <typename TData>
@@ -77,14 +76,14 @@ MemoryRegion<TDataOut> GetBasisData(
     {
         case eBasis:
         {
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetBdata(), alignment);
             break;
         }
         case eBasisDerivative:
         {
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetDbdata(), alignment);
             break;
@@ -99,12 +98,11 @@ MemoryRegion<TDataOut> GetBasisData(
                 case LibUtilities::eModified_B:
                 case LibUtilities::eOrtho_B:
                 {
-
                     if (basis->GetPointsType() ==
                         LibUtilities::eGaussRadauMAlpha1Beta0)
                     {
-                        Vmath::Smul(ndata, 0.5, basis->GetW().get(), 1,
-                                    wTmp.get(), 1);
+                        Vmath::Smul(ndata, 0.5, basis->GetW().data(), 1,
+                                    wTmp.data(), 1);
                     }
                     else
                     {
@@ -125,8 +123,8 @@ MemoryRegion<TDataOut> GetBasisData(
                     if (basis->GetPointsType() ==
                         LibUtilities::eGaussRadauMAlpha2Beta0)
                     {
-                        Vmath::Smul(ndata, 0.25, basis->GetW().get(), 1,
-                                    wTmp.get(), 1);
+                        Vmath::Smul(ndata, 0.25, basis->GetW().data(), 1,
+                                    wTmp.data(), 1);
                     }
                     else if (basis->GetPointsType() ==
                              LibUtilities::eGaussRadauMAlpha1Beta0)
@@ -150,27 +148,27 @@ MemoryRegion<TDataOut> GetBasisData(
                     break;
                     default:
                     {
-                        Vmath::Vcopy(ndata, basis->GetW().get(), 1, wTmp.get(),
-                                     1);
+                        Vmath::Vcopy(ndata, basis->GetW().data(), 1,
+                                     wTmp.data(), 1);
                     }
                 }
             }
 
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 wTmp, alignment);
         }
         break;
         case eZeros:
         {
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetZ(), alignment);
         }
         break;
         case eDerivative:
         {
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetD()->GetPtr(), alignment);
         }
@@ -185,7 +183,7 @@ MemoryRegion<TDataOut> GetBasisData(
                 Tmp[i] = 0.5 * (1.0 + z[i]);
             }
 
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 Tmp, alignment);
         }
@@ -201,14 +199,14 @@ MemoryRegion<TDataOut> GetBasisData(
                 Tmp[i] = 2 / (1.0 - z[i]);
             }
 
-            return MemoryRegion<TDataOut>::template fromArray<MemSpace,
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 Tmp, alignment);
         }
         break;
         default:
             NEKERROR(ErrorUtil::efatal, "invalid basis data requested.");
-            return MemoryRegion<TDataOut>::template create<MemSpace>(0,
+            return MemoryRegion<TDataOut>::template Create<MemSpace>(0,
                                                                      alignment);
             break;
     }
@@ -274,14 +272,16 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
     size_t exp_id = 0;
     size_t jac_id = 0;
 
+    // Loop over blocks.
     for (size_t blk = 0; blk < blocks.size(); ++blk)
     {
         size_t interleave_width = blocks[blk].GetInterleaveWidth();
-        size_t num_elements     = blocks[blk].num_elements;
+        size_t num_elements     = blocks[blk].GetNumElements();
         size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
 
         auto expPtr = expansionList->GetExp(exp_id);
 
+        // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
             Array<OneD, Array<OneD, TData>> jacArray(interleave_width);
@@ -312,7 +312,8 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
                 }
             }
         }
-        else // regular geometry
+        // Regular geometry.
+        else
         {
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
             {
@@ -352,16 +353,18 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
     size_t exp_id = 0;
     size_t df_id  = 0;
 
+    // Loop over blocks.
     for (size_t blk = 0; blk < blocks.size(); ++blk)
     {
         size_t interleave_width = blocks[blk].GetInterleaveWidth();
-        size_t num_elements     = blocks[blk].num_elements;
+        size_t num_elements     = blocks[blk].GetNumElements();
         size_t num_elmt_groups  = blocks[blk].GetNumElmtGroups();
         auto expPtr             = expansionList->GetExp(exp_id);
 
         size_t range1 = transpose ? nDim * nCoord : expPtr->GetTotPoints();
         size_t range2 = transpose ? expPtr->GetTotPoints() : nDim * nCoord;
 
+        // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
@@ -398,6 +401,7 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
                 el += interleave_width;
             }
         }
+        // Regular geometry.
         else
         {
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)

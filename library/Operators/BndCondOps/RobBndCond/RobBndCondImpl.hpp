@@ -34,15 +34,15 @@
 
 #pragma once
 
+#include <LocalRegions/MatrixKey.h>
+#include <MultiRegions/ContField.h>
+
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 
 #include "Operators/BndCondOps/RobBndCond/RobBndCondCUDAKernels.cuh"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondKokkosKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSYCLKernels.hpp"
 #include "Operators/BndCondOps/RobBndCond/RobBndCondSerialAVXKernels.hpp"
-
-#include <LocalRegions/MatrixKey.h>
-#include <MultiRegions/ContField.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -70,9 +70,9 @@ public:
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto ncoeff    = block.GetNumData();
+            const auto nElmts    = block.GetNumElements();
+            const auto nPadElmts = block.GetNumPaddingElements();
             for (unsigned int e = 0; e < nElmts; e++)
             {
                 for (unsigned int n = 0; n < ncoeff; n++)
@@ -130,12 +130,12 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment, device_only);
-            m_map = MemoryRegion<unsigned int>::template fromVector<
+            m_map = MemoryRegion<unsigned int>::template FromVector<
                 MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
             m_offset =
-                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                MemoryRegion<unsigned int>::template FromVector<MemSpace,
                                                                 unsigned int>(
                     offset, ExecSpace::alignment, device_only);
         }
@@ -227,26 +227,26 @@ public:
                 }
             }
 
-            m_mat = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+            m_mat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
                 mat, ExecSpace::alignment, device_only);
-            m_map = MemoryRegion<unsigned int>::template fromVector<
+            m_map = MemoryRegion<unsigned int>::template FromVector<
                 MemSpace, unsigned int>(map, ExecSpace::alignment, device_only);
-            m_sign = MemoryRegion<int>::template fromVector<MemSpace, int>(
+            m_sign = MemoryRegion<int>::template FromVector<MemSpace, int>(
                 sign, ExecSpace::alignment, device_only);
             m_nEdgeCoeff =
-                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                MemoryRegion<unsigned int>::template FromVector<MemSpace,
                                                                 unsigned int>(
                     nEdgeCoeff, ExecSpace::alignment, device_only);
             m_offset =
-                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                MemoryRegion<unsigned int>::template FromVector<MemSpace,
                                                                 unsigned int>(
                     offset, ExecSpace::alignment, device_only);
             m_matOffset =
-                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                MemoryRegion<unsigned int>::template FromVector<MemSpace,
                                                                 unsigned int>(
                     matOffset, ExecSpace::alignment, device_only);
             m_mapOffset =
-                MemoryRegion<unsigned int>::template fromVector<MemSpace,
+                MemoryRegion<unsigned int>::template FromVector<MemSpace,
                                                                 unsigned int>(
                     mapOffset, ExecSpace::alignment, device_only);
         }
@@ -274,18 +274,15 @@ public:
         }
 
         // Get pointers.
-        const auto *inPtr   = in.template GetPtr<MemSpace, ReadOnly>();
-        const auto *matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
-        const auto *mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
-        const auto *signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
-        const auto *ncoeffPtr =
-            m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
-        const auto *offsetPtr = m_offset.template GetPtr<MemSpace, ReadOnly>();
-        const auto *matOffsetPtr =
-            m_matOffset.template GetPtr<MemSpace, ReadOnly>();
-        const auto *mapOffsetPtr =
-            m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr = out.template GetPtr<MemSpace, WriteOnly>();
+        auto inPtr        = in.template GetPtr<MemSpace, ReadOnly>();
+        auto matPtr       = m_mat.template GetPtr<MemSpace, ReadOnly>();
+        auto mapPtr       = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto signPtr      = m_sign.template GetPtr<MemSpace, ReadOnly>();
+        auto ncoeffPtr    = m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
+        auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
+        auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr       = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Apply Robin boundary conditions.
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();

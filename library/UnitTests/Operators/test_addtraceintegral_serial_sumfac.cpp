@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestAddTraceIntegralSerial
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_addtraceintegralfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/OperatorAddTraceIntegral.hpp"
-#include "init_addtraceintegralfields.hpp"
 
 #define TEST_ADDTRACEINTEGRAL(test_name, test, tol)                            \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

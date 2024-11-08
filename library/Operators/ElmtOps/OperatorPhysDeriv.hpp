@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
@@ -44,12 +43,11 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorPhysDeriv
-    : public OperatorLinear<FieldState::Phys, FieldState::Phys, TData>
+    : public OperatorElmt<FieldState::Phys, FieldState::Phys, TData>
 {
 public:
     OperatorPhysDeriv(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Phys, FieldState::Phys, TData>(
-              expansionList)
+        : OperatorElmt<FieldState::Phys, FieldState::Phys, TData>(expansionList)
     {
     }
 
@@ -73,10 +71,10 @@ template <typename TData = default_fp_type> struct PhysDeriv
     PhysDeriv() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<PhysDeriv<TData>, ExecSpace,
+        return Operator<TData>::template Create<PhysDeriv<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

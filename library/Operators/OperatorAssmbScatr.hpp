@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Common/Operator.hpp"
-#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -64,7 +63,8 @@ public:
     }
 
     virtual void Assemble(Field<TData, FieldState::Coeff> &in,
-                          MemoryRegion<TData> &out) = 0;
+                          MemoryRegion<TData> &out,
+                          const bool &signChange = true) = 0;
 
     virtual void GlobalToLocal(MemoryRegion<TData> &in,
                                Field<TData, FieldState::Coeff> &out) = 0;
@@ -79,10 +79,10 @@ template <typename TData = default_fp_type> struct AssmbScatr
     AssmbScatr() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<AssmbScatr<TData>, ExecSpace,
+        return Operator<TData>::template Create<AssmbScatr<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Common/Operator.hpp"
-#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -73,10 +72,10 @@ template <typename TData = default_fp_type> struct AddTraceIntegral
     using FieldOut = Field<TData, FieldState::Coeff>;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<AddTraceIntegral<TData>,
+        return Operator<TData>::template Create<AddTraceIntegral<TData>,
                                                 ExecSpace, Impl>(expansionList);
     }
 };

@@ -88,13 +88,13 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
     using MemSpace = typename ExecSpace::memory_space;
 
     // temporary storage for the map
-    MemoryRegion<int> temp = MemoryRegion<int>::template create<MemSpace>(
+    MemoryRegion<int> temp = MemoryRegion<int>::template Create<MemSpace>(
         map.size(), ExecSpace::alignment, true);
     // copy map to temp
-    temp.template copyMemoryRegion<MemSpace>(map);
+    temp.template Copy<MemSpace, DeviceToDevice>(map);
 
     // ReMapping using the deinterleave map, temp is used as workspace
-    auto *deInterleaveMapPtr =
+    auto deInterleaveMapPtr =
         deInterleaveMap.template GetPtr<MemSpace, ReadWrite>();
     auto tempPtr = temp.template GetPtr<MemSpace, ReadOnly>();
     auto mapPtr  = map.template GetPtr<MemSpace, WriteOnly>();
@@ -117,9 +117,9 @@ void BuildInterleaveMap(std::vector<BlockAttributes> &blocks,
     // assume the map is always in the device memory space
     using MemSpace = typename ExecSpace::memory_space;
 
-    auto *deInterleaveMapPtr =
+    auto deInterleaveMapPtr =
         deInterleaveMap.template GetPtr<MemSpace, WriteOnly>();
-    auto *InterleaveMapPtr =
+    auto InterleaveMapPtr =
         InterleaveMap.template GetPtr<MemSpace, WriteOnly>();
 
     // Counting the subindex that has been processed so far

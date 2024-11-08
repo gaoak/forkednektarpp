@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestMassSYCL
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_massfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorMass.hpp"
-#include "init_massfields.hpp"
 
 #define TEST_MASS(test_name, test, tol)                                        \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

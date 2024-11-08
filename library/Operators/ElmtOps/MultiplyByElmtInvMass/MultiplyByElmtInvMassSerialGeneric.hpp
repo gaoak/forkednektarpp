@@ -86,7 +86,7 @@ public:
             }
         }
 
-        m_scale = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_scale = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             scale, ExecSpace::alignment);
     }
 
@@ -94,21 +94,20 @@ public:
                Field<TData, FieldState::Coeff> &out) override
     {
         // Initialize pointers.
-        auto *inPtr    = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr   = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *scalePtr = m_scale.template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr    = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr   = out.template GetPtr<MemSpace, WriteOnly>();
+        auto scalePtr = m_scale.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
-            const auto nElmtsPad = nElmts + inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr   = this->m_expansionList->GetExp(exp_idx);

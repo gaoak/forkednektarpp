@@ -33,11 +33,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define BOOST_TEST_MODULE TestMathKokkos
-#include <boost/test/tools/output_test_stream.hpp>
 
 #include "MathKernelsLauncher.hpp"
 #include "init_mathkernels.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
 

@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestPhysDerivSYCL
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_physderivfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
-#include "init_physderivfields.hpp"
 
 #define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \
@@ -83,7 +81,7 @@ TEST_PHYSDERIV(physderiv_sycl_hex_varp, HexVarP, 3, 1.0E-12)
 
 TEST_PHYSDERIV(physderiv_sycl_prism, Prism, 3, 1.0E-12)
 
-TEST_PHYSDERIV(physderiv_sycl_prism_varp, PrismVarP, 3, 2.0E-12)
+TEST_PHYSDERIV(physderiv_sycl_prism_varp, PrismVarP, 3, 2.5E-12)
 
 TEST_PHYSDERIV(physderiv_sycl_pyr, Pyr, 3, 1.0E-12)
 

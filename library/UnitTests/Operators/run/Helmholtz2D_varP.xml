@@ -246,6 +246,7 @@
             <I PROPERTY="GLOBALSYSSOLN"    VALUE="IterativeFull" />
             <I PROPERTY="LinSysIterSolver" VALUE="ConjugateGradientLoc"/>
             <I PROPERTY="Preconditioner"   VALUE="Diagonal"/>
+            <I PROPERTY="Projection"       VALUE="Continuous"/>
         </SOLVERINFO>
 
         <PARAMETERS>

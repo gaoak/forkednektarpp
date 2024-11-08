@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
@@ -44,12 +43,12 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorMultiplyByElmtInvMass
-    : public OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>
+    : public OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>
 {
 public:
     OperatorMultiplyByElmtInvMass(
         const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>(
+        : OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>(
               expansionList)
     {
     }
@@ -74,10 +73,10 @@ template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
     MultiplyByElmtInvMass() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<MultiplyByElmtInvMass<TData>,
+        return Operator<TData>::template Create<MultiplyByElmtInvMass<TData>,
                                                 ExecSpace, Impl>(expansionList);
     }
 };

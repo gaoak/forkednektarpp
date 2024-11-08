@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestMultiplyByElmtInvMass
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_multiplybyelmtinvmassfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
-#include "init_multiplybyelmtinvmassfields.hpp"
 
 #define TEST_MULTIPLYBYELMTINVMASS(test_name, test, tol)                       \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

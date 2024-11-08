@@ -58,7 +58,7 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        DirBndCond<>::template create<ExecSpace, Impl>(fixt_explist)
+        DirBndCond<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_out);
     }
 
@@ -67,7 +67,7 @@ public:
         // Calculate expected result from Nektar++
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         fixt_explist->ImposeDirichletConditions(outcoeffs);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

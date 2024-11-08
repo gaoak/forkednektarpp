@@ -36,7 +36,7 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include "Operators/Common/Spaces.hpp"
+#include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail
 {

@@ -50,7 +50,7 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        PhysDeriv<>::template create<ExecSpace, Impl>(fixt_explist)
+        PhysDeriv<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 };
@@ -64,7 +64,7 @@ public:
 
     void SetTestCase()
     {
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
         Array<OneD, double> x(totpoints);
@@ -83,20 +83,22 @@ public:
 
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                 ++e, ++el)
             {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                for (size_t phys = 0; phys < block.num_pts;
+                unsigned int M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M / 2; i++)
+                    for (unsigned int i = 0; i < M / 2; i++)
                     {
-                        for (size_t j = 0; j < M / 2; j++)
+                        for (unsigned int j = 0; j < M / 2; j++)
                         {
-                            for (size_t k = 0; k < M / 2; k++)
+                            for (unsigned int k = 0; k < M / 2; k++)
                             {
                                 tmp += std::pow(x[pts], i) *
                                        std::pow(y[pts], j) *
@@ -107,7 +109,7 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         NektarSolution();
     }
@@ -115,14 +117,14 @@ public:
     void NektarSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
                                     fixt_explist->GetTotPoints());
         Array<OneD, double> outphys0 = outphys;
         Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
         Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }
 
     void ExpectedSolution()
@@ -144,27 +146,31 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_expected->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
+             ++blk)
         {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+            auto &block = fixt_expected->GetBlocks()[blk];
+            for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
+                for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                     ++e)
                 {
-                    size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                    for (size_t phys = 0; phys < block.num_pts;
+                    unsigned int M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                    for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++pts, ++cnt)
                     {
-                        size_t index = pts + e * block.num_pts + phys;
-                        double tmp   = 0.0;
-                        for (size_t i = 1; i < M / 2; i++)
+                        unsigned int index =
+                            pts + e * block.GetNumData() + phys;
+                        double tmp = 0.0;
+                        for (unsigned int i = 1; i < M / 2; i++)
                         {
-                            for (size_t j = 1; j < M / 2; j++)
+                            for (unsigned int j = 1; j < M / 2; j++)
                             {
-                                for (size_t k = 1; k < M / 2; k++)
+                                for (unsigned int k = 1; k < M / 2; k++)
                                 {
                                     if (n == 0 && i >= 1)
                                     {
@@ -191,10 +197,10 @@ public:
                         expptr[cnt] = tmp;
                     }
                 }
-                expptr += block.block_size;
+                expptr += block.size();
             }
-            pts += block.num_elements * block.num_pts;
-            el += block.num_elements;
+            pts += block.GetNumElements() * block.GetNumData();
+            el += block.GetNumElements();
         }
     }
 };
@@ -208,7 +214,7 @@ public:
 
     void SetTestCase()
     {
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         auto coordim   = fixt_explist->GetCoordim(0);
         auto totpoints = fixt_explist->GetTotPoints();
         Array<OneD, double> x(totpoints);
@@ -221,23 +227,24 @@ public:
         }
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                 ++e, ++el)
             {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                size_t P = (coordim == 2) ? 0 : N;
-
-                for (size_t phys = 0; phys < block.num_pts;
+                unsigned int M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                unsigned int N = fixt_explist->GetExp(el)->GetNumPoints(1);
+                unsigned int P = (coordim == 2) ? 0 : N;
+                for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M / 2; i++)
+                    for (unsigned int i = 0; i < M / 2; i++)
                     {
-                        for (size_t j = 0; j < N / 2; j++)
+                        for (unsigned int j = 0; j < N / 2; j++)
                         {
-                            for (size_t k = 0; k < P / 2; ++k)
+                            for (unsigned int k = 0; k < P / 2; ++k)
                             {
                                 tmp += std::pow(x[pts], i) *
                                        std::pow(y[pts], j) *
@@ -248,7 +255,7 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         NektarSolution();
     }
@@ -256,14 +263,14 @@ public:
     void NektarSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
                                     fixt_explist->GetTotPoints());
         Array<OneD, double> outphys0 = outphys;
         Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
         Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }
 
     void ExpectedSolution()
@@ -280,29 +287,33 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_expected->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
+             ++blk)
         {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+            auto &block = fixt_expected->GetBlocks()[blk];
+            for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
+                for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                     ++e)
                 {
-                    size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                    size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                    size_t P = (coordim == 2) ? 0 : N;
-                    for (size_t phys = 0; phys < block.num_pts;
+                    unsigned int M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                    unsigned int N = fixt_explist->GetExp(el)->GetNumPoints(1);
+                    unsigned int P = (coordim == 2) ? 0 : N;
+                    for (unsigned int phys = 0; phys < block.GetNumData();
                          ++phys, ++pts, ++cnt)
                     {
-                        size_t index = pts + e * block.num_pts + phys;
-                        double tmp   = 0.0;
-                        for (size_t i = 0; i < M / 2; i++)
+                        unsigned int index =
+                            pts + e * block.GetNumData() + phys;
+                        double tmp = 0.0;
+                        for (unsigned int i = 0; i < M / 2; i++)
                         {
-                            for (size_t j = 0; j < N / 2; j++)
+                            for (unsigned int j = 0; j < N / 2; j++)
                             {
-                                for (size_t k = 0; k < P / 2; k++)
+                                for (unsigned int k = 0; k < P / 2; k++)
                                 {
                                     if (n == 0 && i >= 1)
                                     {
@@ -329,10 +340,10 @@ public:
                         expptr[cnt] = tmp;
                     }
                 }
-                expptr += block.block_size;
+                expptr += block.size();
             }
-            pts += block.num_elements * block.num_pts;
-            el += block.num_elements;
+            pts += block.GetNumElements() * block.GetNumData();
+            el += block.GetNumElements();
         }
     }
 };
@@ -346,29 +357,31 @@ public:
 
     void SetTestCase()
     {
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         Array<OneD, double> x(fixt_explist->GetTotPoints());
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t e = 0, cnt = 0; e < block.num_elements; ++e, ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                 ++e, ++el)
             {
-                size_t M = fixt_explist->GetExp(el)->GetNumPoints(0);
-                size_t N = fixt_explist->GetExp(el)->GetNumPoints(1);
-                size_t K = fixt_explist->GetExp(el)->GetNumPoints(2);
-                for (size_t phys = 0; phys < block.num_pts;
+                unsigned int M = fixt_explist->GetExp(el)->GetNumPoints(0);
+                unsigned int N = fixt_explist->GetExp(el)->GetNumPoints(1);
+                unsigned int K = fixt_explist->GetExp(el)->GetNumPoints(2);
+                for (unsigned int phys = 0; phys < block.GetNumData();
                      ++phys, ++pts, ++cnt)
                 {
                     double tmp = 0.0;
-                    for (size_t i = 0; i < M / 2; i++)
+                    for (unsigned int i = 0; i < M / 2; i++)
                     {
-                        for (size_t j = 0; j < N / 2; j++)
+                        for (unsigned int j = 0; j < N / 2; j++)
                         {
-                            for (size_t k = 0; k < K / 2; k++)
+                            for (unsigned int k = 0; k < K / 2; k++)
                             {
                                 tmp += std::pow(x[pts], i) *
                                        std::pow(y[pts], j) *
@@ -379,7 +392,7 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         NektarSolution();
     }
@@ -387,14 +400,14 @@ public:
     void NektarSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outphys(fixt_explist->GetCoordim(0) *
                                     fixt_explist->GetTotPoints());
         Array<OneD, double> outphys0 = outphys;
         Array<OneD, double> outphys1 = outphys0 + fixt_explist->GetTotPoints();
         Array<OneD, double> outphys2 = outphys1 + fixt_explist->GetTotPoints();
         fixt_explist->PhysDeriv(inphys, outphys0, outphys1, outphys2);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }
 
     void ExpectedSolution()
@@ -403,28 +416,36 @@ public:
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
-        size_t el = 0, pts = 0;
+        unsigned int el = 0, pts = 0;
         double *expptr =
             fixt_expected
                 ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_expected->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
+             ++blk)
         {
-            for (size_t n = 0; n < fixt_explist->GetCoordim(0); n++)
+            auto &block = fixt_expected->GetBlocks()[blk];
+            for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
-                for (size_t e = 0, cnt = 0; e < block.num_elements; ++e)
+                for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
+                     ++e)
                 {
-                    size_t M = fixt_explist->GetExp(el + e)->GetNumPoints(0);
-                    size_t N = fixt_explist->GetExp(el + e)->GetNumPoints(1);
-                    size_t K = fixt_explist->GetExp(el + e)->GetNumPoints(2);
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                    unsigned int M =
+                        fixt_explist->GetExp(el + e)->GetNumPoints(0);
+                    unsigned int N =
+                        fixt_explist->GetExp(el + e)->GetNumPoints(1);
+                    unsigned int K =
+                        fixt_explist->GetExp(el + e)->GetNumPoints(2);
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
                     {
-                        size_t index = pts + e * block.num_pts + phys;
-                        double tmp   = 0.0;
-                        for (size_t i = 0; i < M / 2; i++)
+                        unsigned int index =
+                            pts + e * block.GetNumData() + phys;
+                        double tmp = 0.0;
+                        for (unsigned int i = 0; i < M / 2; i++)
                         {
-                            for (size_t j = 0; j < N / 2; j++)
+                            for (unsigned int j = 0; j < N / 2; j++)
                             {
-                                for (size_t k = 0; k < K / 2; k++)
+                                for (unsigned int k = 0; k < K / 2; k++)
                                 {
                                     if (n == 0 && i >= 1)
                                     {
@@ -450,10 +471,10 @@ public:
                         expptr[cnt] = tmp;
                     }
                 }
-                expptr += block.block_size;
+                expptr += block.size();
             }
-            pts += block.num_elements * block.num_pts;
-            el += block.num_elements;
+            pts += block.GetNumElements() * block.GetNumData();
+            el += block.GetNumElements();
         }
     }
 };

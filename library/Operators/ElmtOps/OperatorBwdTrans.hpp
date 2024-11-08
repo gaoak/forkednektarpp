@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
@@ -44,11 +43,11 @@ namespace Nektar::Operators
 // Defines the apply operator to enforce apply parameter types
 template <typename TData>
 class OperatorBwdTrans
-    : public OperatorLinear<FieldState::Coeff, FieldState::Phys, TData>
+    : public OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>
 {
 public:
     OperatorBwdTrans(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorLinear<FieldState::Coeff, FieldState::Phys, TData>(
+        : OperatorElmt<FieldState::Coeff, FieldState::Phys, TData>(
               expansionList)
     {
     }
@@ -73,10 +72,10 @@ template <typename TData = default_fp_type> struct BwdTrans
     BwdTrans() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<BwdTrans<TData>, ExecSpace,
+        return Operator<TData>::template Create<BwdTrans<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

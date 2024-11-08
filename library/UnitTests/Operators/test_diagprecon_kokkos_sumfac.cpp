@@ -34,14 +34,11 @@
 
 #define BOOST_TEST_MODULE TestDiagPreconKokkos
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_diagpreconfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
-#include "init_diagpreconfields.hpp"
 
 #define TEST_DIAGPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

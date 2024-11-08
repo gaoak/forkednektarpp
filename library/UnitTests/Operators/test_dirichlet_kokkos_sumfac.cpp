@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestDirichletKokkos
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_dirichletfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/BndCondOps/OperatorDirBndCond.hpp"
-#include "init_dirichletfields.hpp"
 
 #define TEST_DIRICHLET(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

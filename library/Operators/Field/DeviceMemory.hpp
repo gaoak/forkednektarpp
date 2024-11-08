@@ -73,7 +73,8 @@ void deviceMalloc(TData *&src, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMalloc((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
-        src = sycl::malloc_device<TData>(size, SYCLQueue::GetInstance());
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        src            = sycl::malloc_device<TData>(size, Q);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         src = (TData *)
             Kokkos::kokkos_malloc<Kokkos::DefaultExecutionSpace::memory_space>(
@@ -95,7 +96,8 @@ template <typename TData> void deviceFree(TData *src)
 #elif defined(NEKTAR_ENABLE_HIP)
     hipFree(src);
 #elif defined(NEKTAR_ENABLE_SYCL)
-    sycl::free(src, SYCLQueue::GetInstance());
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    sycl::free(src, Q);
 #elif defined(NEKTAR_ENABLE_KOKKOS)
     Kokkos::kokkos_free(src);
 #else
@@ -111,7 +113,8 @@ void deviceMemset(TData *dst, const int val, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
     hipMemset(dst, val, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().memset(dst, val, size * sizeof(TData)).wait();
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.memset(dst, val, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
     // Create an unmanage Kokkos view from the raw pointer.
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
@@ -131,7 +134,8 @@ void deviceFill(TData *dst, const TData val, const unsigned int size)
     hipLaunchKernelGGL(fill_, blocks, threads, 0, 0, size, dst,
                        val); // TODO: implement fill_ kernel
 #elif defined(NEKTAR_ENABLE_SYCL)
-    SYCLQueue::GetInstance().fill(dst, val, size).wait();
+    sycl::queue &Q = SYCLQueue::GetInstance();
+    Q.fill(dst, val, size).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
     // Create an unmanage Kokkos view from the raw pointer.
     Kokkos::View<TData *, Kokkos::DefaultExecutionSpace> dstView(dst, size);
@@ -152,7 +156,8 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToHost);
 #elif defined(NEKTAR_ENABLE_SYCL)
-        SYCLQueue::GetInstance().memcpy(dst, src, size * sizeof(TData)).wait();
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        Q.memcpy(dst, src, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         // Create unmanage Kokkos views from the raw pointers.
         TData *v_src = const_cast<TData *>(src);
@@ -171,7 +176,8 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost);
 #elif defined(NEKTAR_ENABLE_SYCL)
-        SYCLQueue::GetInstance().memcpy(dst, src, size * sizeof(TData)).wait();
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        Q.memcpy(dst, src, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         // Create unmanage Kokkos views from the raw pointers.
         TData *v_src = const_cast<TData *>(src);
@@ -191,7 +197,8 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_SYCL)
-        SYCLQueue::GetInstance().memcpy(dst, src, size * sizeof(TData)).wait();
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        Q.memcpy(dst, src, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         // Create unmanage Kokkos views from the raw pointers.
         TData *v_src = const_cast<TData *>(src);
@@ -210,7 +217,8 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
 #elif defined(NEKTAR_ENABLE_HIP)
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice);
 #elif defined(NEKTAR_ENABLE_SYCL)
-        SYCLQueue::GetInstance().memcpy(dst, src, size * sizeof(TData)).wait();
+        sycl::queue &Q = SYCLQueue::GetInstance();
+        Q.memcpy(dst, src, size * sizeof(TData)).wait();
 #elif defined(NEKTAR_ENABLE_KOKKOS)
         // Create unmanage Kokkos views from the raw pointers.
         TData *v_src = const_cast<TData *>(src);

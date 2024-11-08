@@ -68,7 +68,7 @@ public:
 
         const bool device_only = true;
 
-        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_jac = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment, device_only);
 
         // Initialize the basis data.
@@ -80,6 +80,8 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const TData lambda = 1.0) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = (lambda == 1.0)
@@ -92,19 +94,17 @@ public:
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            auto &inblock        = in.GetBlocks()[block_idx];
-            auto &outblock       = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
-            const auto nElmtsPad = inblock.num_padding_elements + nElmts;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto nqTot = expPtr->GetTotPoints();
@@ -150,19 +150,21 @@ public:
             constexpr bool Append       = false;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same<Implementation,
-                                       Operators::SumFac>::value)
+            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
             {
                 ReshapeStorage<ExecSpace,
                                NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad, inblock.num_pts,
-                    (TData *)inPtr);
-                ReshapeStorage<ExecSpace,
-                               NektarSpaces::vector_width<TData>::value>(
-                    outblock.GetInterleaveWidth(), nElmtsPad, outblock.num_pts,
-                    outPtr);
+                    inblock.GetInterleaveWidth(), nElmtsPad,
+                    inblock.GetNumData(), (TData *)inPtr);
                 inblock.SetInterleaveWidth(
                     NektarSpaces::vector_width<TData>::value);
+                if (lambda == 1.0)
+                {
+                    ReshapeStorage<ExecSpace,
+                                   NektarSpaces::vector_width<TData>::value>(
+                        outblock.GetInterleaveWidth(), nElmtsPad,
+                        outblock.GetNumData(), outPtr);
+                }
                 outblock.SetInterleaveWidth(
                     NektarSpaces::vector_width<TData>::value);
             }
@@ -253,16 +255,16 @@ public:
                             }
                         }
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                     }
                 }
 
-                const unsigned int *index0 =
-                    indexing ? m_index0[basisKeys]
-                                   .template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
+                auto index0 = indexing
+                                  ? m_index0[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
 
                 if (deformed)
                 {
@@ -369,15 +371,15 @@ public:
                             }
                         }
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                         m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index1, ExecSpace::alignment,
                                           device_only);
                         m_index2[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index2, ExecSpace::alignment,
                                           device_only);
                     }
@@ -410,15 +412,15 @@ public:
                             }
                         }
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                         m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index1, ExecSpace::alignment,
                                           device_only);
                         m_index2[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index2, ExecSpace::alignment,
                                           device_only);
                     }
@@ -433,11 +435,11 @@ public:
                         std::vector<unsigned int> index0(nmTot);
                         std::vector<unsigned int> index1(nmTot);
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                         m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index1, ExecSpace::alignment,
                                           device_only);
                         for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
@@ -453,31 +455,28 @@ public:
                             }
                         }
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                         m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index1, ExecSpace::alignment,
                                           device_only);
                     }
                 }
 
-                const unsigned int *index0 =
-                    (indexingTet || indexingPrism || indexingPyr)
-                        ? m_index0[basisKeys]
-                              .template GetPtr<MemSpace, ReadOnly>()
-                        : nullptr;
-                const unsigned int *index1 =
-                    (indexingTet || indexingPrism || indexingPyr)
-                        ? m_index1[basisKeys]
-                              .template GetPtr<MemSpace, ReadOnly>()
-                        : nullptr;
-                const unsigned int *index2 =
-                    (indexingTet || indexingPrism)
-                        ? m_index2[basisKeys]
-                              .template GetPtr<MemSpace, ReadOnly>()
-                        : nullptr;
+                auto index0 = (indexingTet || indexingPrism || indexingPyr)
+                                  ? m_index0[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
+                auto index1 = (indexingTet || indexingPrism || indexingPyr)
+                                  ? m_index1[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
+                auto index2 = (indexingTet || indexingPrism)
+                                  ? m_index2[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
 
                 if (deformed)
                 {
@@ -598,7 +597,7 @@ public:
             {
                 m_wspsize = wspsize;
 
-                m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                m_wsp = MemoryRegion<TData>::template Create<MemSpace>(
                     m_wspsize, ExecSpace::alignment, device_only);
             }
 

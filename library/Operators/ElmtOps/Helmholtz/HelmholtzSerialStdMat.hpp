@@ -34,14 +34,13 @@
 
 #pragma once
 
+#include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorHelmholtz.hpp"
 
 #include "ElmtOps/OperatorBwdTrans.hpp"
 #include "ElmtOps/OperatorIProductWRTBase.hpp"
 #include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
-
-#include "Common/OperatorHelper.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -55,26 +54,26 @@ class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmholtz<TData>(expansionList),
-          m_bwd(Field<TData, FieldState::Phys>::template create<MemSpace>(
+          m_bwd(Field<TData, FieldState::Phys>::template Create<MemSpace>(
               "Helmholtz bwd",
               GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
               ExecSpace::alignment)),
-          m_deriv(Field<TData, FieldState::Phys>::template create<MemSpace>(
+          m_deriv(Field<TData, FieldState::Phys>::template Create<MemSpace>(
               "Helmholtz deriv",
               GetBlockAttributes<TData>(FieldState::Phys, expansionList),
               expansionList->GetCoordim(0), ExecSpace::alignment)),
           m_derivCoeff(
-              Field<TData, FieldState::Phys>::template create<MemSpace>(
+              Field<TData, FieldState::Phys>::template Create<MemSpace>(
                   GetBlockAttributes<TData>(FieldState::Phys, expansionList),
                   expansionList->GetCoordim(0), ExecSpace::alignment)),
-          m_diffCoeff(MemoryRegion<TData>::template create<MemSpace>(
+          m_diffCoeff(MemoryRegion<TData>::template Create<MemSpace>(
               "Helmholtz diffCoeff",
               expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
               ExecSpace::alignment))
     {
         auto nCoord = this->m_expansionList->GetCoordim(0);
 
-        m_diffCoeff.template initialize<MemSpace>(0);
+        m_diffCoeff.template Initialize<MemSpace>(0);
 
         TData *diffCoeff =
             m_diffCoeff.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
@@ -85,15 +84,15 @@ public:
         }
 
         m_BwdTransOp =
-            BwdTrans<TData>::template create<ExecSpace, Implementation>(
+            BwdTrans<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
         m_PhysDerivOp =
-            PhysDeriv<TData>::template create<ExecSpace, Implementation>(
+            PhysDeriv<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
         m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template create<ExecSpace, Implementation>(
+            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
-        m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template create<
+        m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template Create<
             ExecSpace, Implementation>(this->m_expansionList);
     }
 
@@ -122,16 +121,18 @@ public:
         // Initialize pointers.
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
-        auto *derivPtr      = deriv.template GetPtr<MemSpace, ReadWrite>();
-        auto *derivCoeffPtr = derivCoeff.template GetPtr<MemSpace, ReadWrite>();
+        auto derivPtr      = deriv.template GetPtr<MemSpace, ReadWrite>();
+        auto derivCoeffPtr = derivCoeff.template GetPtr<MemSpace, ReadWrite>();
 
         // Initialize index.
         size_t exp_idx = 0;
 
-        for (const auto &block : deriv.GetBlocks())
+        for (size_t blk = 0; blk < deriv.GetBlocks().size(); ++blk)
         {
-            const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_padding_elements + nElmts;
+            // Block dependent.
+            auto &derivblock     = deriv.GetBlocks()[blk];
+            const auto nElmts    = derivblock.GetNumElements();
+            const auto nElmtsPad = derivblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);

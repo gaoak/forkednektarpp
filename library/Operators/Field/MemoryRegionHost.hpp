@@ -34,15 +34,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
-#include <cstring>
-#include <iostream>
-#include <new>
-#include <sstream>
-
 template <typename TData> class MemoryRegion;
 
 /**
@@ -73,13 +64,14 @@ public:
      * @param alignment   - memory alignment
      * @param device_only - flag to only allocated memory on device
      */
-    MemoryRegionHost(std::string name, size_t size, size_t alignment,
-                     bool device_only)
+    MemoryRegionHost(const std::string name, const size_t size,
+                     const size_t alignment, const bool device_only)
     {
         m_size        = size;
         m_device_only = device_only;
+        m_alignment   = alignment;
 
-        createMemory(name, alignment);
+        CreateMemory(name);
     }
 
     /**
@@ -117,13 +109,15 @@ public:
      * @param device_only - flag to only allocated memory on device
      */
     template <typename TDataIn>
-    MemoryRegionHost(std::string name, const TDataIn *src, const size_t size,
-                     size_t alignment, bool device_only)
+    MemoryRegionHost(const std::string name, const TDataIn *src,
+                     const size_t size, const size_t alignment,
+                     const bool device_only)
     {
         m_size        = size;
         m_device_only = device_only;
+        m_alignment   = alignment;
 
-        createMemory(name, alignment);
+        CreateMemory(name);
 
         if (!m_device_only)
         {
@@ -201,7 +195,7 @@ public:
      *
      * @return    - stream
      */
-    friend auto operator<<(std::ostream &os, MemoryRegionHost const &mr)
+    friend auto operator<<(std::ostream &os, const MemoryRegionHost &mr)
         -> std::ostream &
     {
         std::stringstream msg;
@@ -221,6 +215,16 @@ public:
     }
 
     /**
+     * @brief Get the storage alignment
+     *
+     * @return - size_t
+     */
+    size_t GetAlignment() const
+    {
+        return m_alignment;
+    }
+
+    /**
      * @brief Get the storage size
      *
      * @return - size_t
@@ -231,21 +235,11 @@ public:
     }
 
     /**
-     * @brief Get the storage alignment
-     *
-     * @return - size_t
-     */
-    size_t getAlignment() const
-    {
-        return m_alignment;
-    }
-
-    /**
      * @brief Get the name
      *
      * @return - std::string
      */
-    std::string getName() const
+    std::string GetName() const
     {
         return m_name;
     }
@@ -256,11 +250,8 @@ protected:
      *
      * @param alignment - memory alignment
      */
-    void createMemory(std::string name, size_t alignment)
+    void CreateMemory(const std::string name)
     {
-        // C++17 aligned new
-        m_alignment = alignment;
-
         if (!m_device_only)
         {
             m_host = static_cast<TData *>(::operator new[](
@@ -311,7 +302,7 @@ protected:
      *
      * This is a virtual function so that subclasses can get host memory
      */
-    virtual TData *GetHostPtr([[maybe_unused]] bool write_only = false)
+    virtual TData *GetHostPtr([[maybe_unused]] const bool write_only = false)
     {
         if (m_host == nullptr)
         {
@@ -336,14 +327,12 @@ protected:
      * @param offset - offset to m_host pointer
      *
      */
-    void initialize(TData val, size_t count = 0, size_t offset = 0)
+    void Initialize(const TData val, const size_t count = 0,
+                    const size_t offset = 0)
     {
         if (m_host)
         {
-            if (count == 0)
-            {
-                count = m_size;
-            }
+            auto size = (count == 0) ? m_size : count;
 
             TData *dst = m_host + offset;
 
@@ -352,19 +341,19 @@ protected:
 
             if constexpr (std::is_same_v<simd_t, TData>)
             {
-                std::fill(dst, dst + count, val);
+                std::fill(dst, dst + size, val);
             }
             else
             {
                 // If the value is zero, memset is the most efficent.
                 if (val == TData(0))
                 {
-                    std::memset(dst, 0, count * sizeof(TData));
+                    std::memset(dst, 0, size * sizeof(TData));
                 }
                 // Otherwuse use the fill function.
                 else
                 {
-                    std::fill(dst, dst + count, val);
+                    std::fill(dst, dst + size, val);
                 }
             }
 
@@ -380,9 +369,8 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_host pointer
      */
-    template <typename TDataIn>
-    void copyFrom(const TDataIn *src, const size_t size,
-                  const size_t offset = 0)
+    template <typename MemCopy, typename TDataIn>
+    void CopySRC(const TDataIn *src, const size_t size, const size_t offset = 0)
     {
         if (!m_device_only)
         {
@@ -405,8 +393,6 @@ protected:
     /**
      * @brief Perform a host to device copy.
      *
-     * @param force - copy regardless of status
-     *
      * This is a virtual function so that subclasses can copy memory.
      */
     virtual void HostToDeviceCopy()
@@ -415,8 +401,6 @@ protected:
 
     /**
      * @brief Perform a device to host copy.
-     *
-     * @param force - copy regardless of status
      *
      * This is a virtual function so that subclasses can copy memory.
      */

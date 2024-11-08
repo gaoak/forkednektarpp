@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestHelmholtzKokkos
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_helmholtzfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
-#include "init_helmholtzfields.hpp"
 
 #define TEST_HELMHOLTZ(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

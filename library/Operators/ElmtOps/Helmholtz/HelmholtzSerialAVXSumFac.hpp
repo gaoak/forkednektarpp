@@ -34,22 +34,16 @@
 
 #pragma once
 
-#include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorBwdTrans.hpp"
-#include "ElmtOps/OperatorHelmholtz.hpp"
-#include "ElmtOps/OperatorIProductWRTBase.hpp"
-#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
-#include "ElmtOps/OperatorPhysDeriv.hpp"
-#include "Operators/Utils/UtilsKernels.hpp"
-
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/Foundations/Basis.h>
+
+#include "Common/OperatorHelper.hpp"
+#include "ElmtOps/OperatorHelmholtz.hpp"
 
 #include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 #include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -76,9 +70,9 @@ public:
         auto derivFac =
             SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
 
-        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_jac = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
-        m_df = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
 
         // Initialize the basis data.
@@ -126,25 +120,24 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-
-        m_exp_idx = 0; // accumulates over blocks, used in operatorND()
-        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
 
         // Initialize basiskey.
         m_basisKeys = std::vector<LibUtilities::BasisKey>(
             dimension, LibUtilities::NullBasisKey);
 
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        // Initialize index.
+        m_exp_idx = 0; // accumulates over blocks, used in operatorND()
+        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+
+        for (size_t m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[block_idx];
-            auto &outblock    = out.GetBlocks()[block_idx];
-            const auto nElmts = inblock.num_elements;
-            const auto nElmtsPad =
-                inblock.num_elements + inblock.num_padding_elements;
+            auto &inblock        = in.GetBlocks()[m_blk];
+            auto &outblock       = out.GetBlocks()[m_blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
@@ -219,8 +212,8 @@ public:
 
             // Increment pointer and index for next element type.
             m_jac_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
+            inPtr += inblock.size();
+            outPtr += outblock.size();
             m_exp_idx += nElmts;
         }
     }
@@ -283,6 +276,7 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
 
+        // Allocate workspace.
         TData *bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
@@ -294,12 +288,12 @@ private:
         typename simd_t::vectorType *deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -375,6 +369,7 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
 
+        // Allocate workspace.
         TData *bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
@@ -386,12 +381,12 @@ private:
         typename simd_t::vectorType *deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -491,7 +486,6 @@ private:
                                                         m_h1);
         }
 
-        // Allocate workspace.
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         TData *bwd = static_cast<TData *>(
@@ -510,12 +504,12 @@ private:
         typename simd_t::vectorType *deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -528,7 +522,7 @@ private:
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
 
-        // Get basis data pointers
+        // Get basis data pointers.
         const auto B0 =
             m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto B1 =
@@ -625,6 +619,7 @@ private:
         }
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
         alignas(simd_t::alignment) TData bwd[nqTot * simd_t::width];
         typename simd_t::vectorType *bwdvec =
             reinterpret_cast<typename simd_t::vectorType *>(bwd);
@@ -635,12 +630,12 @@ private:
         typename simd_t::vectorType *deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -785,12 +780,12 @@ private:
         typename simd_t::vectorType *deriv2vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {
@@ -940,12 +935,12 @@ private:
         typename simd_t::vectorType *deriv2vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto dfSize = 1;
         if constexpr (DEFORMED)
         {

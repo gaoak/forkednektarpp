@@ -34,12 +34,12 @@
 
 #pragma once
 
+#include <MultiRegions/ContField.h>
+
 #include "Operators/BndCondOps/OperatorNeuBndCond.hpp"
 
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondDeviceKernels.hpp"
 #include "Operators/BndCondOps/NeuBndCond/NeuBndCondSerialAVXKernels.hpp"
-
-#include <MultiRegions/ContField.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -110,7 +110,7 @@ public:
 
         const bool device_only = true;
 
-        m_bndCoeff = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+        m_bndCoeff = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
             bndcoeff, ExecSpace::alignment, device_only);
 
         // Compute block bound.
@@ -121,8 +121,8 @@ public:
         for (int block_idx = 0; block_idx < blocks.size(); ++block_idx)
         {
             const auto &block = blocks[block_idx];
-            const auto ncoeff = block.num_pts;
-            const auto nElmts = block.num_elements;
+            const auto ncoeff = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
             bound += nElmts * ncoeff;
             blockBound[block_idx] = bound;
         }
@@ -144,7 +144,7 @@ public:
         }
         m_nBndCoeffBlock.push_back(nbndCoeffBlock);
 
-        m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
+        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
             alignedMap, ExecSpace::alignment, device_only);
 
         if (m_signChange)
@@ -155,7 +155,7 @@ public:
                 alignedSign[i] = sign[index[i]];
             }
 
-            m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
                 alignedSign, ExecSpace::alignment, device_only);
         }
     }
@@ -168,12 +168,12 @@ public:
             return;
         }
 
-        auto *mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto *bndcoeffPtr = m_bndCoeff.template GetPtr<MemSpace, ReadOnly>();
-        auto *inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
-        auto *signPtr     = m_signChange
-                                ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                                : nullptr;
+        auto mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto bndcoeffPtr = m_bndCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
+        auto signPtr     = m_signChange
+                               ? m_sign.template GetPtr<MemSpace, ReadOnly>()
+                               : nullptr;
 
         // Loop over the blocks.
         for (size_t block_idx = 0; block_idx < inout.GetBlocks().size();
@@ -199,7 +199,7 @@ public:
             signPtr += nbndCoeffBlock;
             bndcoeffPtr += nbndCoeffBlock;
             mapPtr += nbndCoeffBlock;
-            inoutPtr += block.block_size;
+            inoutPtr += block.size();
         }
     }
 

@@ -50,17 +50,15 @@ size_t GetGeometricFactorSize(
 
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
-            gfSize +=
-                expPtr->GetTotPoints() *
-                (blocks[blk].num_elements + blocks[blk].num_padding_elements);
+            gfSize += expPtr->GetTotPoints() *
+                      blocks[blk].GetNumElementsWithPadding();
         }
         else
         {
-            gfSize +=
-                blocks[blk].num_elements + blocks[blk].num_padding_elements;
+            gfSize += blocks[blk].GetNumElementsWithPadding();
         }
 
-        exp_id += blocks[blk].num_elements;
+        exp_id += blocks[blk].GetNumElements();
     }
 
     return gfSize;
