@@ -34,15 +34,12 @@
 
 #pragma once
 
+#include <LibUtilities/Foundations/Basis.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
-
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/Foundations/Basis.h>
 
 #include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
@@ -62,14 +59,20 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        // Initialise jacobian with paddings
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
+
+        // Initialise derivative factor with paddings.
         auto blocks = GetBlockAttributes<TData>(FieldState::Phys, expansionList,
                                                 simd_t::width);
         auto dfSize = GetGeometricFactorSize(expansionList, blocks);
         auto derivFac =
             SetDerivativeFactor<TData>(expansionList, dfSize, blocks);
 
-        m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *derivFac, simd_t::alignment);
 
         // Initialize the zeros.
@@ -94,34 +97,25 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, ReadWrite>();
 
-#if 0
-        const auto Coordim = this->m_expansionList->GetExp(0)->GetCoordim();
-        ASSERTL0(Coordim <= out.GetNumComponents(),
-                 "Output field has fewer components than the coordinate!");
-#else
         m_coordDim = this->m_expansionList->GetExp(0)->GetCoordim();
+
         ASSERTL0(m_coordDim <= out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
-#endif
+
+        // Initialize index.
         m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
         m_df_idx  = 0; // accumulates over blocks, accessed in operatorND()
 
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            // Block dependent
-            auto &inblock     = in.GetBlocks()[block_idx];
-            auto &outblock    = out.GetBlocks()[block_idx];
-            const auto nElmts = inblock.num_elements;
-            const auto nElmtsPad =
-                inblock.num_elements + inblock.num_padding_elements;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[m_blk];
+            auto &outblock       = out.GetBlocks()[m_blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
@@ -131,8 +125,7 @@ public:
                                   SpatialDomains::eDeformed;
 
             // Get current interleave width.
-            m_in_interleave_width  = inblock.GetInterleaveWidth();
-            m_out_interleave_width = outblock.GetInterleaveWidth();
+            m_in_interleave_width = inblock.GetInterleaveWidth();
 
             // Set to new interleave width.
             inblock.SetInterleaveWidth(simd_t::width);
@@ -197,8 +190,8 @@ public:
 
             // Increment pointer and index for next element type.
             m_df_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size * m_coordDim;
+            inPtr += inblock.size();
+            outPtr += outblock.size() * m_coordDim;
             m_exp_idx += nElmts;
         }
     }
@@ -217,10 +210,10 @@ public:
 
 private:
     int m_nElmtGroup, m_df_idx, m_exp_idx;
-    unsigned int m_in_interleave_width, m_out_interleave_width;
+    unsigned int m_in_interleave_width;
     unsigned int m_coordDim;
 
-    MemoryRegion<TData> m_derivFac;
+    MemoryRegion<TData> m_df;
     BasisDataMap<simd_t> m_zeroMap;
     BasisDataMap<simd_t> m_derivativeMap;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
@@ -253,14 +246,15 @@ private:
         }
 
         // Get derivative factor pointer
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
+        // Initialize pointers.
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
@@ -280,8 +274,6 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
             }
 
             // Get the basic derivative.
@@ -290,7 +282,7 @@ private:
             // Calculate physical derivative.
             PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
-            // Increment pointers.
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d)
@@ -317,12 +309,13 @@ private:
         }
 
         // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -345,8 +338,6 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
             }
 
             // Get the basic derivative.
@@ -355,7 +346,7 @@ private:
             // Calculate physical derivative.
             PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
 
-            // Increment pointers.
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -386,8 +377,8 @@ private:
         }
 
         // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -398,6 +389,7 @@ private:
         const auto Z1 =
             m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -420,19 +412,17 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
             }
 
             // Results written to tmpOut0, tmpOut1.
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
+
             // Calculate physical derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
                                                     dfPtr, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -458,8 +448,8 @@ private:
         }
 
         // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -470,6 +460,7 @@ private:
         const auto Z1 =
             m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -492,19 +483,17 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
             }
 
             // Results written to tmpOut0, tmpOut1.
             PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
                                     tmpOut[1]);
+
             // Calculate physical derivative.
             PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
                                                     dfPtr, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             for (int d = 0; d < nCoord; ++d) // automatically unrolled
@@ -541,8 +530,8 @@ private:
             wsp1(wsp1Size);
 
         // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -557,6 +546,7 @@ private:
         const auto Z2 =
             m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -579,22 +569,18 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[2]);
             }
 
+            // Get the basic derivative.
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
+
             // Calculate physical derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
 
-            // Increment pointers.
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;
@@ -625,8 +611,8 @@ private:
             wsp1(wsp1Size);
 
         // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(&(
-            m_derivFac.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -641,6 +627,7 @@ private:
         const auto Z2 =
             m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
@@ -663,21 +650,18 @@ private:
                 ReshapeStorage<ExecSpace, simd_t::width>(
                     m_in_interleave_width, chunkSize, nqTot,
                     (TData *)input + e * nqTot * simd_t::width);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[0]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[1]);
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_out_interleave_width, chunkSize, nqTot, tmpOut[2]);
             }
 
+            // Get the basic derivative.
             PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
                                     tmpOut[1], tmpOut[2]);
+
             // Calculate physical derivative.
             PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
                 nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
                 tmpOut[1], tmpOut[2]);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             dfPtr += dfsize;
             tmpIn += nqTot;
             tmpOut[0] += nqBlocks;

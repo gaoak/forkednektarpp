@@ -34,12 +34,13 @@
 
 #pragma once
 
-#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
+#include <MultiRegions/ContField.h>
+
 #include "Operators/GlobalLinSysOps/OperatorConjGrad.hpp"
+
+#include "Operators/BndCondOps/OperatorRobBndCond.hpp"
 #include "Operators/MathKernels/MathKernels.hpp"
 #include "Operators/OperatorAssmbScatr.hpp"
-
-#include <MultiRegions/ContField.h>
 
 #include <algorithm>
 #include <array>
@@ -62,27 +63,27 @@ class OperatorConjGradImpl : public OperatorConjGrad<TData>
 public:
     OperatorConjGradImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorConjGrad<TData>(expansionList),
-          m_w_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_w_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad w_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment)),
-          m_s_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_s_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad s_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment)),
-          m_r_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_r_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad r_A",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment)),
-          m_wk(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_wk(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment)),
-          m_q_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_q_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment)),
-          m_p_A(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_p_A(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               "ConjGrad wk",
               GetBlockAttributes<TData>(FieldState::Coeff, expansionList), 1,
               ExecSpace::alignment))
@@ -94,19 +95,17 @@ public:
         contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
                                                m_tol, 1.0E-09);
 
-        m_nloc = contfield->GetLocalToGlobalMap()->GetNumLocalCoeffs();
-
         m_assmbScatrOp =
-            AssmbScatr<TData>::template create<ExecSpace, Implementation>(
+            AssmbScatr<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
         m_robBndCondOp =
-            RobBndCond<TData>::template create<ExecSpace, Implementation>(
+            RobBndCond<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
 
         m_rowComm = contfield->GetSession()->GetComm()->GetRowComm();
 
         m_vExchange =
-            MemoryRegion<TData>::template create<NektarSpaces::HostSpace>(
+            MemoryRegion<TData>::template Create<NektarSpaces::HostSpace>(
                 4, __STDCPP_DEFAULT_NEW_ALIGNMENT__);
     }
 
@@ -114,28 +113,23 @@ public:
                Field<TData, FieldState::Coeff> &out) override
     {
         // Set the fields to zero
-        out.template initialize<MemSpace>(0);
-        m_w_A.template initialize<MemSpace>(0);
-        m_s_A.template initialize<MemSpace>(0);
-        m_p_A.template initialize<MemSpace>(0);
-        m_q_A.template initialize<MemSpace>(0);
-        m_wk.template initialize<MemSpace>(0);
+        out.template Initialize<MemSpace>(0);
+        m_w_A.template Initialize<MemSpace>(0);
+        m_s_A.template Initialize<MemSpace>(0);
+        m_p_A.template Initialize<MemSpace>(0);
+        m_q_A.template Initialize<MemSpace>(0);
+        m_wk.template Initialize<MemSpace>(0);
 
         // Convergence parameters (host)
         size_t totalIterations = 0;
-        TData rhsMagnitude;
-        TData alpha;
-        TData beta;
-        TData rho;
-        TData rho_new;
-        TData mu;
-        TData eps;
+        TData rhsMagnitude, mu, eps;
+        TData alpha, beta, rho, rho_new;
 
-        TData *vExchangePtr =
+        auto vExchangePtr =
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         // Copy RHS into initial residual
-        m_r_A.template copyField<MemSpace>(in);
+        m_r_A.template Copy<MemSpace, DeviceToDevice>(in);
 
         // Assembly (communication)
         m_assmbScatrOp->apply(m_r_A, m_wk, true);
@@ -143,7 +137,7 @@ public:
         ddot<ExecSpace, TData>(m_wk, m_r_A, vExchangePtr + 2);
 
         // Calculate rhs magnitude
-        m_wk.template initialize<MemSpace>(0);
+        m_wk.template Initialize<MemSpace>(0);
         m_assmbScatrOp->apply(m_r_A, m_wk);
 
         ddot<ExecSpace, TData>(in, m_wk, vExchangePtr + 3);
@@ -271,7 +265,6 @@ protected:
     MemoryRegion<TData> m_vExchange;
 
     TData m_tol;
-    size_t m_nloc;
     size_t m_maxIter;
 };
 

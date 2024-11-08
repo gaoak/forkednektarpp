@@ -34,14 +34,12 @@
 
 #pragma once
 
+#include <LibUtilities/Foundations/Basis.h>
+#include <LibUtilities/SimdLib/tinysimd.hpp>
+
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
-
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/Foundations/Basis.h>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 
@@ -62,13 +60,19 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTBase<TData>(expansionList)
     {
-        // Initialise jacobian with paddings if appropriate
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
+
+        // Initialise jacobian with paddings.
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, simd_t::width);
         auto jacSize = GetGeometricFactorSize(expansionList, locblocks);
         auto jac     = SetJacobian<TData>(expansionList, jacSize, locblocks);
 
-        m_jac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_jac = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *jac, ExecSpace::alignment);
 
         // Initialize the basis data.
@@ -92,26 +96,21 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, ReadWrite>();
 
+        // Initialize index.
         m_exp_idx = 0; // accumulates over blocks, accessed in operatorND()
         m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
 
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[block_idx];
-            auto &outblock    = out.GetBlocks()[block_idx];
-            const auto nElmts = inblock.num_elements;
-            const auto nElmtsPad =
-                inblock.num_elements + inblock.num_padding_elements;
+            auto &inblock        = in.GetBlocks()[m_blk];
+            auto &outblock       = out.GetBlocks()[m_blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
@@ -187,8 +186,8 @@ public:
 
             // Increment pointer and index for next element type.
             m_jac_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
+            inPtr += inblock.size();
+            outPtr += outblock.size();
             m_exp_idx += nElmts;
         }
     }
@@ -233,20 +232,23 @@ private:
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto wPtr0 =
@@ -270,7 +272,8 @@ private:
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -285,20 +288,23 @@ private:
         constexpr auto nmTot = nm0;
         constexpr auto nqTot = nq0;
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto wPtr0 =
@@ -322,7 +328,8 @@ private:
 
             IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nq0, tmpIn, bPtr0, wPtr0, jacPtr, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -353,20 +360,23 @@ private:
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -395,7 +405,8 @@ private:
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
                 wPtr1, jacPtr, wsp0, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -421,20 +432,23 @@ private:
         IProduct2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -463,7 +477,8 @@ private:
             IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, tmpIn, bPtr0, bPtr1, wPtr0,
                 wPtr1, jacPtr, wsp0, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -498,20 +513,23 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -544,7 +562,8 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;
@@ -572,20 +591,23 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
             reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // Get jac and df pointers.
         auto jacSize = 1;
         if constexpr (DEFORMED)
         {
             jacSize *= nqTot;
         }
 
+        // Get jac pointers.
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
             &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+
+        // Fetch basis data.
         const auto bPtr0 =
             m_basisMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         const auto bPtr1 =
@@ -618,7 +640,8 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, bPtr0, bPtr1,
                 bPtr2, wPtr0, wPtr1, wPtr2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
-            // Increment pointers.
+
+            // Increment pointers for the next elmt group.
             tmpIn += nqTot;
             tmpOut += nmTot * simd_t::width;
             jacPtr += jacSize;

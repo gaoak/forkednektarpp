@@ -34,8 +34,7 @@
 
 #pragma once
 
-#include "Operators/Common/OperatorLinear.hpp"
-#include "Operators/Field/Field.hpp"
+#include "Operators/ElmtOps/OperatorElmt.hpp"
 
 namespace Nektar::Operators
 {
@@ -61,24 +60,23 @@ public:
         apply(in, out);
     }
 
-    void setLHS(
-        const std::shared_ptr<
-            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+    void setLHS(const std::shared_ptr<
+                OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         m_LHS = ptr;
     }
 
     void setPrecon(
         const std::shared_ptr<
-            OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
+            OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>> &ptr)
     {
         m_precon = ptr;
     }
 
 protected:
-    std::shared_ptr<OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
+    std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
         m_LHS;
-    std::shared_ptr<OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
+    std::shared_ptr<OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
         m_precon;
 };
 
@@ -90,10 +88,10 @@ template <typename TData = default_fp_type> struct ConjGrad
     ConjGrad() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<ConjGrad<TData>, ExecSpace,
+        return Operator<TData>::template Create<ConjGrad<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

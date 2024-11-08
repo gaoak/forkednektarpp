@@ -34,21 +34,9 @@
 
 #pragma once
 
-#include "MemoryRegion.hpp"
-
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-#include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <MultiRegions/ExpList.h>
 
-#include <array>
-#include <iostream>
-#include <memory>
-#include <numeric>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "MemoryRegion.hpp"
 
 /**
  * @brief Possible states for Field data.
@@ -77,48 +65,73 @@ using default_fp_type = double;
  */
 struct BlockAttributes
 {
-    BlockAttributes(size_t num_elements, size_t num_padding_elements,
-                    size_t num_pts, size_t interleave_width)
-        : num_elements(num_elements),
-          num_padding_elements(num_padding_elements), num_pts(num_pts),
-          block_size((num_elements + num_padding_elements) * num_pts),
-          interleave_width(interleave_width)
+    BlockAttributes(const size_t num_elements,
+                    const size_t num_elements_with_padding,
+                    const size_t num_data, const size_t interleave_width)
+        : m_num_elements(num_elements),
+          num_elements_with_padding(num_elements_with_padding),
+          m_num_data(num_data), m_size(num_elements_with_padding * num_data),
+          m_interleave_width(interleave_width)
     {
     }
 
-    const size_t num_elements;
-    const size_t num_padding_elements;
-    const size_t num_pts;
-    const size_t block_size;
-
     template <typename TData = default_fp_type>
-    void SetInterleaveWidth(size_t interleave_width)
+    void SetInterleaveWidth(const size_t interleave_width)
     {
         if (interleave_width != 1)
         {
             ASSERTL0(
-                (num_elements + num_padding_elements) % interleave_width == 0,
+                num_elements_with_padding % interleave_width == 0,
                 "Number of elements is not divisible by interleave width.");
             ASSERTL0(
                 interleave_width % tinysimd::simd<TData>::width == 0,
                 "interleave width should be divisible by AVX vector width.");
         }
 
-        this->interleave_width = interleave_width;
+        m_interleave_width = interleave_width;
+    }
+
+    size_t GetNumElements(void) const
+    {
+        return m_num_elements;
+    }
+
+    size_t GetNumElementsWithPadding(void) const
+    {
+        return num_elements_with_padding;
+    }
+
+    size_t GetNumData(void) const
+    {
+        return m_num_data;
+    }
+
+    size_t size(void) const
+    {
+        return m_size;
     }
 
     size_t GetInterleaveWidth(void) const
     {
-        return interleave_width;
+        return m_interleave_width;
+    }
+
+    size_t GetNumPaddingElements(void) const
+    {
+        return num_elements_with_padding - m_num_elements;
     }
 
     size_t GetNumElmtGroups(void) const
     {
-        return (num_elements + num_padding_elements) / interleave_width;
+        return num_elements_with_padding / m_interleave_width;
     }
 
 private:
-    size_t interleave_width;
+    const size_t m_num_elements;
+    const size_t num_elements_with_padding;
+    const size_t m_num_data;
+    const size_t m_size;
+    size_t m_interleave_width;
 };
 
 /**
@@ -150,7 +163,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
         expPtr->GetNumBases(), LibUtilities::NullBasisKey);
 
     size_t num_elements = 1;
-    size_t num_pts      = state == FieldState::Phys ? expPtr->GetTotPoints()
+    size_t ndata        = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                     : expPtr->GetNcoeffs();
     for (int d = 0; d < expPtr->GetNumBases(); d++)
     {
@@ -182,14 +195,12 @@ std::vector<BlockAttributes> GetBlockAttributes(
             size_t num_elements_with_padding =
                 ((num_elements + vector_width - 1) / vector_width) *
                 vector_width;
-            size_t num_padding_elements =
-                num_elements_with_padding - num_elements;
-            blockAttr.push_back({num_elements, num_padding_elements, num_pts,
+            blockAttr.push_back({num_elements, num_elements_with_padding, ndata,
                                  interleave_width});
 
-            // update num_pts for a new block
+            // update ndata for a new block
             num_elements   = 1;
-            num_pts        = state == FieldState::Phys ? expPtr->GetTotPoints()
+            ndata          = state == FieldState::Phys ? expPtr->GetTotPoints()
                                                        : expPtr->GetNcoeffs();
             prevbasisKeys  = thisbasisKeys;
             prevIsDeformed = thisIsDeformed;
@@ -199,9 +210,8 @@ std::vector<BlockAttributes> GetBlockAttributes(
     // update the padding elements for the last block
     size_t num_elements_with_padding =
         ((num_elements + vector_width - 1) / vector_width) * vector_width;
-    size_t num_padding_elements = num_elements_with_padding - num_elements;
     blockAttr.push_back(
-        {num_elements, num_padding_elements, num_pts, interleave_width});
+        {num_elements, num_elements_with_padding, ndata, interleave_width});
 
     return blockAttr;
 }
@@ -228,8 +238,9 @@ public:
      */
     Field(Field &&rhs)
         : MemoryRegion<TData>::MemoryRegion(std::move(rhs)),
-          block_attributes(std::move(rhs.block_attributes)),
-          component_names(std::move(rhs.component_names))
+          m_name(std::move(rhs.m_name)),
+          m_block_attributes(std::move(rhs.m_block_attributes)),
+          m_var_names(std::move(rhs.m_var_names))
     {
     }
 
@@ -242,9 +253,10 @@ public:
      */
     Field &operator=(Field &&rhs)
     {
-        this->m_storage  = std::move(rhs.m_storage);
-        block_attributes = std::move(rhs.block_attributes);
-        component_names  = std::move(rhs.component_names);
+        this->m_storage    = std::move(rhs.m_storage);
+        m_name             = std::move(rhs.m_name);
+        m_block_attributes = std::move(rhs.m_block_attributes);
+        m_var_names        = std::move(rhs.m_var_names);
 
         return *this;
     }
@@ -253,29 +265,29 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @tparam MemSpace      Type of memory space to use
+     * @tparam MemSpace   - Type of memory space to use
      *
-     * @param name           Name of the field (memory region)
-     * @param blocks         Field data specification.
-     * @param components     Names of components for a vector field.
-     * @param alignment      Memory alignment to use.
+     * @param name        - Name of the field (memory region)
+     * @param blocks      - Field data specification.
+     * @param components  - Names of components for a vector field.
+     * @param alignment   - Memory alignment to use.
+     * @param device_only - flag to only allocated memory on device
      *
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(std::string name,
-                                       std::vector<BlockAttributes> blocks,
-                                       std::vector<std::string> components,
-                                       size_t alignment,
-                                       bool device_only = false)
+    static Field<TData, TState> Create(
+        const std::string name, const std::vector<BlockAttributes> blocks,
+        const std::vector<std::string> components, const size_t alignment,
+        const bool device_only = false)
     {
         int num_components = components.size();
-        auto field         = Field(std::move(blocks), components);
+        auto field         = Field(name, blocks, components);
 
         size_t storage_size = std::accumulate(
             field.block_attributes.begin(), field.block_attributes.end(), 0,
             [](size_t acc, const BlockAttributes &block) {
-                return acc + block.block_size;
+                return acc + block.size();
             });
 
         size_t size = storage_size * num_components;
@@ -311,52 +323,54 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the names of the components.
      *
-     * @tparam MemSpace      Type of memory space to use
+     * @tparam MemSpace   - Type of memory space to use
      *
-     * @param blocks         Field data specification.
-     * @param components     Names of components for a vector field.
-     * @param alignment      Memory alignment to use.
+     * @param blocks      - Field data specification.
+     * @param components  - Names of components for a vector field.
+     * @param alignment   - Memory alignment to use.
+     * @param device_only - flag to only allocated memory on device
      *
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
-                                       std::vector<std::string> components,
-                                       size_t alignment,
-                                       bool device_only = false)
+    static Field<TData, TState> Create(
+        const std::vector<BlockAttributes> blocks,
+        const std::vector<std::string> components, const size_t alignment,
+        const bool device_only = false)
     {
-        return Field<TData, TState>::template create<MemSpace>(
-            blocks, components, alignment, device_only);
+        return Field<TData, TState>::template Create<MemSpace>(
+            "", blocks, components, alignment, device_only);
     }
 
     /**
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @tparam MemSpace      Type of memory space to use
+     * @tparam MemSpace   - Type of memory space to use
      *
-     * @param name           Name of the field (memory region)
-     * @param blocks         Field data specification.
-     * @param num_components Number of components for a vector field.
-     * @param alignment      Memory alignment to use.
+     * @param name        - Name of the field (memory region)
+     * @param blocks      - Field data specification.
+     * @param nvar        - Number of components for a vector field.
+     * @param alignment   - Memory alignment to use.
+     * @param device_only - flag to only allocated memory on device
      *
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(
-        std::string name, std::vector<BlockAttributes> blocks,
-        int num_components, size_t alignment,
-        [[maybe_unused]] bool device_only = false)
+    static Field<TData, TState> Create(
+        const std::string name, const std::vector<BlockAttributes> blocks,
+        const int nvar, const size_t alignment,
+        [[maybe_unused]] const bool device_only = false)
     {
-        auto field = Field(std::move(blocks), num_components);
+        auto field = Field(name, blocks, nvar);
 
         size_t storage_size = std::accumulate(
-            field.block_attributes.begin(), field.block_attributes.end(), 0,
+            field.m_block_attributes.begin(), field.m_block_attributes.end(), 0,
             [](size_t acc, const BlockAttributes &block) {
-                return acc + block.block_size;
+                return acc + block.size();
             });
 
-        size_t size = storage_size * num_components;
+        size_t size = storage_size * nvar;
 
         // Create new a MemoryRegion and polymorphically store as a
         // MemoryRegionHost.
@@ -380,7 +394,7 @@ public:
         }
 
         // Zero memory
-        field.template initialize<MemSpace>(0);
+        field.template Initialize<MemSpace>(0);
 
         return field;
     }
@@ -389,54 +403,22 @@ public:
      * @brief Static templated creation method. This method create
      * new Field by giving the number of components.
      *
-     * @tparam MemSpace      Type of memory space to use
+     * @tparam MemSpace   - Type of memory space to use
      *
-     * @param blocks         Field data specification.
-     * @param num_components Number of components for a vector field.
-     * @param alignment      Memory alignment to use.
+     * @param blocks      - Field data specification.
+     * @param nvar        - Number of components for a vector field.
+     * @param alignment   - Memory alignment to use.
+     * @param device_only - flag to only allocated memory on device
      *
      * @return Field<TData, TState>
      */
     template <typename MemSpace>
-    static Field<TData, TState> create(std::vector<BlockAttributes> blocks,
-                                       int num_components, size_t alignment,
-                                       bool device_only = false)
+    static Field<TData, TState> Create(
+        const std::vector<BlockAttributes> blocks, const int nvar,
+        const size_t alignment, const bool device_only = false)
     {
-        return Field<TData, TState>::template create<MemSpace>(
-            "", blocks, num_components, alignment, device_only);
-    }
-
-    /**
-     * @brief Copy the data from a pointer
-     *
-     * @param const TDataIn*
-     */
-    template <typename MemSpace, typename TDataOut,
-              typename MemCopy = HostToDevice>
-    void copyTo(TDataOut *dst)
-    {
-        auto compSize = 0;
-        for (const auto &block : this->GetBlocks())
-        {
-            auto nElmts = block.num_elements;
-            auto nPts   = block.num_pts;
-            compSize += nElmts * nPts;
-        }
-
-        auto *src = this->template GetPtr<MemSpace, ReadOnly>();
-        for (const auto &block : this->GetBlocks())
-        {
-            auto nSize  = block.block_size;
-            auto nElmts = block.num_elements;
-            auto nPts   = block.num_pts;
-            for (auto n = 0; n < this->GetNumComponents(); n++)
-            {
-                std::copy(src, src + nElmts * nPts, dst + n * compSize);
-                src += nSize;
-            }
-
-            dst += nElmts * nPts;
-        }
+        return Field<TData, TState>::template Create<MemSpace>(
+            "", blocks, nvar, alignment, device_only);
     }
 
     /**
@@ -445,22 +427,33 @@ public:
      * @return std::vector
      */
     template <typename TDataOut = TData, class Alloc = std::allocator<TDataOut>>
-    std::vector<TDataOut, Alloc> toVector(size_t size = 0)
+    std::vector<TDataOut, Alloc> ToVector()
     {
-        if (size == 0)
+        size_t compSize = 0;
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
         {
-            for (const auto &block : this->GetBlocks())
-            {
-                size += block.num_elements * block.num_pts;
-            }
-
-            size *= this->GetNumComponents();
+            compSize += m_block_attributes[blk].GetNumElements() *
+                        m_block_attributes[blk].GetNumData();
         }
 
-        std::vector<TDataOut, Alloc> array(size);
+        std::vector<TDataOut, Alloc> array(compSize * this->GetNumComponents());
 
-        // Copy the data from the input field
-        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(array.data());
+        // Copy the data from the input field.
+        auto dst = array.data();
+        auto src = this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
+        {
+            auto nSize  = m_block_attributes[blk].size();
+            auto nElmts = m_block_attributes[blk].GetNumElements();
+            auto nPts   = m_block_attributes[blk].GetNumData();
+            for (auto n = 0; n < this->GetNumComponents(); n++)
+            {
+                std::copy(src, src + nElmts * nPts, dst + n * compSize);
+                src += nSize;
+            }
+
+            dst += nElmts * nPts;
+        }
 
         return array;
     }
@@ -471,148 +464,69 @@ public:
      * @return Array<Nektar::OneD, TDataOut>
      */
     template <typename TDataOut = TData>
-    Nektar::Array<Nektar::OneD, TDataOut> toArray(size_t size = 0)
+    Nektar::Array<Nektar::OneD, TDataOut> ToArray()
     {
-        if (size == 0)
+        size_t compSize = 0;
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
         {
-            for (const auto &block : this->GetBlocks())
-            {
-                size += block.num_elements * block.num_pts;
-            }
-
-            size *= this->GetNumComponents();
+            compSize += m_block_attributes[blk].GetNumElements() *
+                        m_block_attributes[blk].GetNumData();
         }
 
-        Nektar::Array<Nektar::OneD, TDataOut> array(size);
+        Nektar::Array<Nektar::OneD, TDataOut> array(compSize *
+                                                    this->GetNumComponents());
 
-        // Copy the data from the input field
-        this->template copyTo<NektarSpaces::HostSpace, TDataOut>(array.data());
-
-        return array;
-    }
-
-    /**
-     * @brief Copy the data from a pointer
-     *
-     * @param const TDataIn*
-     */
-    template <typename MemSpace, typename TDataIn,
-              typename MemCopy = HostToDevice>
-    void copyFrom(const TDataIn *src)
-    {
-        auto compSize = 0;
-        for (const auto &block : this->GetBlocks())
+        // Copy the data from the input field.
+        auto dst = array.data();
+        auto src = this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
         {
-            auto nElmts = block.num_elements;
-            auto nPts   = block.num_pts;
-            compSize += nElmts * nPts;
-        }
-
-        auto offset = 0;
-        for (const auto &block : this->GetBlocks())
-        {
-            auto nSize  = block.block_size;
-            auto nElmts = block.num_elements;
-            auto nPts   = block.num_pts;
+            auto nSize  = m_block_attributes[blk].size();
+            auto nElmts = m_block_attributes[blk].GetNumElements();
+            auto nPts   = m_block_attributes[blk].GetNumData();
             for (auto n = 0; n < this->GetNumComponents(); n++)
             {
-                this->MemoryRegion<TData>::template copyFrom<MemSpace, TDataIn,
-                                                             MemCopy>(
-                    src + n * compSize, nElmts * nPts, offset);
-                offset += nSize;
+                std::copy(src, src + nElmts * nPts, dst + n * compSize);
+                src += nSize;
             }
-            src += nElmts * nPts;
+
+            dst += nElmts * nPts;
         }
+
+        return array;
     }
 
     /**
      * @brief Templated copy method. This method copies data from a
      *        Field
      *
-     * @param region - Field to copy from
+     * @param field - Field to copy from
      *
      */
-    template <typename MemSpace, typename MemCopy = HostToDevice>
-    void copyField(Field &field)
+    template <typename MemSpace, typename MemCopy = DeviceToDevice>
+    void Copy(Field &field)
     {
-        ASSERTL0(field.block_attributes.size() == block_attributes.size(),
-                 "Number of blocks are not the same!");
-
-        for (size_t bl = 0; bl < block_attributes.size(); ++bl)
+        if (m_block_attributes.size() != field.m_block_attributes.size())
         {
-            ASSERTL0(field.block_attributes[bl].GetInterleaveWidth() ==
-                         block_attributes[bl].GetInterleaveWidth(),
-                     "Vector width are not the same!");
+            std::stringstream msg;
+
+            msg << "Field::Copy - "
+                << "Block number mismatch between (" << field.GetName()
+                << ") and (" << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
         if (this->size() != field.size())
         {
             std::stringstream msg;
 
-            msg << "Field::copyField - "
-                << "Memory size mismatch between (" << field.getName()
-                << ") and (" << this->getName() << ").";
+            msg << "Field::Copy - "
+                << "Memory size mismatch between (" << field.GetName()
+                << ") and (" << this->GetName() << ").";
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
-                      std::is_same_v<MemCopy, DeviceToHost>)
-        {
-            this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
-                                                         MemCopy>(
-                field.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>(),
-                field.size());
-        }
-        else if constexpr (std::is_same_v<MemCopy, HostToDevice> ||
-                           std::is_same_v<MemCopy, HostToHost>)
-        {
-            this->MemoryRegion<TData>::template copyFrom<MemSpace, TData,
-                                                         MemCopy>(
-                field.template GetPtr<NektarSpaces::HostSpace, ReadOnly>(),
-                field.size());
-        }
-    }
-
-    /**
-     * @brief Templated copy method. This method copies data from a
-     *        MemoryRegion
-     *
-     * @param region - MemoryRegion to copy from
-     *
-     */
-    template <typename MemSpace, typename TDataIn,
-              typename MemCopy = HostToDevice>
-    void copyMemoryRegion(MemoryRegion<TDataIn> &region)
-    {
-        size_t nSize = 0;
-        for (const auto &block : this->GetBlocks())
-        {
-            nSize += block.num_pts * block.num_elements;
-        }
-
-        if (nSize * this->GetNumComponents() != region.size())
-        {
-            std::stringstream msg;
-
-            msg << "Field::copyMemoryRegion - "
-                << "Memory size mismatch between (" << region.getName()
-                << ") and (" << this->getName() << ").";
-            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }
-
-        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
-                      std::is_same_v<MemCopy, DeviceToHost>)
-        {
-            this->template copyFrom<MemSpace, TDataIn, MemCopy>(
-                region.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>());
-        }
-
-        if constexpr (std::is_same_v<MemCopy, HostToDevice> ||
-                      std::is_same_v<MemCopy, HostToHost>)
-        {
-            this->template copyFrom<MemSpace, TDataIn, MemCopy>(
-                region.template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
-        }
+        this->MemoryRegion<TData>::template Copy<MemSpace, MemCopy>(field);
     }
 
     /**
@@ -625,34 +539,37 @@ public:
     template <typename MemSpace, typename TDataIn,
               typename MemCopy = HostToDevice,
               class Alloc      = std::allocator<TDataIn>>
-    void copyVector(std::vector<TDataIn, Alloc> const &array)
+    void CopyVector(const std::vector<TDataIn, Alloc> &array)
     {
+        size_t nSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            nSize += block.GetNumData() * block.GetNumElements();
+        }
+        nSize *= this->GetNumComponents();
+
+        if (nSize != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::CopyVector - "
+                << "Memory size mismatch between (std::vector) and ("
+                << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
         if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
                       std::is_same_v<MemCopy, DeviceToHost>)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::copyVector - Can only copy std::vector "
+                     "Field::CopyVector - Can only copy std::vector "
                      "from HostToHost or from "
                      "HostToDevice.");
         }
-
-        size_t nSize = 0;
-        for (const auto &block : this->GetBlocks())
+        else
         {
-            nSize += block.num_pts * block.num_elements;
+            this->template CopySRC<MemSpace, MemCopy>(array.data());
         }
-
-        if (nSize * this->GetNumComponents() != array.size())
-        {
-            std::stringstream msg;
-
-            msg << "Field::copyVector - "
-                << "Memory size mismatch between (std::vector) and ("
-                << this->getName() << ").";
-            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }
-
-        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
     }
 
     /**
@@ -664,34 +581,37 @@ public:
      */
     template <typename MemSpace, typename TDataIn,
               typename MemCopy = HostToDevice>
-    void copyArray(Nektar::Array<Nektar::OneD, TDataIn> const &array)
+    void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
     {
+        size_t nSize = 0;
+        for (const auto &block : this->GetBlocks())
+        {
+            nSize += block.GetNumData() * block.GetNumElements();
+        }
+        nSize *= this->GetNumComponents();
+
+        if (nSize != array.size())
+        {
+            std::stringstream msg;
+
+            msg << "Field::CopyArray - "
+                << "Memory size mismatch between (Nektar::array) and ("
+                << this->GetName() << ").";
+            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
+        }
+
         if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
                       std::is_same_v<MemCopy, DeviceToHost>)
         {
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegion::copyArray - Can only copy Nektar::Array "
+                     "Field::CopyArray - Can only copy Nektar::Array "
                      "from HostToHost or from "
                      "HostToDevice.");
         }
-
-        size_t nSize = 0;
-        for (const auto &block : this->GetBlocks())
+        else
         {
-            nSize += block.num_pts * block.num_elements;
+            this->template CopySRC<MemSpace, MemCopy>(array.data());
         }
-
-        if (nSize * this->GetNumComponents() != array.size())
-        {
-            std::stringstream msg;
-
-            msg << "Field::copyArray - "
-                << "Memory size mismatch between (Nektar::array) and ("
-                << this->getName() << ").";
-            NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
-        }
-
-        this->template copyFrom<MemSpace, TDataIn, MemCopy>(array.data());
     }
 
     /**
@@ -701,17 +621,17 @@ public:
      */
     std::vector<BlockAttributes> &GetBlocks()
     {
-        return block_attributes;
+        return m_block_attributes;
     }
 
     /**
-     * @brief Gets the number of components for a vector field.
+     * @brief Gets the alignment of the field.
      *
      * @return size_t
      */
-    size_t GetNumComponents()
+    size_t GetAlignment()
     {
-        return component_names.size();
+        return this->m_storage->GetAlignment();
     }
 
     /**
@@ -725,34 +645,94 @@ public:
     }
 
     /**
-     * @brief Gets the alignment of the field.
+     * @brief Gets the size of the field.
      *
      * @return size_t
      */
-    size_t GetAlignment()
+    size_t size() const
     {
-        return this->m_storage->getAlignment();
+        size_t ans = 0;
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
+        {
+            ans += m_block_attributes[blk].size();
+        }
+        return ans * this->GetNumComponents();
+    }
+
+    /**
+     * @brief Gets the name of the field.
+     *
+     * @return std::string
+     */
+    std::string GetName(void) const
+    {
+        return m_name;
+    }
+
+    /**
+     * @brief Gets the number of components for a vector field.
+     *
+     * @return size_t
+     */
+    size_t GetNumComponents() const
+    {
+        return m_var_names.size();
     }
 
 private:
     /**
      * @brief Construct a new Field object.
      *
-     * @param blocks    Field data layout specification
+     * @param name       Name of the field object.
+     * @param blocks     Field data layout specification.
      * @param components Names of components for vector field.
      */
-    Field(std::vector<BlockAttributes> blocks, int num_components = 1)
-        : block_attributes(std::move(blocks)), component_names(num_components)
+    Field(const std::string name, const std::vector<BlockAttributes> blocks,
+          const int nvar)
+        : m_name(name), m_block_attributes(blocks), m_var_names(nvar)
     {
     }
 
-    Field(std::vector<BlockAttributes> blocks,
-          std::vector<std::string> components = {"u"})
-        : block_attributes(std::move(blocks)),
-          component_names(std::move(components))
+    Field(const std::string name, const std::vector<BlockAttributes> blocks,
+          const std::vector<std::string> components)
+        : m_name(name), m_block_attributes(blocks), m_var_names(components)
     {
     }
 
-    std::vector<BlockAttributes> block_attributes;
-    std::vector<std::string> component_names;
+    /**
+     * @brief Copy the data from a pointer
+     *
+     * @param const TDataIn*
+     */
+    template <typename MemSpace, typename MemCopy, typename TDataIn>
+    void CopySRC(const TDataIn *src)
+    {
+        auto compSize = 0;
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
+        {
+            auto nElmts = m_block_attributes[blk].GetNumElements();
+            auto nPts   = m_block_attributes[blk].GetNumData();
+            compSize += nElmts * nPts;
+        }
+
+        auto offset = 0;
+        for (size_t blk = 0; blk < m_block_attributes.size(); ++blk)
+        {
+            auto nSize  = m_block_attributes[blk].size();
+            auto nElmts = m_block_attributes[blk].GetNumElements();
+            auto nPts   = m_block_attributes[blk].GetNumData();
+            for (auto n = 0; n < this->GetNumComponents(); n++)
+            {
+                this->MemoryRegion<TData>::template CopySRC<MemSpace, MemCopy>(
+                    src + n * compSize, nElmts * nPts, offset);
+                offset += nSize;
+            }
+            src += nElmts * nPts;
+        }
+    }
+
+    // Member variables:
+    std::string m_name;
+    std::vector<BlockAttributes> m_block_attributes;
+    std::vector<std::string> m_var_names;
 };

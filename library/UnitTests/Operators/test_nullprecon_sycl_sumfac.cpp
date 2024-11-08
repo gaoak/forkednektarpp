@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestNullPreconSYCL
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_nullpreconfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/PreconOps/OperatorNullPrecon.hpp"
-#include "init_nullpreconfields.hpp"
 
 #define TEST_NULLPRECON(test_name, test, tol)                                  \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

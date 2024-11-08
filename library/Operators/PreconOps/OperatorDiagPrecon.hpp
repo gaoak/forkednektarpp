@@ -34,7 +34,6 @@
 
 #pragma once
 
-#include "Operators/Field/Field.hpp"
 #include "Operators/PreconOps/OperatorPrecon.hpp"
 
 namespace Nektar::Operators
@@ -63,10 +62,10 @@ template <typename TData = default_fp_type> struct DiagPrecon
     DiagPrecon() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<DiagPrecon<TData>, ExecSpace,
+        return Operator<TData>::template Create<DiagPrecon<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

@@ -34,9 +34,10 @@
 
 #pragma once
 
+#include "Operators/OperatorAddTraceIntegral.hpp"
+
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
-#include "Operators/OperatorAddTraceIntegral.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
@@ -58,7 +59,7 @@ public:
     OperatorAddTraceIntegralImpl(
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorAddTraceIntegral<TData>(std::move(expansionList)),
-          m_trace(Field<TData, FieldState::Coeff>::template create<MemSpace>(
+          m_trace(Field<TData, FieldState::Coeff>::template Create<MemSpace>(
               GetBlockAttributes<TData>(FieldState::Coeff,
                                         expansionList->GetTrace()),
               1, ExecSpace::alignment))
@@ -72,9 +73,9 @@ public:
             GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
         for (auto &block : blocks)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto ncoeff    = block.GetNumData();
+            const auto nElmts    = block.GetNumElements();
+            const auto nPadElmts = block.GetNumPaddingElements();
 
             for (unsigned int e = 0; e < nElmts; e++)
             {
@@ -93,9 +94,9 @@ public:
                                                      expansionList->GetTrace());
         for (auto &block : traceBlocks)
         {
-            const auto ncoeff    = block.num_pts;
-            const auto nElmts    = block.num_elements;
-            const auto nPadElmts = block.num_padding_elements;
+            const auto ncoeff    = block.GetNumData();
+            const auto nElmts    = block.GetNumElements();
+            const auto nPadElmts = block.GetNumPaddingElements();
 
             for (unsigned int e = 0; e < nElmts; e++)
             {
@@ -137,15 +138,15 @@ public:
         const bool device_only = true;
 
         m_traceCoeffsToElmtMap =
-            MemoryRegion<int>::template fromArray<MemSpace, int>(
+            MemoryRegion<int>::template FromArray<MemSpace, int>(
                 alignedTraceCoeffsToElmtMap, ExecSpace::alignment, device_only);
 
         m_traceCoeffsToElmtSign =
-            MemoryRegion<int>::template fromArray<MemSpace, int>(
+            MemoryRegion<int>::template FromArray<MemSpace, int>(
                 TraceCoeffsToElmtSign, ExecSpace::alignment, device_only);
 
         m_traceCoeffsToElmtTrace =
-            MemoryRegion<int>::template fromArray<MemSpace, int>(
+            MemoryRegion<int>::template FromArray<MemSpace, int>(
                 alignedTraceCoeffsToElmtTrace, ExecSpace::alignment,
                 device_only);
 
@@ -158,7 +159,7 @@ public:
         size_t ncoeffs = 0;
         for (auto &block : blocks)
         {
-            ncoeffs += block.block_size;
+            ncoeffs += block.size();
         }
         // first create an array and then copy to MemoryRegion
         Array<OneD, int> tmpArray(ncoeffs);
@@ -167,7 +168,7 @@ public:
             tmpArray[i] = i;
         }
         m_deInterleaveFieldMap =
-            MemoryRegion<int>::template fromArray<MemSpace, int>(
+            MemoryRegion<int>::template FromArray<MemSpace, int>(
                 tmpArray, ExecSpace::alignment, device_only);
 
         // reuse Array for trace
@@ -177,22 +178,22 @@ public:
             tmpArray[i] = i;
         }
         m_deInterleaveTraceMap =
-            MemoryRegion<int>::template fromArray<MemSpace, int>(
+            MemoryRegion<int>::template FromArray<MemSpace, int>(
                 tmpArray, ExecSpace::alignment, device_only);
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
                           locTraceToTraceMap->GetNBwdCoeffs();
 
-        // Initialise IProductWRTBase operator
+        // Initialise IProductWRTBase operator.
         m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template create<ExecSpace, Implementation>(
+            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList->GetTrace());
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        // Step 1: Inner product for trace integral
+        // Step 1: Inner product for trace integral.
         m_IProductWRTBaseOp->apply(in, m_trace);
 
         // interleave the map only when the input vector width is different
@@ -306,11 +307,11 @@ private:
     /// accessed contiguously. This does not affect deinterleave map.
     void ReorderMap()
     {
-        auto *traceCoeffsToElmtMapPtr =
+        auto traceCoeffsToElmtMapPtr =
             m_traceCoeffsToElmtMap.template GetPtr<MemSpace, ReadWrite>();
-        auto *traceCoeffsToElmtSignPtr =
+        auto traceCoeffsToElmtSignPtr =
             m_traceCoeffsToElmtSign.template GetPtr<MemSpace, ReadWrite>();
-        auto *traceCoeffsToElmtTracePtr =
+        auto traceCoeffsToElmtTracePtr =
             m_traceCoeffsToElmtTrace.template GetPtr<MemSpace, ReadWrite>();
 
         ReOrderMapKernel<ExecSpace>(

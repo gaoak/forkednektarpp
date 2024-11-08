@@ -37,7 +37,6 @@
 #include "init_ipwrtderivbasefields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
-
 #include <iostream>
 #include <memory>
 

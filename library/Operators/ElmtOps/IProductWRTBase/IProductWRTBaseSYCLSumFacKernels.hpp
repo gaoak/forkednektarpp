@@ -866,14 +866,15 @@ void IProductWRTBaseTriKernel_QP(
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 void IProductWRTBaseTriKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const unsigned int *__restrict__ pindex,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const bool correct,
+    const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;

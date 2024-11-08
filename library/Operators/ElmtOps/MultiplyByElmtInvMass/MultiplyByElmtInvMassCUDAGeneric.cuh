@@ -114,23 +114,23 @@ public:
                     basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
                 }
 
-                // Copy data to m_matPtr, if necessary.
-                if (m_matPtr.find(basisKeys) == m_matPtr.end())
+                // Copy data to m_mat, if necessary.
+                if (m_mat.find(basisKeys) == m_mat.end())
                 {
                     std::vector<TData> matArray(InvMass->GetStorageSize());
                     std::copy_n(InvMass->GetRawPtr(), nmTot * nmTot,
                                 matArray.data());
-                    m_matPtr[basisKeys] =
-                        MemoryRegion<TData>::template fromVector<MemSpace,
+                    m_mat[basisKeys] =
+                        MemoryRegion<TData>::template FromVector<MemSpace,
                                                                  TData>(
                             matArray, ExecSpace::alignment, device_only);
                 }
             }
         }
 
-        m_scale = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_scale = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             scale, ExecSpace::alignment, device_only);
-        m_dmat = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_dmat = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             dmat, ExecSpace::alignment, device_only);
     }
 
@@ -143,10 +143,10 @@ public:
         auto handle = CUBLASHandle::GetInstance();
 
         // Initialize pointers.
-        auto *inPtr    = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr   = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *scalePtr = m_scale.template GetPtr<MemSpace, ReadOnly>();
-        auto *dmatPtr  = m_dmat.template GetPtr<MemSpace, ReadOnly>();
+        auto inPtr    = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr   = out.template GetPtr<MemSpace, WriteOnly>();
+        auto scalePtr = m_scale.template GetPtr<MemSpace, ReadOnly>();
+        auto dmatPtr  = m_dmat.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -156,13 +156,12 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
-            const auto nElmtsPad = nElmts + inblock.num_padding_elements;
+            const auto &inblock  = in.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
@@ -191,7 +190,7 @@ public:
 
                 // Perform matrix-matrix multiply.
                 const auto matPtr =
-                    m_matPtr[basisKeys].template GetPtr<MemSpace, ReadOnly>();
+                    m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
                 cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
                             nmTot, &alpha, matPtr, nmTot, inPtr, nmTot, &beta,
                             outPtr, nmTot);
@@ -221,7 +220,7 @@ public:
     }
 
 private:
-    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<TData>> m_matPtr;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<TData>> m_mat;
     MemoryRegion<TData> m_dmat;
     MemoryRegion<TData> m_scale;
 };

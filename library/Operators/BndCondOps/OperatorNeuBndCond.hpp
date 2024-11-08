@@ -35,7 +35,6 @@
 #pragma once
 
 #include "Operators/Common/Operator.hpp"
-#include "Operators/Field/Field.hpp"
 
 namespace Nektar::Operators
 {
@@ -69,10 +68,10 @@ template <typename TData = default_fp_type> struct NeuBndCond
     NeuBndCond() = delete;
 
     template <typename ExecSpace, typename Impl>
-    static std::shared_ptr<class_name> create(
+    static std::shared_ptr<class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
-        return Operator<TData>::template create<NeuBndCond<TData>, ExecSpace,
+        return Operator<TData>::template Create<NeuBndCond<TData>, ExecSpace,
                                                 Impl>(expansionList);
     }
 };

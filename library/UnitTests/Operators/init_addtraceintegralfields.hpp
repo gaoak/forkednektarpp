@@ -56,7 +56,8 @@ public:
      * operator Delete previouisly defined fixt_in (also for CUDA) and re-define
      * input based on TraceExpList
      */
-    void ReConfigure(size_t nin = 1, [[maybe_unused]] size_t nout = 1)
+    void ReConfigure(unsigned int nin                   = 1,
+                     [[maybe_unused]] unsigned int nout = 1)
     {
         const FieldState stateIn = FieldState::Phys;
 
@@ -67,7 +68,7 @@ public:
         auto blocks_in =
             GetBlockAttributes<double>(stateIn, fixt_explist->GetTrace());
         auto f_in =
-            Field<double, stateIn>::template create<NektarSpaces::DeviceSpace>(
+            Field<double, stateIn>::template Create<NektarSpaces::DeviceSpace>(
                 "f_in", blocks_in, nin, alignment);
         fixt_in = new Field<double, stateIn>(std::move(f_in));
     }
@@ -76,33 +77,36 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                 ++el)
             {
-                for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                for (unsigned int phys = 0; phys < block.GetNumData();
+                     ++phys, ++cnt)
                 {
                     inptr[cnt] = phys;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         ExpectedSolution();
     }
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        AddTraceIntegral<>::template create<ExecSpace, Impl>(fixt_explist)
+        AddTraceIntegral<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inTracephys = fixt_in->toArray();
+        Array<OneD, double> inTracephys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         fixt_explist->AddTraceIntegral(inTracephys, outcoeffs);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

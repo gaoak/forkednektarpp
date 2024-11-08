@@ -37,7 +37,6 @@
 #include "init_neumannfields.hpp"
 
 #include <boost/test/tools/output_test_stream.hpp>
-
 #include <iostream>
 #include <memory>
 

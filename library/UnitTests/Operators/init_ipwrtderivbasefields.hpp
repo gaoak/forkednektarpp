@@ -53,18 +53,21 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int k = 0; k < fixt_explist->GetCoordim(0); k++)
             {
-                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                     ++el)
                 {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
                     {
                         inptr[cnt] = phys + k;
                     }
                 }
-                inptr += block.block_size;
+                inptr += block.size();
             }
         }
         ExpectedSolution();
@@ -72,35 +75,14 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        IProductWRTDerivBase<>::template create<ExecSpace, Impl>(fixt_explist)
+        IProductWRTDerivBase<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
-    }
-
-    void SetTestCaseNektar()
-    {
-        double *expptr =
-            fixt_expected
-                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (size_t k = 0; k < fixt_explist->GetCoordim(0); k++)
-        {
-            for (const auto &block : fixt_expected->GetBlocks())
-            {
-                for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
-                {
-                    for (size_t phys = 0; phys < block.num_pts; ++phys, ++cnt)
-                    {
-                        expptr[cnt] = phys + k;
-                    }
-                }
-                expptr += block.block_size;
-            }
-        }
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> inphys = fixt_in->toArray();
+        Array<OneD, double> inphys = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
         Array<OneD, Array<OneD, double>> inphysarray(
             fixt_explist->GetCoordim(0));
@@ -117,7 +99,7 @@ public:
             inphysarray[2] = inphysarray[1] + fixt_explist->GetTotPoints();
         }
         fixt_explist->IProductWRTDerivBase(inphysarray, outcoeffs);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

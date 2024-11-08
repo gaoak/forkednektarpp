@@ -36,8 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include <LibUtilities/BasicUtils/MiscUtils.hpp>
-
 namespace Nektar
 {
 
@@ -84,11 +82,9 @@ parallel_for(const int begin, const int end, const Functor &functor)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
-    std::string name = Nektar::demangleTypeName(typeid(Functor));
-
     Kokkos::RangePolicy<> rangePolicy(begin, end, Kokkos::ChunkSize(blockSize));
 
-    Kokkos::parallel_for(name, rangePolicy, functor);
+    Kokkos::parallel_for(rangePolicy, functor);
 }
 
 template <typename ExecSpace, typename Reduction, typename Functor>
@@ -101,24 +97,19 @@ parallel_reduce(const int begin, const int end, const Functor &functor,
 
     using TData = typename Reduction::value_type;
 
-    std::string name = Nektar::demangleTypeName(typeid(Functor));
-
     Kokkos::RangePolicy<> rangePolicy(begin, end, Kokkos::ChunkSize(blockSize));
 
     if constexpr (std::is_same_v<Reduction, Nektar::ReduceSum<TData>>)
     {
-        Kokkos::parallel_reduce(name, rangePolicy, functor,
-                                Kokkos::Sum<TData>(red));
+        Kokkos::parallel_reduce(rangePolicy, functor, Kokkos::Sum<TData>(red));
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMax<TData>>)
     {
-        Kokkos::parallel_reduce(name, rangePolicy, functor,
-                                Kokkos::Max<TData>(red));
+        Kokkos::parallel_reduce(rangePolicy, functor, Kokkos::Max<TData>(red));
     }
     else if constexpr (std::is_same_v<Reduction, Nektar::ReduceMin<TData>>)
     {
-        Kokkos::parallel_reduce(name, rangePolicy, functor,
-                                Kokkos::Min<TData>(red));
+        Kokkos::parallel_reduce(rangePolicy, functor, Kokkos::Min<TData>(red));
     }
 }
 

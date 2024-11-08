@@ -54,7 +54,6 @@ public:
         const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorIProductWRTDerivBase<TData>(expansionList)
     {
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise jacobian.
@@ -62,14 +61,14 @@ public:
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
         size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
         m_jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
-        m_derivFac =
-            SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
+        m_df  = SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             const auto expPtr = this->m_expansionList->GetExp(e);
@@ -80,18 +79,17 @@ public:
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
-            // Copy data to m_matPtr, if necessary.
-            if (m_matPtr.find(basisKeys) == m_matPtr.end())
+            // Copy data to m_mat, if necessary.
+            if (m_mat.find(basisKeys) == m_mat.end())
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 size_t nmTot = expPtr->GetNcoeffs();
                 Array<OneD, TData> tmp(nqTot), t;
                 // Get IProductWRTDerivBase matrix.
-                auto &matPtr = m_matPtr[basisKeys];
-                matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
+                auto &matPtr = m_mat[basisKeys];
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    matPtr[d] = Array<OneD, TData>(nqTot * nmTot);
+                    matPtr.push_back(Array<OneD, TData>(nqTot * nmTot));
                     for (size_t i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
@@ -114,30 +112,28 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // Copy memory to the host, if necessary and get raw pointers.
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *wspPtr      = m_wsp.data();
-        auto *dfPtr       = m_derivFac->data();
-        auto *jacPtr      = m_jac->data();
-
-        // Initialize index.
-        size_t exp_idx = 0;
-
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
+        // Copy memory to the host, if necessary and get raw pointers.
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
+        auto wspPtr = m_wsp.data();
+        auto dfPtr  = m_df->data();
+        auto jacPtr = m_jac->data();
+
+        // Initialize index.
+        size_t exp_idx = 0;
+
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < out.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            const auto &inblock  = in.GetBlocks()[block_idx];
-            const auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmts    = outblock.num_elements;
-            const auto nElmtsPad =
-                outblock.num_elements + outblock.num_padding_elements;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
+            const auto nElmts    = outblock.GetNumElements();
+            const auto nElmtsPad = outblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
@@ -146,19 +142,19 @@ public:
             const auto nCoord = expPtr->GetCoordim();
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nmTot  = expPtr->GetNcoeffs();
+            const auto ndf    = dimension * nCoord;
 
-            const auto ndf = dimension * nCoord;
-            // calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2]
+            // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
             if (deformed)
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, dfPtr + d, ndf, inPtr, 1,
+                    Vmath::Vmul(nElmts * nqTot, dfPtr + d, ndf, inPtr, 1,
                                 wspPtr + d * nElmts * nqTot, 1);
                     for (size_t i = 1; i < nCoord; ++i)
                     {
-                        Vmath::Vvtvp(nqTot * nElmts, dfPtr + d + i * dimension,
-                                     ndf, inPtr + i * nElmtsPad * nqTot, 1,
+                        Vmath::Vvtvp(nElmts * nqTot, dfPtr + d + i * dimension,
+                                     ndf, inPtr + i * inblock.size(), 1,
                                      wspPtr + d * nElmts * nqTot, 1,
                                      wspPtr + d * nElmts * nqTot, 1);
                     }
@@ -177,7 +173,7 @@ public:
                         {
                             Vmath::Svtvp(
                                 nqTot, dfPtr[ndf * e + d + i * dimension],
-                                inPtr + i * nElmtsPad * nqTot + e * nqTot, 1,
+                                inPtr + i * inblock.size() + e * nqTot, 1,
                                 wspPtr + d * nElmts * nqTot + e * nqTot, 1,
                                 wspPtr + d * nElmts * nqTot + e * nqTot, 1);
                         }
@@ -190,7 +186,7 @@ public:
             {
                 for (size_t d = 0; d < dimension; ++d)
                 {
-                    Vmath::Vmul(nqTot * nElmts, jacPtr, 1,
+                    Vmath::Vmul(nElmts * nqTot, jacPtr, 1,
                                 wspPtr + d * nElmts * nqTot, 1,
                                 wspPtr + d * nElmts * nqTot, 1);
                 }
@@ -215,23 +211,24 @@ public:
             }
 
             // Fetch matrix.
-            const auto &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_mat[basisKeys];
 
             // Perform matrix-matrix multiply.
             for (size_t d = 0; d < dimension; d++)
             {
-                TData alpha = (d == 0 && !APPEND) ? 0.0 : 1.0;
+                TData alpha = (d != 0 || APPEND);
                 Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nmTot, wspPtr + d * nElmts * nqTot,
-                            nqTot, alpha, outPtr, nmTot);
+                            matPtr[d].data(), nmTot,
+                            wspPtr + d * nElmts * nqTot, nqTot, alpha, outPtr,
+                            nmTot);
             }
 
             // Increment pointer and index for next element type.
             dfPtr += deformed ? ndf * nElmtsPad * nqTot : ndf * nElmtsPad;
             jacPtr += deformed ? nElmtsPad * nqTot : nElmtsPad;
             wspPtr += dimension * nElmts * nqTot;
-            inPtr += inblock.block_size * nCoord;
-            outPtr += outblock.block_size;
+            inPtr += inblock.size() * nCoord;
+            outPtr += outblock.size();
             exp_idx += nElmts;
         }
     }
@@ -250,11 +247,11 @@ public:
 
 private:
     std::shared_ptr<std::vector<TData>> m_jac;
-    std::shared_ptr<std::vector<TData>> m_derivFac;
+    std::shared_ptr<std::vector<TData>> m_df;
     std::vector<TData> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>,
-             Array<OneD, Array<OneD, TData>>>
-        m_matPtr;
+             std::vector<Array<OneD, TData>>>
+        m_mat;
 };
 
 } // namespace Nektar::Operators::detail

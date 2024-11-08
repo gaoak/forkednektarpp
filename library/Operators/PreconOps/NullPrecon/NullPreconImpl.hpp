@@ -34,8 +34,9 @@
 
 #pragma once
 
-#include "Operators/OperatorAssmbScatr.hpp"
 #include "Operators/PreconOps/OperatorNullPrecon.hpp"
+
+#include "Operators/OperatorAssmbScatr.hpp"
 
 using namespace Nektar;
 
@@ -53,7 +54,7 @@ public:
         : OperatorNullPrecon<TData>(expansionList)
     {
         m_assmbScatrOp =
-            AssmbScatr<TData>::template create<ExecSpace, Implementation>(
+            AssmbScatr<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
     }
 
@@ -64,7 +65,7 @@ public:
     }
 
     void configure([[maybe_unused]] const std::shared_ptr<
-                   OperatorLinear<FieldState::Coeff, FieldState::Coeff, TData>>
+                   OperatorElmt<FieldState::Coeff, FieldState::Coeff, TData>>
                        &op) override
     {
     }

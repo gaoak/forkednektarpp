@@ -69,7 +69,7 @@ public:
 
         const bool device_only = true;
 
-        m_derivFac = MemoryRegion<TData>::template fromVector<MemSpace, TData>(
+        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
             *derivFac, ExecSpace::alignment, device_only);
 
         // Initialize the points.
@@ -83,28 +83,28 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        size_t dimension = this->m_expansionList->GetShapeDimension();
+
         // Initialize pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
-        const TData *dfPtr = m_derivFac.template GetPtr<MemSpace, ReadOnly>();
+        const TData *dfPtr = m_df.template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize index.
         size_t exp_idx = 0;
 
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            auto &inblock        = in.GetBlocks()[block_idx];
-            auto &outblock       = out.GetBlocks()[block_idx];
-            const auto nElmts    = inblock.num_elements;
-            const auto nElmtsPad = inblock.num_padding_elements + nElmts;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto shape     = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
+            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
+            const auto shape    = expPtr->DetShapeType();
+            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nCoord = expPtr->GetCoordim();
@@ -139,17 +139,12 @@ public:
             constexpr bool SharedMemory = true;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same<Implementation,
-                                       Operators::SumFac>::value)
+            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
             {
                 ReshapeStorage<ExecSpace,
                                NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad, inblock.num_pts,
-                    (TData *)inPtr);
-                ReshapeStorage<ExecSpace,
-                               NektarSpaces::vector_width<TData>::value>(
-                    outblock.GetInterleaveWidth(), nElmtsPad, outblock.num_pts,
-                    outPtr);
+                    inblock.GetInterleaveWidth(), nElmtsPad,
+                    inblock.GetNumData(), (TData *)inPtr);
                 inblock.SetInterleaveWidth(
                     NektarSpaces::vector_width<TData>::value);
                 outblock.SetInterleaveWidth(
@@ -240,7 +235,7 @@ public:
 private:
     BasisDataMap<TData> m_zeroMap;
     BasisDataMap<TData> m_derivativeMap;
-    MemoryRegion<TData> m_derivFac;
+    MemoryRegion<TData> m_df;
 };
 
 } // namespace Nektar::Operators::detail

@@ -34,14 +34,14 @@
 
 #pragma once
 
+#include <MultiRegions/ContField.h>
+
 #include "Operators/OperatorAssmbScatr.hpp"
 
 #include "Operators/AssmbScatr/AssmbScatrCUDAKernels.cuh"
 #include "Operators/AssmbScatr/AssmbScatrKokkosKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSYCLKernels.hpp"
 #include "Operators/AssmbScatr/AssmbScatrSerialAVXKernels.hpp"
-
-#include <MultiRegions/ContField.h>
 
 using namespace Nektar;
 using namespace Nektar::MultiRegions;
@@ -64,28 +64,26 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         auto assmbMap = contfield->GetLocalToGlobalMap();
 
-        m_nLocal     = assmbMap->GetNumLocalCoeffs();
-        m_nGlobal    = assmbMap->GetNumGlobalCoeffs();
         m_nDir       = assmbMap->GetNumGlobalDirBndCoeffs();
         m_signChange = assmbMap->AssemblyMap::GetSignChange();
 
-        m_global = MemoryRegion<TData>::template create<MemSpace>(
-            "AssmbScatr global", m_nGlobal, ExecSpace::alignment);
-
-        // Compute aligned map to skip over padding elements
-        auto map = assmbMap->GetLocalToGlobalMap();
-
         const bool device_only = true;
 
-        m_map = MemoryRegion<int>::template fromArray<MemSpace, int>(
+        auto nGlobal = assmbMap->GetNumGlobalCoeffs();
+
+        m_global = MemoryRegion<TData>::template Create<MemSpace>(
+            "AssmbScatr global", nGlobal, ExecSpace::alignment, device_only);
+
+        auto map = assmbMap->GetLocalToGlobalMap();
+
+        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
             map, ExecSpace::alignment, device_only);
 
-        // Memory allocation for sign pointer
         if (m_signChange)
         {
             auto sign = assmbMap->GetLocalToGlobalSign();
 
-            m_sign = MemoryRegion<TData>::template fromArray<MemSpace, TData>(
+            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
                 sign, ExecSpace::alignment, device_only);
         }
     }
@@ -94,48 +92,54 @@ public:
                Field<TData, FieldState::Coeff> &out,
                const bool &zeroDir = false) override
     {
+        // Local to global.
         this->Assemble(in, m_global);
 
-        // Zeroing Dirichlet BC
+        // Zeroing Dirichlet BC.
         if (zeroDir && m_nDir > 0)
         {
-            m_global.template initialize<MemSpace>(0, m_nDir);
+            m_global.template Initialize<MemSpace>(0, m_nDir);
         }
 
+        // Global to local.
         this->GlobalToLocal(m_global, out);
     }
 
-    void Assemble(Field<TData, FieldState::Coeff> &in,
-                  MemoryRegion<TData> &out) override
+    void Assemble(Field<TData, FieldState::Coeff> &local,
+                  MemoryRegion<TData> &global,
+                  const bool &signChange = true) override
     {
-        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        const int *mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
-        const TData *signPtr =
-            m_signChange ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                         : nullptr;
+        auto localPtr  = local.template GetPtr<MemSpace, ReadOnly>();
+        auto globalPtr = global.template GetPtr<MemSpace, WriteOnly>();
+        auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto signPtr   = m_signChange
+                             ? m_sign.template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
 
-        // Zero the output
-        out.template initialize<MemSpace>(0, this->m_nGlobal);
+        // Zero the output.
+        global.template Initialize<MemSpace>(0);
 
-        for (const auto &block : in.GetBlocks())
+        // Loop over the blocks.
+        for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto nElmts = block.num_elements;
-            auto ncoeff = block.num_pts;
+            auto &localblock = local.GetBlocks()[blk];
+            auto nElmts      = localblock.GetNumElements();
+            auto ncoeff      = localblock.GetNumData();
 
-            if (m_signChange)
+            if (m_signChange && signChange)
             {
                 AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                 signPtr, inPtr, outPtr);
+                                                 signPtr, localPtr, globalPtr);
             }
             else
             {
-                AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr, inPtr,
-                                                 outPtr);
+                AssembleKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
+                                                 localPtr, globalPtr);
             }
 
-            inPtr += block.block_size;
+            // Increment pointers for the next element type.
+            localPtr += localblock.size();
             mapPtr += ncoeff * nElmts;
             signPtr += ncoeff * nElmts;
         }
@@ -145,47 +149,51 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            auto outArr = out.toArray();
+            auto globalArr = global.ToArray();
 
-            contfield->GetLocalToGlobalMap()->UniversalAssemble(outArr);
+            contfield->GetLocalToGlobalMap()->UniversalAssemble(globalArr);
 
-            out.template copyArray<MemSpace, TData>(outArr);
+            global.template CopyArray<MemSpace, TData>(globalArr);
         }
     }
 
-    void GlobalToLocal(MemoryRegion<TData> &in,
-                       Field<TData, FieldState::Coeff> &out) override
+    void GlobalToLocal(MemoryRegion<TData> &global,
+                       Field<TData, FieldState::Coeff> &local) override
     {
-        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        const int *mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
-        const TData *signPtr =
-            m_signChange ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                         : nullptr;
+        // Initialize MemoryRegion pointers.
+        auto globalPtr = global.template GetPtr<MemSpace, ReadOnly>();
+        auto localPtr  = local.template GetPtr<MemSpace, WriteOnly>();
+        auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto signPtr   = m_signChange
+                             ? m_sign.template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
 
-        // Zero the output
-        out.template initialize<MemSpace>(0);
+        // Zero the output.
+        local.template Initialize<MemSpace>(0);
 
-        for (const auto &block : out.GetBlocks())
+        // Loop over the blocks.
+        for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
             // Determine shape and type of the element.
-            auto nElmts = block.num_elements;
-            auto ncoeff = block.num_pts;
+            auto &block = local.GetBlocks()[blk];
+            auto nElmts = block.GetNumElements();
+            auto ncoeff = block.GetNumData();
 
             if (m_signChange)
             {
-                GlobalToLocalKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                      signPtr, inPtr, outPtr);
+                GlobalToLocalKernel<ExecSpace, TData>(
+                    ncoeff * nElmts, mapPtr, signPtr, globalPtr, localPtr);
             }
             else
             {
                 GlobalToLocalKernel<ExecSpace, TData>(ncoeff * nElmts, mapPtr,
-                                                      inPtr, outPtr);
+                                                      globalPtr, localPtr);
             }
 
+            // Increment pointers for the next element type.
             mapPtr += ncoeff * nElmts;
             signPtr += ncoeff * nElmts;
-            outPtr += block.block_size;
+            localPtr += block.size();
         }
     }
 
@@ -207,8 +215,6 @@ protected:
     MemoryRegion<int> m_map;
 
     bool m_signChange = false;
-    size_t m_nLocal;
-    size_t m_nGlobal;
     size_t m_nDir;
 };
 

@@ -34,44 +34,26 @@
 
 #pragma once
 
-#include "Operators/Field/Field.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
-
-#include <cstddef>
-#include <type_traits>
 
 namespace Nektar::Operators::detail
 {
 
-// Generic kernels except for CUDA.
 template <typename ExecSpace, typename TData>
 void SetDiagonalKernel(const size_t nmTot, const size_t nelmts,
-                       const size_t mode, const size_t offset, const TData val,
-                       MemoryRegion<TData> &out)
+                       const size_t mode, const TData val, TData *outptr)
 {
-    using MemSpace = typename ExecSpace::memory_space;
-
-    TData *outptr = out.template GetPtr<MemSpace, WriteOnly>();
     Nektar::parallel_for<ExecSpace>(
-        0, nelmts,
-        NEKTAR_LAMBDA(int e) { outptr[offset + e * nmTot + mode] = val; });
+        0, nelmts, NEKTAR_LAMBDA(int e) { outptr[e * nmTot + mode] = val; });
 }
 
 template <typename ExecSpace, typename TData>
 void CopyDiagonalKernel(const size_t nmTot, const size_t nelmts,
-                        const size_t mode, const size_t inoffset,
-                        const size_t outoffset,
-                        Field<TData, FieldState::Coeff> &in,
-                        MemoryRegion<TData> &out)
+                        const size_t mode, const TData *inptr, TData *outptr)
 {
-    using MemSpace = typename ExecSpace::memory_space;
-
-    const TData *inptr = in.template GetPtr<MemSpace, ReadOnly>();
-    TData *outptr      = out.template GetPtr<MemSpace, WriteOnly>();
     Nektar::parallel_for<ExecSpace>(
         0, nelmts, NEKTAR_LAMBDA(int e) {
-            outptr[outoffset + e * nmTot + mode] =
-                inptr[inoffset + e * nmTot + mode];
+            outptr[e * nmTot + mode] = inptr[e * nmTot + mode];
         });
 }
 

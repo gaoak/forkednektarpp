@@ -36,7 +36,6 @@
 
 #include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
-#include "Operators/Field/MemoryRegion.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
@@ -63,6 +62,8 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
         // Copy memory to the device, if necessary and get raw pointers.
         const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
         TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
@@ -71,19 +72,16 @@ public:
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            auto &inblock  = in.GetBlocks()[block_idx];
-            auto &outblock = out.GetBlocks()[block_idx];
-            const auto nElmtsPad =
-                inblock.num_padding_elements + inblock.num_elements;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
             const auto shapeType = expPtr->DetShapeType();
-            const auto dimension = expPtr->GetShapeDimension();
             const auto nm0       = expPtr->GetBasisNumModes(0);
             const auto nq0       = expPtr->GetNumPoints(0);
             const auto nm1 = (dimension > 1) ? expPtr->GetBasisNumModes(1) : 0;
@@ -111,13 +109,12 @@ public:
             constexpr bool SharedMemory = true;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same<Implementation,
-                                       Operators::SumFac>::value)
+            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
             {
                 ReshapeStorage<ExecSpace,
                                NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad, inblock.num_pts,
-                    (TData *)inPtr);
+                    inblock.GetInterleaveWidth(), nElmtsPad,
+                    inblock.GetNumData(), (TData *)inPtr);
                 inblock.SetInterleaveWidth(
                     NektarSpaces::vector_width<TData>::value);
                 outblock.SetInterleaveWidth(
@@ -171,24 +168,24 @@ public:
                             }
                         }
                         m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index0, ExecSpace::alignment,
                                           device_only);
                         m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template fromVector<
+                            MemoryRegion<unsigned int>::template FromVector<
                                 MemSpace>(index1, ExecSpace::alignment,
                                           device_only);
                     }
                 }
 
-                const unsigned int *index0 =
-                    indexing ? m_index0[basisKeys]
-                                   .template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
-                const unsigned int *index1 =
-                    indexing ? m_index1[basisKeys]
-                                   .template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
+                auto index0 = indexing
+                                  ? m_index0[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
+                auto index1 = indexing
+                                  ? m_index1[basisKeys]
+                                        .template GetPtr<MemSpace, ReadOnly>()
+                                  : nullptr;
 
                 BwdTrans3DKernel<ExecSpace, Implementation, SharedMemory>(
                     shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, correct,
@@ -197,9 +194,9 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
-            exp_idx += inblock.num_elements;
+            inPtr += inblock.size();
+            outPtr += outblock.size();
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -253,7 +250,7 @@ public:
             {
                 m_wspsize = wspsize;
 
-                m_wsp = MemoryRegion<TData>::template create<MemSpace>(
+                m_wsp = MemoryRegion<TData>::template Create<MemSpace>(
                     m_wspsize, ExecSpace::alignment, device_only);
             }
 

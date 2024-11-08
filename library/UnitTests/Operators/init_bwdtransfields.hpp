@@ -52,33 +52,36 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                 ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
+                for (unsigned int coeff = 0; coeff < block.GetNumData();
+                     ++coeff, ++cnt)
                 {
                     inptr[cnt] = coeff;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         ExpectedSolution();
     }
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        BwdTrans<>::template create<ExecSpace, Impl>(fixt_explist)
+        BwdTrans<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        Array<OneD, double> incoeffs = fixt_in->toArray();
+        Array<OneD, double> incoeffs = fixt_in->ToArray();
         Array<OneD, double> outphys(fixt_explist->GetTotPoints());
         fixt_explist->BwdTrans(incoeffs, outphys);
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outphys);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outphys);
     }
 };
 

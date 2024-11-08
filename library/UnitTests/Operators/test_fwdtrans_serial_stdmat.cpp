@@ -34,14 +34,11 @@
 
 #define BOOST_TEST_MODULE TestFwdTrans
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_fwdtransfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/GlobalLinSysOps/OperatorFwdTrans.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
-#include "init_fwdtransfields.hpp"
 
 #define TEST_FWDTRANS(test_name, test, tol)                                    \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

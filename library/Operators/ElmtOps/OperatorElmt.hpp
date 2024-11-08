@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: OperatorLinear.hpp
+// File: OperatorElmt.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -36,22 +36,17 @@
 
 #include "Operators/Common/Operator.hpp"
 
-#include "Operators/Field/Field.hpp"
-
-#include <LibUtilities/BasicUtils/NekFactory.hpp>
-#include <MultiRegions/ExpList.h>
-
 namespace Nektar::Operators
 {
 
 template <FieldState TFieldIn, FieldState TFieldOut, typename TData>
-class OperatorLinear : public Operator<TData>
+class OperatorElmt : public Operator<TData>
 {
 
 public:
-    ~OperatorLinear() override = default;
+    ~OperatorElmt() override = default;
 
-    OperatorLinear(const MultiRegions::ExpListSharedPtr &expansionList)
+    OperatorElmt(const MultiRegions::ExpListSharedPtr &expansionList)
         : Operator<TData>(expansionList)
     {
     }

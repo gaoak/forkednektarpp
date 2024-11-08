@@ -53,23 +53,26 @@ public:
     {
         double *inptr =
             fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-        for (const auto &block : fixt_in->GetBlocks())
+        for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            for (size_t el = 0, cnt = 0; el < block.num_elements; ++el)
+            auto &block = fixt_in->GetBlocks()[blk];
+            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                 ++el)
             {
-                for (size_t coeff = 0; coeff < block.num_pts; ++coeff, ++cnt)
+                for (unsigned int coeff = 0; coeff < block.GetNumData();
+                     ++coeff, ++cnt)
                 {
                     inptr[cnt] = coeff;
                 }
             }
-            inptr += block.block_size;
+            inptr += block.size();
         }
         ExpectedSolution();
     }
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Helmholtz<>::template create<ExecSpace, Impl>(fixt_explist)
+        Helmholtz<>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 
@@ -79,13 +82,13 @@ public:
         auto e = 0, offset = 0;
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = 1.0;
-        Array<OneD, double> incoeffs       = fixt_in->toArray();
+        Array<OneD, double> incoeffs       = fixt_in->ToArray();
         Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
         Array<OneD, double> tmp;
         for (const auto &block : fixt_expected->GetBlocks())
         {
             auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
-            for (size_t el = 0; el < block.num_elements; ++el)
+            for (unsigned int el = 0; el < block.GetNumElements(); ++el)
             {
                 StdRegions::StdMatrixKey mkey(
                     StdRegions::eHelmholtz,
@@ -97,7 +100,7 @@ public:
                 offset += nmTot;
             }
         }
-        fixt_expected->copyArray<NektarSpaces::HostSpace>(outcoeffs);
+        fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };
 

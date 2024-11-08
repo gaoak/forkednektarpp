@@ -34,14 +34,11 @@
 
 #define BOOST_TEST_MODULE TestHelmSolveKokkos
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_helmsolvefields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/GlobalLinSysOps/OperatorHelmSolve.hpp"
-#include "Operators/PreconOps/OperatorDiagPrecon.hpp"
-#include "init_helmsolvefields.hpp"
 
 #define TEST_HELMSOLVE(test_name, test, tol)                                   \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

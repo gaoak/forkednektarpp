@@ -34,13 +34,11 @@
 
 #pragma once
 
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
+
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
-
-#include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <LibUtilities/BasicUtils/NekInline.hpp>
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
 
 #include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
 
@@ -60,6 +58,12 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
+        const auto dimension = this->m_expansionList->GetShapeDimension();
+
+        // Initialize basiskey.
+        m_basisKeys = std::vector<LibUtilities::BasisKey>(
+            dimension, LibUtilities::NullBasisKey);
+
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, TData, simd_t>(
             expansionList, eBasis, ExecSpace::alignment);
@@ -78,22 +82,17 @@ public:
                   "Output Field are not aligned to the required alignment "
                   "for the SIMD vector type.");
 
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
 
         m_exp_idx = 0; // accumulated across each block.
 
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
-        for (size_t block_idx = 0; block_idx < in.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[block_idx];
-            auto &outblock    = out.GetBlocks()[block_idx];
-            const auto nElmts = inblock.num_elements;
+            auto &inblock     = in.GetBlocks()[blk];
+            auto &outblock    = out.GetBlocks()[blk];
+            const auto nElmts = inblock.GetNumElements();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
@@ -164,8 +163,8 @@ public:
             }
 
             // Increment pointer and index for next element type.
-            inPtr += inblock.block_size;
-            outPtr += outblock.block_size;
+            inPtr += inblock.size();
+            outPtr += outblock.size();
             m_exp_idx += nElmts;
         }
     }
@@ -210,6 +209,7 @@ private:
         // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -229,11 +229,13 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -254,6 +256,7 @@ private:
         // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -273,11 +276,13 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
 
             BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
 
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -302,6 +307,7 @@ private:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -321,6 +327,7 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -328,6 +335,8 @@ private:
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
+
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -357,6 +366,7 @@ private:
         BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -376,6 +386,7 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -383,6 +394,8 @@ private:
 
             BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
                                          bPtr1, wsp0, tmpIn, tmpOut);
+
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -409,6 +422,7 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -428,6 +442,7 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -438,6 +453,8 @@ private:
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, bPtr0, bPtr1, bPtr2, wsp0,
                                          wsp1, tmpIn, tmpOut);
+
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }
@@ -471,6 +488,7 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
+        // Initialize pointers.
         const typename simd_t::vectorType *tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut =
@@ -490,6 +508,7 @@ private:
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
+            // Fetch basis data.
             const auto bPtr0 = m_basisMap[m_basisKeys[0]]
                                    .template GetPtr<MemSpace, ReadOnly>();
             const auto bPtr1 = m_basisMap[m_basisKeys[1]]
@@ -500,6 +519,8 @@ private:
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                          isModified, bPtr0, bPtr1, bPtr2, wsp0,
                                          wsp1, tmpIn, tmpOut);
+
+            // Increment pointers for the next elmt group.
             tmpIn += nmTot;
             tmpOut += nqTot * simd_t::width;
         }

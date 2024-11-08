@@ -52,21 +52,20 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        size_t nTotElmts = this->m_expansionList->GetNumElmts();
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialise derivative factor.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
         size_t dfSize = GetGeometricFactorSize(expansionList, locblocks);
-        m_derivFac =
-            SetDerivativeFactor<TData>(expansionList, dfSize, locblocks);
+        m_df = SetDerivativeFactor<TData>(expansionList, dfSize, locblocks);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
         // Loop over the elements of expansionList.
+        size_t nTotElmts = this->m_expansionList->GetNumElmts();
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             const auto expPtr = this->m_expansionList->GetExp(e);
@@ -77,14 +76,14 @@ public:
                 basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
             }
 
-            // Copy data to m_matPtr, if necessary.
-            if (m_matPtr.find(basisKeys) == m_matPtr.end())
+            // Copy data to m_mat, if necessary.
+            if (m_mat.find(basisKeys) == m_mat.end())
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 Array<OneD, TData> tmp(nqTot), t;
                 // Get deriv matrix.
-                auto &matPtr = m_matPtr[basisKeys];
-                matPtr       = Array<OneD, Array<OneD, TData>>(dimension);
+                auto &matPtr = m_mat[basisKeys];
+                matPtr       = std::vector<Array<OneD, TData>>(dimension);
                 for (size_t d = 0; d < dimension; ++d)
                 {
                     matPtr[d] = Array<OneD, TData>(nqTot * nqTot);
@@ -106,22 +105,23 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize pointers.
-        const auto *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        auto *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
-        auto *dfPtr       = m_derivFac->data();
-
-        // Initialize index.
-        size_t exp_idx = 0;
+        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
+        auto dfPtr  = m_df->data();
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
-        for (const auto &block : in.GetBlocks())
+        // Initialize index.
+        size_t exp_idx = 0;
+
+        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            const auto nElmts    = block.num_elements;
-            const auto nElmtsPad = block.num_padding_elements + nElmts;
+            // Block dependent.
+            auto &inblock        = in.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
@@ -130,8 +130,7 @@ public:
             const auto nCoord  = expPtr->GetCoordim();
             const auto nqTot   = expPtr->GetTotPoints();
             const auto ptsKeys = expPtr->GetPointsKeys();
-
-            const auto ndf = dimension * nCoord;
+            const auto ndf     = nCoord * dimension;
 
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
@@ -140,7 +139,7 @@ public:
             }
 
             // Get derivative matrix.
-            const auto &matPtr = m_matPtr[basisKeys];
+            const auto &matPtr = m_mat[basisKeys];
 
             // Allocate storate.
             if (m_derivSize < dimension * nqTot * nElmts)
@@ -154,7 +153,7 @@ public:
             {
                 // Perform matrix-matrix multiply.
                 Blas::Dgemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
-                            matPtr[d].get(), nqTot, inPtr, nqTot, 0.0,
+                            matPtr[d].data(), nqTot, inPtr, nqTot, 0.0,
                             m_deriv.data() + d * nqTot * nElmts, nqTot);
             }
 
@@ -224,10 +223,10 @@ public:
 
 private:
     std::vector<TData> m_deriv;
-    std::shared_ptr<std::vector<TData>> m_derivFac;
+    std::shared_ptr<std::vector<TData>> m_df;
     std::map<std::vector<LibUtilities::BasisKey>,
-             Array<OneD, Array<OneD, TData>>>
-        m_matPtr;
+             std::vector<Array<OneD, TData>>>
+        m_mat;
     size_t m_derivSize = 0;
 };
 

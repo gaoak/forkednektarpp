@@ -34,13 +34,11 @@
 
 #define BOOST_TEST_MODULE TestPhysDerivCUDA
 
-#include <boost/test/tools/output_test_stream.hpp>
+#include "init_physderivfields.hpp"
 
+#include <boost/test/tools/output_test_stream.hpp>
 #include <iostream>
 #include <memory>
-
-#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
-#include "init_physderivfields.hpp"
 
 #define TEST_PHYSDERIV(test_name, test, dim, tol)                              \
     BOOST_FIXTURE_TEST_CASE(test_name, test)                                   \

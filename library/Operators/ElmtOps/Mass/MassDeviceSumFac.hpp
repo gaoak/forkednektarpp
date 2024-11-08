@@ -50,16 +50,16 @@ class OperatorMassImpl : public OperatorMass<TData>
 public:
     OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorMass<TData>(expansionList),
-          m_tmp(Field<TData, FieldState::Phys>::template create<MemSpace>(
+          m_tmp(Field<TData, FieldState::Phys>::template Create<MemSpace>(
               "Mass tmp",
               GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
               ExecSpace::alignment))
     {
         m_BwdTransOp =
-            BwdTrans<TData>::template create<ExecSpace, Implementation>(
+            BwdTrans<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
         m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template create<ExecSpace, Implementation>(
+            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
     }
 

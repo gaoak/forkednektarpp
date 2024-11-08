@@ -45,11 +45,7 @@ namespace Nektar
 {
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
+void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -61,25 +57,20 @@ neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         negKernel<ExecSpace>(nElmts * nPts, xptr, yptr);
-        xptr += block.block_size;
-        yptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
     }
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
+void neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -92,18 +83,14 @@ neg(MemoryRegion<TData> &x, MemoryRegion<TData> &y)
     }
 
     auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, WriteOnly>();
     negKernel<ExecSpace>(nsize, xptr, yptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-    Field<TData, TFieldState> &z)
+void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+         Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -115,27 +102,22 @@ add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         addKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.block_size;
-        yptr += block.block_size;
-        zptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
+        zptr += block.size();
     }
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -148,19 +130,15 @@ add(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
     }
 
     auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     addKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-    Field<TData, TFieldState> &z)
+void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+         Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -172,27 +150,22 @@ sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         subKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.block_size;
-        yptr += block.block_size;
-        zptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
+        zptr += block.size();
     }
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -205,19 +178,15 @@ sub(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
     }
 
     auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     subKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-daxpy(const TData alpha, Field<TData, TFieldState> &x,
-      Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
+void daxpy(const TData alpha, Field<TData, TFieldState> &x,
+           Field<TData, TFieldState> &y, Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -229,28 +198,23 @@ daxpy(const TData alpha, Field<TData, TFieldState> &x,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         daxpyKernel<ExecSpace>(nElmts * nPts, alpha, xptr, yptr, zptr);
-        xptr += block.block_size;
-        yptr += block.block_size;
-        zptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
+        zptr += block.size();
     }
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
-      MemoryRegion<TData> &z)
+void daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
+           MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -263,19 +227,15 @@ daxpy(const TData alpha, MemoryRegion<TData> &x, MemoryRegion<TData> &y,
     }
 
     auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     daxpyKernel<ExecSpace>(nsize, alpha, xptr, yptr, zptr);
 }
 
 template <typename ExecSpace, typename TData, FieldState TFieldState>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::Serial>::value ||
-        std::is_same<ExecSpace, NektarSpaces::AVX>::value,
-    void>::type
-div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
-    Field<TData, TFieldState> &z)
+void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
+         Field<TData, TFieldState> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -287,27 +247,22 @@ div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         divKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.block_size;
-        yptr += block.block_size;
-        zptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
+        zptr += block.size();
     }
 }
 
 template <typename ExecSpace, typename TData>
-inline typename std::enable_if<
-    std::is_same<ExecSpace, NektarSpaces::CUDA>::value ||
-        std::is_same<ExecSpace, NektarSpaces::SYCL>::value ||
-        std::is_same<ExecSpace, NektarSpaces::KOKKOS>::value,
-    void>::type
-div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
+void div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
 {
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -320,9 +275,9 @@ div(MemoryRegion<TData> &x, MemoryRegion<TData> &y, MemoryRegion<TData> &z)
     }
 
     auto nsize = x.size();
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto *zptr = z.template GetPtr<MemSpace, WriteOnly>();
+    auto xptr  = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr  = y.template GetPtr<MemSpace, ReadOnly>();
+    auto zptr  = z.template GetPtr<MemSpace, WriteOnly>();
     divKernel<ExecSpace>(nsize, xptr, yptr, zptr);
 }
 
@@ -334,13 +289,13 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         reduceSumKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out += reduce;
     }
 }
@@ -353,13 +308,13 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         reduceMaxKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out = std::max(*out, reduce);
     }
 }
@@ -372,13 +327,13 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::max();
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         reduceMinKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out = std::min(*out, reduce);
     }
 }
@@ -400,15 +355,15 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto *yptr = y.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         ddotKernel<ExecSpace>(nElmts * nPts, xptr, yptr, &reduce);
-        xptr += block.block_size;
-        yptr += block.block_size;
+        xptr += block.size();
+        yptr += block.size();
         *out += reduce;
     }
 }
@@ -421,13 +376,13 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         l1normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out += reduce;
     }
 }
@@ -440,13 +395,13 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         l2normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out += reduce;
     }
 }
@@ -459,13 +414,13 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         lpnormKernel<ExecSpace>(nElmts * nPts, p, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out += reduce;
     }
 }
@@ -478,13 +433,13 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    auto *xptr = x.template GetPtr<MemSpace, ReadOnly>();
+    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
     for (const auto &block : x.GetBlocks())
     {
-        auto nElmts = block.num_elements;
-        auto nPts   = block.num_pts;
+        auto nElmts = block.GetNumElements();
+        auto nPts   = block.GetNumData();
         linfnormKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.block_size;
+        xptr += block.size();
         *out = std::max(*out, reduce);
     }
 }

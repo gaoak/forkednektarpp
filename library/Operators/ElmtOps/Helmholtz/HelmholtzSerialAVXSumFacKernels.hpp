@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
+
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
 template <bool DEFORMED, typename simd_type>
