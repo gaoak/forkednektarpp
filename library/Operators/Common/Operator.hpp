@@ -80,9 +80,6 @@ public:
 namespace Nektar::Operators
 {
 
-extern OPERATORS_EXPORT std::string g_OpExecSpace;
-extern OPERATORS_EXPORT std::string g_OpImpl;
-
 template <bool B, typename TData> struct simd_type_if
 {
     typedef tinysimd::scalarT<TData> type;
@@ -130,77 +127,14 @@ public:
     Operator(const MultiRegions::ExpListSharedPtr &expansionList)
         : m_expansionList(expansionList)
     {
-        std::shared_ptr<LibUtilities::SessionReader> session =
-            m_expansionList->GetSession();
-
-        // Command-line specified execution space
-        if (session->DefinesCmdLineArgument("opExecSpace"))
-        {
-            std::string cmdValue =
-                session->GetCmdLineArgument<std::string>("opExecSpace");
-
-            if (cmdValue == "Serial")
-            {
-                g_OpExecSpace = "Serial";
-            }
-            else if (cmdValue == "AVX")
-            {
-                g_OpExecSpace = "AVX";
-            }
-            else if (cmdValue == "CUDA")
-            {
-                g_OpExecSpace = "CUDA";
-            }
-            else if (cmdValue == "HIP")
-            {
-                g_OpExecSpace = "HIP";
-            }
-            else if (cmdValue == "SYCL")
-            {
-                g_OpExecSpace = "SYCL";
-            }
-            else if (cmdValue == "Kokkos")
-            {
-                g_OpExecSpace = "Kokkos";
-            }
-            else
-            {
-                NEKERROR(Nektar::ErrorUtil::efatal,
-                         "Bad command line argument for opExecSpace:" +
-                             cmdValue);
-            }
-        }
-
-        // Command-line specified implementation
-        if (session->DefinesCmdLineArgument("opImpl"))
-        {
-            std::string cmdValue =
-                session->GetCmdLineArgument<std::string>("opImpl");
-
-            if (cmdValue == "StdMat")
-            {
-                g_OpImpl = "StdMat";
-            }
-            else if (cmdValue == "SumFac")
-            {
-                g_OpImpl = "SumFac";
-            }
-            else if (cmdValue == "SumFacQP")
-            {
-                g_OpImpl = "SumFacQP";
-            }
-            else
-            {
-                NEKERROR(Nektar::ErrorUtil::efatal,
-                         "Bad command line argument for opImpl:" + cmdValue);
-            }
-        }
     }
 
     template <typename TDescriptor, typename ExecSpace, typename Implementation>
     static std::shared_ptr<typename TDescriptor::class_name> Create(
         const MultiRegions::ExpListSharedPtr &expansionList)
     {
+        auto session = expansionList->GetSession();
+
         // The TDescriptor name contains the namespace as well as the <TData>
         // of <FieldState, TData> which needs to be removed.
         std::string descript = Nektar::demangleTypeName(typeid(TDescriptor));
@@ -267,9 +201,9 @@ public:
 #endif
 
         // Overide with command-line specified execution space, if necessary
-        if (g_OpExecSpace != "")
+        if (session->DefinesCmdLineArgument("opExecSpace"))
         {
-            execStr = g_OpExecSpace;
+            execStr = session->GetCmdLineArgument<std::string>("opExecSpace");
         }
 
         // The Implementation name contains the namespace which needs
@@ -284,9 +218,9 @@ public:
 #endif
 
         // Overide with command-line specified implementation, if necessary
-        if (g_OpImpl != "")
+        if (session->DefinesCmdLineArgument("opImpl"))
         {
-            implStr = g_OpImpl;
+            implStr = session->GetCmdLineArgument<std::string>("opImpl");
         }
 
         std::string requestedKey =

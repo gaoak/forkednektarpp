@@ -37,9 +37,6 @@
 namespace Nektar::Operators
 {
 
-std::string g_OpExecSpace = "";
-std::string g_OpImpl      = "";
-
 template <typename TData> OperatorFactory<TData> &GetOperatorFactory()
 {
     static OperatorFactory<TData> instance;
