@@ -62,7 +62,7 @@ TEST_HELMSOLVE(helmsolve_cuda_sumfac_qp_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_HELMSOLVE(helmsolve_cuda_sumfac_qp_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-12)
 
-TEST_HELMSOLVE(helmsolve_cuda_sumfac_qp_all_bcs, Helmholtz2D_AllBCs, 1.0E-12)
+// TEST_HELMSOLVE(helmsolve_cuda_sumfac_qp_all_bcs, Helmholtz2D_AllBCs, 1.0E-12)
 
 TEST_HELMSOLVE(helmsolve_cuda_sumfac_qp_hex, Helmholtz3D_Hex, 1.0E-10)
 

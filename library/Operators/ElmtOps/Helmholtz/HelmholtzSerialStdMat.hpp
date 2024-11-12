@@ -121,18 +121,19 @@ public:
         // Initialize pointers.
         TData *diffCoeffPtr =
             this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
-        auto derivPtr      = deriv.template GetPtr<MemSpace, ReadWrite>();
-        auto derivCoeffPtr = derivCoeff.template GetPtr<MemSpace, ReadWrite>();
 
         // Initialize index.
         size_t exp_idx = 0;
 
         for (size_t blk = 0; blk < deriv.GetBlocks().size(); ++blk)
         {
+            auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto derivCoeffPtr =
+                derivCoeff.template GetPtr<MemSpace, ReadWrite>(blk);
+
             // Block dependent.
-            auto &derivblock     = deriv.GetBlocks()[blk];
-            const auto nElmts    = derivblock.GetNumElements();
-            const auto nElmtsPad = derivblock.GetNumElementsWithPadding();
+            auto &derivblock  = deriv.GetBlocks()[blk];
+            const auto nElmts = derivblock.GetNumElements();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -143,20 +144,18 @@ public:
             for (size_t d = 0; d < nCoord; d++)
             {
                 Vmath::Smul(nqTot * nElmts, diffCoeffPtr[d * nCoord], derivPtr,
-                            1, derivCoeffPtr + d * nElmtsPad * nqTot, 1);
+                            1, derivCoeffPtr + d * derivblock.size(), 1);
 
                 for (size_t l = 1; l < nCoord; l++)
                 {
                     Vmath::Svtvp(nqTot * nElmts, diffCoeffPtr[d * nCoord + l],
-                                 derivPtr + l * nElmtsPad * nqTot, 1,
-                                 derivCoeffPtr + d * nElmtsPad * nqTot, 1,
-                                 derivCoeffPtr + d * nElmtsPad * nqTot, 1);
+                                 derivPtr + l * derivblock.size(), 1,
+                                 derivCoeffPtr + d * derivblock.size(), 1,
+                                 derivCoeffPtr + d * derivblock.size(), 1);
                 }
             }
 
-            // Increment pointer and index for next element type.
-            derivCoeffPtr += nCoord * nqTot * nElmtsPad;
-            derivPtr += nCoord * nqTot * nElmtsPad;
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }

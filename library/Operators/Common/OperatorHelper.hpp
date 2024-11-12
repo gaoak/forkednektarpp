@@ -260,17 +260,15 @@ BasisDataMap<TDataOut> GetBasisData(
     return basisDataMap;
 }
 
-template <typename TData>
-std::shared_ptr<std::vector<TData>> SetJacobian(
-    const MultiRegions::ExpListSharedPtr &expansionList, size_t jacSize,
-    std::vector<BlockAttributes> &blocks)
+template <typename MemSpace, typename TData>
+std::vector<MemoryRegion<TData>> SetJacobian(
+    const MultiRegions::ExpListSharedPtr &expansionList,
+    std::vector<BlockAttributes> &blocks, unsigned int alignment)
 {
-    // Allocate memory for the jacobian
-    std::vector<TData> jac;
-    jac.resize(jacSize);
+    // Allocate memory for the jacobian.
+    std::vector<MemoryRegion<TData>> jacs;
 
     size_t exp_id = 0;
-    size_t jac_id = 0;
 
     // Loop over blocks.
     for (size_t blk = 0; blk < blocks.size(); ++blk)
@@ -286,7 +284,16 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
         {
             Array<OneD, Array<OneD, TData>> jacArray(interleave_width);
 
-            for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+            // Allocate memory and get pointer.
+            jacs.push_back(MemoryRegion<TData>::template Create<MemSpace>(
+                num_elmt_groups * interleave_width * expPtr->GetTotPoints(),
+                alignment));
+            auto jacPtr =
+                jacs[blk].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // Loop over chunks.
+            for (size_t chunk = 0, el = 0, jac_id = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (size_t i = 0; i < interleave_width; ++i, ++el)
                 {
@@ -307,7 +314,7 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
                 {
                     for (size_t i = 0; i < interleave_width; ++i, ++jac_id)
                     {
-                        jac[jac_id] = jacArray[i][pt];
+                        jacPtr[jac_id] = jacArray[i][pt];
                     }
                 }
             }
@@ -315,43 +322,48 @@ std::shared_ptr<std::vector<TData>> SetJacobian(
         // Regular geometry.
         else
         {
+            // Allocate memory and get pointer.
+            jacs.push_back(MemoryRegion<TData>::template Create<MemSpace>(
+                num_elmt_groups * interleave_width, alignment));
+            auto jacPtr =
+                jacs[blk].template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // Loop over chunks.
             for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
             {
-                for (size_t i = 0; i < interleave_width; ++i, ++el, ++jac_id)
+                for (size_t i = 0; i < interleave_width; ++i, ++el)
                 {
                     if (el < num_elements)
                     {
                         auto &auxJac = expansionList->GetExp(exp_id++)
                                            ->GetMetricInfo()
                                            ->GetJac(expPtr->GetPointsKeys());
-                        jac[jac_id] = auxJac[0];
+                        jacPtr[el] = auxJac[0];
                     }
                     else
                     {
-                        jac[jac_id] = 0.0;
+                        jacPtr[el] = 0.0;
                     }
                 }
             }
         }
     }
 
-    return MemoryManager<std::vector<TData>>::AllocateSharedPtr(jac);
+    return jacs;
 }
 
-template <typename TData>
-std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
-    const MultiRegions::ExpListSharedPtr &expansionList, size_t dfSize,
-    std::vector<BlockAttributes> &blocks, bool transpose = false)
+template <typename MemSpace, typename TData>
+std::vector<MemoryRegion<TData>> SetDerivativeFactor(
+    const MultiRegions::ExpListSharedPtr &expansionList,
+    std::vector<BlockAttributes> &blocks, unsigned int alignment,
+    bool transpose = false)
 {
     // Allocate memory for the derivative factor
     size_t nDim   = expansionList->GetShapeDimension();
     size_t nCoord = expansionList->GetCoordim(0);
-
-    std::vector<TData> derivFac;
-    derivFac.resize(nDim * nCoord * dfSize);
+    std::vector<MemoryRegion<TData>> derivFacs;
 
     size_t exp_id = 0;
-    size_t df_id  = 0;
 
     // Loop over blocks.
     for (size_t blk = 0; blk < blocks.size(); ++blk)
@@ -367,7 +379,18 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
         // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
-            for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+            // Allocate memory and get pointer.
+            derivFacs.push_back(MemoryRegion<TData>::template Create<MemSpace>(
+                num_elmt_groups * interleave_width * expPtr->GetTotPoints() *
+                    nDim * nCoord,
+                alignment));
+            auto derivFacPtr =
+                derivFacs[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // Loop over chunks.
+            for (size_t chunk = 0, el = 0, df_id = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (size_t index1 = 0; index1 < range1; ++index1)
                 {
@@ -384,11 +407,11 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
                                                ->GetMetricInfo()
                                                ->GetDerivFactors(
                                                    expPtr->GetPointsKeys());
-                                derivFac[df_id] = df[d][pt];
+                                derivFacPtr[df_id] = df[d][pt];
                             }
                             else
                             {
-                                derivFac[df_id] = 0.0;
+                                derivFacPtr[df_id] = 0.0;
                             }
                         }
                     }
@@ -404,7 +427,16 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
         // Regular geometry.
         else
         {
-            for (size_t chunk = 0, el = 0; chunk < num_elmt_groups; ++chunk)
+            // Allocate memory and get pointer.
+            derivFacs.push_back(MemoryRegion<TData>::template Create<MemSpace>(
+                num_elmt_groups * interleave_width * nDim * nCoord, alignment));
+            auto derivFacPtr =
+                derivFacs[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
+
+            // Loop over chunks.
+            for (size_t chunk = 0, el = 0, df_id = 0; chunk < num_elmt_groups;
+                 ++chunk)
             {
                 for (size_t d = 0; d < nDim * nCoord; ++d)
                 {
@@ -416,11 +448,11 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
                                 expansionList->GetExp(exp_id + i)
                                     ->GetMetricInfo()
                                     ->GetDerivFactors(expPtr->GetPointsKeys());
-                            derivFac[df_id] = df[d][0];
+                            derivFacPtr[df_id] = df[d][0];
                         }
                         else
                         {
-                            derivFac[df_id] = 0.0;
+                            derivFacPtr[df_id] = 0.0;
                         }
                     }
                 }
@@ -434,7 +466,7 @@ std::shared_ptr<std::vector<TData>> SetDerivativeFactor(
         }
     }
 
-    return MemoryManager<std::vector<TData>>::AllocateSharedPtr(derivFac);
+    return derivFacs;
 }
 
 } // namespace Nektar::Operators

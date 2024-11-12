@@ -64,16 +64,10 @@ public:
         // Initialise jacobian with paddings.
         auto locblocks = GetBlockAttributes<TData>(
             FieldState::Phys, expansionList, simd_t::width);
-
-        size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
-        auto jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
-        auto derivFac =
-            SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
-
-        m_jac = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            *jac, ExecSpace::alignment);
-        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            *derivFac, simd_t::alignment);
+        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
+                                             ExecSpace::alignment);
+        m_df  = SetDerivativeFactor<MemSpace, TData>(expansionList, locblocks,
+                                                    ExecSpace::alignment);
 
         // Initialize the basis data.
         m_Bmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eBasis,
@@ -112,39 +106,38 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // Check alignment.
-        WARNINGL1(in.GetAlignment() == simd_t::alignment,
-                  "Input Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-        WARNINGL1(out.GetAlignment() == simd_t::alignment,
-                  "Output Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-
         // Initialize basiskey.
         m_basisKeys = std::vector<LibUtilities::BasisKey>(
             dimension, LibUtilities::NullBasisKey);
 
         // Initialize index.
-        m_exp_idx = 0; // accumulates over blocks, used in operatorND()
-        m_jac_idx = 0; // accumulates over blocks, accessed in operatorND()
+        m_exp_idx = 0; // accumulated across each block.
 
-        for (size_t m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            // Check alignment.
+            WARNINGL1(in.GetAlignment(m_blk) == simd_t::alignment,
+                      "Input Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+            WARNINGL1(out.GetAlignment(m_blk) == simd_t::alignment,
+                      "Output Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+
+            // Initialize pointers.
+            auto inPtr =
+                (in.GetBlocks()[m_blk].GetInterleaveWidth() == simd_t::width)
+                    ? in.template GetPtr<MemSpace, ReadOnly>(m_blk)
+                    : in.template GetPtr<MemSpace, ReadWrite>(m_blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(m_blk);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[m_blk];
-            auto &outblock       = out.GetBlocks()[m_blk];
-            const auto nElmts    = inblock.GetNumElements();
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock     = in.GetBlocks()[m_blk];
+            auto &outblock    = out.GetBlocks()[m_blk];
+            const auto nElmts = inblock.GetNumElements();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto nqTot     = expPtr->GetTotPoints();
             const auto shapeType = expPtr->DetShapeType();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
-                                  SpatialDomains::eDeformed;
 
             // Get current interleave width.
             m_in_interleave_width = inblock.GetInterleaveWidth();
@@ -210,10 +203,7 @@ public:
                     std::cout << "shapetype not implemented" << std::endl;
             }
 
-            // Increment pointer and index for next element type.
-            m_jac_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += inblock.size();
-            outPtr += outblock.size();
+            // Increment index for next element type.
             m_exp_idx += nElmts;
         }
     }
@@ -230,11 +220,11 @@ public:
     }
 
 private:
-    int m_nElmtGroup, m_jac_idx, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
     unsigned int m_in_interleave_width;
 
-    MemoryRegion<TData> m_jac;
-    MemoryRegion<TData> m_df;
+    std::vector<MemoryRegion<TData>> m_jac;
+    std::vector<MemoryRegion<TData>> m_df;
 
     BasisDataMap<simd_t> m_Bmap;
     BasisDataMap<simd_t> m_BDmap;
@@ -300,11 +290,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =
@@ -393,11 +383,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =
@@ -516,11 +506,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =
@@ -642,11 +632,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =
@@ -792,11 +782,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =
@@ -947,11 +937,11 @@ private:
             dfSize *= nqTot;
         }
 
-        // m_jac_idx is an offset, accumulates over blocks
+        // Get jac and df pointers.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
         const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            &(m_jac.template GetPtr<MemSpace, ReadOnly>()[m_jac_idx]));
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get basis data pointers.
         const auto B0 =

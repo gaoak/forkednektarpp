@@ -65,9 +65,11 @@ public:
      * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionHost(const std::string name, const size_t size,
-                     const size_t alignment, const bool device_only)
+                     const size_t alignment, const size_t device_rank,
+                     const bool device_only)
     {
         m_size        = size;
+        m_device_rank = device_rank;
         m_device_only = device_only;
         m_alignment   = alignment;
 
@@ -86,6 +88,7 @@ public:
         m_alignment   = rhs.m_alignment;
         m_host_valid  = rhs.m_host_valid;
         m_initialize  = rhs.m_initialize;
+        m_device_rank = rhs.m_device_rank;
         m_device_only = rhs.m_device_only;
         m_name        = rhs.m_name;
 
@@ -94,6 +97,7 @@ public:
         rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid  = false;
         rhs.m_initialize  = true;
+        rhs.m_device_rank = 0;
         rhs.m_device_only = false;
         rhs.m_name        = "";
     }
@@ -111,9 +115,10 @@ public:
     template <typename TDataIn>
     MemoryRegionHost(const std::string name, const TDataIn *src,
                      const size_t size, const size_t alignment,
-                     const bool device_only)
+                     const size_t device_rank, const bool device_only)
     {
         m_size        = size;
+        m_device_rank = device_rank;
         m_device_only = device_only;
         m_alignment   = alignment;
 
@@ -151,6 +156,7 @@ public:
         m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         m_host_valid  = false;
         m_initialize  = true;
+        m_device_rank = 0;
         m_device_only = false;
         m_name        = "";
     }
@@ -174,6 +180,7 @@ public:
         m_alignment   = rhs.m_alignment;
         m_host_valid  = rhs.m_host_valid;
         m_initialize  = rhs.m_initialize;
+        m_device_rank = rhs.m_device_rank;
         m_device_only = rhs.m_device_only;
         m_name        = rhs.m_name;
 
@@ -182,6 +189,7 @@ public:
         rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
         rhs.m_host_valid  = false;
         rhs.m_initialize  = true;
+        rhs.m_device_rank = 0;
         rhs.m_device_only = false;
         rhs.m_name        = "";
 
@@ -222,6 +230,16 @@ public:
     size_t GetAlignment() const
     {
         return m_alignment;
+    }
+
+    /**
+     * @brief Get the name
+     *
+     * @return - std::string
+     */
+    size_t GetDeviceRank() const
+    {
+        return m_device_rank;
     }
 
     /**
@@ -413,11 +431,12 @@ protected:
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
 
-    bool m_host_valid = false;  // Flag indicating that the host data is valid
-    bool m_initialize = true;   // Flag indicating that the data needs
-                                // to be initialize and is needed for
-                                // host device transfers.
-    bool m_device_only = false; // Flag indicating that the data is only
-                                // initialized on the device.
+    bool m_host_valid = false;    // Flag indicating that the host data is valid
+    bool m_initialize = true;     // Flag indicating that the data needs
+                                  // to be initialize and is needed for
+                                  // host device transfers.
+    size_t m_device_rank = 0;     // Index indicating device ID.
+    bool m_device_only   = false; // Flag indicating that the data is only
+                                  // initialized on the device.
     std::string m_name{""};
 };

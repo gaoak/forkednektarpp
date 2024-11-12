@@ -90,11 +90,12 @@ inline
                             void>::type
     LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                           const int *id1Ptr, const TData *signPtr,
-                          TData *outPtr)
+                          const TData *inPtr, TData *outPtr)
 {
+    // Note: inPtr and outPtr might alias each other.
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[id0Ptr[i]] = outPtr[id1Ptr[i]] * signPtr[i];
+            outPtr[id0Ptr[i]] = inPtr[id1Ptr[i]] * signPtr[i];
         });
 }
 

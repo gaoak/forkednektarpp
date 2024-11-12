@@ -64,9 +64,7 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // Copy memory to the device, if necessary and get raw pointers.
-        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        TData *outPtr      = out.template GetPtr<MemSpace, WriteOnly>();
+        const bool device_only = true;
 
         // Initialize index.
         size_t exp_idx = 0;
@@ -74,6 +72,13 @@ public:
         // Loop over the blocks.
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
@@ -104,22 +109,29 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2);
+            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+            {
+                if (m_wsp.size() <= blk)
+                {
+                    m_wsp.push_back(
+                        SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2));
+                }
+            }
+
+            // Get workspace pointer.
+            auto wspPtr =
+                std::is_same_v<Implementation, Operators::SumFac>
+                    ? m_wsp[blk].template GetPtr<MemSpace, WriteOnly>()
+                    : nullptr;
 
             constexpr bool SharedMemory = true;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-            {
-                ReshapeStorage<ExecSpace,
-                               NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad,
-                    inblock.GetNumData(), (TData *)inPtr);
-                inblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
-                outblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
-            }
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -150,8 +162,6 @@ public:
                 // Precompute index, if necessary.
                 if (indexing)
                 {
-                    const bool device_only = true;
-
                     if (m_index0.find(basisKeys) == m_index0.end())
                     {
                         const unsigned int nm01 =
@@ -193,9 +203,7 @@ public:
                     outPtr);
             }
 
-            // Increment pointer and index for next element type.
-            inPtr += inblock.size();
-            outPtr += outblock.size();
+            // Increment index for next element type.
             exp_idx += inblock.GetNumElements();
         }
     }
@@ -234,33 +242,17 @@ public:
         return wspsize;
     }
 
-    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmtsPad,
-                        size_t nm0, size_t nm1, size_t nm2)
+    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
+                                     size_t nElmtsPad, size_t nm0, size_t nm1,
+                                     size_t nm2)
     {
-        TData *wspptr = nullptr;
+        const bool device_only = true;
 
-        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
-        {
-            const bool device_only = true;
+        size_t wspsize =
+            GetSharedWorkspaceSize(shapeType, nElmtsPad, nm0, nm1, nm2);
 
-            size_t wspsize =
-                GetSharedWorkspaceSize(shapeType, nElmtsPad, nm0, nm1, nm2);
-
-            if (m_wspsize < wspsize)
-            {
-                m_wspsize = wspsize;
-
-                m_wsp = MemoryRegion<TData>::template Create<MemSpace>(
-                    m_wspsize, ExecSpace::alignment, device_only);
-            }
-
-            if (m_wspsize > 0)
-            {
-                wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-            }
-        }
-
-        return wspptr;
+        return MemoryRegion<TData>::template Create<MemSpace>(
+            wspsize, ExecSpace::alignment, device_only);
     }
 
     // className - for OperatorFactory
@@ -277,13 +269,15 @@ public:
 
 private:
     BasisDataMap<TData> m_basisMap;
-    MemoryRegion<TData> m_wsp;
+    std::vector<MemoryRegion<TData>> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index0;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index1;
-
-    size_t m_wspsize = 0;
+    static constexpr size_t m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::vector_width<TData>::value
+            : 1u;
 };
 
 } // namespace Nektar::Operators::detail

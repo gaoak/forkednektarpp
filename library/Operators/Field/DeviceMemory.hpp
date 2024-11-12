@@ -64,13 +64,16 @@ struct DeviceToDevice
 };
 
 template <typename TData>
-void deviceMalloc(TData *&src, const unsigned int size)
+void deviceMalloc(TData *&src, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
 {
     if (size > 0)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        cudaSetDevice(device_rank);
         cudaMalloc((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
+        hipSetDevice(device_rank);
         hipMalloc((void **)&src, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -89,11 +92,19 @@ void deviceMalloc(TData *&src, const unsigned int size)
     }
 }
 
-template <typename TData> void deviceFree(TData *src)
+template <typename TData>
+void deviceFree(TData *src, [[maybe_unused]] const unsigned int device_rank)
 {
+    if (src == nullptr)
+    {
+        return;
+    }
+
 #if defined(NEKTAR_ENABLE_CUDA)
+    cudaSetDevice(device_rank);
     cudaFree(src);
 #elif defined(NEKTAR_ENABLE_HIP)
+    hipSetDevice(device_rank);
     hipFree(src);
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -106,11 +117,19 @@ template <typename TData> void deviceFree(TData *src)
 }
 
 template <typename TData>
-void deviceMemset(TData *dst, const int val, const unsigned int size)
+void deviceMemset(TData *dst, const int val, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
 {
+    if (size == 0)
+    {
+        return;
+    }
+
 #if defined(NEKTAR_ENABLE_CUDA)
+    cudaSetDevice(device_rank);
     cudaMemset(dst, val, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_HIP)
+    hipSetDevice(device_rank);
     hipMemset(dst, val, size * sizeof(TData));
 #elif defined(NEKTAR_ENABLE_SYCL)
     sycl::queue &Q = SYCLQueue::GetInstance();
@@ -126,11 +145,19 @@ void deviceMemset(TData *dst, const int val, const unsigned int size)
 }
 
 template <typename TData>
-void deviceFill(TData *dst, const TData val, const unsigned int size)
+void deviceFill(TData *dst, const TData val, const unsigned int size,
+                [[maybe_unused]] const unsigned int device_rank)
 {
+    if (size == 0)
+    {
+        return;
+    }
+
 #if defined(NEKTAR_ENABLE_CUDA)
+    cudaSetDevice(device_rank);
     thrust::fill(dst, dst + size, val);
 #elif defined(NEKTAR_ENABLE_HIP)
+    hipSetDevice(device_rank);
     hipLaunchKernelGGL(fill_, blocks, threads, 0, 0, size, dst,
                        val); // TODO: implement fill_ kernel
 #elif defined(NEKTAR_ENABLE_SYCL)
@@ -147,13 +174,21 @@ void deviceFill(TData *dst, const TData val, const unsigned int size)
 }
 
 template <typename MemCopy, typename TData>
-void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
+void deviceMemcpy(TData *dst, const TData *src, const unsigned int size,
+                  [[maybe_unused]] const unsigned int device_rank)
 {
+    if (size == 0)
+    {
+        return;
+    }
+
     if constexpr (std::is_same_v<MemCopy, HostToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        cudaSetDevice(device_rank);
         cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToHost);
 #elif defined(NEKTAR_ENABLE_HIP)
+        hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToHost);
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -172,8 +207,10 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
     else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        cudaSetDevice(device_rank);
         cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToHost);
 #elif defined(NEKTAR_ENABLE_HIP)
+        hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToHost);
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -193,8 +230,10 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
     else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        cudaSetDevice(device_rank);
         cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_HIP)
+        hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyHostToDevice);
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();
@@ -213,8 +252,10 @@ void deviceMemcpy(TData *dst, const TData *src, const unsigned int size)
     else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
     {
 #if defined(NEKTAR_ENABLE_CUDA)
+        cudaSetDevice(device_rank);
         cudaMemcpy(dst, src, size * sizeof(TData), cudaMemcpyDeviceToDevice);
 #elif defined(NEKTAR_ENABLE_HIP)
+        hipSetDevice(device_rank);
         hipMemcpy(dst, src, size * sizeof(TData), hipMemcpyDeviceToDevice);
 #elif defined(NEKTAR_ENABLE_SYCL)
         sycl::queue &Q = SYCLQueue::GetInstance();

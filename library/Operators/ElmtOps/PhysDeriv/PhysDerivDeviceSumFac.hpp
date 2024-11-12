@@ -57,20 +57,10 @@ public:
     {
         // Initialise the derivative factor.
         auto transpose = std::is_same_v<Implementation, Operators::SumFacQP>;
-        auto interleave_width =
-            std::is_same_v<Implementation, Operators::SumFac>
-                ? NektarSpaces::vector_width<TData>::value
-                : 1u;
         auto locblocks = GetBlockAttributes<TData>(
-            FieldState::Phys, expansionList, interleave_width);
-        auto dfSize   = GetGeometricFactorSize(expansionList, locblocks);
-        auto derivFac = SetDerivativeFactor<TData>(expansionList, dfSize,
-                                                   locblocks, transpose);
-
-        const bool device_only = true;
-
-        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            *derivFac, ExecSpace::alignment, device_only);
+            FieldState::Phys, expansionList, m_implInterleaveWidth);
+        m_df = SetDerivativeFactor<MemSpace, TData>(
+            expansionList, locblocks, ExecSpace::alignment, transpose);
 
         // Initialize the points.
         m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);
@@ -85,16 +75,19 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // Initialize pointers.
-        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        TData *outPtr      = out.template GetPtr<MemSpace, ReadWrite>();
-        const TData *dfPtr = m_df.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize index.
         size_t exp_idx = 0;
 
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+            auto dfPtr  = m_df[blk].template GetPtr<MemSpace, ReadOnly>();
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
@@ -106,12 +99,10 @@ public:
             const auto shape    = expPtr->DetShapeType();
             const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            const auto nqTot  = expPtr->GetTotPoints();
             const auto nCoord = expPtr->GetCoordim();
             const auto nq0    = expPtr->GetNumPoints(0);
             const auto nq1    = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
             const auto nq2    = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
-            const auto ndf    = nCoord * dimension;
 
             const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
                                 .template GetPtr<MemSpace, ReadOnly>();
@@ -139,17 +130,11 @@ public:
             constexpr bool SharedMemory = true;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-            {
-                ReshapeStorage<ExecSpace,
-                               NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad,
-                    inblock.GetNumData(), (TData *)inPtr);
-                inblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
-                outblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
-            }
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -212,10 +197,7 @@ public:
                 }
             }
 
-            // Increment pointer and index for next element type.
-            dfPtr += deformed ? ndf * nqTot * nElmtsPad : ndf * nElmtsPad;
-            inPtr += nElmtsPad * nqTot;
-            outPtr += nCoord * nElmtsPad * nqTot;
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -235,7 +217,11 @@ public:
 private:
     BasisDataMap<TData> m_zeroMap;
     BasisDataMap<TData> m_derivativeMap;
-    MemoryRegion<TData> m_df;
+    std::vector<MemoryRegion<TData>> m_df;
+    static constexpr size_t m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::vector_width<TData>::value
+            : 1u;
 };
 
 } // namespace Nektar::Operators::detail

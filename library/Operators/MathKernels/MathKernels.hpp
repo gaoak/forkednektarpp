@@ -57,15 +57,12 @@ void neg(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y)
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, WriteOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        negKernel<ExecSpace>(nElmts * nPts, xptr, yptr);
-        xptr += block.size();
-        yptr += block.size();
+        auto xptr = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr = y.template GetPtr<MemSpace, WriteOnly>(blk);
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        negKernel<ExecSpace>(size, xptr, yptr);
     }
 }
 
@@ -102,17 +99,13 @@ void add(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        addKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.size();
-        yptr += block.size();
-        zptr += block.size();
+        auto xptr = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr = y.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto zptr = z.template GetPtr<MemSpace, WriteOnly>(blk);
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        addKernel<ExecSpace>(size, xptr, yptr, zptr);
     }
 }
 
@@ -150,17 +143,13 @@ void sub(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        subKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.size();
-        yptr += block.size();
-        zptr += block.size();
+        auto xptr = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr = y.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto zptr = z.template GetPtr<MemSpace, WriteOnly>(blk);
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        subKernel<ExecSpace>(size, xptr, yptr, zptr);
     }
 }
 
@@ -198,17 +187,13 @@ void daxpy(const TData alpha, Field<TData, TFieldState> &x,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        daxpyKernel<ExecSpace>(nElmts * nPts, alpha, xptr, yptr, zptr);
-        xptr += block.size();
-        yptr += block.size();
-        zptr += block.size();
+        auto xptr = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr = y.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto zptr = z.template GetPtr<MemSpace, WriteOnly>(blk);
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        daxpyKernel<ExecSpace>(size, alpha, xptr, yptr, zptr);
     }
 }
 
@@ -247,17 +232,13 @@ void div(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    auto zptr = z.template GetPtr<MemSpace, WriteOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        divKernel<ExecSpace>(nElmts * nPts, xptr, yptr, zptr);
-        xptr += block.size();
-        yptr += block.size();
-        zptr += block.size();
+        auto xptr = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr = y.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto zptr = z.template GetPtr<MemSpace, WriteOnly>(blk);
+        auto size = x.GetBlocks()[blk].size() * x.GetNumComponents();
+        divKernel<ExecSpace>(size, xptr, yptr, zptr);
     }
 }
 
@@ -289,13 +270,13 @@ void reduceSum(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        reduceSumKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        reduceSumKernel<ExecSpace>(size, xptr, &reduce);
         *out += reduce;
     }
 }
@@ -308,13 +289,13 @@ void reduceMax(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        reduceMaxKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        reduceMaxKernel<ExecSpace>(size, xptr, &reduce);
         *out = std::max(*out, reduce);
     }
 }
@@ -327,13 +308,13 @@ void reduceMin(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::max();
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        reduceMinKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        reduceMinKernel<ExecSpace>(size, xptr, &reduce);
         *out = std::min(*out, reduce);
     }
 }
@@ -355,15 +336,14 @@ void ddot(Field<TData, TFieldState> &x, Field<TData, TFieldState> &y,
         NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
     }
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    auto yptr = y.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        ddotKernel<ExecSpace>(nElmts * nPts, xptr, yptr, &reduce);
-        xptr += block.size();
-        yptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto yptr   = y.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        ddotKernel<ExecSpace>(size, xptr, yptr, &reduce);
         *out += reduce;
     }
 }
@@ -376,13 +356,13 @@ void l1norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        l1normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        l1normKernel<ExecSpace>(size, xptr, &reduce);
         *out += reduce;
     }
 }
@@ -395,13 +375,13 @@ void l2norm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        l2normKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        l2normKernel<ExecSpace>(size, xptr, &reduce);
         *out += reduce;
     }
 }
@@ -414,13 +394,13 @@ void lpnorm(const unsigned int p, Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = 0.0;
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        lpnormKernel<ExecSpace>(nElmts * nPts, p, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        lpnormKernel<ExecSpace>(size, p, xptr, &reduce);
         *out += reduce;
     }
 }
@@ -433,13 +413,13 @@ void linfnorm(Field<TData, TFieldState> &x, TData *out)
     TData reduce;
     *out = std::numeric_limits<TData>::min();
 
-    auto xptr = x.template GetPtr<MemSpace, ReadOnly>();
-    for (const auto &block : x.GetBlocks())
+    for (size_t blk = 0; blk < x.GetBlocks().size(); ++blk)
     {
-        auto nElmts = block.GetNumElements();
-        auto nPts   = block.GetNumData();
-        linfnormKernel<ExecSpace>(nElmts * nPts, xptr, &reduce);
-        xptr += block.size();
+        auto xptr   = x.template GetPtr<MemSpace, ReadOnly>(blk);
+        auto &block = x.GetBlocks()[blk];
+        auto size =
+            block.GetNumElements() * block.GetNumData() * x.GetNumComponents();
+        linfnormKernel<ExecSpace>(size, xptr, &reduce);
         *out = std::max(*out, reduce);
     }
 }
