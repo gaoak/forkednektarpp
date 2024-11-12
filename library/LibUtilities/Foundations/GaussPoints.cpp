@@ -440,7 +440,7 @@ std::shared_ptr<NekMatrix<NekDouble>> GaussPoints::
     // diagaonal mass matrix
     for (size_t i = 0; i < numpointsto; ++i)
     {
-        Vmath::Vmul(numpointsfrom, Interp->GetPtr().get() + i * numpointsfrom,
+        Vmath::Vmul(numpointsfrom, Interp->GetPtr().data() + i * numpointsfrom,
                     1, &weightsfrom[0], 1, &GalProj[0] + i, numpointsto);
         Vmath::Smul(numpointsfrom, 1.0 / m_weights[i], &GalProj[0] + i,
                     numpointsto, &GalProj[0] + i, numpointsto);

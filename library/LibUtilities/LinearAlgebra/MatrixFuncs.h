@@ -122,7 +122,7 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
                      "FullMatrixFuncs::Invert DataType is not floating point");
         }
 
-        Lapack::DoSgetrf(m, n, data.get(), m, ipivot.get(), info);
+        Lapack::DoSgetrf(m, n, data.data(), m, ipivot.data(), info);
 
         if (info < 0)
         {
@@ -138,7 +138,8 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
             ASSERTL0(false, message.c_str());
         }
 
-        Lapack::DoSgetri(n, data.get(), n, ipivot.get(), work.get(), n, info);
+        Lapack::DoSgetri(n, data.data(), n, ipivot.data(), work.data(), n,
+                         info);
 
         if (info < 0)
         {
@@ -170,8 +171,8 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
             int lwork = 4 * lda;
             Array<OneD, DataType> work(4 * lda);
             char lrev = 'V';
-            Lapack::DoSgeev(uplo, lrev, lda, A.get(), lda, EigValReal.get(),
-                            EigValImag.get(), &dum, 1, EigVecs.get(), lda,
+            Lapack::DoSgeev(uplo, lrev, lda, A.data(), lda, EigValReal.data(),
+                            EigValImag.data(), &dum, 1, EigVecs.data(), lda,
                             &work[0], lwork, info);
         }
         else
@@ -179,9 +180,9 @@ struct LIB_UTILITIES_EXPORT FullMatrixFuncs
             int lwork = 3 * lda;
             Array<OneD, DataType> work(3 * lda);
             char lrev = 'N';
-            Lapack::DoSgeev(uplo, lrev, lda, A.get(), lda, EigValReal.get(),
-                            EigValImag.get(), &dum, 1, &dum, 1, &work[0], lwork,
-                            info);
+            Lapack::DoSgeev(uplo, lrev, lda, A.data(), lda, EigValReal.data(),
+                            EigValImag.data(), &dum, 1, &dum, 1, &work[0],
+                            lwork, info);
         }
         ASSERTL0(info == 0, "Info is not zero");
     }
@@ -237,7 +238,7 @@ struct LIB_UTILITIES_EXPORT SymmetricMatrixFuncs : private TriangularMatrixFuncs
         Array<OneD, int> ipivot(n);
         Array<OneD, DataType> work(n);
 
-        Lapack::DoSsptrf('U', n, data.get(), ipivot.get(), info);
+        Lapack::DoSsptrf('U', n, data.data(), ipivot.data(), info);
 
         if (info < 0)
         {
@@ -253,7 +254,7 @@ struct LIB_UTILITIES_EXPORT SymmetricMatrixFuncs : private TriangularMatrixFuncs
             ASSERTL0(false, message.c_str());
         }
 
-        Lapack::DoSsptri('U', n, data.get(), ipivot.get(), work.get(), info);
+        Lapack::DoSsptri('U', n, data.data(), ipivot.data(), work.data(), info);
 
         if (info < 0)
         {

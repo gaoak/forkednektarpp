@@ -314,7 +314,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
 
                 BwdTrans(tmpin, tmpout);
 
-                Vmath::Vcopy(nq, tmpout.get(), 1,
+                Vmath::Vcopy(nq, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * nq, 1);
             }
         }
@@ -335,7 +335,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
 
                 IProductWRTBase(tmpin, tmpout);
 
-                Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
+                Vmath::Vcopy(m_ncoeffs, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
             }
         }
@@ -356,7 +356,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
 
                 IProductWRTDerivBase(0, tmpin, tmpout);
 
-                Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
+                Vmath::Vcopy(m_ncoeffs, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
             }
         }
@@ -377,7 +377,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
 
                 IProductWRTDerivBase(1, tmpin, tmpout);
 
-                Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
+                Vmath::Vcopy(m_ncoeffs, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
             }
         }
@@ -398,7 +398,7 @@ DNekMatSharedPtr StdExpansion::CreateGeneralMatrix(const StdMatrixKey &mkey)
 
                 IProductWRTDerivBase(2, tmpin, tmpout);
 
-                Vmath::Vcopy(m_ncoeffs, tmpout.get(), 1,
+                Vmath::Vcopy(m_ncoeffs, tmpout.data(), 1,
                              returnval->GetRawPtr() + i * m_ncoeffs, 1);
             }
         }
@@ -993,7 +993,7 @@ void StdExpansion::LaplacianMatrixOp_MatFree_GenericImpl(
         }
     }
 
-    Vmath::Vcopy(m_ncoeffs, store2.get(), 1, outarray.get(), 1);
+    Vmath::Vcopy(m_ncoeffs, store2.data(), 1, outarray.data(), 1);
 }
 
 void StdExpansion::WeakDerivMatrixOp_MatFree(

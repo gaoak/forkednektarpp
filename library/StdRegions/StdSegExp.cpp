@@ -349,7 +349,7 @@ void StdSegExp::v_FwdTransBndConstrained(
                                 "expansion type");
         }
 
-        fill(outarray.get(), outarray.get() + m_ncoeffs, 0.0);
+        fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
         if (m_base[0]->GetBasisType() != LibUtilities::eGauss_Lagrange)
         {
@@ -375,8 +375,8 @@ void StdSegExp::v_FwdTransBndConstrained(
 
                 Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, 1.0,
                             &(matsys->GetPtr())[0], nInteriorDofs,
-                            tmp1.get() + offset, 1, 0.0,
-                            outarray.get() + offset, 1);
+                            tmp1.data() + offset, 1, 0.0,
+                            outarray.data() + offset, 1);
             }
         }
         else
@@ -569,7 +569,7 @@ void StdSegExp::v_LocCollapsedToLocCoord(
 void StdSegExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
 {
     int nquad             = m_base[0]->GetNumPoints();
-    const NekDouble *base = m_base[0]->GetBdata().get();
+    const NekDouble *base = m_base[0]->GetBdata().data();
 
     ASSERTL2(mode <= m_ncoeffs,
              "calling argument mode is larger than total expansion order");
@@ -619,8 +619,8 @@ void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
     v_PhysDeriv(physValues, dPhysValuesdx);
     IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx, outarray, one,
                           false);
-    Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.get(), 1,
-                outarray.get(), 1);
+    Blas::Daxpy(m_ncoeffs, mkey.GetConstFactor(eFactorLambda), wsp.data(), 1,
+                outarray.data(), 1);
 }
 
 void StdSegExp::v_SVVLaplacianFilter(Array<OneD, NekDouble> &array,
@@ -720,7 +720,8 @@ void StdSegExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
                             [[maybe_unused]] Array<OneD, NekDouble> &coords_1,
                             [[maybe_unused]] Array<OneD, NekDouble> &coords_2)
 {
-    Blas::Dcopy(GetNumPoints(0), (m_base[0]->GetZ()).get(), 1, &coords_0[0], 1);
+    Blas::Dcopy(GetNumPoints(0), (m_base[0]->GetZ()).data(), 1, &coords_0[0],
+                1);
 }
 
 //---------------------------------------------------------------------

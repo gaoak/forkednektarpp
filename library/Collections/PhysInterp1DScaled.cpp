@@ -318,7 +318,7 @@ public:
                 for (int i = 0; i < m_numElmt; ++i)
                 {
 
-                    Blas::Dgemv('N', npt0, pt0, 1.0, I0->GetPtr().get(), npt0,
+                    Blas::Dgemv('N', npt0, pt0, 1.0, I0->GetPtr().data(), npt0,
                                 &input[cnt], 1, 0.0, &output[cnt1], 1);
                     cnt += pt0;
                     cnt1 += npt0;
@@ -357,10 +357,11 @@ public:
                 for (int i = 0; i < m_numElmt; ++i)
                 {
                     Blas::Dgemm('N', 'T', pt0, npt1, pt1, 1.0, &input[cnt], pt0,
-                                I1->GetPtr().get(), npt1, 0.0, wsp.get(), pt0);
+                                I1->GetPtr().data(), npt1, 0.0, wsp.data(),
+                                pt0);
 
                     Blas::Dgemm('N', 'N', npt0, npt1, pt0, 1.0,
-                                I0->GetPtr().get(), npt0, wsp.get(), pt0, 0.0,
+                                I0->GetPtr().data(), npt0, wsp.data(), pt0, 0.0,
                                 &output[cnt1], npt0);
 
                     cnt += pt0 * pt1;
@@ -407,19 +408,19 @@ public:
                 {
                     // Interpolate points
                     Blas::Dgemm('N', 'N', npt0, pt1 * pt2, pt0, 1.0,
-                                I0->GetPtr().get(), npt0, &input[cnt], pt0, 0.0,
-                                wsp2.get(), npt0);
+                                I0->GetPtr().data(), npt0, &input[cnt], pt0,
+                                0.0, wsp2.data(), npt0);
 
                     for (int j = 0; j < pt2; j++)
                     {
                         Blas::Dgemm('N', 'T', npt0, npt1, pt1, 1.0,
-                                    wsp2.get() + j * npt0 * pt1, npt0,
-                                    I1->GetPtr().get(), npt1, 0.0,
-                                    wsp1.get() + j * npt0 * npt1, npt0);
+                                    wsp2.data() + j * npt0 * pt1, npt0,
+                                    I1->GetPtr().data(), npt1, 0.0,
+                                    wsp1.data() + j * npt0 * npt1, npt0);
                     }
 
                     Blas::Dgemm('N', 'T', npt0 * npt1, npt2, pt2, 1.0,
-                                wsp1.get(), npt0 * npt1, I2->GetPtr().get(),
+                                wsp1.data(), npt0 * npt1, I2->GetPtr().data(),
                                 npt2, 0.0, &output[cnt1], npt0 * npt1);
 
                     cnt += pt0 * pt1 * pt2;

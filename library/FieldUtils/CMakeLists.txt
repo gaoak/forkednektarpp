@@ -146,6 +146,13 @@ IF (NEKTAR_USE_VTK)
             OutputModules/OutputVtk.h)
 ENDIF()
 
+IF (NEKTAR_USE_LST)
+    SET(FieldUtilsSources ${FieldUtilsSources}
+        ProcessModules/ProcessLocalStabilityAnalysis.cpp)
+    SET(FieldUtilsHeaders ${FieldUtilsHeaders}
+        ProcessModules/ProcessLocalStabilityAnalysis.h)
+ENDIF()
+
 ADD_NEKTAR_LIBRARY(FieldUtils
     SUMMARY "Nektar++ FieldUtils library"
     DESCRIPTION "Collection of post-processing modules for the FieldConvert utility and filter"
@@ -167,6 +174,10 @@ IF (NEKTAR_USE_VTK)
         TARGET_LINK_LIBRARIES(FieldUtils LINK_PUBLIC vtkCommonCore vtkIOLegacy vtkIOXML vtkFiltersCore)
     ENDIF ()
 ENDIF (NEKTAR_USE_VTK)
+
+IF (NEKTAR_USE_LST)
+    TARGET_LINK_LIBRARIES(FieldUtils LINK_PUBLIC ${LST_LIBRARY})
+ENDIF()
 
 IF (NEKTAR_BUILD_PYTHON)
     SUBDIRS(Python)

@@ -860,7 +860,7 @@ void ForcingSyntheticEddy::SetCholeskyReyStresses(
                 l++;
             }
             int info = 0;
-            Lapack::Dpptrf('L', m_spacedim, A.get(), info);
+            Lapack::Dpptrf('L', m_spacedim, A.data(), info);
             if (info < 0)
             {
                 std::string message =

@@ -204,8 +204,8 @@ static inline gs_data *Init(
     MPI_Comm_dup(vCommMpi->GetComm(), &vComm.c);
     vComm.id        = vCommMpi->GetRank();
     vComm.np        = vCommMpi->GetSize();
-    gs_data *result = nektar_gs_setup(pId.get(), pId.size(), &vComm, 0, gs_auto,
-                                      (int)verbose);
+    gs_data *result = nektar_gs_setup(pId.data(), pId.size(), &vComm, 0,
+                                      gs_auto, (int)verbose);
     MPI_Comm_free(&vComm.c);
     return result;
 #else
@@ -238,7 +238,7 @@ static inline void Unique(
     vComm.c  = vCommMpi->GetComm();
     vComm.id = vCommMpi->GetRank();
     vComm.np = vCommMpi->GetSize();
-    nektar_gs_unique(pId.get(), pId.size(), &vComm);
+    nektar_gs_unique(pId.data(), pId.size(), &vComm);
 #endif
 }
 
@@ -288,14 +288,14 @@ static inline void Gather([[maybe_unused]] Nektar::Array<OneD, NekDouble> pU,
     }
     if (pBuffer.size() == 0)
     {
-        nektar_gs(pU.get(), gs_double, pOp, false, pGsh, nullptr);
+        nektar_gs(pU.data(), gs_double, pOp, false, pGsh, nullptr);
     }
     else
     {
         array buf;
         buf.ptr = &pBuffer[0];
         buf.n   = pBuffer.size();
-        nektar_gs(pU.get(), gs_double, pOp, false, pGsh, &buf);
+        nektar_gs(pU.data(), gs_double, pOp, false, pGsh, &buf);
     }
 #endif
 }

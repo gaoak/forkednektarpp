@@ -402,7 +402,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     for (int i = 0; i < nswp; ++i)
     {
         Vmath::Svtvp(nNonDir, y_total[i], &m_V_total[i][0] + nDir, 1,
-                     solution.get(), 1, solution.get(), 1);
+                     solution.data(), 1, solution.data(), 1);
     }
 
     if (m_NekLinSysRightPrecon)
@@ -411,7 +411,7 @@ NekDouble NekLinSysIterGMRES::DoGmresRestart(
     }
 
     // Update output.
-    Vmath::Vadd(nNonDir, solution.get(), 1, &pOutput[0] + nDir, 1,
+    Vmath::Vadd(nNonDir, solution.data(), 1, &pOutput[0] + nDir, 1,
                 &pOutput[0] + nDir, 1);
 
     return eps;

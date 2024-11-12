@@ -315,7 +315,7 @@ void StdQuadExp::v_FwdTransBndConstrained(
         int npoints[2] = {m_base[0]->GetNumPoints(), m_base[1]->GetNumPoints()};
         int nmodes[2]  = {m_base[0]->GetNumModes(), m_base[1]->GetNumModes()};
 
-        fill(outarray.get(), outarray.get() + m_ncoeffs, 0.0);
+        fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
         Array<OneD, NekDouble> physEdge[4];
         Array<OneD, NekDouble> coeffEdge[4];
@@ -389,8 +389,8 @@ void StdQuadExp::v_FwdTransBndConstrained(
         }
 
         Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, 1.0,
-                    &(matsys->GetPtr())[0], nInteriorDofs, rhs.get(), 1, 0.0,
-                    result.get(), 1);
+                    &(matsys->GetPtr())[0], nInteriorDofs, rhs.data(), 1, 0.0,
+                    result.data(), 1);
 
         for (i = 0; i < nInteriorDofs; i++)
         {
@@ -687,13 +687,13 @@ void StdQuadExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
 
     for (i = 0; i < nquad1; ++i)
     {
-        Vmath::Vcopy(nquad0, (NekDouble *)(base0.get() + mode0 * nquad0), 1,
+        Vmath::Vcopy(nquad0, (NekDouble *)(base0.data() + mode0 * nquad0), 1,
                      &outarray[0] + i * nquad0, 1);
     }
 
     for (i = 0; i < nquad0; ++i)
     {
-        Vmath::Vmul(nquad1, (NekDouble *)(base1.get() + mode1 * nquad1), 1,
+        Vmath::Vmul(nquad1, (NekDouble *)(base1.data() + mode1 * nquad1), 1,
                     &outarray[0] + i, nquad0, &outarray[0] + i, nquad0);
     }
 }
@@ -840,7 +840,7 @@ void StdQuadExp::v_GetCoords(Array<OneD, NekDouble> &coords_0,
 
     for (i = 0; i < nq1; ++i)
     {
-        Blas::Dcopy(nq0, z0.get(), 1, &coords_0[0] + i * nq0, 1);
+        Blas::Dcopy(nq0, z0.data(), 1, &coords_0[0] + i * nq0, 1);
         Vmath::Fill(nq0, z1[i], &coords_1[0] + i * nq0, 1);
     }
 }
@@ -1236,7 +1236,7 @@ void StdQuadExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     if (bType == LibUtilities::eModified_A)
@@ -1330,7 +1330,7 @@ void StdQuadExp::v_GetTraceInteriorToElementMap(
         }
         if (edgeOrient == eBackwards)
         {
-            reverse(maparray.get(), maparray.get() + nEdgeIntCoeffs);
+            reverse(maparray.data(), maparray.data() + nEdgeIntCoeffs);
         }
     }
     else

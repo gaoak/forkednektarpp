@@ -831,7 +831,8 @@ void AssemblyMap::PatchLocalToGlobal(const Array<OneD, const NekDouble> &loc,
         local = loc; // create reference
     }
 
-    Vmath::Scatr(map.size(), sign.get(), local.get(), map.get(), global.get());
+    Vmath::Scatr(map.size(), sign.data(), local.data(), map.data(),
+                 global.data());
 }
 
 void AssemblyMap::PatchGlobalToLocal(const Array<OneD, const NekDouble> &global,
@@ -851,7 +852,7 @@ void AssemblyMap::PatchGlobalToLocal(const Array<OneD, const NekDouble> &global,
         glo = global; // create reference
     }
 
-    Vmath::Gathr(map.size(), sign.get(), glo.get(), map.get(), loc.get());
+    Vmath::Gathr(map.size(), sign.data(), glo.data(), map.data(), loc.data());
 }
 
 void AssemblyMap::PatchAssemble(const Array<OneD, const NekDouble> &loc,
@@ -873,9 +874,10 @@ void AssemblyMap::PatchAssemble(const Array<OneD, const NekDouble> &loc,
     // since we are calling mapping from level down from array
     // the m_numLocaBndCoeffs represents the size of the
     // boundary elements we need to assemble into
-    Vmath::Zero(m_numLocalCoeffs, global.get(), 1);
+    Vmath::Zero(m_numLocalCoeffs, global.data(), 1);
 
-    Vmath::Assmb(map.size(), sign.get(), local.get(), map.get(), global.get());
+    Vmath::Assmb(map.size(), sign.data(), local.data(), map.data(),
+                 global.data());
 }
 
 int AssemblyMap::GetFullSystemBandWidth() const
@@ -1055,18 +1057,18 @@ void AssemblyMap::GlobalToLocalBnd(const Array<OneD, const NekDouble> &global,
 
     // offset input data by length "offset" for Dirichlet boundary conditions.
     Array<OneD, NekDouble> tmp(m_numGlobalBndCoeffs, 0.0);
-    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, global.get(), 1,
-                 tmp.get() + offset, 1);
+    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, global.data(), 1,
+                 tmp.data() + offset, 1);
 
     if (m_signChange)
     {
-        Vmath::Gathr(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     tmp.get(), m_localToGlobalBndMap.get(), loc.get());
+        Vmath::Gathr(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     tmp.data(), m_localToGlobalBndMap.data(), loc.data());
     }
     else
     {
-        Vmath::Gathr(m_numLocalBndCoeffs, tmp.get(),
-                     m_localToGlobalBndMap.get(), loc.get());
+        Vmath::Gathr(m_numLocalBndCoeffs, tmp.data(),
+                     m_localToGlobalBndMap.data(), loc.data());
     }
 }
 
@@ -1090,13 +1092,13 @@ void AssemblyMap::GlobalToLocalBnd(const Array<OneD, const NekDouble> &global,
 
     if (m_signChange)
     {
-        Vmath::Gathr(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     glo.get(), m_localToGlobalBndMap.get(), loc.get());
+        Vmath::Gathr(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     glo.data(), m_localToGlobalBndMap.data(), loc.data());
     }
     else
     {
-        Vmath::Gathr(m_numLocalBndCoeffs, glo.get(),
-                     m_localToGlobalBndMap.get(), loc.get());
+        Vmath::Gathr(m_numLocalBndCoeffs, glo.data(),
+                     m_localToGlobalBndMap.data(), loc.data());
     }
 }
 
@@ -1114,13 +1116,13 @@ void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
 
     if (m_signChange)
     {
-        Vmath::Scatr(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     loc.get(), m_localToGlobalBndMap.get(), tmp.get());
+        Vmath::Scatr(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     loc.data(), m_localToGlobalBndMap.data(), tmp.data());
     }
     else
     {
-        Vmath::Scatr(m_numLocalBndCoeffs, loc.get(),
-                     m_localToGlobalBndMap.get(), tmp.get());
+        Vmath::Scatr(m_numLocalBndCoeffs, loc.data(),
+                     m_localToGlobalBndMap.data(), tmp.data());
     }
 
     // Ensure each processor has unique value with a max gather.
@@ -1128,8 +1130,8 @@ void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
     {
         Gs::Gather(tmp, Gs::gs_max, m_bndGsh);
     }
-    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, tmp.get() + offset, 1,
-                 global.get(), 1);
+    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, tmp.data() + offset, 1,
+                 global.data(), 1);
 }
 
 void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
@@ -1143,13 +1145,13 @@ void AssemblyMap::LocalBndToGlobal(const Array<OneD, const NekDouble> &loc,
 
     if (m_signChange)
     {
-        Vmath::Scatr(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     loc.get(), m_localToGlobalBndMap.get(), global.get());
+        Vmath::Scatr(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     loc.data(), m_localToGlobalBndMap.data(), global.data());
     }
     else
     {
-        Vmath::Scatr(m_numLocalBndCoeffs, loc.get(),
-                     m_localToGlobalBndMap.get(), global.get());
+        Vmath::Scatr(m_numLocalBndCoeffs, loc.data(),
+                     m_localToGlobalBndMap.data(), global.data());
     }
     if (UseComm)
     {
@@ -1165,8 +1167,8 @@ void AssemblyMap::LocalToLocalBnd(const Array<OneD, const NekDouble> &local,
     ASSERTL1(local.size() >= m_numLocalCoeffs,
              "Local vector is not of correct dimension");
 
-    Vmath::Gathr(m_numLocalBndCoeffs, local.get(), m_localToLocalBndMap.get(),
-                 locbnd.get());
+    Vmath::Gathr(m_numLocalBndCoeffs, local.data(), m_localToLocalBndMap.data(),
+                 locbnd.data());
 }
 
 void AssemblyMap::LocalToLocalInt(const Array<OneD, const NekDouble> &local,
@@ -1177,8 +1179,8 @@ void AssemblyMap::LocalToLocalInt(const Array<OneD, const NekDouble> &local,
     ASSERTL1(local.size() >= m_numLocalCoeffs,
              "Local vector is not of correct dimension");
 
-    Vmath::Gathr(m_numLocalCoeffs - m_numLocalBndCoeffs, local.get(),
-                 m_localToLocalIntMap.get(), locint.get());
+    Vmath::Gathr(m_numLocalCoeffs - m_numLocalBndCoeffs, local.data(),
+                 m_localToLocalIntMap.data(), locint.data());
 }
 
 void AssemblyMap::LocalBndToLocal(const Array<OneD, const NekDouble> &locbnd,
@@ -1189,8 +1191,8 @@ void AssemblyMap::LocalBndToLocal(const Array<OneD, const NekDouble> &locbnd,
     ASSERTL1(local.size() >= m_numLocalCoeffs,
              "Local vector is not of correct dimension");
 
-    Vmath::Scatr(m_numLocalBndCoeffs, locbnd.get(), m_localToLocalBndMap.get(),
-                 local.get());
+    Vmath::Scatr(m_numLocalBndCoeffs, locbnd.data(),
+                 m_localToLocalBndMap.data(), local.data());
 }
 
 void AssemblyMap::LocalIntToLocal(const Array<OneD, const NekDouble> &locint,
@@ -1201,8 +1203,8 @@ void AssemblyMap::LocalIntToLocal(const Array<OneD, const NekDouble> &locint,
     ASSERTL1(local.size() >= m_numLocalCoeffs,
              "Local vector is not of correct dimension");
 
-    Vmath::Scatr(m_numLocalCoeffs - m_numLocalBndCoeffs, locint.get(),
-                 m_localToLocalIntMap.get(), local.get());
+    Vmath::Scatr(m_numLocalCoeffs - m_numLocalBndCoeffs, locint.data(),
+                 m_localToLocalIntMap.data(), local.data());
 }
 
 void AssemblyMap::AssembleBnd(const NekVector<NekDouble> &loc,
@@ -1228,17 +1230,17 @@ void AssemblyMap::AssembleBnd(const Array<OneD, const NekDouble> &loc,
 
     if (m_signChange)
     {
-        Vmath::Assmb(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     loc.get(), m_localToGlobalBndMap.get(), tmp.get());
+        Vmath::Assmb(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     loc.data(), m_localToGlobalBndMap.data(), tmp.data());
     }
     else
     {
-        Vmath::Assmb(m_numLocalBndCoeffs, loc.get(),
-                     m_localToGlobalBndMap.get(), tmp.get());
+        Vmath::Assmb(m_numLocalBndCoeffs, loc.data(),
+                     m_localToGlobalBndMap.data(), tmp.data());
     }
     UniversalAssembleBnd(tmp);
-    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, tmp.get() + offset, 1,
-                 global.get(), 1);
+    Vmath::Vcopy(m_numGlobalBndCoeffs - offset, tmp.data() + offset, 1,
+                 global.data(), 1);
 }
 
 void AssemblyMap::AssembleBnd(const Array<OneD, const NekDouble> &loc,
@@ -1249,17 +1251,17 @@ void AssemblyMap::AssembleBnd(const Array<OneD, const NekDouble> &loc,
     ASSERTL1(global.size() >= m_numGlobalBndCoeffs,
              "Global vector is not of correct dimension");
 
-    Vmath::Zero(m_numGlobalBndCoeffs, global.get(), 1);
+    Vmath::Zero(m_numGlobalBndCoeffs, global.data(), 1);
 
     if (m_signChange)
     {
-        Vmath::Assmb(m_numLocalBndCoeffs, m_localToGlobalBndSign.get(),
-                     loc.get(), m_localToGlobalBndMap.get(), global.get());
+        Vmath::Assmb(m_numLocalBndCoeffs, m_localToGlobalBndSign.data(),
+                     loc.data(), m_localToGlobalBndMap.data(), global.data());
     }
     else
     {
-        Vmath::Assmb(m_numLocalBndCoeffs, loc.get(),
-                     m_localToGlobalBndMap.get(), global.get());
+        Vmath::Assmb(m_numLocalBndCoeffs, loc.data(),
+                     m_localToGlobalBndMap.data(), global.data());
     }
     UniversalAssembleBnd(global);
 }
@@ -1370,8 +1372,8 @@ void AssemblyMap::GlobalToLocalBndWithoutSign(
     ASSERTL1(global.size() >= m_numGlobalBndCoeffs,
              "Global vector is not of correct dimension");
 
-    Vmath::Gathr(m_numLocalBndCoeffs, global.get(), m_localToGlobalBndMap.get(),
-                 loc.get());
+    Vmath::Gathr(m_numLocalBndCoeffs, global.data(),
+                 m_localToGlobalBndMap.data(), loc.data());
 }
 
 void AssemblyMap::PrintStats(std::ostream &out, std::string variable,
@@ -1406,8 +1408,8 @@ void AssemblyMap::PrintStats(std::ostream &out, std::string variable,
     Array<OneD, NekDouble> tmpLoc(m_numLocalBndCoeffs, 1.0);
     Array<OneD, NekDouble> tmpGlob(m_numGlobalBndCoeffs, 0.0);
 
-    Vmath::Assmb(m_numLocalBndCoeffs, tmpLoc.get(), m_localToGlobalBndMap.get(),
-                 tmpGlob.get());
+    Vmath::Assmb(m_numLocalBndCoeffs, tmpLoc.data(),
+                 m_localToGlobalBndMap.data(), tmpGlob.data());
     UniversalAssembleBnd(tmpGlob);
 
     int totGlobDof     = globCnt;

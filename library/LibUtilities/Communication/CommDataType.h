@@ -179,11 +179,11 @@ public:
     }
     static void *GetPointer(Array<OneD, elemT> &val)
     {
-        return val.get();
+        return val.data();
     }
     static const void *GetPointer(const Array<OneD, elemT> &val)
     {
-        return val.get();
+        return val.data();
     }
     static size_t GetCount(const Array<OneD, elemT> &val)
     {

@@ -95,3 +95,7 @@ IF (NEKTAR_USE_VTK)
     #    ADD_NEKTAR_TEST(chan3D_vtu_highorder)
     ENDIF()
 ENDIF()
+
+IF (NEKTAR_USE_LST)
+    ADD_NEKTAR_TEST(localStabilityAnalysis)
+ENDIF()

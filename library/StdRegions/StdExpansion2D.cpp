@@ -54,7 +54,6 @@ StdExpansion2D::StdExpansion2D(
 //----------------------------
 // Differentiation Methods
 //----------------------------
-
 NekDouble StdExpansion2D::v_PhysEvaluate(
     const Array<OneD, const NekDouble> &coords,
     const Array<OneD, const NekDouble> &physvals)
@@ -127,13 +126,13 @@ NekDouble StdExpansion2D::Integral(const Array<OneD, const NekDouble> &inarray,
     // multiply by integration constants
     for (i = 0; i < nquad1; ++i)
     {
-        Vmath::Vmul(nquad0, &inarray[0] + i * nquad0, 1, w0.get(), 1,
+        Vmath::Vmul(nquad0, &inarray[0] + i * nquad0, 1, w0.data(), 1,
                     &tmp[0] + i * nquad0, 1);
     }
 
     for (i = 0; i < nquad0; ++i)
     {
-        Vmath::Vmul(nquad1, &tmp[0] + i, nquad0, w1.get(), 1, &tmp[0] + i,
+        Vmath::Vmul(nquad1, &tmp[0] + i, nquad0, w1.data(), 1, &tmp[0] + i,
                     nquad0);
     }
     Int = Vmath::Vsum(nquad0 * nquad1, tmp, 1);
@@ -346,7 +345,7 @@ void StdExpansion2D::v_GetElmtTraceToTraceMap(
     }
     else
     {
-        std::fill(signarray.get(), signarray.get() + P, 1);
+        std::fill(signarray.data(), signarray.data() + P, 1);
     }
 
     // Zero signmap and set maparray to zero if
@@ -378,7 +377,7 @@ void StdExpansion2D::v_GetElmtTraceToTraceMap(
                                     "and element edge dimension not currently "
                                     "possible for GLL-Lagrange bases");
 
-            std::reverse(maparray.get(), maparray.get() + P);
+            std::reverse(maparray.data(), maparray.data() + P);
         }
         else
         {

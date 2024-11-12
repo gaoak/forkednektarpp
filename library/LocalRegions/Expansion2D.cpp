@@ -2069,10 +2069,10 @@ void Expansion2D::v_AddRobinMassMatrix(
             switch (edgeExp->GetBasis(0)->GetBasisType())
             {
                 case LibUtilities::eGauss_Lagrange:
-                    reverse(map.get(), map.get() + order_e);
+                    reverse(map.data(), map.data() + order_e);
                     break;
                 case LibUtilities::eGLL_Lagrange:
-                    reverse(map.get(), map.get() + order_e);
+                    reverse(map.data(), map.data() + order_e);
                     break;
                 case LibUtilities::eModified_A:
                 {

@@ -1462,7 +1462,7 @@ void StdPrismExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceCoeffs, 1);
     }
 
     int minPA = min(nummodesA, P);
@@ -1678,7 +1678,7 @@ void StdPrismExp::v_GetEdgeInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     // If edge is oriented backwards, change sign of modes which have
@@ -1793,7 +1793,7 @@ void StdPrismExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceIntCoeffs, 1);
     }
 
     // Set up an array indexing for quad faces, since the ordering may

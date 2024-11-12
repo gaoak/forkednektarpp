@@ -2835,7 +2835,7 @@ void MMFSWE::ConservativeToPrimitive(
 {
     int nq = GetTotPoints();
 
-    if (physin[0].get() == physout[0].get())
+    if (physin[0].data() == physout[0].data())
     {
         // copy indata and work with tmp array
         Array<OneD, Array<OneD, NekDouble>> tmp(3);
@@ -2875,7 +2875,7 @@ void MMFSWE::PrimitiveToConservative(
 
     int nq = GetTotPoints();
 
-    if (physin[0].get() == physout[0].get())
+    if (physin[0].data() == physout[0].data())
     {
         // copy indata and work with tmp array
         Array<OneD, Array<OneD, NekDouble>> tmp(3);

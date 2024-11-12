@@ -687,8 +687,8 @@ void StdPyrExp::v_IProductWRTDerivBase(
             // Scale eta_1 derivative by gfac0
             for (int i = 0; i < nquad1 * nquad2; ++i)
             {
-                Vmath::Vmul(nquad0, tmp0.get() + i * nquad0, 1, gfac0.get(), 1,
-                            tmp0.get() + i * nquad0, 1);
+                Vmath::Vmul(nquad0, tmp0.data() + i * nquad0, 1, gfac0.data(),
+                            1, tmp0.data() + i * nquad0, 1);
             }
             IProductWRTBaseKernel(m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
                                   m_base[2]->GetBdata(), tmp0, tmp3, one,
@@ -1462,7 +1462,7 @@ void StdPyrExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceCoeffs, 1);
     }
 
     // triangular faces
@@ -1677,7 +1677,7 @@ void StdPyrExp::v_GetEdgeInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     // If edge is oriented backwards, change sign of modes which have
@@ -1776,7 +1776,7 @@ void StdPyrExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceIntCoeffs, 1);
     }
 
     // Set up an array indexing for quad faces, since the ordering may

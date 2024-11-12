@@ -335,10 +335,10 @@ void DriverArpack::v_Execute(ostream &out)
     sigmai = 0;
 
     // Setting 'A', Ritz vectors are computed. 'S' for Shur vectors
-    Arpack::Dneupd(1, "A", ritzSelect.get(), dr.get(), di.get(), z.get(), n,
-                   sigmar, sigmai, workev.get(), &B, n, problem, m_nvec,
-                   m_evtol, resid.get(), m_kdim, v.get(), n, iparam, ipntr,
-                   workd.get(), workl.get(), lworkl, info);
+    Arpack::Dneupd(1, "A", ritzSelect.data(), dr.data(), di.data(), z.data(), n,
+                   sigmar, sigmai, workev.data(), &B, n, problem, m_nvec,
+                   m_evtol, resid.data(), m_kdim, v.data(), n, iparam, ipntr,
+                   workd.data(), workl.data(), lworkl, info);
 
     ASSERTL0(info == 0, " Error with Dneupd");
 

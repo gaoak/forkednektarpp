@@ -434,9 +434,8 @@ possibly also Reynolds stresses) into single file;
 \item \inltt{phifile}: Computes the $\Phi$ function representing a body defined
   in an \inltt{.stl} file. Useful for the Smoothed Profile Method solver;
 \item \inltt{wallNormalData}: Interpolate values for a set of points in the wall-normal direction (for e.g. extract boundary layer profiles);
-\item \inltt{bodyFittedVelocity}: Generate a body-fitted coordinate system and then
-  project the velocity components from Cartesian coordinate system into the new 
-  coordinate system;
+\item \inltt{bodyFittedVelocity}: Generate a body-fitted coordinate system and then  project the velocity components from Cartesian coordinate system into the new coordinate system;
+\item \inltt{localStabilityAnalysis}: Perform local (linear) stability analysis for 1D profiles, which is extracted using \inltt{wallNormalData} and \inltt{bodyFittedVelocity} modules.
 \item \inltt{averagefld}: Compute the averaging of several field files;
 \item \inltt{powerspectrum}: Compute power spectrum at given regions from a 3DH1D expansion;
 \item \inltt{zero-homo-plane}: Zero a specfied homogeneous plane in wavespace.
@@ -1536,6 +1535,107 @@ filter to process data. See \ref{filters:BodyFittedVelocity}.
 %
 %
 %
+
+\subsection{Perform local stability analysis: 
+\textit{localStabilityAnalysis} module}
+\label{s:utilities:fieldconvert:sub:localStabilityAnalysis}
+
+When studying flow/hydrodynamic instabilities for boundary layers or channel 
+flows, local stability analysis is always necessary. To perform the analysis 
+for compressible flows the users can run:  
+\begin{lstlisting}[style=BashInputStyle]
+  FieldConvert -m localStabilityAnalysis mesh.xml session.xml field.fld
+\end{lstlisting}
+
+In the first run the global analysis is performed where a spertra of eigenmodes 
+are sought, and the most unstable modes are saves in a file named PSEMULTF.DAT. 
+If the users run the command again, with the presence of PSEMULTF.DAT, local 
+analysis, which computes a more accurate eigenfunction, will be performed.
+If the user would like to run the analysis with sidderent freqnency/wavenumber, 
+PSEMULTF.DAT needs to be removed.
+
+Before running the above terminal command several parameters need to be set in
+the session.xml, for example
+\begin{lstlisting}[style=XmlStyle]
+  <PARAMETERS>
+    <P> INEUTRL             = 0                          </P>
+    <P> NGLOBAL             = 101                        </P>
+    <P> NLOCAL              = 221                        </P>
+    <P> ITOLRAY             = 5                          </P>
+    <P> BETALIN             = 0.0                        </P>
+    <P> FREQLIN             = 20000.0                    </P>
+    <P> RGAS                = 287.0                      </P>
+    <P> GAMMA               = 1.4                        </P>
+    <P> PRANDTL             = 0.72                       </P>
+  </PARAMETERS>
+  \end{lstlisting}
+  \begin{itemize}
+  \item \inltt{INEUTRL} is the flag for performing LST at a single point or sweep the parameters. 
+        \inltt{INEUTRL} = 1 to sweep.
+  \item \inltt{NGLOBAL} is the number of point to perform global analysis. By default $25$.
+  \item \inltt{NLOCAL} is the number of point to perform global analysis. By default $121$.
+  \item \inltt{ITOLRAY} is the order tolerance in Rayleigh iteration. \inltt{ITOLRAY} = $5$ means convergence to the $5$th digit.
+  \item \inltt{BETALIN} is the spanwise wavenumber in physical unit 1/m. It is set $0$ by default for two-dimensional analysis.
+  \item \inltt{FREQLIN} is the frequency of disturbances. It must be explicitly set in physical unit 1/s.
+  \item \inltt{RGAS} is the gas constant. By default $287.0$ J/(kg $\cdot$K).
+  \item \inltt{GAMMA} is the specific heat ratio. By default $1.4$
+  \item \inltt{PRANDTL} is the Prandtl number. By default $0.72$.
+  \end{itemize}
+
+Note that a baseflow profile in PSEMEAN.PRO file is necessary for local stability analysis. The baseflow data can be ontabined using the \inltt{wallNormalData} module (and \inltt{bodyFittedVelocity} module if the gemetry is curved).
+It is convenient to use \inltt{wallNormalData} module in NekPy interface, and then saving the profile data to the following format is easy.
+PSEMEAN.PRO takes the format:
+\begin{lstlisting}
+  Line 1: Title
+  line 2: Uo, Mo, Ro, To, c, Sweep, Wo
+  Line 3: 1
+  Line 4: 1, Npoint, x, 0, 0, 0, 0, 0, 0, 0, 0
+  Line 5: Ue, Me, Re, Te, Delta, Pe, 0
+  Line 6: Y, U, DUDY, D2UDYY, 0, 0, 0, 0, W, DWDY, D2WDYY, 0, 0, 0, T, DTDY, D2TDYY, 0, 0, 0, 0, 0, 0 
+  Line 7: ...
+  Line 8: ...
+  \end{lstlisting}
+In the above, Line 1-5 are flow conditions in physical units. Line 6 is the data for the first point of the baseflow profile (on the wall). 
+From Line 7 are the data for the following points (Npoint data lines including Line 6). The commas are not displayed. 
+In addition, the definitions for the rest parameters are
+  \begin{itemize}
+  \item \inltt{Uo} free-stream velocity (m/s) normal to wing.
+  \item \inltt{Mo} free-stream Mach no., normal to wing.
+  \item \inltt{Ro} free-stream Reynolds no. based on chord c and Uo.
+  \item \inltt{To} free-stream temperature (K).
+  \item \inltt{c} reference length scale. (m).
+  \item \inltt{Sweep} wing sweep in degrees.
+  \item \inltt{Uo} free-stream velocity (m/s) in spanwise direction.
+  \item \inltt{Npoint} no. of boundary-layer points normal to surface.
+  \item \inltt{x} non-dimensional chordwise position (dimensionalised with c).
+  \item \inltt{Ue} local velocity at edge of boundary-layer (m/s).
+  \item \inltt{Me} local Mach No. at edge of boundary-layer.
+  \item \inltt{Re} local Reynolds no. based on Delta.
+  \item \inltt{Te} local edge temperature (K).
+  \item \inltt{Delta} boundary-layer thickness (m). It is used a reference length.
+  \item \inltt{Pe} local edge pressure (dimensionalised with Ue and edge density);
+  \end{itemize}
+
+In cases when the users need to sweep a renge of parameters, i.e. frqeuencies 
+and spanwise wavenumberes, the following commands can be used, where 
+\inltt{opt}=6 for frequency sweep, =7 for spanwise wavenumber sweep, =8 for 
+frequency and wavenumber sweep.
+
+\begin{lstlisting}[style=BashInputStyle]
+  FieldConvert -m localStabilityAnalysis:opt=6:finVal1=0.05:numStep1=200 mesh.xml session.xml field.fld
+\end{lstlisting}
+
+\begin{lstlisting}[style=BashInputStyle]
+  FieldConvert -m localStabilityAnalysis:opt=8:finVal1=0.6:numStep1=50:finVal2=0.3:numStep2=100 mesh.xml session.xml field.fld
+\end{lstlisting}
+
+In the above, the paramtric sweep will start from the frequency and spanwise 
+wavenumber specified in the session.xml, and \inltt{finVal1} is the final
+value, \inltt{numStep1} is the number of the steps. When sweeping frequency and
+spanwise wavenumber at the same time (\inltt{opt=8}), \inltt{finVal1} is for 
+frequency and \inltt{finVal2} is for spanwise wavenumber. Only in the last case
+\inltt{finVal2} and \inltt{numStep2} should be set.
+
 
 \subsection{Zero a homogeneous plane in wavespace: \textit{zero-homo-plane} module}
 \label{s:utilities:fieldconvert:sub:zero-homo-plane}

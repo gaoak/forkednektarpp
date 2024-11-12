@@ -8,13 +8,13 @@
     </files>
     <metrics>
         <metric type="L2" id="1">
-            <value variable="u" tolerance="1e-6"> 0.000902596 </value>
+            <value variable="u" tolerance="1e-6">0.000455961</value>
         </metric>
         <metric type="Linf" id="2">
-            <value variable="u" tolerance="1e-6"> 0.024387 </value>
+            <value variable="u" tolerance="1e-6">0.00297549</value>
         </metric>
         <metric type="ExecutionTime" id="3">
-            <value tolerance="2e-1" hostname="42.debian-bullseye-performance-build-and-test">3.56099</value>
+            <value tolerance="2e-1" hostname="42.debian-bullseye-performance-build-and-test">3.61641</value>
         </metric>
     </metrics>
 </test>

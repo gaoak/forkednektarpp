@@ -2417,7 +2417,7 @@ void ExpList::MultiplyByElmtInvMass(const Array<OneD, const NekDouble> &inarray,
 
     // Inverse mass matrix
     NekVector<NekDouble> out(m_ncoeffs, outarray, eWrapper);
-    if (inarray.get() == outarray.get())
+    if (inarray.data() == outarray.data())
     {
         NekVector<NekDouble> in(m_ncoeffs, inarray); // copy data
         out = (*InvMass) * in;

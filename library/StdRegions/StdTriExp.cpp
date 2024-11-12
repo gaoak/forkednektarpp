@@ -392,7 +392,7 @@ void StdTriExp::v_FwdTransBndConstrained(
     int npoints[2] = {m_base[0]->GetNumPoints(), m_base[1]->GetNumPoints()};
     int nmodes[2]  = {m_base[0]->GetNumModes(), m_base[1]->GetNumModes()};
 
-    fill(outarray.get(), outarray.get() + m_ncoeffs, 0.0);
+    fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
     Array<OneD, NekDouble> physEdge[3];
     Array<OneD, NekDouble> coeffEdge[3];
@@ -465,7 +465,7 @@ void StdTriExp::v_FwdTransBndConstrained(
     }
 
     Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, 1.0, &(matsys->GetPtr())[0],
-                nInteriorDofs, rhs.get(), 1, 0.0, result.get(), 1);
+                nInteriorDofs, rhs.data(), 1, 0.0, result.data(), 1);
 
     for (i = 0; i < nInteriorDofs; i++)
     {
@@ -817,14 +817,14 @@ void StdTriExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
     {
         for (i = 0; i < nquad1; ++i)
         {
-            Vmath::Vcopy(nquad0, (NekDouble *)(base0.get() + mode0 * nquad0), 1,
-                         &outarray[0] + i * nquad0, 1);
+            Vmath::Vcopy(nquad0, (NekDouble *)(base0.data() + mode0 * nquad0),
+                         1, &outarray[0] + i * nquad0, 1);
         }
     }
 
     for (i = 0; i < nquad0; ++i)
     {
-        Vmath::Vmul(nquad1, (NekDouble *)(base1.get() + mode * nquad1), 1,
+        Vmath::Vmul(nquad1, (NekDouble *)(base1.data() + mode * nquad1), 1,
                     &outarray[0] + i, nquad0, &outarray[0] + i, nquad0);
     }
 }
@@ -1353,7 +1353,7 @@ void StdTriExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     switch (eid)

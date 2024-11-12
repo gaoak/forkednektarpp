@@ -2804,13 +2804,13 @@ void AssemblyMapCG::v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
 
     if (m_signChange)
     {
-        Vmath::Scatr(m_numLocalCoeffs, m_localToGlobalSign.get(), local.get(),
-                     m_localToGlobalMap.get(), global.get());
+        Vmath::Scatr(m_numLocalCoeffs, m_localToGlobalSign.data(), local.data(),
+                     m_localToGlobalMap.data(), global.data());
     }
     else
     {
-        Vmath::Scatr(m_numLocalCoeffs, local.get(), m_localToGlobalMap.get(),
-                     global.get());
+        Vmath::Scatr(m_numLocalCoeffs, local.data(), m_localToGlobalMap.data(),
+                     global.data());
     }
 
     // ensure all values are unique by calling a max
@@ -2842,13 +2842,13 @@ void AssemblyMapCG::v_GlobalToLocal(const Array<OneD, const NekDouble> &global,
 
     if (m_signChange)
     {
-        Vmath::Gathr(m_numLocalCoeffs, m_localToGlobalSign.get(), glo.get(),
-                     m_localToGlobalMap.get(), loc.get());
+        Vmath::Gathr(m_numLocalCoeffs, m_localToGlobalSign.data(), glo.data(),
+                     m_localToGlobalMap.data(), loc.data());
     }
     else
     {
-        Vmath::Gathr(m_numLocalCoeffs, glo.get(), m_localToGlobalMap.get(),
-                     loc.get());
+        Vmath::Gathr(m_numLocalCoeffs, glo.data(), m_localToGlobalMap.data(),
+                     loc.data());
     }
 }
 
@@ -2871,17 +2871,17 @@ void AssemblyMapCG::v_Assemble(const Array<OneD, const NekDouble> &loc,
         local = loc; // create reference
     }
 
-    Vmath::Zero(m_numGlobalCoeffs, global.get(), 1);
+    Vmath::Zero(m_numGlobalCoeffs, global.data(), 1);
 
     if (m_signChange)
     {
-        Vmath::Assmb(m_numLocalCoeffs, m_localToGlobalSign.get(), local.get(),
-                     m_localToGlobalMap.get(), global.get());
+        Vmath::Assmb(m_numLocalCoeffs, m_localToGlobalSign.data(), local.data(),
+                     m_localToGlobalMap.data(), global.data());
     }
     else
     {
-        Vmath::Assmb(m_numLocalCoeffs, local.get(), m_localToGlobalMap.get(),
-                     global.get());
+        Vmath::Assmb(m_numLocalCoeffs, local.data(), m_localToGlobalMap.data(),
+                     global.data());
     }
     UniversalAssemble(global);
 }

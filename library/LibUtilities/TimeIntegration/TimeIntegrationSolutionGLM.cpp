@@ -59,7 +59,7 @@ TimeIntegrationSolutionGLM::TimeIntegrationSolutionGLM(
             m_solVector[i][j] = Array<OneD, NekDouble>(npoints, 0.0);
             if (i == 0)
             {
-                Vmath::Vcopy(npoints, y[j].get(), 1, m_solVector[i][j].get(),
+                Vmath::Vcopy(npoints, y[j].data(), 1, m_solVector[i][j].data(),
                              1);
             }
         }

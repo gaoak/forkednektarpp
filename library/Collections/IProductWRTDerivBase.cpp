@@ -148,8 +148,8 @@ public:
         Blas::Dgemm('N', 'N', m_iProdWRTStdDBase[0]->GetRows(), m_numElmt,
                     m_iProdWRTStdDBase[0]->GetColumns(), 1.0,
                     m_iProdWRTStdDBase[0]->GetRawPtr(),
-                    m_iProdWRTStdDBase[0]->GetRows(), tmp[0].get(), nPhys, 0.0,
-                    output.get(), nmodes);
+                    m_iProdWRTStdDBase[0]->GetRows(), tmp[0].data(), nPhys, 0.0,
+                    output.data(), nmodes);
 
         // Other components
         for (int i = 1; i < m_dim; ++i)
@@ -170,8 +170,8 @@ public:
             Blas::Dgemm('N', 'N', m_iProdWRTStdDBase[i]->GetRows(), m_numElmt,
                         m_iProdWRTStdDBase[i]->GetColumns(), 1.0,
                         m_iProdWRTStdDBase[i]->GetRawPtr(),
-                        m_iProdWRTStdDBase[i]->GetRows(), tmp[i].get(), nPhys,
-                        1.0, output.get(), nmodes);
+                        m_iProdWRTStdDBase[i]->GetRows(), tmp[i].data(), nPhys,
+                        1.0, output.data(), nmodes);
         }
     }
 
@@ -763,7 +763,7 @@ public:
 
         // out = B0*in;
         Blas::Dgemm('T', 'N', m_nmodes0, m_numElmt, m_nquad0, 1.0,
-                    m_derbase0.get(), m_nquad0, &wsp[0], m_nquad0, 0.0,
+                    m_derbase0.data(), m_nquad0, &wsp[0], m_nquad0, 0.0,
                     &output[0], m_nmodes0);
     }
 
@@ -1042,13 +1042,13 @@ public:
         for (int i = 0; i < m_numElmt; ++i)
         {
             // scale tmp[0] by geometric factor: 2/(1-z1)
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].get() + i * nPhys, 1,
-                        tmp[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].data() + i * nPhys, 1,
+                        tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[1] by geometric factor (1+z0)/(1-z1)
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[1].get() + i * nPhys, 1,
-                         tmp[0].get() + i * nPhys, 1, tmp[0].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[1].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1);
         }
 
         // Iproduct wrt derivative of base 0
@@ -1433,26 +1433,26 @@ public:
         for (int i = 0; i < m_numElmt; ++i)
         {
             // add tmp[1] + tmp[2]
-            Vmath::Vadd(nPhys, tmp[1].get() + i * nPhys, 1,
-                        tmp[2].get() + i * nPhys, 1, wsp1.get(), 1);
+            Vmath::Vadd(nPhys, tmp[1].data() + i * nPhys, 1,
+                        tmp[2].data() + i * nPhys, 1, wsp1.data(), 1);
 
             // scale wsp1 by fac1 and add to tmp0
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, wsp1.get(), 1,
-                         tmp[0].get() + i * nPhys, 1, tmp[0].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, wsp1.data(), 1,
+                         tmp[0].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[0] by fac0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].get() + i * nPhys, 1,
-                        tmp[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].data() + i * nPhys, 1,
+                        tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[2] by fac3 and add to tmp1
-            Vmath::Vvtvp(nPhys, &m_fac3[0], 1, tmp[2].get() + i * nPhys, 1,
-                         tmp[1].get() + i * nPhys, 1, tmp[1].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac3[0], 1, tmp[2].data() + i * nPhys, 1,
+                         tmp[1].data() + i * nPhys, 1,
+                         tmp[1].data() + i * nPhys, 1);
 
             // scale tmp[1] by fac2
-            Vmath::Vmul(nPhys, &m_fac2[0], 1, tmp[1].get() + i * nPhys, 1,
-                        tmp[1].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac2[0], 1, tmp[1].data() + i * nPhys, 1,
+                        tmp[1].data() + i * nPhys, 1);
         }
 
         // calculate Iproduct WRT Std Deriv
@@ -1691,13 +1691,13 @@ public:
         for (int i = 0; i < m_numElmt; ++i)
         {
             // scale tmp[0] by fac0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].get() + i * nPhys, 1,
-                        tmp[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].data() + i * nPhys, 1,
+                        tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[2] by fac1 and add to tmp0
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[2].get() + i * nPhys, 1,
-                         tmp[0].get() + i * nPhys, 1, tmp[0].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[2].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1);
         }
 
         // calculate Iproduct WRT Std Deriv
@@ -1936,22 +1936,22 @@ public:
         for (int i = 0; i < m_numElmt; ++i)
         {
             // scale tmp[0] by fac0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].get() + i * nPhys, 1,
-                        tmp[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[0].data() + i * nPhys, 1,
+                        tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[2] by fac1 and add to tmp0
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[2].get() + i * nPhys, 1,
-                         tmp[0].get() + i * nPhys, 1, tmp[0].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, tmp[2].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1,
+                         tmp[0].data() + i * nPhys, 1);
 
             // scale tmp[1] by fac0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[1].get() + i * nPhys, 1,
-                        tmp[1].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, tmp[1].data() + i * nPhys, 1,
+                        tmp[1].data() + i * nPhys, 1);
 
             // scale tmp[2] by fac2 and add to tmp1
-            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, tmp[2].get() + i * nPhys, 1,
-                         tmp[1].get() + i * nPhys, 1, tmp[1].get() + i * nPhys,
-                         1);
+            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, tmp[2].data() + i * nPhys, 1,
+                         tmp[1].data() + i * nPhys, 1,
+                         tmp[1].data() + i * nPhys, 1);
         }
 
         // calculate Iproduct WRT Std Deriv

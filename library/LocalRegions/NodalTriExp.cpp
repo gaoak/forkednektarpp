@@ -256,8 +256,8 @@ void NodalTriExp::IProductWRTDerivBase_MatOp(
     DNekScalMatSharedPtr iprodmat = m_matrixManager[iprodmatkey];
 
     Blas::Dgemv('N', m_ncoeffs, nq, iprodmat->Scale(),
-                (iprodmat->GetOwnedMatrix())->GetPtr().get(), m_ncoeffs,
-                inarray.get(), 1, 0.0, outarray.get(), 1);
+                (iprodmat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
+                inarray.data(), 1, 0.0, outarray.data(), 1);
 }
 
 ///////////////////////////////
@@ -363,20 +363,20 @@ void NodalTriExp::GeneralMatrixOp_MatOp(
 {
     DNekScalMatSharedPtr mat = GetLocMatrix(mkey);
 
-    if (inarray.get() == outarray.get())
+    if (inarray.data() == outarray.data())
     {
         Array<OneD, NekDouble> tmp(m_ncoeffs);
-        Vmath::Vcopy(m_ncoeffs, inarray.get(), 1, tmp.get(), 1);
+        Vmath::Vcopy(m_ncoeffs, inarray.data(), 1, tmp.data(), 1);
 
         Blas::Dgemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
-                    (mat->GetOwnedMatrix())->GetPtr().get(), m_ncoeffs,
-                    tmp.get(), 1, 0.0, outarray.get(), 1);
+                    (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
+                    tmp.data(), 1, 0.0, outarray.data(), 1);
     }
     else
     {
         Blas::Dgemv('N', m_ncoeffs, m_ncoeffs, mat->Scale(),
-                    (mat->GetOwnedMatrix())->GetPtr().get(), m_ncoeffs,
-                    inarray.get(), 1, 0.0, outarray.get(), 1);
+                    (mat->GetOwnedMatrix())->GetPtr().data(), m_ncoeffs,
+                    inarray.data(), 1, 0.0, outarray.data(), 1);
     }
 }
 

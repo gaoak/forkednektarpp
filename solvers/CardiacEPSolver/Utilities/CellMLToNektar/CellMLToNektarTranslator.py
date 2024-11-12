@@ -946,11 +946,11 @@ class CellMLToNektarTranslator(translators.CellMLTranslator):
         # Method to get the table instance object
         self.writeln('static ', self.lt_class_name, '* Instance()')
         self.open_block()
-        self.writeln('if (mpInstance.get() == NULL)')
+        self.writeln('if (mpInstance.data() == NULL)')
         self.writeln('{')
         self.writeln('mpInstance.reset(new ', self.lt_class_name, ');', indent_offset=1)
         self.writeln('}')
-        self.writeln('return mpInstance.get();')
+        self.writeln('return mpInstance.data();')
         self.close_block()
         # Method to free the table memory
         self.writeln('void FreeMemory()')
@@ -973,7 +973,7 @@ class CellMLToNektarTranslator(translators.CellMLTranslator):
         # Constructor
         self.writeln(self.lt_class_name, '()')
         self.open_block()
-        self.writeln('assert(mpInstance.get() == NULL);')
+        self.writeln('assert(mpInstance.data() == NULL);')
         if self.config.options.include_dt_in_tables:
             self.writeln('mDt = HeartConfig::Instance()->GetOdeTimeStep();')
             self.writeln('assert(mDt > 0.0);')

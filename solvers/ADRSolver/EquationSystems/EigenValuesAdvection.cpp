@@ -245,8 +245,8 @@ void EigenValuesAdvection::v_DoSolve()
 
     Array<OneD, NekDouble> work(lwork);
 
-    Lapack::Dgeev(jobvl, jobvr, npoints, MATRIX.get(), npoints, EIG_R.get(),
-                  EIG_I.get(), &dum, 1, &dum, 1, &work[0], lwork, info);
+    Lapack::Dgeev(jobvl, jobvr, npoints, MATRIX.data(), npoints, EIG_R.data(),
+                  EIG_I.data(), &dum, 1, &dum, 1, &work[0], lwork, info);
 
     ////////////////////////////////////////////////////////
     // Print Matrix

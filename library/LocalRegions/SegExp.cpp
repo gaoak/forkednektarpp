@@ -409,7 +409,7 @@ void SegExp::v_FwdTransBndConstrained(
                                 "for this expansion type");
         }
 
-        fill(outarray.get(), outarray.get() + m_ncoeffs, 0.0);
+        fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
         if (m_base[0]->GetBasisType() != LibUtilities::eGauss_Lagrange)
         {
@@ -439,8 +439,8 @@ void SegExp::v_FwdTransBndConstrained(
 
                 Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, matsys->Scale(),
                             &((matsys->GetOwnedMatrix())->GetPtr())[0],
-                            nInteriorDofs, tmp1.get() + offset, 1, 0.0,
-                            outarray.get() + offset, 1);
+                            nInteriorDofs, tmp1.data() + offset, 1, 0.0,
+                            outarray.data() + offset, 1);
             }
         }
         else
@@ -659,7 +659,7 @@ void SegExp::v_GetVertexPhysVals(const int vertex,
         DNekScalMatSharedPtr mat_gauss = m_matrixManager[key];
 
         outarray =
-            Blas::Ddot(nquad, mat_gauss->GetOwnedMatrix()->GetPtr().get(), 1,
+            Blas::Ddot(nquad, mat_gauss->GetOwnedMatrix()->GetPtr().data(), 1,
                        &inarray[0], 1);
     }
 }
@@ -878,12 +878,12 @@ void SegExp::v_LaplacianMatrixOp(
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -896,16 +896,16 @@ void SegExp::v_LaplacianMatrixOp(
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -919,20 +919,20 @@ void SegExp::v_LaplacianMatrixOp(
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[2][0], 1, dPhysValuesdz.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[2][0], 1, dPhysValuesdz.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -976,12 +976,12 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -994,16 +994,16 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -1017,20 +1017,20 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
             // multiply with the proper geometric factors
             if (m_metricinfo->GetGtype() == SpatialDomains::eDeformed)
             {
-                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
-                Vmath::Vvtvp(nquad, &gmat[2][0], 1, dPhysValuesdz.get(), 1,
-                             dPhysValuesdx.get(), 1, dPhysValuesdx.get(), 1);
+                Vmath::Vmul(nquad, &gmat[0][0], 1, dPhysValuesdx.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[1][0], 1, dPhysValuesdy.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
+                Vmath::Vvtvp(nquad, &gmat[2][0], 1, dPhysValuesdz.data(), 1,
+                             dPhysValuesdx.data(), 1, dPhysValuesdx.data(), 1);
             }
             else
             {
-                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.get(), 1,
-                            dPhysValuesdx.get(), 1);
-                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.get(), 1,
-                            dPhysValuesdx.get(), 1);
+                Blas::Dscal(nquad, gmat[0][0], dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[1][0], dPhysValuesdy.data(), 1,
+                            dPhysValuesdx.data(), 1);
+                Blas::Daxpy(nquad, gmat[2][0], dPhysValuesdz.data(), 1,
+                            dPhysValuesdx.data(), 1);
             }
         }
         break;
@@ -1044,7 +1044,7 @@ void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
     const bool Deformed = m_metricinfo->GetGtype() == SpatialDomains::eDeformed;
     StdSegExp::IProductWRTBaseKernel(m_base[0]->GetDbdata(), dPhysValuesdx,
                                      outarray, jac, Deformed);
-    Blas::Daxpy(m_ncoeffs, lambda, wsp.get(), 1, outarray.get(), 1);
+    Blas::Daxpy(m_ncoeffs, lambda, wsp.data(), 1, outarray.data(), 1);
 }
 
 //-----------------------------

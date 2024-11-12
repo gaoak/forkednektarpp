@@ -1163,7 +1163,7 @@ void CompressibleFlowSystem::EvaluateIsentropicVortex(
             0.5 * (u[1][i + o] * u[1][i + o] + u[2][i + o] * u[2][i + o]) /
                 u[0][i + o];
     }
-    Vmath::Vcopy(nTotQuadPoints, u[field].get(), 1, outfield.get(), 1);
+    Vmath::Vcopy(nTotQuadPoints, u[field].data(), 1, outfield.data(), 1);
 }
 
 /**

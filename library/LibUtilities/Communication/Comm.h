@@ -456,7 +456,7 @@ void Comm::AllGatherv(T &pSendData, T &pRecvData,
     v_AllGatherv(CommDataTypeTraits<T>::GetPointer(pSendData), sendSize,
                  CommDataTypeTraits<T>::GetDataType(),
                  CommDataTypeTraits<T>::GetPointer(pRecvData),
-                 pRecvDataSizeMap.get(), pRecvDataOffsetMap.get(),
+                 pRecvDataSizeMap.data(), pRecvDataOffsetMap.data(),
                  CommDataTypeTraits<T>::GetDataType());
 }
 
@@ -472,7 +472,7 @@ void Comm::AllGatherv(T &pRecvData, Array<OneD, int> &pRecvDataSizeMap,
         "AllGatherv only valid with Array or vector arguments.");
 
     v_AllGatherv(CommDataTypeTraits<T>::GetPointer(pRecvData),
-                 pRecvDataSizeMap.get(), pRecvDataOffsetMap.get(),
+                 pRecvDataSizeMap.data(), pRecvDataOffsetMap.data(),
                  CommDataTypeTraits<T>::GetDataType());
 }
 

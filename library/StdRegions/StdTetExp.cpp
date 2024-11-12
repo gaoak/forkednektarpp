@@ -1586,7 +1586,7 @@ void StdTetExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceCoeffs, 1);
     }
 
     // zero signmap and set maparray to zero if elemental
@@ -1665,7 +1665,7 @@ void StdTetExp::v_GetEdgeInteriorToElementMap(
     }
     else
     {
-        fill(maparray.get(), maparray.get() + nEdgeIntCoeffs, 0);
+        fill(maparray.data(), maparray.data() + nEdgeIntCoeffs, 0);
     }
 
     if (signarray.size() != nEdgeIntCoeffs)
@@ -1674,7 +1674,7 @@ void StdTetExp::v_GetEdgeInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     switch (eid)
@@ -1785,7 +1785,7 @@ void StdTetExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceIntCoeffs, 1);
     }
 
     switch (fid)

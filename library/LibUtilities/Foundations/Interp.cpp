@@ -92,7 +92,7 @@ void Interp1D(const PointsKey &fpoints0, const NekDouble *from,
         I0 = PointsManager()[fpoints0]->GetI(tpoints0);
 
         Blas::Dgemv('N', tpoints0.GetNumPoints(), fpoints0.GetNumPoints(), 1.0,
-                    I0->GetPtr().get(), tpoints0.GetNumPoints(), from, 1, 0.0,
+                    I0->GetPtr().data(), tpoints0.GetNumPoints(), from, 1, 0.0,
                     to, 1);
     }
 }
@@ -137,24 +137,24 @@ void Interp2D(const PointsKey &fpoints0, const PointsKey &fpoints1,
 
     if (fpoints1 == tpoints1)
     {
-        Vmath::Vcopy(fnp0 * tnp1, from, 1, wsp.get(), 1);
+        Vmath::Vcopy(fnp0 * tnp1, from, 1, wsp.data(), 1);
     }
     else
     {
         I1 = PointsManager()[fpoints1]->GetI(tpoints1);
         Blas::Dgemm('N', 'T', fnp0, tnp1, fnp1, 1.0, from, fnp0,
-                    I1->GetPtr().get(), tnp1, 0.0, wsp.get(), fnp0);
+                    I1->GetPtr().data(), tnp1, 0.0, wsp.data(), fnp0);
     }
 
     if (fpoints0 == tpoints0)
     {
-        Vmath::Vcopy(tnp0 * tnp1, wsp.get(), 1, to, 1);
+        Vmath::Vcopy(tnp0 * tnp1, wsp.data(), 1, to, 1);
     }
     else
     {
         I0 = PointsManager()[fpoints0]->GetI(tpoints0);
-        Blas::Dgemm('N', 'N', tnp0, tnp1, fnp0, 1.0, I0->GetPtr().get(), tnp0,
-                    wsp.get(), fnp0, 0.0, to, tnp0);
+        Blas::Dgemm('N', 'N', tnp0, tnp1, fnp0, 1.0, I0->GetPtr().data(), tnp0,
+                    wsp.data(), fnp0, 0.0, to, tnp0);
     }
 }
 
@@ -201,18 +201,18 @@ void Interp3D(const PointsKey &fpoints0, const PointsKey &fpoints1,
     I1 = PointsManager()[fpoints1]->GetI(tpoints1);
     I2 = PointsManager()[fpoints2]->GetI(tpoints2);
 
-    Blas::Dgemm('N', 'N', tnp0, fnp1 * fnp2, fnp0, 1.0, I0->GetPtr().get(),
-                tnp0, from, fnp0, 0.0, wsp2.get(), tnp0);
+    Blas::Dgemm('N', 'N', tnp0, fnp1 * fnp2, fnp0, 1.0, I0->GetPtr().data(),
+                tnp0, from, fnp0, 0.0, wsp2.data(), tnp0);
 
     for (i = 0; i < fnp2; i++)
     {
         Blas::Dgemm('N', 'T', tnp0, tnp1, fnp1, 1.0,
-                    wsp2.get() + i * tnp0 * fnp1, tnp0, I1->GetPtr().get(),
-                    tnp1, 0.0, wsp1.get() + i * tnp0 * tnp1, tnp0);
+                    wsp2.data() + i * tnp0 * fnp1, tnp0, I1->GetPtr().data(),
+                    tnp1, 0.0, wsp1.data() + i * tnp0 * tnp1, tnp0);
     }
 
-    Blas::Dgemm('N', 'T', tnp0 * tnp1, tnp2, fnp2, 1.0, wsp1.get(), tnp0 * tnp1,
-                I2->GetPtr().get(), tnp2, 0.0, to, tnp0 * tnp1);
+    Blas::Dgemm('N', 'T', tnp0 * tnp1, tnp2, fnp2, 1.0, wsp1.data(),
+                tnp0 * tnp1, I2->GetPtr().data(), tnp2, 0.0, to, tnp0 * tnp1);
 }
 
 } // namespace Nektar::LibUtilities

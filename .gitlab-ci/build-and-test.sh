@@ -48,6 +48,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
                "-DNEKTAR_USE_CWIPI:BOOL=ON"
                "-DNEKTAR_USE_VTK:BOOL=ON"
                "-DNEKTAR_BUILD_REDESIGN:BOOL=ON"
+	       "-DNEKTAR_USE_LST:BOOL=ON"
                "-DNEKTAR_BUILD_PYTHON:BOOL=ON"
                "-DNEKTAR_TEST_USE_HOSTFILE=ON"
                "-DNEKTAR_UTILITY_EXTRAS=ON"

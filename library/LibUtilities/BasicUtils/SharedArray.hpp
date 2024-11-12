@@ -357,7 +357,7 @@ public:
     }
 
     /// \brief Returns a c-style pointer to the underlying array.
-    const element *get() const
+    [[deprecated("since 5.7.0, use data() instead")]] const element *get() const
     {
         return m_data + m_offset;
     }
@@ -411,10 +411,10 @@ public:
     /// \brief Returns true is this array and rhs overlap.
     bool Overlaps(const Array<OneD, const DataType> &rhs) const
     {
-        const element *start = get();
+        const element *start = data();
         const element *end   = start + m_size;
 
-        const element *rhs_start = rhs.get();
+        const element *rhs_start = rhs.data();
         const element *rhs_end   = rhs_start + rhs.size();
 
         return (rhs_start >= start && rhs_start <= end) ||
@@ -565,7 +565,7 @@ public:
     {
         return (*m_data)[i];
     }
-    const element *get() const
+    [[deprecated("since 5.7.0, use data() instead")]] const element *get() const
     {
         return m_data->data();
     }
@@ -584,14 +584,6 @@ public:
     // m_data is a shared_ptr to a boost::multi_array_ref
     size_type size() const
     {
-        return m_data->num_elements();
-    }
-    // deprecated interface
-    [[deprecated("since 5.1.0, use size() instead")]] size_type num_elements()
-        const
-    {
-        WARNINGL1(false, "member function num_elements() is deprecated, "
-                         "use size() instead.");
         return m_data->num_elements();
     }
 
@@ -725,11 +717,11 @@ public:
                  std::string("Element ") + std::to_string(i) +
                      std::string(" requested in an array of size ") +
                      std::to_string(this->size()));
-        return (get())[i];
+        return (data())[i];
     }
 
     using BaseType::get;
-    element *get()
+    [[deprecated("since 5.7.0, use data() instead")]] element *get()
     {
         return this->m_data + this->m_offset;
     }
@@ -818,7 +810,7 @@ public:
     }
 
     using BaseType::get;
-    element *get()
+    [[deprecated("since 5.7.0, use data() instead")]] element *get()
     {
         return this->m_data->data();
     }

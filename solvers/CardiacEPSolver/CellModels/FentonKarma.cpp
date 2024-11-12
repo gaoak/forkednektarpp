@@ -655,7 +655,7 @@ void FentonKarma::v_Update(
     Array<OneD, Array<OneD, NekDouble>> &outarray,
     [[maybe_unused]] const NekDouble time)
 {
-    ASSERTL0(inarray.get() != outarray.get(),
+    ASSERTL0(inarray.data() != outarray.data(),
              "Must have different arrays for input and output.");
 
     // Variables

@@ -130,7 +130,7 @@ void FullBlockMatrixMultiply(
         result_ptr[i] = DataType(0);
     }
     Array<OneD, DataType> temp(result.GetDimension());
-    DataType *temp_ptr = temp.get();
+    DataType *temp_ptr = temp.data();
 
     unsigned int curResultRow = 0;
     for (unsigned int blockRow = 0; blockRow < numberOfBlockRows; ++blockRow)

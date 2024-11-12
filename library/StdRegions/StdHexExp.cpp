@@ -676,7 +676,7 @@ void StdHexExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
 
     for (int i = 0; i < nquad1 * nquad2; ++i)
     {
-        Vmath::Vcopy(nquad0, (NekDouble *)(base0.get() + mode0 * nquad0), 1,
+        Vmath::Vcopy(nquad0, (NekDouble *)(base0.data() + mode0 * nquad0), 1,
                      &outarray[0] + i * nquad0, 1);
     }
 
@@ -684,7 +684,7 @@ void StdHexExp::v_FillMode(const int mode, Array<OneD, NekDouble> &outarray)
     {
         for (int i = 0; i < nquad0; ++i)
         {
-            Vmath::Vmul(nquad1, (NekDouble *)(base1.get() + mode1 * nquad1), 1,
+            Vmath::Vmul(nquad1, (NekDouble *)(base1.data() + mode1 * nquad1), 1,
                         &outarray[0] + i + j * nquad0 * nquad1, nquad0,
                         &outarray[0] + i + j * nquad0 * nquad1, nquad0);
         }
@@ -1238,7 +1238,7 @@ void StdHexExp::v_GetBoundaryMap(Array<OneD, unsigned int> &outarray)
         }
     }
 
-    sort(outarray.get(), outarray.get() + nBndCoeffs);
+    sort(outarray.data(), outarray.data() + nBndCoeffs);
 }
 
 NekDouble StdHexExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
@@ -1453,7 +1453,7 @@ void StdHexExp::v_GetElmtTraceToTraceMap(const unsigned int fid,
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceCoeffs, 1);
     }
 
     // setup indexing to manage transpose directions
@@ -1700,7 +1700,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     int nummodes[3] = {m_base[0]->GetNumModes(), m_base[1]->GetNumModes(),
@@ -1947,7 +1947,7 @@ void StdHexExp::v_GetEdgeInteriorToElementMap(
 
     if (reverseOrdering)
     {
-        reverse(maparray.get(), maparray.get() + nEdgeIntCoeffs);
+        reverse(maparray.data(), maparray.data() + nEdgeIntCoeffs);
     }
 
     if (signChange)
@@ -1992,7 +1992,7 @@ void StdHexExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nFaceIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nFaceIntCoeffs, 1);
     }
 
     int nummodes[3] = {m_base[0]->GetNumModes(), m_base[1]->GetNumModes(),

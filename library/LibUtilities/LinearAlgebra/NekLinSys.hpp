@@ -85,7 +85,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dgetrs('N', n, 1, A.get(), n, (int *)m_ipivot.get(),
+                Lapack::Dgetrs('N', n, 1, A.data(), n, (int *)m_ipivot.data(),
                                x.GetRawPtr(), n, info);
                 if (info < 0)
                 {
@@ -106,7 +106,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dtptrs('U', m_transposeFlag, 'N', n, 1, A.get(),
+                Lapack::Dtptrs('U', m_transposeFlag, 'N', n, 1, A.data(),
                                x.GetRawPtr(), n, info);
 
                 if (info < 0)
@@ -129,7 +129,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dtptrs('L', m_transposeFlag, 'N', n, 1, A.get(),
+                Lapack::Dtptrs('L', m_transposeFlag, 'N', n, 1, A.data(),
                                x.GetRawPtr(), n, info);
 
                 if (info < 0)
@@ -152,7 +152,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dsptrs('U', n, 1, A.get(), m_ipivot.get(),
+                Lapack::Dsptrs('U', n, 1, A.data(), m_ipivot.data(),
                                x.GetRawPtr(), x.GetRows(), info);
                 if (info < 0)
                 {
@@ -167,7 +167,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dpptrs('U', n, 1, A.get(), x.GetRawPtr(), x.GetRows(),
+                Lapack::Dpptrs('U', n, 1, A.data(), x.GetRawPtr(), x.GetRows(),
                                info);
                 if (info < 0)
                 {
@@ -185,8 +185,8 @@ struct LinearSystemSolver
                 int KU   = m_numberOfSuperDiagonals;
                 int info = 0;
 
-                Lapack::Dgbtrs(m_transposeFlag, n, KL, KU, 1, A.get(),
-                               2 * KL + KU + 1, m_ipivot.get(), x.GetRawPtr(),
+                Lapack::Dgbtrs(m_transposeFlag, n, KL, KU, 1, A.data(),
+                               2 * KL + KU + 1, m_ipivot.data(), x.GetRawPtr(),
                                n, info);
 
                 if (info < 0)
@@ -204,8 +204,8 @@ struct LinearSystemSolver
                 int KU   = m_numberOfSuperDiagonals;
                 int info = 0;
 
-                Lapack::Dpbtrs('U', n, KU, 1, A.get(), KU + 1, x.GetRawPtr(), n,
-                               info);
+                Lapack::Dpbtrs('U', n, KU, 1, A.data(), KU + 1, x.GetRawPtr(),
+                               n, info);
 
                 if (info < 0)
                 {
@@ -247,7 +247,7 @@ struct LinearSystemSolver
             {
                 x        = b;
                 int info = 0;
-                Lapack::Dgetrs('T', n, 1, A.get(), n, (int *)m_ipivot.get(),
+                Lapack::Dgetrs('T', n, 1, A.data(), n, (int *)m_ipivot.data(),
                                x.GetRawPtr(), n, info);
 
                 if (info < 0)
@@ -278,8 +278,8 @@ struct LinearSystemSolver
 
                 x        = b;
                 int info = 0;
-                Lapack::Dtptrs('U', trans, 'N', n, 1, A.get(), x.GetRawPtr(), n,
-                               info);
+                Lapack::Dtptrs('U', trans, 'N', n, 1, A.data(), x.GetRawPtr(),
+                               n, info);
 
                 if (info < 0)
                 {
@@ -312,8 +312,8 @@ struct LinearSystemSolver
 
                 x        = b;
                 int info = 0;
-                Lapack::Dtptrs('L', trans, 'N', n, 1, A.get(), x.GetRawPtr(), n,
-                               info);
+                Lapack::Dtptrs('L', trans, 'N', n, 1, A.data(), x.GetRawPtr(),
+                               n, info);
 
                 if (info < 0)
                 {
@@ -344,8 +344,8 @@ struct LinearSystemSolver
                 int KU   = m_numberOfSuperDiagonals;
                 int info = 0;
 
-                Lapack::Dgbtrs(m_transposeFlag, n, KL, KU, 1, A.get(),
-                               2 * KL + KU + 1, m_ipivot.get(), x.GetRawPtr(),
+                Lapack::Dgbtrs(m_transposeFlag, n, KL, KU, 1, A.data(),
+                               2 * KL + KU + 1, m_ipivot.data(), x.GetRawPtr(),
                                n, info);
 
                 if (info < 0)
@@ -512,7 +512,7 @@ private:
                 int info      = 0;
                 m_ipivot      = Array<OneD, int>(pivotSize);
 
-                Lapack::Dgetrf(m, n, A.get(), m, m_ipivot.get(), info);
+                Lapack::Dgetrf(m, n, A.data(), m, m_ipivot.data(), info);
 
                 if (info < 0)
                 {
@@ -545,7 +545,7 @@ private:
                 int pivotSize = theA.GetRows();
                 m_ipivot      = Array<OneD, int>(pivotSize);
 
-                Lapack::Dsptrf('U', theA.GetRows(), A.get(), m_ipivot.get(),
+                Lapack::Dsptrf('U', theA.GetRows(), A.data(), m_ipivot.data(),
                                info);
 
                 if (info < 0)
@@ -567,7 +567,7 @@ private:
             case ePOSITIVE_DEFINITE_SYMMETRIC:
             {
                 int info = 0;
-                Lapack::Dpptrf('U', theA.GetRows(), A.get(), info);
+                Lapack::Dpptrf('U', theA.GetRows(), A.data(), info);
 
                 if (info < 0)
                 {
@@ -608,15 +608,15 @@ private:
                 {
                     std::copy(theA.GetRawPtr() + i * rawRows,
                               theA.GetRawPtr() + (i + 1) * rawRows,
-                              A.get() + (i + 1) * KL + i * rawRows);
+                              A.data() + (i + 1) * KL + i * rawRows);
                 }
 
                 int info      = 0;
                 int pivotSize = theA.GetRows();
                 m_ipivot      = Array<OneD, int>(pivotSize);
 
-                Lapack::Dgbtrf(M, N, KL, KU, A.get(), 2 * KL + KU + 1,
-                               m_ipivot.get(), info);
+                Lapack::Dgbtrf(M, N, KL, KU, A.data(), 2 * KL + KU + 1,
+                               m_ipivot.data(), info);
 
                 if (info < 0)
                 {
@@ -643,7 +643,7 @@ private:
 
                 int KU   = m_numberOfSuperDiagonals;
                 int info = 0;
-                Lapack::Dpbtrf('U', theA.GetRows(), KU, A.get(), KU + 1, info);
+                Lapack::Dpbtrf('U', theA.GetRows(), KU, A.data(), KU + 1, info);
 
                 if (info < 0)
                 {

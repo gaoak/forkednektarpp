@@ -259,7 +259,7 @@ void StdNodalTriExp::v_GetTraceToElementMap(const int eid,
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeCoeffs, 1);
     }
 
     Orientation orient = edgeOrient;
@@ -277,7 +277,7 @@ void StdNodalTriExp::v_GetTraceToElementMap(const int eid,
 
     if (orient == eBackwards)
     {
-        reverse(maparray.get(), maparray.get() + nEdgeCoeffs);
+        reverse(maparray.data(), maparray.data() + nEdgeCoeffs);
     }
 }
 
@@ -300,7 +300,7 @@ void StdNodalTriExp::v_GetTraceInteriorToElementMap(
     }
     else
     {
-        fill(signarray.get(), signarray.get() + nEdgeIntCoeffs, 1);
+        fill(signarray.data(), signarray.data() + nEdgeIntCoeffs, 1);
     }
 
     Orientation orient = edgeOrient;
@@ -316,7 +316,7 @@ void StdNodalTriExp::v_GetTraceInteriorToElementMap(
 
     if (orient == eBackwards)
     {
-        reverse(maparray.get(), maparray.get() + nEdgeIntCoeffs);
+        reverse(maparray.data(), maparray.data() + nEdgeIntCoeffs);
     }
 }
 

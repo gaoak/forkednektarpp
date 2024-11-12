@@ -2783,9 +2783,9 @@ void Expansion3D::v_GetTracePhysVals(
 
     // interpolate to points distrbution given in FaceExp
     LibUtilities::Interp2D(
-        m_base[dir0]->GetPointsKey(), m_base[dir1]->GetPointsKey(), o_tmp.get(),
-        FaceExp->GetBasis(to_id0)->GetPointsKey(),
-        FaceExp->GetBasis(to_id1)->GetPointsKey(), o_tmp2.get());
+        m_base[dir0]->GetPointsKey(), m_base[dir1]->GetPointsKey(),
+        o_tmp.data(), FaceExp->GetBasis(to_id0)->GetPointsKey(),
+        FaceExp->GetBasis(to_id1)->GetPointsKey(), o_tmp2.data());
 
     // Reshuffule points as required and put into outarray.
     v_ReOrientTracePhysMap(orient, faceids, nq0, nq1);

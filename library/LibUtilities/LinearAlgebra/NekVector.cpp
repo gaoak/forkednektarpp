@@ -53,7 +53,7 @@ NekVector<DataType>::NekVector(
     unsigned int size, typename boost::call_traits<DataType>::const_reference a)
     : m_size(size), m_data(size), m_wrapperType(eCopy)
 {
-    std::fill_n(m_data.get(), m_size, a);
+    std::fill_n(m_data.data(), m_size, a);
 }
 
 template <typename DataType>
@@ -95,7 +95,7 @@ NekVector<DataType>::NekVector(const NekVector<DataType> &rhs)
     if (m_wrapperType == eCopy)
     {
         m_data = Array<OneD, DataType>(m_size);
-        std::copy(rhs.begin(), rhs.end(), m_data.get());
+        std::copy(rhs.begin(), rhs.end(), m_data.data());
     }
 }
 
@@ -193,7 +193,7 @@ NekVector<DataType> &NekVector<DataType>::operator=(
             "Wrapped NekVectors must have the same dimension in operator=");
     }
 
-    std::copy(rhs.begin(), rhs.end(), m_data.get());
+    std::copy(rhs.begin(), rhs.end(), m_data.data());
     return *this;
 }
 
@@ -210,7 +210,7 @@ template <typename DataType> unsigned int NekVector<DataType>::GetRows() const
 
 template <typename DataType> DataType *NekVector<DataType>::GetRawPtr()
 {
-    return this->GetData().get();
+    return this->GetData().data();
 }
 
 template <typename DataType>
@@ -222,7 +222,7 @@ Array<OneD, DataType> &NekVector<DataType>::GetPtr()
 template <typename DataType>
 const DataType *NekVector<DataType>::GetRawPtr() const
 {
-    return m_data.get();
+    return m_data.data();
 }
 
 template <typename DataType>

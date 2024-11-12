@@ -1059,7 +1059,7 @@ void PreconditionerLowEnergy::v_DoTransformBasisToLowEnergy(
     // Block transformation matrix
     DNekBlkMat &R = *m_RBlk;
 
-    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInOut.get());
+    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInOut.data());
 
     // Apply mask in case of variable P
     Vmath::Vmul(nLocBndDofs, pLocalIn, 1, m_variablePmask, 1, pLocalIn, 1);
@@ -1073,7 +1073,7 @@ void PreconditionerLowEnergy::v_DoTransformBasisToLowEnergy(
         int nbndcoeffs = m_sameBlock[i].second;
         Blas::Dgemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
                     &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.get() + cnt, nbndcoeffs, 0.0, pInOut.get() + cnt,
+                    pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
                     nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
@@ -1100,7 +1100,7 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsFromLowEnergy(
     // Block transposed transformation matrix
     DNekBlkMat &R = *m_RBlk;
 
-    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInOut.get());
+    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInOut.data());
 
     // Multiply by the transpose of block transformation matrix
     int cnt  = 0;
@@ -1111,7 +1111,7 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsFromLowEnergy(
         int nbndcoeffs = m_sameBlock[i].second;
         Blas::Dgemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
                     &(R.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.get() + cnt, nbndcoeffs, 0.0, pInOut.get() + cnt,
+                    pLocalIn.data() + cnt, nbndcoeffs, 0.0, pInOut.data() + cnt,
                     nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
@@ -1140,7 +1140,7 @@ void PreconditionerLowEnergy::v_DoTransformBasisFromLowEnergy(
     // Block inverse transformation matrix
     DNekBlkMat &invR = *m_InvRBlk;
 
-    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInput.get());
+    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInput.data());
 
     // Multiply by the inverse transformation matrix
     int cnt  = 0;
@@ -1151,8 +1151,8 @@ void PreconditionerLowEnergy::v_DoTransformBasisFromLowEnergy(
         int nbndcoeffs = m_sameBlock[i].second;
         Blas::Dgemm('N', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
                     &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.get() + cnt, nbndcoeffs, 0.0, pOutput.get() + cnt,
-                    nbndcoeffs);
+                    pLocalIn.data() + cnt, nbndcoeffs, 0.0,
+                    pOutput.data() + cnt, nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }
@@ -1178,7 +1178,7 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsToLowEnergy(
     // Block inverse transformation matrix
     DNekBlkMat &invR = *m_InvRBlk;
 
-    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInput.get());
+    Array<OneD, NekDouble> pLocalIn(nLocBndDofs, pInput.data());
 
     // Multiply by the transpose of block transformation matrix
     int cnt  = 0;
@@ -1189,8 +1189,8 @@ void PreconditionerLowEnergy::v_DoTransformCoeffsToLowEnergy(
         int nbndcoeffs = m_sameBlock[i].second;
         Blas::Dgemm('T', 'N', nbndcoeffs, nexp, nbndcoeffs, 1.0,
                     &(invR.GetBlock(cnt1, cnt1)->GetPtr()[0]), nbndcoeffs,
-                    pLocalIn.get() + cnt, nbndcoeffs, 0.0, pOutput.get() + cnt,
-                    nbndcoeffs);
+                    pLocalIn.data() + cnt, nbndcoeffs, 0.0,
+                    pOutput.data() + cnt, nbndcoeffs);
         cnt += nbndcoeffs * nexp;
         cnt1 += nexp;
     }

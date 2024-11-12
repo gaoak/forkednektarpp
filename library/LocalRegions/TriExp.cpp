@@ -270,7 +270,7 @@ void TriExp::v_FwdTransBndConstrained(
     int npoints[2] = {m_base[0]->GetNumPoints(), m_base[1]->GetNumPoints()};
     int nmodes[2]  = {m_base[0]->GetNumModes(), m_base[1]->GetNumModes()};
 
-    fill(outarray.get(), outarray.get() + m_ncoeffs, 0.0);
+    fill(outarray.data(), outarray.data() + m_ncoeffs, 0.0);
 
     if (nmodes[0] == 1 && nmodes[1] == 1)
     {
@@ -380,7 +380,7 @@ void TriExp::v_FwdTransBndConstrained(
 
         Blas::Dgemv('N', nInteriorDofs, nInteriorDofs, matsys->Scale(),
                     &((matsys->GetOwnedMatrix())->GetPtr())[0], nInteriorDofs,
-                    rhs.get(), 1, 0.0, result.get(), 1);
+                    rhs.data(), 1, 0.0, result.data(), 1);
 
         for (i = 0; i < nInteriorDofs; i++)
         {
@@ -1164,7 +1164,8 @@ void TriExp::v_LaplacianMatrixOp_MatFree_Kernel(
 
     // outarray = outarray + wsp1
     //          = L * u_hat
-    Vmath::Vadd(m_ncoeffs, wsp1.get(), 1, outarray.get(), 1, outarray.get(), 1);
+    Vmath::Vadd(m_ncoeffs, wsp1.data(), 1, outarray.data(), 1, outarray.data(),
+                1);
 }
 
 void TriExp::v_ComputeLaplacianMetric()

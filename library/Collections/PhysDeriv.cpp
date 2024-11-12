@@ -107,7 +107,7 @@ public:
             Blas::Dgemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
                         m_derivMat[i]->GetColumns(), 1.0,
                         m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
-                        input.get(), nPhys, 0.0, &Diff[i][0], nPhys);
+                        input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
         }
 
         // calculate full derivative
@@ -162,7 +162,7 @@ public:
             Blas::Dgemm('N', 'N', m_derivMat[i]->GetRows(), m_numElmt,
                         m_derivMat[i]->GetColumns(), 1.0,
                         m_derivMat[i]->GetRawPtr(), m_derivMat[i]->GetRows(),
-                        input.get(), nPhys, 0.0, &Diff[i][0], nPhys);
+                        input.data(), nPhys, 0.0, &Diff[i][0], nPhys);
         }
 
         // calculate full derivative
@@ -715,7 +715,7 @@ public:
         Array<OneD, NekDouble> diff0(nqcol, wsp);
 
         Blas::Dgemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
-                    m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
+                    m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
                     m_nquad0);
 
         if (m_isDeformed)
@@ -774,7 +774,7 @@ public:
         Array<OneD, NekDouble> diff0(nqcol, wsp);
 
         Blas::Dgemm('N', 'N', m_nquad0, m_numElmt, m_nquad0, 1.0, m_Deriv0,
-                    m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
+                    m_nquad0, input.data(), m_nquad0, 0.0, diff0.data(),
                     m_nquad0);
 
         if (m_isDeformed)
@@ -847,15 +847,15 @@ public:
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
         Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
-                    m_nquad0);
+                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                    diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
             Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.get() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.get() + cnt, m_nquad0);
+                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                        diff1.data() + cnt, m_nquad0);
         }
 
         if (m_isDeformed)
@@ -920,15 +920,15 @@ public:
         Array<OneD, NekDouble> diff1(nqcol, wsp + nqcol);
 
         Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
-                    m_nquad0);
+                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                    diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
             Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.get() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.get() + cnt, m_nquad0);
+                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                        diff1.data() + cnt, m_nquad0);
         }
 
         if (m_isDeformed)
@@ -1011,23 +1011,23 @@ public:
 
         // Tensor Product Derivative
         Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
-                    m_nquad0);
+                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                    diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
             // scale diff0 by geometric factor: 2/(1-z1)
-            Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.get() + cnt, 1,
-                        diff0.get() + cnt, 1);
+            Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.data() + cnt, 1,
+                        diff0.data() + cnt, 1);
 
             Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.get() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.get() + cnt, m_nquad0);
+                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                        diff1.data() + cnt, m_nquad0);
 
             // add to diff1 by diff0 scaled by: (1_z0)/(1-z1)
-            Vmath::Vvtvp(nqtot, m_fac0.get(), 1, diff0.get() + cnt, 1,
-                         diff1.get() + cnt, 1, diff1.get() + cnt, 1);
+            Vmath::Vvtvp(nqtot, m_fac0.data(), 1, diff0.data() + cnt, 1,
+                         diff1.data() + cnt, 1, diff1.data() + cnt, 1);
         }
 
         if (m_isDeformed)
@@ -1093,23 +1093,23 @@ public:
 
         // Tensor Product Derivative
         Blas::Dgemm('N', 'N', m_nquad0, m_nquad1 * m_numElmt, m_nquad0, 1.0,
-                    m_Deriv0, m_nquad0, input.get(), m_nquad0, 0.0, diff0.get(),
-                    m_nquad0);
+                    m_Deriv0, m_nquad0, input.data(), m_nquad0, 0.0,
+                    diff0.data(), m_nquad0);
 
         int cnt = 0;
         for (int i = 0; i < m_numElmt; ++i, cnt += nqtot)
         {
             // scale diff0 by geometric factor: 2/(1-z1)
-            Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.get() + cnt, 1,
-                        diff0.get() + cnt, 1);
+            Vmath::Vmul(nqtot, &m_fac1[0], 1, diff0.data() + cnt, 1,
+                        diff0.data() + cnt, 1);
 
             Blas::Dgemm('N', 'T', m_nquad0, m_nquad1, m_nquad1, 1.0,
-                        input.get() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
-                        diff1.get() + cnt, m_nquad0);
+                        input.data() + cnt, m_nquad0, m_Deriv1, m_nquad1, 0.0,
+                        diff1.data() + cnt, m_nquad0);
 
             // add to diff1 by diff0 scaled by: (1_z0)/(1-z1)
-            Vmath::Vvtvp(nqtot, m_fac0.get(), 1, diff0.get() + cnt, 1,
-                         diff1.get() + cnt, 1, diff1.get() + cnt, 1);
+            Vmath::Vvtvp(nqtot, m_fac0.data(), 1, diff0.data() + cnt, 1,
+                         diff1.data() + cnt, 1, diff1.data() + cnt, 1);
         }
 
         if (m_isDeformed)
@@ -1437,27 +1437,27 @@ public:
             }
 
             // dxi2 = (1 + eta_1)/(1 -eta_2)*dEta1 + dEta2
-            Vmath::Vvtvp(nPhys, m_fac3.get(), 1, Diff[1].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac3.data(), 1, Diff[1].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1);
 
             // dxi1 =  2/(1 - eta_2) dEta1
-            Vmath::Vmul(nPhys, m_fac2.get(), 1, Diff[1].get() + i * nPhys, 1,
-                        Diff[1].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, m_fac2.data(), 1, Diff[1].data() + i * nPhys, 1,
+                        Diff[1].data() + i * nPhys, 1);
 
             // dxi1 = 2.0(1+eta_0)/((1-eta_1)(1-eta_2)) dEta0 + dxi1
-            Vmath::Vvtvp(nPhys, m_fac1.get(), 1, Diff[0].get() + i * nPhys, 1,
-                         Diff[1].get() + i * nPhys, 1,
-                         Diff[1].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac1.data(), 1, Diff[0].data() + i * nPhys, 1,
+                         Diff[1].data() + i * nPhys, 1,
+                         Diff[1].data() + i * nPhys, 1);
 
             // dxi2 = 2.0(1+eta_0)/((1-eta_1)(1-eta_2)) dEta0 + dxi2
-            Vmath::Vvtvp(nPhys, m_fac1.get(), 1, Diff[0].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac1.data(), 1, Diff[0].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1);
 
             // dxi0 = 4.0/((1-eta_1)(1-eta_2)) dEta0
-            Vmath::Vmul(nPhys, m_fac0.get(), 1, Diff[0].get() + i * nPhys, 1,
-                        Diff[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, m_fac0.data(), 1, Diff[0].data() + i * nPhys, 1,
+                        Diff[0].data() + i * nPhys, 1);
         }
 
         // calculate full derivative
@@ -1535,27 +1535,27 @@ public:
             }
 
             // dxi2 = (1 + eta_1)/(1 -eta_2)*dEta1 + dEta2
-            Vmath::Vvtvp(nPhys, m_fac3.get(), 1, Diff[1].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac3.data(), 1, Diff[1].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1);
 
             // dxi1 =  2/(1 - eta_2) dEta1
-            Vmath::Vmul(nPhys, m_fac2.get(), 1, Diff[1].get() + i * nPhys, 1,
-                        Diff[1].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, m_fac2.data(), 1, Diff[1].data() + i * nPhys, 1,
+                        Diff[1].data() + i * nPhys, 1);
 
             // dxi1 = 2.0(1+eta_0)/((1-eta_1)(1-eta_2)) dEta0 + dxi1
-            Vmath::Vvtvp(nPhys, m_fac1.get(), 1, Diff[0].get() + i * nPhys, 1,
-                         Diff[1].get() + i * nPhys, 1,
-                         Diff[1].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac1.data(), 1, Diff[0].data() + i * nPhys, 1,
+                         Diff[1].data() + i * nPhys, 1,
+                         Diff[1].data() + i * nPhys, 1);
 
             // dxi2 = 2.0(1+eta_0)/((1-eta_1)(1-eta_2)) dEta0 + dxi2
-            Vmath::Vvtvp(nPhys, m_fac1.get(), 1, Diff[0].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1,
-                         Diff[2].get() + i * nPhys, 1);
+            Vmath::Vvtvp(nPhys, m_fac1.data(), 1, Diff[0].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1,
+                         Diff[2].data() + i * nPhys, 1);
 
             // dxi0 = 4.0/((1-eta_1)(1-eta_2)) dEta0
-            Vmath::Vmul(nPhys, m_fac0.get(), 1, Diff[0].get() + i * nPhys, 1,
-                        Diff[0].get() + i * nPhys, 1);
+            Vmath::Vmul(nPhys, m_fac0.data(), 1, Diff[0].data() + i * nPhys, 1,
+                        Diff[0].data() + i * nPhys, 1);
         }
 
         // calculate full derivative
@@ -1711,12 +1711,12 @@ public:
                         m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].get() + cnt, 1,
-                        Diff[0].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
+                        Diff[0].data() + cnt, 1);
 
             // dxi2 = (1+eta0)/(1-eta_2) d Eta_0 + d/dEta2;
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
             cnt += nPhys;
         }
 
@@ -1794,12 +1794,12 @@ public:
                         m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].get() + cnt, 1,
-                        Diff[0].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
+                        Diff[0].data() + cnt, 1);
 
             // dxi2 = (1+eta0)/(1-eta_2) d Eta_0 + d/dEta2;
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
             cnt += nPhys;
         }
 
@@ -1945,20 +1945,20 @@ public:
                         m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].get() + cnt, 1,
-                        Diff[0].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
+                        Diff[0].data() + cnt, 1);
 
             // dxi1 = 2/(1-eta_2) d Eta_1
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[1].get() + cnt, 1,
-                        Diff[1].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[1].data() + cnt, 1,
+                        Diff[1].data() + cnt, 1);
 
             // dxi2 = (1+eta0)/(1-eta_2) d Eta_0 + d/dEta2;
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
 
             // dxi2 += (1+eta1)/(1-eta_2) d Eta_1
-            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, Diff[1].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, Diff[1].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
             cnt += nPhys;
         }
 
@@ -2036,20 +2036,20 @@ public:
                         m_nquad0 * m_nquad1);
 
             // dxi0 = 2/(1-eta_2) d Eta_0
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].get() + cnt, 1,
-                        Diff[0].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[0].data() + cnt, 1,
+                        Diff[0].data() + cnt, 1);
 
             // dxi1 = 2/(1-eta_2) d Eta_1
-            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[1].get() + cnt, 1,
-                        Diff[1].get() + cnt, 1);
+            Vmath::Vmul(nPhys, &m_fac0[0], 1, Diff[1].data() + cnt, 1,
+                        Diff[1].data() + cnt, 1);
 
             // dxi2 = (1+eta0)/(1-eta_2) d Eta_0 + d/dEta2;
-            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac1[0], 1, Diff[0].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
 
             // dxi2 = (1+eta1)/(1-eta_2) d Eta_1 + d/dEta2;
-            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, Diff[1].get() + cnt, 1,
-                         Diff[2].get() + cnt, 1, Diff[2].get() + cnt, 1);
+            Vmath::Vvtvp(nPhys, &m_fac2[0], 1, Diff[1].data() + cnt, 1,
+                         Diff[2].data() + cnt, 1, Diff[2].data() + cnt, 1);
             cnt += nPhys;
         }
 

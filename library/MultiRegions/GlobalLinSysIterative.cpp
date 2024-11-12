@@ -194,8 +194,8 @@ void GlobalLinSysIterative::DoProjection(
         vComm->AllReduce(alpha, Nektar::LibUtilities::ReduceSum);
         int n = m_prevBasis.size(), info = -1;
         Vmath::Vcopy(m_prevBasis.size(), alpha, 1, alphaback, 1);
-        Lapack::Dsptrs('U', n, 1, m_coeffMatrixFactor.get(), m_ipivot.get(),
-                       alpha.get(), n, info);
+        Lapack::Dsptrs('U', n, 1, m_coeffMatrixFactor.data(), m_ipivot.data(),
+                       alpha.data(), n, info);
         if (info != 0)
         {
             // Dsptrs fails, only keep the latest solution
@@ -209,7 +209,7 @@ void GlobalLinSysIterative::DoProjection(
         }
 
         // pb = b^n - A px
-        Vmath::Vcopy(nNonDir, pInput.get() + nDir, 1, pb_s.get() + nDir, 1);
+        Vmath::Vcopy(nNonDir, pInput.data() + nDir, 1, pb_s.data() + nDir, 1);
 
         DoMatrixMultiplyFlag(px_s, tmpAx_s, false);
 
@@ -363,12 +363,13 @@ void GlobalLinSysIterative::UpdateKnownSolutions(
             tilCoeffMatrix->GetStorageSize());
         Vmath::Vcopy(tilCoeffMatrix->GetStorageSize(), tilCoeffMatrix->GetPtr(),
                      1, tilCoeffMatrixFactor, 1);
-        Lapack::Dsptrf('U', n, tilCoeffMatrixFactor.get(), ipivot.get(), info1);
+        Lapack::Dsptrf('U', n, tilCoeffMatrixFactor.data(), ipivot.data(),
+                       info1);
         if (info1 == 0)
         {
             Vmath::Vcopy(n, y_s, 1, invMy_s, 1);
-            Lapack::Dsptrs('U', n, 1, tilCoeffMatrixFactor.get(), ipivot.get(),
-                           invMy_s.get(), n, info2);
+            Lapack::Dsptrs('U', n, 1, tilCoeffMatrixFactor.data(),
+                           ipivot.data(), invMy_s.data(), n, info2);
         }
     }
     if (info1 || info2)
@@ -435,7 +436,7 @@ void GlobalLinSysIterative::UpdateKnownSolutions(
     Array<OneD, NekDouble> coeffMatrixFactor(newCoeffMatrix->GetStorageSize());
     Vmath::Vcopy(newCoeffMatrix->GetStorageSize(), newCoeffMatrix->GetPtr(), 1,
                  coeffMatrixFactor, 1);
-    Lapack::Dsptrf('U', n, coeffMatrixFactor.get(), ipivot.get(), info3);
+    Lapack::Dsptrf('U', n, coeffMatrixFactor.data(), ipivot.data(), info3);
     if (info3)
     {
         if (m_verbose && m_root)
