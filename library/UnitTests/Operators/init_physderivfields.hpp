@@ -81,10 +81,11 @@ public:
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
 
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            auto inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
@@ -109,7 +110,6 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.size();
         }
         NektarSolution();
     }
@@ -147,12 +147,12 @@ public:
         }
 
         unsigned int el = 0, pts = 0;
-        double *expptr =
-            fixt_expected
-                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
+            auto expptr =
+                fixt_expected
+                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -225,10 +225,11 @@ public:
         {
             Vmath::Fill(totpoints, 1.0, z, 1);
         }
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            auto inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
@@ -255,7 +256,6 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.size();
         }
         NektarSolution();
     }
@@ -288,12 +288,12 @@ public:
         }
 
         unsigned int el = 0, pts = 0;
-        double *expptr =
-            fixt_expected
-                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
+            auto expptr =
+                fixt_expected
+                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
@@ -362,10 +362,11 @@ public:
         Array<OneD, double> y(fixt_explist->GetTotPoints());
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            auto inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
@@ -392,7 +393,6 @@ public:
                     inptr[cnt] = tmp;
                 }
             }
-            inptr += block.size();
         }
         NektarSolution();
     }
@@ -417,12 +417,12 @@ public:
         Array<OneD, double> z(fixt_explist->GetTotPoints());
         fixt_explist->GetCoords(x, y, z);
         unsigned int el = 0, pts = 0;
-        double *expptr =
-            fixt_expected
-                ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
+            auto expptr =
+                fixt_expected
+                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {

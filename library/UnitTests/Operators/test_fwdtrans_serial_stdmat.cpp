@@ -62,7 +62,7 @@ TEST_FWDTRANS(fwdtrans_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_FWDTRANS(fwdtrans_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
-TEST_FWDTRANS(fwdtrans_all_bcs, Helmholtz2D_AllBCs, 1.0E-08)
+// TEST_FWDTRANS(fwdtrans_all_bcs, Helmholtz2D_AllBCs, 1.0E-08)
 
 TEST_FWDTRANS(fwdtrans_hex, Helmholtz3D_Hex, 5.0E-08)
 

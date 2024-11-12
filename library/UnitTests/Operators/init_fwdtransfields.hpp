@@ -70,10 +70,11 @@ public:
 
         auto xptr = x.data(), yptr = y.data(), zptr = z.data(),
              fceptr = fce.data();
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            auto inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
                  ++el)
@@ -121,7 +122,6 @@ public:
                     }
                 }
             }
-            inptr += block.size();
         }
         ExpectedSolution();
     }

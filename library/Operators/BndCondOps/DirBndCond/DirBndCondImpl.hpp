@@ -73,19 +73,33 @@ public:
             if (bndConditions[i]->GetBoundaryConditionType() ==
                 SpatialDomains::eDirichlet)
             {
-                m_nbndcoeff += bndCondExpansions[i]->GetNcoeffs();
+                m_nBndCoeff += bndCondExpansions[i]->GetNcoeffs();
             }
         }
 
         // Return if no Dirichlet boundary condition.
-        if (m_nbndcoeff == 0)
+        if (m_nBndCoeff == 0)
         {
             return;
         }
 
-        // Collecting boundary coefficients
-        Array<OneD, TData> bndcoeff(m_nbndcoeff);
-        Array<OneD, int> index(m_nbndcoeff);
+        // Compute block bound.
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+        std::vector<int> blockBound(blocks.size());
+        int bound = 0;
+        for (int blk = 0; blk < blocks.size(); ++blk)
+        {
+            const auto &block = blocks[blk];
+            const auto ncoeff = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
+            bound += nElmts * ncoeff;
+            blockBound[blk] = bound;
+        }
+
+        // Collecting boundary coefficients.
+        std::vector<TData> bndcoeff(m_nBndCoeff);
+        std::vector<int> index(m_nBndCoeff);
         size_t bndcnt = 0, cnt = 0;
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
@@ -106,178 +120,263 @@ public:
             cnt += nBndExpCoeff;
         }
 
-        // Set mapping to skip over padding elements
-        int i = 0, j = 0;
-
-        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        for (auto &block : blocks)
+        // Sort boundary coefficients by increasing order of "map[index[i]]".
+        std::vector<std::tuple<int, int, double>> mapReordered;
+        for (int i = 0; i < m_nBndCoeff; i++)
         {
-            const auto ncoeff    = block.GetNumData();
-            const auto nElmts    = block.GetNumElements();
-            const auto nPadElmts = block.GetNumPaddingElements();
-            for (unsigned int e = 0; e < nElmts; e++)
+            mapReordered.push_back(
+                std::make_tuple(i, map[index[i]], bndcoeff[i]));
+        }
+        std::sort(std::begin(mapReordered), std::end(mapReordered),
+                  [](std::tuple<int, int, double> const &t1,
+                     std::tuple<int, int, double> const &t2) {
+                      return std::tie(std::get<1>(t1), std::get<0>(t1)) <
+                             std::tie(std::get<1>(t2), std::get<0>(t2));
+                  });
+
+        // local dir dofs.
+        m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
+        std::vector<std::tuple<int, int, double>> locReordered(m_localDirSize);
+        if (m_localDirSize > 0)
+        {
+            size_t cnt = 0;
+            for (auto &it : assmbMap->GetCopyLocalDirDofs())
             {
-                for (unsigned int n = 0; n < ncoeff; n++)
-                {
-                    alignmentMap[i++] = j++;
-                }
+                locReordered[cnt] = it;
+                cnt++;
             }
-            j += nPadElmts * ncoeff;
+            std::sort(std::begin(locReordered), std::end(locReordered),
+                      [](std::tuple<int, int, double> const &t1,
+                         std::tuple<int, int, double> const &t2) {
+                          return std::tie(std::get<1>(t1), std::get<0>(t1)) <
+                                 std::tie(std::get<1>(t2), std::get<0>(t2));
+                      });
         }
 
-        // Compute aligned map to skip over padding elements
-        Array<OneD, int> alignedMap(m_nbndcoeff);
-        for (int i = 0; i < m_nbndcoeff; i++)
+        // Parallel dir sign.
+        m_nParDirBndSignSize = parallelDirBndSign.size();
+        std::vector<int> parDirBndSignReordered(m_nParDirBndSignSize);
+        if (m_nParDirBndSignSize > 0)
         {
-            alignedMap[i] = alignmentMap[map[index[i]]];
+            size_t cnt = 0;
+            for (auto &it : parallelDirBndSign)
+            {
+                parDirBndSignReordered[cnt] = it;
+                cnt++;
+            }
+            std::sort(std::begin(parDirBndSignReordered),
+                      std::end(parDirBndSignReordered),
+                      [](const int t1, const int t2) { return t1 < t2; });
         }
 
         const bool device_only = true;
 
-        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
-            alignedMap, ExecSpace::alignment, device_only);
-
-        Array<OneD, TData> alignedSign(m_nbndcoeff);
-        if (m_signChange)
+        // Split bndcoeff per block.
+        std::vector<TData> bndCoeffBlock;
+        std::vector<int> mapBlock;
+        std::vector<TData> signBlock;
+        int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
+        while (blk < blocks.size())
         {
-            for (int i = 0; i < m_nbndcoeff; i++)
+            if (i == m_nBndCoeff ||
+                std::get<1>(mapReordered[i]) >= blockBound[blk])
             {
-                alignedSign[i] = sign[index[i]];
-            }
-
-            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-                alignedSign, ExecSpace::alignment, device_only);
-        }
-
-        // TODO: This is a temporary hack to fix the Dirichlet boundary
-        // condition
-        // -------------------------- BEGIN ------------------------------------
-        // Sort boundary coefficients by increasing order of "alignedMap[i]"
-        std::vector<std::tuple<int, int, double>> tmp;
-        for (int i = 0; i < m_nbndcoeff; i++)
-        {
-            tmp.push_back(std::make_tuple(i, alignedMap[i], bndcoeff[i]));
-        }
-        std::sort(std::begin(tmp), std::end(tmp),
-                  [](std::tuple<int, int, double> const &t1,
-                     std::tuple<int, int, double> const &t2) {
-                      return std::tie(get<1>(t1), get<0>(t1)) <
-                             std::tie(get<1>(t2), get<0>(t2));
-                  });
-
-        // Check if there is any mismatch of boundary coefficient, if so use the
-        // second value
-        for (int i = 0; i < m_nbndcoeff - 1; i++)
-        {
-            if (m_signChange)
-            {
-                if (get<1>(tmp[i]) == get<1>(tmp[i + 1]) &&
-                    std::abs(alignedSign[get<0>(tmp[i])] * get<2>(tmp[i]) -
-                             alignedSign[get<0>(tmp[i + 1])] *
-                                 get<2>(tmp[i + 1])) > 1.0E-06)
+                m_nBndCoeffBlock.push_back(nbndCoeffBlock);
+                m_bndCoeff.push_back(
+                    MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                        bndCoeffBlock, ExecSpace::alignment, device_only));
+                m_map.push_back(
+                    MemoryRegion<int>::template FromVector<MemSpace, int>(
+                        mapBlock, ExecSpace::alignment, device_only));
+                if (m_signChange)
                 {
-                    tmp[i] = std::make_tuple(get<0>(tmp[i]), get<1>(tmp[i + 1]),
-                                             alignedSign[get<0>(tmp[i + 1])] *
-                                                 get<2>(tmp[i + 1]));
+                    m_sign.push_back(
+                        MemoryRegion<TData>::template FromVector<MemSpace,
+                                                                 TData>(
+                            signBlock, ExecSpace::alignment, device_only));
                 }
+                nbndCoeffBlock = 0;
+                bndCoeffBlock.clear();
+                mapBlock.clear();
+                signBlock.clear();
+                offset = blockBound[blk];
+                blk++;
             }
             else
             {
-                if (get<1>(tmp[i]) == get<1>(tmp[i + 1]) &&
-                    std::abs(get<2>(tmp[i]) - get<2>(tmp[i + 1])) > 1.0E-06)
+                bndCoeffBlock.push_back(std::get<2>(mapReordered[i]));
+                mapBlock.push_back(std::get<1>(mapReordered[i]) - offset);
+                if (m_signChange)
                 {
-                    tmp[i] = std::make_tuple(get<0>(tmp[i]), get<1>(tmp[i + 1]),
-                                             get<2>(tmp[i + 1]));
+                    signBlock.push_back(
+                        sign[index[std::get<0>(mapReordered[i])]]);
+                }
+                nbndCoeffBlock++;
+                i++;
+            }
+        }
+
+        // Split locReordered per block.
+        if (m_localDirSize > 0)
+        {
+            std::vector<size_t> nLocCoeffBlock(blocks.size(), 0);
+            std::vector<std::vector<int>> locid0Block(blocks.size());
+            std::vector<std::vector<int>> locid1Block(blocks.size());
+            std::vector<std::vector<TData>> locsignBlock(blocks.size());
+            m_nLocCoeffBlock = std::vector<std::vector<size_t>>(blocks.size());
+            m_locid0 =
+                std::vector<std::vector<MemoryRegion<int>>>(blocks.size());
+            m_locid1 =
+                std::vector<std::vector<MemoryRegion<int>>>(blocks.size());
+            m_locsign =
+                std::vector<std::vector<MemoryRegion<TData>>>(blocks.size());
+            int i = 0, blk0 = 0, blk1 = 0, offset0 = 0, offset1 = 0;
+            while (blk1 < blocks.size())
+            {
+                if (i == m_localDirSize ||
+                    std::get<1>(locReordered[i]) >= blockBound[blk1])
+                {
+                    for (auto &nloc : nLocCoeffBlock)
+                    {
+                        m_nLocCoeffBlock[blk1].push_back(nloc);
+                        nloc = 0;
+                    }
+                    for (auto &locid0 : locid0Block)
+                    {
+                        m_locid0[blk1].push_back(
+                            MemoryRegion<int>::template FromVector<MemSpace,
+                                                                   int>(
+                                locid0, ExecSpace::alignment, device_only));
+                        locid0.clear();
+                    }
+                    for (auto &locid1 : locid1Block)
+                    {
+                        m_locid1[blk1].push_back(
+                            MemoryRegion<int>::template FromVector<MemSpace,
+                                                                   int>(
+                                locid1, ExecSpace::alignment, device_only));
+                        locid1.clear();
+                    }
+                    for (auto &locsign : locsignBlock)
+                    {
+                        m_locsign[blk1].push_back(
+                            MemoryRegion<TData>::template FromVector<MemSpace,
+                                                                     TData>(
+                                locsign, ExecSpace::alignment, device_only));
+                        locsign.clear();
+                    }
+                    offset1 = blockBound[blk1];
+                    blk1++;
+                }
+                else if (std::get<0>(locReordered[i]) >= blockBound[blk0])
+                {
+                    offset0 = blockBound[blk0];
+                    blk0++;
+                }
+                else
+                {
+                    locid0Block[blk0].push_back(std::get<0>(locReordered[i]) -
+                                                offset0);
+                    locid1Block[blk0].push_back(std::get<1>(locReordered[i]) -
+                                                offset1);
+                    locsignBlock[blk0].push_back(std::get<2>(locReordered[i]));
+                    nLocCoeffBlock[blk0]++;
+                    offset0 = 0;
+                    blk0    = 0;
+                    i++;
                 }
             }
         }
 
-        // Overwritte data with corrected value
-        for (int i = 0; i < m_nbndcoeff; i++)
+        // Split parDirBndSignReordered per block.
+        if (m_nParDirBndSignSize > 0)
         {
-            bndcoeff[get<0>(tmp[i])] = get<2>(tmp[i]);
-        }
-        // -------------------------- END ------------------------------------
-
-        m_bndcoeff = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-            bndcoeff, ExecSpace::alignment, device_only);
-
-        m_parallelDirBndSignSize = parallelDirBndSign.size();
-        if (m_parallelDirBndSignSize > 0)
-        {
-            Array<OneD, int> alignedParallelDirBndSign(
-                m_parallelDirBndSignSize);
-            for (auto &it : parallelDirBndSign)
+            std::vector<int> parDirBndSignBlock;
+            int i = 0, blk = 0, offset = 0, nParDirBndSignBlock = 0;
+            while (blk < blocks.size())
             {
-                alignedParallelDirBndSign[i] = alignmentMap[it];
+                if (i == m_nParDirBndSignSize ||
+                    parDirBndSignReordered[i] >= blockBound[blk])
+                {
+                    m_nParDirBndSignBlock.push_back(nParDirBndSignBlock);
+                    m_parDirBndSign.push_back(
+                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                            parDirBndSignBlock, ExecSpace::alignment,
+                            device_only));
+                    nParDirBndSignBlock = 0;
+                    parDirBndSignBlock.clear();
+                    offset = blockBound[blk];
+                    blk++;
+                }
+                else
+                {
+                    parDirBndSignBlock.push_back(parDirBndSignReordered[i] -
+                                                 offset);
+                    nParDirBndSignBlock++;
+                    i++;
+                }
             }
-
-            m_parallelDirBndSign =
-                MemoryRegion<int>::template FromArray<MemSpace, int>(
-                    alignedParallelDirBndSign, ExecSpace::alignment,
-                    device_only);
-        }
-
-        // local
-        m_localDirSize = assmbMap->GetCopyLocalDirDofs().size();
-        if (m_localDirSize > 0)
-        {
-            Array<OneD, int> locid0(m_localDirSize);
-            Array<OneD, int> locid1(m_localDirSize);
-            Array<OneD, TData> locsign(m_localDirSize);
-
-            cnt = 0;
-            for (auto &it : assmbMap->GetCopyLocalDirDofs())
-            {
-                locid0[cnt]  = alignmentMap[std::get<0>(it)];
-                locid1[cnt]  = alignmentMap[std::get<1>(it)];
-                locsign[cnt] = std::get<2>(it);
-                cnt++;
-            }
-
-            m_locid0 = MemoryRegion<int>::template FromArray<MemSpace, int>(
-                locid0, ExecSpace::alignment, device_only);
-            m_locid1 = MemoryRegion<int>::template FromArray<MemSpace, int>(
-                locid1, ExecSpace::alignment, device_only);
-            m_locsign =
-                MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-                    locsign, ExecSpace::alignment, device_only);
         }
     }
 
     void apply(Field<TData, FieldState::Coeff> &inout) override
     {
-        if (m_nbndcoeff > 0)
+        // Return if no Dirichlet boundary condition.
+        if (m_nBndCoeff == 0)
         {
-            auto inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
-            auto bndcoeffPtr = m_bndcoeff.template GetPtr<MemSpace, ReadOnly>();
-            const TData *signPtr =
-                m_signChange ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                             : nullptr;
+            return;
+        }
 
-            if (m_signChange)
+        // Loop over the blocks.
+        for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+        {
+            auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
+
+            if (nbndCoeffBlock > 0)
             {
-                DirBndCondKernel<ExecSpace>(m_nbndcoeff, signPtr, mapPtr,
-                                            bndcoeffPtr, inoutPtr);
-            }
-            else
-            {
-                DirBndCondKernel<ExecSpace>(m_nbndcoeff, mapPtr, bndcoeffPtr,
-                                            inoutPtr);
+                // Initialize pointers.
+                auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+                auto bndcoeffPtr =
+                    m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
+                const TData *signPtr =
+                    m_signChange
+                        ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
+                        : nullptr;
+
+                // Add Dirichlet boundary conditions.
+                if (m_signChange)
+                {
+                    DirBndCondKernel<ExecSpace>(nbndCoeffBlock, signPtr, mapPtr,
+                                                bndcoeffPtr, inoutPtr);
+                }
+                else
+                {
+                    DirBndCondKernel<ExecSpace>(nbndCoeffBlock, mapPtr,
+                                                bndcoeffPtr, inoutPtr);
+                }
             }
         }
 
-        if (m_parallelDirBndSignSize > 0)
+        if (m_nParDirBndSignSize > 0)
         {
-            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto parallelDirBndSignPtr =
-                m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
+            for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
 
-            ParallelDirBndSignKernel<ExecSpace>(
-                m_parallelDirBndSignSize, parallelDirBndSignPtr, inoutPtr);
+                if (nParDirBndSignBlock > 0)
+                {
+                    // Initialize pointers.
+                    auto inoutPtr =
+                        inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                    auto parDirBndSignPtr =
+                        m_parDirBndSign[blk]
+                            .template GetPtr<MemSpace, ReadOnly>();
+
+                    ParallelDirBndSignKernel<ExecSpace>(
+                        nParDirBndSignBlock, parDirBndSignPtr, inoutPtr);
+                }
+            }
         }
 
         // TODO: Universal assembly on device.
@@ -294,25 +393,58 @@ public:
             inout.template CopyArray<MemSpace>(inoutarr);
         }
 
-        if (m_parallelDirBndSignSize > 0)
+        if (m_nParDirBndSignSize > 0)
         {
-            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto parallelDirBndSignPtr =
-                m_parallelDirBndSign.template GetPtr<MemSpace, ReadOnly>();
+            for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
+            {
+                auto nParDirBndSignBlock = m_nParDirBndSignBlock[blk];
 
-            ParallelDirBndSignKernel<ExecSpace>(
-                m_parallelDirBndSignSize, parallelDirBndSignPtr, inoutPtr);
+                if (nParDirBndSignBlock > 0)
+                {
+                    // Initialize pointers.
+                    auto inoutPtr =
+                        inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                    auto parDirBndSignPtr =
+                        m_parDirBndSign[blk]
+                            .template GetPtr<MemSpace, ReadOnly>();
+
+                    ParallelDirBndSignKernel<ExecSpace>(
+                        nParDirBndSignBlock, parDirBndSignPtr, inoutPtr);
+                }
+            }
         }
 
         if (m_localDirSize > 0)
         {
-            auto inoutPtr   = inout.template GetPtr<MemSpace, ReadWrite>();
-            auto locid0Ptr  = m_locid0.template GetPtr<MemSpace, ReadOnly>();
-            auto locid1Ptr  = m_locid1.template GetPtr<MemSpace, ReadOnly>();
-            auto locsignPtr = m_locsign.template GetPtr<MemSpace, ReadOnly>();
+            for (size_t blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
+            {
+                // Initialize pointers.
+                auto inPtr = inout.template GetPtr<MemSpace, ReadOnly>(blk1);
+                for (size_t blk0 = 0; blk0 < inout.GetBlocks().size(); ++blk0)
+                {
+                    auto nLocCoeffBlock = m_nLocCoeffBlock[blk1][blk0];
 
-            LocalDirBndCondKernel<ExecSpace>(m_localDirSize, locid0Ptr,
-                                             locid1Ptr, locsignPtr, inoutPtr);
+                    if (nLocCoeffBlock > 0)
+                    {
+                        // Initialize pointers.
+                        auto outPtr =
+                            inout.template GetPtr<MemSpace, WriteOnly>(blk0);
+                        auto locid0Ptr =
+                            m_locid0[blk1][blk0]
+                                .template GetPtr<MemSpace, ReadOnly>();
+                        auto locid1Ptr =
+                            m_locid1[blk1][blk0]
+                                .template GetPtr<MemSpace, ReadOnly>();
+                        auto locsignPtr =
+                            m_locsign[blk1][blk0]
+                                .template GetPtr<MemSpace, ReadOnly>();
+
+                        LocalDirBndCondKernel<ExecSpace>(
+                            nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
+                            inPtr, outPtr);
+                    }
+                }
+            }
         }
     }
 
@@ -329,17 +461,20 @@ public:
     }
 
 protected:
-    MemoryRegion<int> m_map;
-    MemoryRegion<TData> m_sign;
-    MemoryRegion<TData> m_bndcoeff;
-    MemoryRegion<int> m_parallelDirBndSign;
-    MemoryRegion<int> m_locid0;
-    MemoryRegion<int> m_locid1;
-    MemoryRegion<TData> m_locsign;
+    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<TData>> m_sign;
+    std::vector<MemoryRegion<TData>> m_bndCoeff;
+    std::vector<size_t> m_nBndCoeffBlock;
+    std::vector<MemoryRegion<int>> m_parDirBndSign;
+    std::vector<size_t> m_nParDirBndSignBlock;
+    std::vector<std::vector<MemoryRegion<int>>> m_locid0;
+    std::vector<std::vector<MemoryRegion<int>>> m_locid1;
+    std::vector<std::vector<MemoryRegion<TData>>> m_locsign;
+    std::vector<std::vector<size_t>> m_nLocCoeffBlock;
 
-    size_t m_nbndcoeff              = 0;
-    size_t m_parallelDirBndSignSize = 0;
-    size_t m_localDirSize           = 0;
+    size_t m_nBndCoeff          = 0;
+    size_t m_nParDirBndSignSize = 0;
+    size_t m_localDirSize       = 0;
     bool m_signChange;
 };
 

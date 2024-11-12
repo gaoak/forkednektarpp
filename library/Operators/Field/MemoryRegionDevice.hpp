@@ -76,8 +76,10 @@ public:
      * @param alignment - memory alignment
      */
     MemoryRegionDevice(const std::string name, const size_t size,
-                       const size_t alignment, const bool device_only)
-        : MemoryRegionHost<TData>(name, size, alignment, device_only)
+                       const size_t alignment, const size_t device_rank,
+                       const bool device_only)
+        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
+                                  device_only)
     {
         CreateMemory();
     }
@@ -121,21 +123,23 @@ public:
     template <typename TDataIn>
     MemoryRegionDevice(const std::string name, const TDataIn *src,
                        const size_t size, const size_t alignment,
-                       const bool device_only)
-        : MemoryRegionHost<TData>(name, size, alignment, device_only)
+                       const size_t device_rank, const bool device_only)
+        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
+                                  device_only)
     {
         CreateMemory();
 
         if constexpr (std::is_same_v<TDataIn, TData>)
         {
-            deviceMemcpy<HostToDevice>(this->m_device, src, this->m_size);
+            deviceMemcpy<HostToDevice>(this->m_device, src, this->m_size,
+                                       this->m_device_rank);
         }
         else
         {
             std::vector<TData> tmp(this->m_size);
             std::copy(src, src + size, tmp.begin());
-            deviceMemcpy<HostToDevice>(this->m_device, tmp.data(),
-                                       this->m_size);
+            deviceMemcpy<HostToDevice>(this->m_device, tmp.data(), this->m_size,
+                                       this->m_device_rank);
         }
 
         this->m_device_valid = true;
@@ -150,7 +154,7 @@ public:
     {
         if (this->m_device != nullptr)
         {
-            deviceFree(this->m_device);
+            deviceFree(this->m_device, this->m_device_rank);
             this->m_device       = nullptr;
             this->m_device_valid = false;
         }
@@ -203,12 +207,12 @@ public:
 
 protected:
     /**
-     * @brief Create hostmemory
+     * @brief Create device memory
      *
      */
     void CreateMemory()
     {
-        deviceMalloc(this->m_device, this->m_size);
+        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
@@ -324,12 +328,12 @@ protected:
         // If the value is zero, memset is the most efficent.
         if (val == TData(0))
         {
-            deviceMemset(dst, 0, size);
+            deviceMemset(dst, 0, size, this->m_device_rank);
         }
         // Nonzero value
         else
         {
-            deviceFill(dst, val, size);
+            deviceFill(dst, val, size, this->m_device_rank);
         }
     }
 
@@ -358,7 +362,7 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
         {
             TData *dst = this->m_host + offset;
-            deviceMemcpy<DeviceToHost>(dst, src, size);
+            deviceMemcpy<DeviceToHost>(dst, src, size, this->m_device_rank);
             this->m_device_valid = false;
             this->m_host_valid   = true;
             this->m_initialize   = false;
@@ -366,7 +370,7 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
         {
             TData *dst = this->m_device + offset;
-            deviceMemcpy<HostToDevice>(dst, src, size);
+            deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
             this->m_device_valid = true;
             this->m_host_valid   = false;
             this->m_initialize   = false;
@@ -374,7 +378,7 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
         {
             TData *dst = this->m_device + offset;
-            deviceMemcpy<DeviceToDevice>(dst, src, size);
+            deviceMemcpy<DeviceToDevice>(dst, src, size, this->m_device_rank);
             this->m_device_valid = true;
             this->m_host_valid   = false;
             this->m_initialize   = false;
@@ -403,7 +407,7 @@ protected:
             if (this->m_host_valid)
             {
                 deviceMemcpy<HostToDevice>(this->m_device, this->m_host,
-                                           this->m_size);
+                                           this->m_size, this->m_device_rank);
                 this->m_device_valid = true;
             }
             // No data on the host so assume the device data is being
@@ -448,7 +452,7 @@ protected:
             if (this->m_device_valid)
             {
                 deviceMemcpy<DeviceToHost>(this->m_host, this->m_device,
-                                           this->m_size);
+                                           this->m_size, this->m_device_rank);
                 this->m_host_valid = true;
             }
             // No data on the device so assume the host data is being

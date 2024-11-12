@@ -109,7 +109,6 @@ public:
                   MemoryRegion<TData> &global,
                   const bool &signChange = true) override
     {
-        auto localPtr  = local.template GetPtr<MemSpace, ReadOnly>();
         auto globalPtr = global.template GetPtr<MemSpace, WriteOnly>();
         auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto signPtr   = m_signChange
@@ -122,6 +121,9 @@ public:
         // Loop over the blocks.
         for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
+            // Initialize pointer.
+            auto localPtr = local.template GetPtr<MemSpace, ReadOnly>(blk);
+
             // Determine shape and type of the element.
             auto &localblock = local.GetBlocks()[blk];
             auto nElmts      = localblock.GetNumElements();
@@ -162,7 +164,6 @@ public:
     {
         // Initialize MemoryRegion pointers.
         auto globalPtr = global.template GetPtr<MemSpace, ReadOnly>();
-        auto localPtr  = local.template GetPtr<MemSpace, WriteOnly>();
         auto mapPtr    = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto signPtr   = m_signChange
                              ? m_sign.template GetPtr<MemSpace, ReadOnly>()
@@ -174,6 +175,9 @@ public:
         // Loop over the blocks.
         for (size_t blk = 0; blk < local.GetBlocks().size(); ++blk)
         {
+            // Initialize pointer.
+            auto localPtr = local.template GetPtr<MemSpace, WriteOnly>(blk);
+
             // Determine shape and type of the element.
             auto &block = local.GetBlocks()[blk];
             auto nElmts = block.GetNumElements();
@@ -193,7 +197,6 @@ public:
             // Increment pointers for the next element type.
             mapPtr += ncoeff * nElmts;
             signPtr += ncoeff * nElmts;
-            localPtr += block.size();
         }
     }
 

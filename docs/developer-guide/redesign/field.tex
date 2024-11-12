@@ -1,0 +1,114 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Field Class}
+
+\section{Description}
+\subsection{One MemoryRegion per Block Design}
+The {\texttt Field} object contains all the elements from the computational domain. The {\texttt Field} object is then sub-divided into blocks, where each block is a collection of elements of the same shape and polynomial order. Each block is managed by a {\texttt MemoryRegion} (MR) object which is responsible of the host/device memory allocation and data transfer. Each memory region can be assigned to different GPU/compute unit in a round-robin manner or using any strategy to optimize load balancing. This design is illustrated by Figure \ref{fig:block-structure-1}.
+
+  \begin{figure}[htbp!]
+    \begin{centering}
+        \includegraphics[width=1\textwidth]{./img/block-structure-1.png}
+        \par\end{centering}
+    \centering{}\caption{One MemoryRegion per block} \label{fig:block-structure-1}
+  \end{figure}
+  
+
+\subsection{One MemoryRegion per Compute Device Design}
+The {\texttt Field} object contains all the elements from the computational domain. The {\texttt Field} object is then sub-divided into blocks, where each block is a collection of elements of the same shape and polynomial order. Each compute device (e.g. GPU) is managed by a single {\texttt MemoryRegion} (MR) object which is responsible of the host/device memory allocation and data transfer. Different blocks are then collectively managed for a given compute unite by the single MemoryRegion. This design is illustrated by Figure \ref{fig:block-structure-2}.
+
+  \begin{figure}[htbp!]
+    \begin{centering}
+        \includegraphics[width=1\textwidth]{./img/block-structure-2.png}
+        \par\end{centering}
+    \centering{}\caption{One MemoryRegion per compute device} \label{fig:block-structure-2}
+  \end{figure}
+
+\section{Implementation}
+{\texttt Field.hpp} is a base class that has a vector of MemoryRegion. The {\texttt Field} class's {\texttt Create} function is used to allocate the vector of {\texttt MemoryRegion} objects. Each individual MemoryRegion object can then be separately managed. A block to MemoryRegion mapping is introduced to allow both a MemoryRegion per block, or a MemoryRegion per compute unit (device) architecture. This unified design is illustrated by This design is illustrated by Figure \ref{fig:block-structure}. Currently, the various blocks are distributed in a round-Robin fashion for simplicity. The current implementation of the unified memory mapping is indicated below:
+
+\begin{lstlisting}[style=C++Style]
+    template <typename MemSpace>
+    static Field<TData, TState> create(
+        const std::string name, const std::vector<BlockAttributes> blocks,
+        const std::vector<std::string> components, const size_t alignment,
+        const bool device_only = false)
+    {
+        size_t num_device = 1;
+        auto field        = Field(name, blocks, components, num_device);
+
+#if defined(NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE)
+        std::vector<size_t> offset(num_device, 0);
+        std::vector<size_t> size(num_device, 0);
+        for (size_t blk = 0; blk < field.m_block_attributes.size(); ++blk)
+        {
+            // Set one-to-one MemoryRegion to device mapping.
+            auto mr = blk % num_device;
+            auto block_size =
+                field.m_block_attributes[blk].size * field.GetNumComponents();
+            field.m_blk_to_mr_mapping[blk] = mr;
+            field.m_blk_to_mr_offset[blk]  = offset[mr];
+            offset[mr] += block_size;
+
+            // Compute MemoryRegion memory size.
+            size[mr] += block_size;
+        }
+        for (size_t mr = 0; mr < num_device; ++mr)
+        {
+            // Allocate memory.
+            auto device_rank = mr;
+            field.m_memory_regions.push_back(
+                MemoryRegion<TData>::template create<MemSpace>(
+                    name + std::to_string(mr), size[mr], alignment, device_only,
+                    device_rank));
+
+            // Zero memory.
+            field.m_memory_regions[mr].template Initialize<MemSpace>(0);
+        }
+#else
+        for (size_t blk = 0; blk < field.m_block_attributes.size(); ++blk)
+        {
+            // Set one-to-one block to MemoryRegion mapping.
+            field.m_blk_to_mr_mapping[blk] = blk;
+            field.m_blk_to_mr_offset[blk]  = 0;
+
+            // Allocate memory.
+            auto device_rank = blk % num_device;
+            auto size =
+                field.m_block_attributes[blk].size * field.GetNumComponents();
+            field.m_memory_regions.push_back(
+                MemoryRegion<TData>::template create<MemSpace>(
+                    name + std::to_string(blk), size, alignment, device_only,
+                    device_rank));
+
+            // Zero memory.
+            field.m_memory_regions[blk].template Initialize<MemSpace>(0);
+        }
+#endif
+        return field;
+    }
+
+    ...
+
+private:
+
+    ...
+
+    std::string m_name;
+    std::vector<BlockAttributes> m_block_attributes;
+    std::vector<std::string> m_var_names;
+    std::vector<MemoryRegion<TData>> m_memory_regions;
+};
+\end{lstlisting}
+
+However, currently only the one MemoryRegion per block and the one MemoryRegion per compute device is implemented. The default implementation is the one MemoryRegion per block design. The one MemoryRegion per compute device can be used using the follow cmake command
+
+    \begin{lstlisting}[style=BashInputStyle]
+    cmake ../ NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE=ON
+    \end{lstlisting}
+
+  \begin{figure}[htbp!]
+    \begin{centering}
+        \includegraphics[width=1\textwidth]{./img/block-structure.png}
+        \par\end{centering}
+    \centering{}\caption{Unified design with generalized MemoryRegion mapping} \label{fig:block-structure}
+  \end{figure}

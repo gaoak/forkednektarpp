@@ -57,19 +57,10 @@ public:
         : OperatorIProductWRTBase<TData>(expansionList)
     {
         // Initialise the jacobian.
-        auto interleave_width =
-            std::is_same_v<Implementation, Operators::SumFac>
-                ? NektarSpaces::vector_width<TData>::value
-                : 1u;
         auto locblocks = GetBlockAttributes<TData>(
-            FieldState::Phys, expansionList, interleave_width);
-        const auto jacSize = GetGeometricFactorSize(expansionList, locblocks);
-        auto jac = SetJacobian<TData>(expansionList, jacSize, locblocks);
-
-        const bool device_only = true;
-
-        m_jac = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            *jac, ExecSpace::alignment, device_only);
+            FieldState::Phys, expansionList, m_implInterleaveWidth);
+        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
+                                             ExecSpace::alignment);
 
         // Initialize the basis data.
         m_basisMap  = GetBasisData<MemSpace, TData>(expansionList, eBasis);
@@ -82,20 +73,22 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // Copy memory to the device, if necessary and get raw pointers.
-        const TData *inPtr = in.template GetPtr<MemSpace, ReadOnly>();
-        TData *outPtr      = (lambda == 1.0)
-                                 ? out.template GetPtr<MemSpace, WriteOnly>()
-                                 : out.template GetPtr<MemSpace, ReadWrite>();
-
-        const TData *jacPtr = m_jac.template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = (lambda == 1.0)
+                              ? out.template GetPtr<MemSpace, WriteOnly>(blk)
+                              : out.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
@@ -107,7 +100,6 @@ public:
             const auto shapeType = expPtr->DetShapeType();
             const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
                                   SpatialDomains::eDeformed;
-            const auto nqTot = expPtr->GetTotPoints();
             const auto nmTot = expPtr->GetNcoeffs();
             const auto nm0   = expPtr->GetBasisNumModes(0);
             const auto nq0   = expPtr->GetNumPoints(0);
@@ -143,31 +135,36 @@ public:
                            LibUtilities::eModified_A;
 
             // Set workspace.
-            TData *wspPtr = SetWorkspace(shapeType, nElmtsPad, nq0, nq1, nq2,
-                                         nm0, nm1, nm2);
+            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+            {
+                if (m_wsp.size() <= blk)
+                {
+                    m_wsp.push_back(SetWorkspace(shapeType, nElmtsPad, nq0, nq1,
+                                                 nq2, nm0, nm1, nm2));
+                }
+            }
+
+            // Get workspace pointer.
+            auto wspPtr =
+                std::is_same_v<Implementation, Operators::SumFac>
+                    ? m_wsp[blk].template GetPtr<MemSpace, WriteOnly>()
+                    : nullptr;
 
             constexpr bool SharedMemory = true;
             constexpr bool Append       = false;
 
             // Reshape, if necessary.
-            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            if (lambda == 1.0)
             {
-                ReshapeStorage<ExecSpace,
-                               NektarSpaces::vector_width<TData>::value>(
-                    inblock.GetInterleaveWidth(), nElmtsPad,
-                    inblock.GetNumData(), (TData *)inPtr);
-                inblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
-                if (lambda == 1.0)
-                {
-                    ReshapeStorage<ExecSpace,
-                                   NektarSpaces::vector_width<TData>::value>(
-                        outblock.GetInterleaveWidth(), nElmtsPad,
-                        outblock.GetNumData(), outPtr);
-                }
-                outblock.SetInterleaveWidth(
-                    NektarSpaces::vector_width<TData>::value);
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    outblock.GetInterleaveWidth(), nElmtsPad,
+                    outblock.GetNumData(), outPtr);
             }
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
 
             // Function call to kernel functions.
             if (dimension == 1)
@@ -536,10 +533,7 @@ public:
                 }
             }
 
-            // Increment pointer and index for next element type.
-            jacPtr += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += nqTot * nElmtsPad;
-            outPtr += nmTot * nElmtsPad;
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -580,34 +574,18 @@ public:
         return wspsize;
     }
 
-    TData *SetWorkspace(LibUtilities::ShapeType shapeType, size_t nElmts,
-                        size_t nq0, size_t nq1, size_t nq2, size_t nm0,
-                        size_t nm1, size_t nm2)
+    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
+                                     size_t nElmts, size_t nq0, size_t nq1,
+                                     size_t nq2, size_t nm0, size_t nm1,
+                                     size_t nm2)
     {
-        TData *wspptr = nullptr;
+        size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
+                                                nq2, nm0, nm1, nm2);
 
-        if constexpr (std::is_same<Implementation, Operators::SumFac>::value)
-        {
-            size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
-                                                    nq2, nm0, nm1, nm2);
+        const bool device_only = true;
 
-            const bool device_only = true;
-
-            if (m_wspsize < wspsize)
-            {
-                m_wspsize = wspsize;
-
-                m_wsp = MemoryRegion<TData>::template Create<MemSpace>(
-                    m_wspsize, ExecSpace::alignment, device_only);
-            }
-
-            if (m_wspsize > 0)
-            {
-                wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
-            }
-        }
-
-        return wspptr;
+        return MemoryRegion<TData>::template Create<MemSpace>(
+            wspsize, ExecSpace::alignment, device_only);
     }
 
     // className - for OperatorFactory
@@ -625,15 +603,18 @@ public:
 private:
     BasisDataMap<TData> m_basisMap;
     BasisDataMap<TData> m_weightMap;
-    MemoryRegion<TData> m_jac;
-    MemoryRegion<TData> m_wsp;
+    std::vector<MemoryRegion<TData>> m_jac;
+    std::vector<MemoryRegion<TData>> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index0;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index1;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
         m_index2;
-    size_t m_wspsize = 0;
+    static constexpr size_t m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::vector_width<TData>::value
+            : 1u;
 };
 
 } // namespace Nektar::Operators::detail

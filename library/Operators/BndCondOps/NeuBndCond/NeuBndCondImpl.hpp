@@ -83,9 +83,23 @@ public:
             return;
         }
 
-        // Collecting boundary coefficients
-        Array<OneD, TData> bndcoeff(m_nBndCoeff);
-        Array<OneD, int> index(m_nBndCoeff);
+        // Compute block bound.
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+        std::vector<int> blockBound(blocks.size());
+        int bound = 0;
+        for (int blk = 0; blk < blocks.size(); ++blk)
+        {
+            const auto &block = blocks[blk];
+            const auto ncoeff = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
+            bound += nElmts * ncoeff;
+            blockBound[blk] = bound;
+        }
+
+        // Collecting boundary coefficients.
+        std::vector<TData> bndcoeff(m_nBndCoeff);
+        std::vector<int> index(m_nBndCoeff);
         size_t bndcnt = 0, cnt = 0;
         for (size_t i = 0; i < bndCondExpansions.size(); ++i)
         {
@@ -110,53 +124,47 @@ public:
 
         const bool device_only = true;
 
-        m_bndCoeff = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-            bndcoeff, ExecSpace::alignment, device_only);
-
-        // Compute block bound.
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        Array<OneD, int> blockBound(blocks.size());
-        int bound = 0;
-        for (int block_idx = 0; block_idx < blocks.size(); ++block_idx)
-        {
-            const auto &block = blocks[block_idx];
-            const auto ncoeff = block.GetNumData();
-            const auto nElmts = block.GetNumElements();
-            bound += nElmts * ncoeff;
-            blockBound[block_idx] = bound;
-        }
-
         // Compute number of bndcoeff per block.
-        Array<OneD, int> alignedMap(m_nBndCoeff);
-        int block_idx = 0, offset = 0, nbndCoeffBlock = 0;
-        for (int i = 0; i < m_nBndCoeff; i++)
+        std::vector<TData> bndCoeffBlock;
+        std::vector<int> mapBlock;
+        std::vector<TData> signBlock;
+        int i = 0, blk = 0, offset = 0, nbndCoeffBlock = 0;
+        while (blk < blocks.size())
         {
-            while (map[index[i]] - offset > blockBound[block_idx])
+            if (i == m_nBndCoeff || map[index[i]] >= blockBound[blk])
             {
-                offset = blockBound[block_idx];
-                block_idx++;
                 m_nBndCoeffBlock.push_back(nbndCoeffBlock);
+                m_bndCoeff.push_back(
+                    MemoryRegion<TData>::template FromVector<MemSpace, TData>(
+                        bndCoeffBlock, ExecSpace::alignment, device_only));
+                m_map.push_back(
+                    MemoryRegion<int>::template FromVector<MemSpace, int>(
+                        mapBlock, ExecSpace::alignment, device_only));
+                if (m_signChange)
+                {
+                    m_sign.push_back(
+                        MemoryRegion<TData>::template FromVector<MemSpace,
+                                                                 TData>(
+                            signBlock, ExecSpace::alignment, device_only));
+                }
                 nbndCoeffBlock = 0;
+                bndCoeffBlock.clear();
+                mapBlock.clear();
+                signBlock.clear();
+                offset = blockBound[blk];
+                blk++;
             }
-            alignedMap[i] = map[index[i]] - offset;
-            nbndCoeffBlock++;
-        }
-        m_nBndCoeffBlock.push_back(nbndCoeffBlock);
-
-        m_map = MemoryRegion<int>::template FromArray<MemSpace, int>(
-            alignedMap, ExecSpace::alignment, device_only);
-
-        if (m_signChange)
-        {
-            Array<OneD, TData> alignedSign(m_nBndCoeff);
-            for (int i = 0; i < m_nBndCoeff; i++)
+            else
             {
-                alignedSign[i] = sign[index[i]];
+                bndCoeffBlock.push_back(bndcoeff[i]);
+                mapBlock.push_back(map[index[i]] - offset);
+                if (m_signChange)
+                {
+                    signBlock.push_back(sign[index[i]]);
+                }
+                nbndCoeffBlock++;
+                i++;
             }
-
-            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-                alignedSign, ExecSpace::alignment, device_only);
         }
     }
 
@@ -168,20 +176,20 @@ public:
             return;
         }
 
-        auto mapPtr      = m_map.template GetPtr<MemSpace, ReadOnly>();
-        auto bndcoeffPtr = m_bndCoeff.template GetPtr<MemSpace, ReadOnly>();
-        auto inoutPtr    = inout.template GetPtr<MemSpace, ReadWrite>();
-        auto signPtr     = m_signChange
-                               ? m_sign.template GetPtr<MemSpace, ReadOnly>()
-                               : nullptr;
-
         // Loop over the blocks.
-        for (size_t block_idx = 0; block_idx < inout.GetBlocks().size();
-             ++block_idx)
+        for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
-            // Block dependent
-            auto &block         = inout.GetBlocks()[block_idx];
-            auto nbndCoeffBlock = m_nBndCoeffBlock[block_idx];
+            // Initialize pointers.
+            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto mapPtr   = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto bndcoeffPtr =
+                m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto signPtr =
+                m_signChange ? m_sign[blk].template GetPtr<MemSpace, ReadOnly>()
+                             : nullptr;
+
+            // Block dependent.
+            auto nbndCoeffBlock = m_nBndCoeffBlock[blk];
 
             // Add weak boundary conditions to the forcing.
             if (m_signChange)
@@ -194,12 +202,6 @@ public:
                 NeuBndCondKernel<ExecSpace, TData>(nbndCoeffBlock, mapPtr,
                                                    bndcoeffPtr, inoutPtr);
             }
-
-            // Increment pointer for the next block.
-            signPtr += nbndCoeffBlock;
-            bndcoeffPtr += nbndCoeffBlock;
-            mapPtr += nbndCoeffBlock;
-            inoutPtr += block.size();
         }
     }
 
@@ -216,9 +218,9 @@ public:
     }
 
 protected:
-    MemoryRegion<int> m_map;
-    MemoryRegion<TData> m_sign;
-    MemoryRegion<TData> m_bndCoeff;
+    std::vector<MemoryRegion<int>> m_map;
+    std::vector<MemoryRegion<TData>> m_sign;
+    std::vector<MemoryRegion<TData>> m_bndCoeff;
     std::vector<size_t> m_nBndCoeffBlock;
     size_t m_nBndCoeff = 0;
     bool m_signChange;

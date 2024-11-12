@@ -37,6 +37,7 @@
 #include <StdRegions/StdExpansion.h>
 
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -93,10 +94,6 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // Initialize pointers.
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
@@ -107,15 +104,30 @@ public:
         // Loop over the blocks.
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[blk];
-            auto &outblock    = out.GetBlocks()[blk];
-            const auto nElmts = inblock.GetNumElements();
+            auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             const auto nmTot  = expPtr->GetNcoeffs();
             const auto nqTot  = expPtr->GetTotPoints();
+
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
 
             // Fetch basis key for the current element type.
             for (unsigned int d = 0; d < dimension; d++)
@@ -130,9 +142,7 @@ public:
             Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
                         nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
 
-            // Increment pointer and index for next element type.
-            inPtr += inblock.size();
-            outPtr += outblock.size();
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -151,6 +161,7 @@ public:
 
 private:
     std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_mat;
+    static constexpr size_t m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

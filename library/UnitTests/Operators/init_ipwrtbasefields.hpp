@@ -51,10 +51,11 @@ public:
 
     void SetTestCase()
     {
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            double *inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
                  ++el)
@@ -65,7 +66,6 @@ public:
                     inptr[cnt] = phys;
                 }
             }
-            inptr += block.size();
         }
         ExpectedSolution();
     }

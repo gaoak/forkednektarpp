@@ -38,6 +38,7 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -57,8 +58,8 @@ public:
         // Initialise derivative factor.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t dfSize = GetGeometricFactorSize(expansionList, locblocks);
-        m_df = SetDerivativeFactor<TData>(expansionList, dfSize, locblocks);
+        m_df = SetDerivativeFactor<MemSpace, TData>(expansionList, locblocks,
+                                                    ExecSpace::alignment);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -104,11 +105,6 @@ public:
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
-        // Initialize pointers.
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-        auto dfPtr  = m_df->data();
-
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
@@ -118,8 +114,17 @@ public:
 
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+            auto dfPtr  = m_df[blk].template GetPtr<MemSpace, ReadOnly>();
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
+            auto &outblock       = out.GetBlocks()[blk];
             const auto nElmts    = inblock.GetNumElements();
             const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -132,6 +137,13 @@ public:
             const auto ptsKeys = expPtr->GetPointsKeys();
             const auto ndf     = nCoord * dimension;
 
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
+
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < expPtr->GetShapeDimension(); d++)
             {
@@ -142,19 +154,21 @@ public:
             const auto &matPtr = m_mat[basisKeys];
 
             // Allocate storate.
-            if (m_derivSize < dimension * nqTot * nElmts)
+            if (m_deriv.size() <= blk)
             {
-                m_derivSize = dimension * nqTot * nElmts;
-
-                m_deriv = std::vector<TData>(dimension * nqTot * nElmts);
+                m_deriv.push_back(
+                    std::vector<TData>(dimension * nqTot * nElmts));
             }
+
+            // Get pointer.
+            auto derivPtr = m_deriv[blk].data();
 
             for (size_t d = 0; d < dimension; ++d)
             {
                 // Perform matrix-matrix multiply.
                 Blas::Dgemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
                             matPtr[d].data(), nqTot, inPtr, nqTot, 0.0,
-                            m_deriv.data() + d * nqTot * nElmts, nqTot);
+                            derivPtr + d * nqTot * nElmts, nqTot);
             }
 
             if (deformed)
@@ -162,18 +176,15 @@ public:
                 for (size_t i = 0; i < nCoord; i++)
                 {
                     Vmath::Vmul(nqTot * nElmts, dfPtr + i * dimension, ndf,
-                                m_deriv.data(), 1,
-                                outPtr + i * nElmtsPad * nqTot, 1);
+                                derivPtr, 1, outPtr + i * outblock.size(), 1);
                     for (size_t d = 1; d < dimension; d++)
                     {
                         Vmath::Vvtvp(nqTot * nElmts, dfPtr + i * dimension + d,
-                                     ndf, m_deriv.data() + d * nqTot * nElmts,
-                                     1, outPtr + i * nElmtsPad * nqTot, 1,
-                                     outPtr + i * nElmtsPad * nqTot, 1);
+                                     ndf, derivPtr + d * nqTot * nElmts, 1,
+                                     outPtr + i * outblock.size(), 1,
+                                     outPtr + i * outblock.size(), 1);
                     }
                 }
-
-                dfPtr += ndf * nqTot * nElmtsPad;
             }
             else
             {
@@ -181,30 +192,23 @@ public:
                 {
                     for (size_t i = 0; i < nCoord; i++)
                     {
-                        Vmath::Smul(nqTot, dfPtr[i * dimension],
-                                    m_deriv.data() + e * nqTot, 1,
-                                    outPtr + i * nElmtsPad * nqTot + e * nqTot,
-                                    1);
+                        Vmath::Smul(
+                            nqTot, dfPtr[i * dimension], derivPtr + e * nqTot,
+                            1, outPtr + i * outblock.size() + e * nqTot, 1);
                         for (size_t d = 1; d < dimension; d++)
                         {
                             Vmath::Svtvp(
                                 nqTot, dfPtr[i * dimension + d],
-                                m_deriv.data() + d * nqTot * nElmts + e * nqTot,
-                                1, outPtr + i * nElmtsPad * nqTot + e * nqTot,
-                                1, outPtr + i * nElmtsPad * nqTot + e * nqTot,
-                                1);
+                                derivPtr + d * nqTot * nElmts + e * nqTot, 1,
+                                outPtr + i * outblock.size() + e * nqTot, 1,
+                                outPtr + i * outblock.size() + e * nqTot, 1);
                         }
                     }
-
                     dfPtr += ndf;
                 }
-
-                // padding if required
-                dfPtr += (nElmtsPad - nElmts) * ndf;
             }
 
-            inPtr += nElmtsPad * nqTot;
-            outPtr += nCoord * nElmtsPad * nqTot;
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -222,12 +226,12 @@ public:
     }
 
 private:
-    std::vector<TData> m_deriv;
-    std::shared_ptr<std::vector<TData>> m_df;
+    std::vector<MemoryRegion<TData>> m_df;
+    std::vector<std::vector<TData>> m_deriv;
     std::map<std::vector<LibUtilities::BasisKey>,
              std::vector<Array<OneD, TData>>>
         m_mat;
-    size_t m_derivSize = 0;
+    static constexpr size_t m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

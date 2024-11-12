@@ -68,12 +68,8 @@ public:
         // Initialise derivative factor with paddings.
         auto blocks = GetBlockAttributes<TData>(FieldState::Phys, expansionList,
                                                 simd_t::width);
-        auto dfSize = GetGeometricFactorSize(expansionList, blocks);
-        auto derivFac =
-            SetDerivativeFactor<TData>(expansionList, dfSize, blocks);
-
-        m_df = MemoryRegion<TData>::template FromVector<MemSpace, TData>(
-            *derivFac, simd_t::alignment);
+        m_df = SetDerivativeFactor<MemSpace, TData>(expansionList, blocks,
+                                                    ExecSpace::alignment);
 
         // Initialize the zeros.
         m_zeroMap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eZeros,
@@ -89,17 +85,6 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // check alignment
-        WARNINGL1(in.GetAlignment() == simd_t::alignment,
-                  "Input Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-        WARNINGL1(out.GetAlignment() == simd_t::alignment,
-                  "Output Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, ReadWrite>();
-
         m_coordDim = this->m_expansionList->GetExp(0)->GetCoordim();
 
         ASSERTL0(m_coordDim <= out.GetNumComponents(),
@@ -107,22 +92,32 @@ public:
 
         // Initialize index.
         m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
-        m_df_idx  = 0; // accumulates over blocks, accessed in operatorND()
 
-        for (size_t m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            // Check alignment.
+            WARNINGL1(in.GetAlignment(m_blk) == simd_t::alignment,
+                      "Input Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+            WARNINGL1(out.GetAlignment(m_blk) == simd_t::alignment,
+                      "Output Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+
+            // Initialize pointers.
+            auto inPtr =
+                (in.GetBlocks()[m_blk].GetInterleaveWidth() == simd_t::width)
+                    ? in.template GetPtr<MemSpace, ReadOnly>(m_blk)
+                    : in.template GetPtr<MemSpace, ReadWrite>(m_blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(m_blk);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[m_blk];
-            auto &outblock       = out.GetBlocks()[m_blk];
-            const auto nElmts    = inblock.GetNumElements();
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock     = in.GetBlocks()[m_blk];
+            auto &outblock    = out.GetBlocks()[m_blk];
+            const auto nElmts = inblock.GetNumElements();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto nqTot     = expPtr->GetTotPoints();
             const auto shapeType = expPtr->DetShapeType();
-            const auto deformed  = expPtr->GetMetricInfo()->GetGtype() ==
-                                  SpatialDomains::eDeformed;
 
             // Get current interleave width.
             m_in_interleave_width = inblock.GetInterleaveWidth();
@@ -188,10 +183,7 @@ public:
                     std::cout << "shapetype not implemented" << std::endl;
             }
 
-            // Increment pointer and index for next element type.
-            m_df_idx += deformed ? nqTot * nElmtsPad : nElmtsPad;
-            inPtr += inblock.size();
-            outPtr += outblock.size() * m_coordDim;
+            // Increment index for next element type.
             m_exp_idx += nElmts;
         }
     }
@@ -209,11 +201,11 @@ public:
     }
 
 private:
-    int m_nElmtGroup, m_df_idx, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
     unsigned int m_in_interleave_width;
     unsigned int m_coordDim;
 
-    MemoryRegion<TData> m_df;
+    std::vector<MemoryRegion<TData>> m_df;
     BasisDataMap<simd_t> m_zeroMap;
     BasisDataMap<simd_t> m_derivativeMap;
     std::vector<LibUtilities::BasisKey> m_basisKeys;
@@ -245,9 +237,9 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer
+        // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -310,7 +302,7 @@ private:
 
         // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -378,7 +370,7 @@ private:
 
         // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -449,7 +441,7 @@ private:
 
         // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -531,7 +523,7 @@ private:
 
         // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -612,7 +604,7 @@ private:
 
         // Get derivative factor pointer.
         const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            &(m_df.template GetPtr<MemSpace, ReadOnly>()[m_df_idx * ndf]));
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();

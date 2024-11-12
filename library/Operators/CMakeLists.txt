@@ -307,7 +307,6 @@ SET(OPERATORS_HEADERS
 SET(OPERATORS_SOURCES
     Field/Field.cpp
     Common/Operator.cpp
-    Common/OperatorHelper.cpp
     )
 
 # Only these cpp files go into the group set below.

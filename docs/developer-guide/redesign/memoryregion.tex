@@ -1,0 +1,240 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{MemoryRegion Class}
+
+\section{MemoryRegionHost}
+{\texttt MemoryRegionHost} is a templated base class designed to manage the memory allocation/deallocation on the host. As a base class, it also contains provision for host/device memory management. It contains the following protected member variables:
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionHost
+{
+
+    ...
+
+protected:
+
+    ...
+
+    TData *m_host      = nullptr;
+    size_t m_size      = 0;
+    size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+
+    bool m_host_valid = false;    // Flag indicating that the host data is valid
+    bool m_initialize = true;     // Flag indicating that the data needs
+                                  // to be initialize and is needed for
+                                  // host device transfers.
+    size_t m_device_rank = 0;     // Index indicating device ID.
+    bool m_device_only   = false; // Flag indicating that the data is only
+                                  // initialized on the device.
+    std::string m_name{""}; 
+};
+\end{lstlisting}
+
+The {\texttt MemoryRegionHost} templated base class does not have neither a default nor a copy constructors. As well, the assignment operator has been deleted and only move semantics is allowed once the {\texttt MemoryRegionHost} object has been created.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionHost
+{
+
+    ...
+
+public:
+    /**
+     * @brief Constructor methods - no base, copy methods
+     *
+     */
+    MemoryRegionHost()                                       = delete;
+    MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
+    MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
+
+    ...
+};
+\end{lstlisting}
+
+The {\texttt MemoryRegionHost} templated base class has a custom constructor allocating a contiguous memory chunk on the host with a specified alignment and number of elements (size) of type TData.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionHost
+{
+
+    ...
+
+    MemoryRegionHost(const std::string name, const size_t size,
+                     const size_t alignment, const size_t device_rank,
+                     const bool device_only)
+    {
+        m_size        = size;
+        m_device_rank = device_rank;
+        m_device_only = device_only;
+        m_alignment   = alignment;
+
+        CreateMemory(name);
+    }
+
+    ...
+
+protected:
+    /**
+     * @brief Create hostmemory
+     *
+     * @param alignment - memory alignment
+     */
+    void CreateMemory(const std::string name)
+    {
+        if (!m_device_only)
+        {
+            m_host = static_cast<TData *>(::operator new[](
+                m_size * sizeof(TData), std::align_val_t(m_alignment)));
+
+            m_host_valid = false;
+        }
+
+        m_initialize = true;
+        m_name       = name;
+    }
+
+    ...
+};
+\end{lstlisting}
+
+\section{MemoryRegionDevice}
+{\texttt MemoryRegionDevice} is a templated derived class designed to manage the memory allocation/deallocation on the device and for host/device memory management. It contains the following additional protected member variables:
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionHost
+{
+
+    ...
+
+    // Member variables:
+    TData *m_device     = nullptr; ///< Device memory pointer
+    bool m_device_valid = false;   ///< Flag indicating the device data is valid
+};
+\end{lstlisting}
+
+Similarly to the base class, the {\texttt MemoryRegionDevice} templated derive class does not have neither a default nor a copy constructors and the assignment operator has been deleted
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionDevice
+{
+
+    ...
+
+public:
+    /**
+     * @brief Constructor methods - no base, copy methods
+     *
+     */
+    MemoryRegionDevice()                                         = delete;
+    MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
+    MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
+
+    ...
+};
+\end{lstlisting}
+
+The {\texttt MemoryRegionDevice} templated derive class has a custom constructor allocating a contiguous memory chunk on both the host and the device with a specified alignment and number of elements (size) of type TData.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionDevice
+{
+
+    ...
+
+    MemoryRegionDevice(const std::string name, const size_t size,
+                       const size_t alignment, const size_t device_rank,
+                       const bool device_only)
+        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
+                                  device_only)
+    {
+        CreateMemory();
+    }
+
+    ...
+
+protected:
+
+    /**
+     * @brief Create device memory
+     *
+     */
+    void CreateMemory()
+    {
+        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+    }
+
+    ...
+};
+\end{lstlisting}
+
+Optionally, the host memory allocation can be eliminated by setting the \lstinline[style=C++Style]!device_only! input argument to \lstinline[style=C++Style]!true!. The {\texttt MemoryRegionDevice} has member functions responsible of host-to-device and device-to-memory copy. Memory copy is only performed if necessary by keeping track of when the data is modified on either the host or the device with the member variables \lstinline[style=C++Style]!m_host_valid! and \lstinline[style=C++Style]!m_device_valid!.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegionDevice
+{
+
+    ...
+
+    /**     
+     * @brief Perform a host to device copy.
+     *          
+     */         
+    void HostToDeviceCopy(void) override
+    {      
+        ...
+    }
+
+    /**     
+     * @brief Perform a device to host copy.
+     *
+     */         
+    void DeviceToHostCopy(void) override
+    {   
+        ...
+    }
+
+    ...
+};
+\end{lstlisting}
+
+\section{MemoryRegion}
+{\texttt MemoryRegion} is a templated base class containing a pointer to a {\texttt MemoryRegionHost} base class. The {\texttt MemoryRegionHost} base class and the {\texttt MemoryRegionDevice} derived class should never be used directly and only the {\texttt MemoryRegion} class should be used as a higher memory management object encapsulating the functionalities of the {\texttt MemoryRegionHost} base class and the {\texttt MemoryRegionDevice} derived class.
+
+\begin{lstlisting}[style=C++Style]
+template <typename TData> class MemoryRegion
+{
+
+    ...
+
+protected:
+
+    ...
+
+    // Member variables:
+    size_t m_device_rank                               = 0;
+    std::unique_ptr<MemoryRegionHost<TData>> m_storage = nullptr;
+};
+\end{lstlisting}
+
+Three types of memory qualifier are used along the {\texttt MemoryRegion} class: \lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!.
+
+\begin{lstlisting}[style=C++Style]
+// Memory Qualifier
+struct ReadOnly
+{
+};
+struct WriteOnly
+{
+};
+struct ReadWrite
+{
+};
+\end{lstlisting}
+
+Memory access is performed by calling a \lstinline[style=C++Style]!GetPtr<MemSpace, MemQualifier>()! member function, where \lstinline[style=C++Style]!MemSpace! is a template parameter indicating on which memory space (host or device) the data access is required, while \lstinline[style=C++Style]!MemQualifier! is the template parameter for the memory qualifier (\lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!).
+
+The \lstinline[style=C++Style]!ReadOnly! memory qualifier should be used when the data is not modified on the requested memory space. Memory copy occurs only if necessary. The requested memory space is then marked as valid. This memory qualifier prevent a data copy if the data is subsequently requested on the opposite memory space.
+
+The \lstinline[style=C++Style]!WriteOnly! memory qualifier prevents a copy to the requested memory space as it is assumed that the data is overwritten. The requested memory space is then marked as valid while the opposite memory space is marked as invalid. Memory copy will occur if the data is subsequently requested on the opposite memory space.
+
+The \lstinline[style=C++Style]!ReadWrite! memory qualifier should be used when the data is both modified on the requested memory space and read access is necessary. Memory copy occurs only if necessary. The requested memory space is then marked as valid while the opposite memory space is marked as invalid. Memory copy will occur if the data is subsequently requested on the opposite memory space.
+

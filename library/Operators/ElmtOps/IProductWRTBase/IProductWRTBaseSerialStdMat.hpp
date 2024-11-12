@@ -38,6 +38,7 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -58,8 +59,8 @@ public:
         // Initialise jacobian.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t jacSize = GetGeometricFactorSize(expansionList, locblocks);
-        m_jac          = SetJacobian<TData>(expansionList, jacSize, locblocks);
+        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
+                                             ExecSpace::alignment);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -107,46 +108,60 @@ public:
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
-        // Get raw pointers.
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-
         // Initialize index.
         size_t exp_idx = 0;
-        size_t jac_idx = 0;
 
         // Loop over the blocks.
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
             const auto nElmts    = inblock.GetNumElements();
-            const auto nPadElmts = inblock.GetNumPaddingElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nmTot  = expPtr->GetNcoeffs();
 
-            // Multiply by jacobian.
-            if (m_wspsize < inblock.size())
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            if (lambda == 1.0)
             {
-                m_wspsize = inblock.size();
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    outblock.GetInterleaveWidth(), nElmtsPad,
+                    outblock.GetNumData(), outPtr);
+            }
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
 
-                m_wsp = MemoryRegion<TData>::template Create<MemSpace>(
-                    inblock.size(), ExecSpace::alignment);
+            // Allocate storate.
+            if (m_wsp.size() <= blk)
+            {
+                m_wsp.push_back(std::vector<TData>(nElmts * nqTot));
             }
 
-            auto wspptr = m_wsp.template GetPtr<MemSpace, WriteOnly>();
+            // Get workspace pointer.
+            auto wspPtr = m_wsp[blk].data();
 
             // Multiply by jacobian.
             if (expPtr->GetMetricInfo()->GetGtype() ==
                 SpatialDomains::eDeformed)
             {
-                for (size_t i = 0; i < inblock.size(); ++i)
+                for (size_t i = 0; i < nElmts * nqTot; ++i)
                 {
-                    wspptr[i] = (*m_jac)[jac_idx++] * inPtr[i];
+                    wspPtr[i] = jacPtr[i] * inPtr[i];
                 }
             }
             else
@@ -155,13 +170,10 @@ public:
                 {
                     for (size_t i = 0; i < nqTot; ++i)
                     {
-                        wspptr[e * nqTot + i] =
-                            (*m_jac)[jac_idx] * inPtr[e * nqTot + i];
+                        wspPtr[e * nqTot + i] =
+                            jacPtr[e] * inPtr[e * nqTot + i];
                     }
-
-                    jac_idx++;
                 }
-                jac_idx += nPadElmts;
             }
 
             // Fetch basis key for the current element type.
@@ -175,11 +187,9 @@ public:
 
             // Perform matrix-matrix multiply.
             Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),
-                        nmTot, wspptr, nqTot, 0.0, outPtr, nmTot);
+                        nmTot, wspPtr, nqTot, 0.0, outPtr, nmTot);
 
-            // Increment pointer and index for next element type.
-            inPtr += inblock.size();
-            outPtr += outblock.size();
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -198,9 +208,9 @@ public:
 
 private:
     std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_mat;
-    std::shared_ptr<std::vector<TData>> m_jac;
-    MemoryRegion<TData> m_wsp;
-    size_t m_wspsize = 0;
+    std::vector<MemoryRegion<TData>> m_jac;
+    std::vector<std::vector<TData>> m_wsp;
+    static constexpr size_t m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

@@ -38,6 +38,7 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -59,9 +60,10 @@ public:
         // Initialise jacobian.
         auto locblocks =
             GetBlockAttributes<TData>(FieldState::Phys, expansionList);
-        size_t gFacSize = GetGeometricFactorSize(expansionList, locblocks);
-        m_jac = SetJacobian<TData>(expansionList, gFacSize, locblocks);
-        m_df  = SetDerivativeFactor<TData>(expansionList, gFacSize, locblocks);
+        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
+                                             ExecSpace::alignment);
+        m_df  = SetDerivativeFactor<MemSpace, TData>(expansionList, locblocks,
+                                                    ExecSpace::alignment);
 
         // Initialize basiskey.
         std::vector<LibUtilities::BasisKey> basisKeys(
@@ -100,10 +102,6 @@ public:
                 }
             }
         }
-
-        // Initialize workspace memory.
-        auto nStorage = this->m_expansionList->GetTotPoints();
-        m_wsp         = std::vector<TData>(nStorage * dimension);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
@@ -116,24 +114,28 @@ public:
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
 
-        // Copy memory to the host, if necessary and get raw pointers.
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-        auto wspPtr = m_wsp.data();
-        auto dfPtr  = m_df->data();
-        auto jacPtr = m_jac->data();
-
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
+                          m_implInterleaveWidth)
+                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = APPEND
+                              ? out.template GetPtr<MemSpace, ReadWrite>(blk)
+                              : out.template GetPtr<MemSpace, WriteOnly>(blk);
+            auto dfPtr  = m_df[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
+
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
-            const auto nElmts    = outblock.GetNumElements();
-            const auto nElmtsPad = outblock.GetNumElementsWithPadding();
+            const auto nElmts    = inblock.GetNumElements();
+            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
             // Determine shape and type of the element.
             const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
@@ -143,6 +145,37 @@ public:
             const auto nqTot  = expPtr->GetTotPoints();
             const auto nmTot  = expPtr->GetNcoeffs();
             const auto ndf    = dimension * nCoord;
+
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inPtr);
+            if (nCoord > 1)
+            {
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(), nElmtsPad,
+                    inblock.GetNumData(), (TData *)inPtr + inblock.size());
+            }
+            if (nCoord > 2)
+            {
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    inblock.GetInterleaveWidth(), nElmtsPad,
+                    inblock.GetNumData(), (TData *)inPtr + 2 * inblock.size());
+            }
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
+                outPtr);
+            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.SetInterleaveWidth(m_implInterleaveWidth);
+
+            // Allocate storate.
+            if (m_wsp.size() <= blk)
+            {
+                m_wsp.push_back(std::vector<TData>(dimension * nElmts * nqTot));
+            }
+
+            // Get workspace pointer.
+            auto wspPtr = m_wsp[blk].data();
 
             // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
             if (deformed)
@@ -223,12 +256,7 @@ public:
                             nmTot);
             }
 
-            // Increment pointer and index for next element type.
-            dfPtr += deformed ? ndf * nElmtsPad * nqTot : ndf * nElmtsPad;
-            jacPtr += deformed ? nElmtsPad * nqTot : nElmtsPad;
-            wspPtr += dimension * nElmts * nqTot;
-            inPtr += inblock.size() * nCoord;
-            outPtr += outblock.size();
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
     }
@@ -246,12 +274,13 @@ public:
     }
 
 private:
-    std::shared_ptr<std::vector<TData>> m_jac;
-    std::shared_ptr<std::vector<TData>> m_df;
-    std::vector<TData> m_wsp;
+    std::vector<MemoryRegion<TData>> m_jac;
+    std::vector<MemoryRegion<TData>> m_df;
+    std::vector<std::vector<TData>> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>,
              std::vector<Array<OneD, TData>>>
         m_mat;
+    static constexpr size_t m_implInterleaveWidth = 1;
 };
 
 } // namespace Nektar::Operators::detail

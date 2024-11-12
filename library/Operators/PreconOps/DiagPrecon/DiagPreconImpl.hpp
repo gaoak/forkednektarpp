@@ -129,25 +129,22 @@ public:
         unit_vec.template Initialize<MemSpace>(0);
         m_glodiag.template Initialize<MemSpace>(0);
 
-        size_t offset  = 0;
         size_t exp_idx = 0;
 
-        TData *unitptr = unit_vec.template GetPtr<MemSpace, WriteOnly>();
-        TData *actptr  = action.template GetPtr<MemSpace, WriteOnly>();
-        TData *diagptr = locdiag.template GetPtr<MemSpace, WriteOnly>();
         for (size_t blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            auto &block          = unit_vec.GetBlocks()[blk];
-            const auto nmTot     = block.GetNumData();
-            const auto nElmts    = block.GetNumElements();
-            const auto nElmtsPad = block.GetNumElementsWithPadding();
+            auto &block       = unit_vec.GetBlocks()[blk];
+            const auto nmTot  = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
 
             for (size_t mode = 0; mode < nmTot; ++mode)
             {
                 // Set ith term in unit vector to be 1.
+                auto unitptr =
+                    unit_vec.template GetPtr<MemSpace, WriteOnly>(blk);
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 1.0,
-                                                    unitptr + offset);
+                                                    unitptr);
 
                 // Apply the operator to unit vector and store in the
                 // action field.
@@ -156,15 +153,19 @@ public:
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
-                CopyDiagonalKernel<ExecSpace, TData>(
-                    nmTot, nElmts, mode, actptr + offset, diagptr + offset);
+                auto actptr = action.template GetPtr<MemSpace, ReadOnly>(blk);
+                auto diagptr =
+                    locdiag.template GetPtr<MemSpace, WriteOnly>(blk);
+                CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode,
+                                                     actptr, diagptr);
 
                 // Reset the ith term in the unit vector to be 0.
+                unitptr = unit_vec.template GetPtr<MemSpace, WriteOnly>(blk);
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 0.0,
-                                                    unitptr + offset);
+                                                    unitptr);
             }
 
-            offset += nElmtsPad * nmTot;
+            // Increment index for next element type.
             exp_idx += nElmts;
         }
 

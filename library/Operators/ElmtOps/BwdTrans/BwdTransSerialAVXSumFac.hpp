@@ -74,21 +74,26 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        // Check alignment.
-        WARNINGL1(in.GetAlignment() == simd_t::alignment,
-                  "Input Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-        WARNINGL1(out.GetAlignment() == simd_t::alignment,
-                  "Output Field are not aligned to the required alignment "
-                  "for the SIMD vector type.");
-
-        auto inPtr  = in.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>();
-
+        // Initialize index.
         m_exp_idx = 0; // accumulated across each block.
 
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            // Check alignment.
+            WARNINGL1(in.GetAlignment(blk) == simd_t::alignment,
+                      "Input Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+            WARNINGL1(out.GetAlignment(blk) == simd_t::alignment,
+                      "Output Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+
+            // Initialize pointers.
+            auto inPtr =
+                (in.GetBlocks()[blk].GetInterleaveWidth() == simd_t::width)
+                    ? in.template GetPtr<MemSpace, ReadOnly>(blk)
+                    : in.template GetPtr<MemSpace, ReadWrite>(blk);
+            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
+
             // Block dependent.
             auto &inblock     = in.GetBlocks()[blk];
             auto &outblock    = out.GetBlocks()[blk];
@@ -162,9 +167,7 @@ public:
                     std::cout << "shapetype not implemented" << std::endl;
             }
 
-            // Increment pointer and index for next element type.
-            inPtr += inblock.size();
-            outPtr += outblock.size();
+            // Increment index for next element type.
             m_exp_idx += nElmts;
         }
     }

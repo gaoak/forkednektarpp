@@ -51,10 +51,11 @@ public:
 
     void SetTestCase()
     {
-        double *inptr =
-            fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
+            double *inptr =
+                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
+                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
             for (unsigned int k = 0; k < fixt_explist->GetCoordim(0); k++)
             {

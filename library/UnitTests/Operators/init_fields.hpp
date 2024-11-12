@@ -279,17 +279,19 @@ public:
         ReshapeToScalar(*fixt_out);
         ReshapeToScalar(*fixt_expected);
 
-        const TData *outptr =
-            fixt_out->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-        const TData *expptr =
-            fixt_expected->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
-
         bool isMatch = true;
 
         printf(
             "#elm #pts output               expected            difference\n");
         for (unsigned int blk = 0; blk < fixt_out->GetBlocks().size(); ++blk)
         {
+            const TData *outptr =
+                fixt_out->template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
+                    blk);
+            const TData *expptr =
+                fixt_expected
+                    ->template GetPtr<NektarSpaces::HostSpace, ReadOnly>(blk);
+
             if ((fixt_out->GetBlocks()[blk].GetNumElements() !=
                  fixt_expected->GetBlocks()[blk].GetNumElements()) ||
                 (fixt_out->GetBlocks()[blk].GetNumData() !=
@@ -351,10 +353,10 @@ public:
 
     void ReshapeToScalar(Field<TData, stateOut> &in)
     {
-        auto inptr = in.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
-
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
+            double *inptr =
+                in.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(blk);
             auto &block = in.GetBlocks()[blk];
             unsigned int numElmtsPad =
                 block.GetNumElements() + block.GetNumPaddingElements();
@@ -367,9 +369,6 @@ public:
             }
 
             block.SetInterleaveWidth(1);
-
-            // Increment pointer and index for next block.
-            inptr += block.size() * in.GetNumComponents();
         }
     }
 

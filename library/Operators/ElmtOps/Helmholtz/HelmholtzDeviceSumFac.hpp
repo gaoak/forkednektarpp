@@ -117,22 +117,21 @@ public:
 
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)
     {
-        // Initialize pointers.
-        TData *diffCoeffPtr =
-            this->m_diffCoeff.template GetPtr<MemSpace, ReadWrite>();
-
-        auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>();
-
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (size_t blk = 0; blk < deriv.GetBlocks().size(); ++blk)
         {
+            // Initialize pointers.
+            auto diffCoeffPtr =
+                this->m_diffCoeff.template GetPtr<MemSpace, ReadOnly>();
+            auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>(blk);
+
             // Block dependent.
             auto &derivblock = deriv.GetBlocks()[blk];
             auto nElmts      = derivblock.GetNumElements();
-            auto nElmtsPad   = derivblock.GetNumElementsWithPadding();
+
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);
             auto nCoord       = expPtr->GetCoordim();
@@ -143,25 +142,19 @@ public:
             {
                 DiffusionCoeff1DKernel<ExecSpace, TData>(
                     nqTot * nElmts, diffCoeffPtr, derivPtr);
-
-                derivPtr += nqTot * nElmtsPad;
             }
             else if (nCoord == 2)
             {
                 DiffusionCoeff2DKernel<ExecSpace, TData>(
                     nqTot * nElmts, diffCoeffPtr, derivPtr,
-                    derivPtr + nqTot * nElmtsPad);
-
-                derivPtr += 2 * nqTot * nElmtsPad;
+                    derivPtr + derivblock.size());
             }
             else
             {
                 DiffusionCoeff3DKernel<ExecSpace, TData>(
                     nqTot * nElmts, diffCoeffPtr, derivPtr,
-                    derivPtr + nqTot * nElmtsPad,
-                    derivPtr + 2 * nqTot * nElmtsPad);
-
-                derivPtr += 3 * nqTot * nElmtsPad;
+                    derivPtr + derivblock.size(),
+                    derivPtr + 2 * derivblock.size());
             }
 
             // Increment index for next element type.

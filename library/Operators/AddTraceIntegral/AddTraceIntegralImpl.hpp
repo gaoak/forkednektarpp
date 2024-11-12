@@ -37,7 +37,6 @@
 #include "Operators/OperatorAddTraceIntegral.hpp"
 
 #include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
-#include "Operators/LoopExecution/LoopExecution.hpp"
 
 #include "Operators/AddTraceIntegral/AddTraceIntegralCUDAKernels.cuh"
 #include "Operators/AddTraceIntegral/AddTraceIntegralKokkosKernels.hpp"
@@ -64,125 +63,142 @@ public:
                                         expansionList->GetTrace()),
               1, ExecSpace::alignment))
     {
-        // Set mapping to skip over padding elements
-        int i, j;
-
-        i = 0, j = 0;
-        Array<OneD, int> alignmentMap(expansionList->GetNcoeffs());
-        auto blocks =
-            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
-        for (auto &block : blocks)
-        {
-            const auto ncoeff    = block.GetNumData();
-            const auto nElmts    = block.GetNumElements();
-            const auto nPadElmts = block.GetNumPaddingElements();
-
-            for (unsigned int e = 0; e < nElmts; e++)
-            {
-                for (unsigned int n = 0; n < ncoeff; n++)
-                {
-                    alignmentMap[i++] = j++;
-                }
-            }
-            j += nPadElmts * ncoeff;
-        }
-
-        i = 0, j = 0;
-        Array<OneD, int> alignmentTrace(
-            expansionList->GetTrace()->GetNcoeffs());
-        auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
-                                                     expansionList->GetTrace());
-        for (auto &block : traceBlocks)
-        {
-            const auto ncoeff    = block.GetNumData();
-            const auto nElmts    = block.GetNumElements();
-            const auto nPadElmts = block.GetNumPaddingElements();
-
-            for (unsigned int e = 0; e < nElmts; e++)
-            {
-                for (unsigned int n = 0; n < ncoeff; n++)
-                {
-                    alignmentTrace[i++] = j++;
-                }
-            }
-            j += nPadElmts * ncoeff;
-        }
-
         // Get Trace-to-Element Map
         auto locTraceToTraceMap = expansionList->GetLocTraceToTraceMap();
         auto &TraceCoeffsToElmtMap =
             locTraceToTraceMap->GetTraceCoeffsToElmtMap()[0];
-        auto &TraceCoeffsToElmtSign =
-            locTraceToTraceMap->GetTraceCoeffsToElmtSign()[0];
         auto &TraceCoeffsToElmtTrace =
             locTraceToTraceMap->GetTraceCoeffsToElmtTrace()[0];
-        Array<OneD, int> alignedTraceCoeffsToElmtMap(
-            TraceCoeffsToElmtMap.size());
-        Array<OneD, int> alignedTraceCoeffsToElmtTrace(
-            TraceCoeffsToElmtTrace.size());
-
-        // Compute aligned map to skip over padding elements
-        for (int i = 0; i < TraceCoeffsToElmtMap.size(); i++)
-        {
-            alignedTraceCoeffsToElmtMap[i] =
-                alignmentMap[TraceCoeffsToElmtMap[i]];
-        }
-
-        for (int i = 0; i < TraceCoeffsToElmtTrace.size(); i++)
-        {
-            alignedTraceCoeffsToElmtTrace[i] =
-                alignmentTrace[TraceCoeffsToElmtTrace[i]];
-        }
-
-        // Assign map to memory region
-        const bool device_only = true;
-
-        m_traceCoeffsToElmtMap =
-            MemoryRegion<int>::template FromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtMap, ExecSpace::alignment, device_only);
-
-        m_traceCoeffsToElmtSign =
-            MemoryRegion<int>::template FromArray<MemSpace, int>(
-                TraceCoeffsToElmtSign, ExecSpace::alignment, device_only);
-
-        m_traceCoeffsToElmtTrace =
-            MemoryRegion<int>::template FromArray<MemSpace, int>(
-                alignedTraceCoeffsToElmtTrace, ExecSpace::alignment,
-                device_only);
-
-        // Reorder the map and sign arrays to let trace data be accessed
-        // contiguously
-        ReorderMap();
-
-        // By default, deinterleave map is 0,1,2,3....
-        // the map must be the size of Field, not explist or map
-        size_t ncoeffs = 0;
-        for (auto &block : blocks)
-        {
-            ncoeffs += block.size();
-        }
-        // first create an array and then copy to MemoryRegion
-        Array<OneD, int> tmpArray(ncoeffs);
-        for (int i = 0; i < ncoeffs; i++)
-        {
-            tmpArray[i] = i;
-        }
-        m_deInterleaveFieldMap =
-            MemoryRegion<int>::template FromArray<MemSpace, int>(
-                tmpArray, ExecSpace::alignment, device_only);
-
-        // reuse Array for trace
-        tmpArray = Array<OneD, int>(m_trace.GetFieldSize());
-        for (int i = 0; i < m_trace.GetFieldSize(); i++)
-        {
-            tmpArray[i] = i;
-        }
-        m_deInterleaveTraceMap =
-            MemoryRegion<int>::template FromArray<MemSpace, int>(
-                tmpArray, ExecSpace::alignment, device_only);
+        auto &TraceCoeffsToElmtSign =
+            locTraceToTraceMap->GetTraceCoeffsToElmtSign()[0];
 
         m_nFwdBwdCoeffs = locTraceToTraceMap->GetNFwdCoeffs() +
                           locTraceToTraceMap->GetNBwdCoeffs();
+
+        // Split trace map per block.
+        if (m_nFwdBwdCoeffs == 0)
+        {
+            return;
+        }
+
+        // Compute block bound.
+        auto traceBlocks = GetBlockAttributes<TData>(FieldState::Coeff,
+                                                     expansionList->GetTrace());
+        std::vector<int> traceBlockBound(traceBlocks.size());
+        int traceBound = 0;
+        for (int blk = 0; blk < traceBlocks.size(); ++blk)
+        {
+            const auto &block = traceBlocks[blk];
+            const auto ncoeff = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
+            traceBound += nElmts * ncoeff;
+            traceBlockBound[blk] = traceBound;
+        }
+
+        auto blocks =
+            GetBlockAttributes<TData>(FieldState::Coeff, expansionList);
+        std::vector<int> blockBound(blocks.size());
+        int bound = 0;
+        for (int blk = 0; blk < blocks.size(); ++blk)
+        {
+            const auto &block = blocks[blk];
+            const auto ncoeff = block.GetNumData();
+            const auto nElmts = block.GetNumElements();
+            bound += nElmts * ncoeff;
+            blockBound[blk] = bound;
+        }
+
+        std::vector<std::tuple<int, int, int>> traceToTraceReordered(
+            m_nFwdBwdCoeffs);
+        if (m_nFwdBwdCoeffs > 0)
+        {
+            for (int i = 0; i < m_nFwdBwdCoeffs; i++)
+            {
+                traceToTraceReordered[i] = std::make_tuple(
+                    TraceCoeffsToElmtMap[i], TraceCoeffsToElmtTrace[i],
+                    TraceCoeffsToElmtSign[i]);
+            }
+            std::sort(std::begin(traceToTraceReordered),
+                      std::end(traceToTraceReordered),
+                      [](std::tuple<int, int, int> const &t1,
+                         std::tuple<int, int, int> const &t2) {
+                          return std::get<1>(t1) < std::get<1>(t2);
+                      });
+        }
+
+        // Assign map to memory region.
+        const bool device_only = true;
+
+        std::vector<int> nFwdBwdCoeffsBlock(blocks.size(), 0);
+        std::vector<std::vector<int>> traceCoeffsToElmtMapBlock(blocks.size());
+        std::vector<std::vector<int>> traceCoeffsToElmtTraceBlock(
+            blocks.size());
+        std::vector<std::vector<int>> traceCoeffsToElmtSignBlock(blocks.size());
+        m_nFwdBwdCoeffsBlock =
+            std::vector<std::vector<int>>(traceBlocks.size());
+        m_traceCoeffsToElmtMap =
+            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+        m_traceCoeffsToElmtTrace =
+            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+        m_traceCoeffsToElmtSign =
+            std::vector<std::vector<MemoryRegion<int>>>(traceBlocks.size());
+        int i = 0, blk0 = 0, blk1 = 0, offset0 = 0, offset1 = 0;
+        while (blk1 < traceBlocks.size())
+        {
+            if (i == m_nFwdBwdCoeffs ||
+                std::get<1>(traceToTraceReordered[i]) >= traceBlockBound[blk1])
+            {
+                for (auto &nFwdBwdCoeffs : nFwdBwdCoeffsBlock)
+                {
+                    m_nFwdBwdCoeffsBlock[blk1].push_back(nFwdBwdCoeffs);
+                    nFwdBwdCoeffs = 0;
+                }
+                for (auto &traceCoeffsToElmtMap : traceCoeffsToElmtMapBlock)
+                {
+                    m_traceCoeffsToElmtMap[blk1].push_back(
+                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                            traceCoeffsToElmtMap, ExecSpace::alignment,
+                            device_only));
+                    traceCoeffsToElmtMap.clear();
+                }
+                for (auto &traceCoeffsToElmtTrace : traceCoeffsToElmtTraceBlock)
+                {
+                    m_traceCoeffsToElmtTrace[blk1].push_back(
+                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                            traceCoeffsToElmtTrace, ExecSpace::alignment,
+                            device_only));
+                    traceCoeffsToElmtTrace.clear();
+                }
+                for (auto &traceCoeffsToElmtSign : traceCoeffsToElmtSignBlock)
+                {
+                    m_traceCoeffsToElmtSign[blk1].push_back(
+                        MemoryRegion<int>::template FromVector<MemSpace, int>(
+                            traceCoeffsToElmtSign, ExecSpace::alignment,
+                            device_only));
+                    traceCoeffsToElmtSign.clear();
+                }
+                offset1 = traceBlockBound[blk1];
+                blk1++;
+            }
+            else if (std::get<0>(traceToTraceReordered[i]) >= blockBound[blk0])
+            {
+                offset0 = blockBound[blk0];
+                blk0++;
+            }
+            else
+            {
+                traceCoeffsToElmtMapBlock[blk0].push_back(
+                    std::get<0>(traceToTraceReordered[i]) - offset0);
+                traceCoeffsToElmtTraceBlock[blk0].push_back(
+                    std::get<1>(traceToTraceReordered[i]) - offset1);
+                traceCoeffsToElmtSignBlock[blk0].push_back(
+                    std::get<2>(traceToTraceReordered[i]));
+                nFwdBwdCoeffsBlock[blk0]++;
+                offset0 = 0;
+                blk0    = 0;
+                i++;
+            }
+        }
 
         // Initialise IProductWRTBase operator.
         m_IProductWRTBaseOp =
@@ -196,60 +212,7 @@ public:
         // Step 1: Inner product for trace integral.
         m_IProductWRTBaseOp->apply(in, m_trace);
 
-        // interleave the map only when the input vector width is different
-        // from current vector width of map
-        /*if (m_trace.GetVecWidth() != m_traceVecWdith)
-        {
-            if (m_traceVecWdith != 1) // deinterleave first
-            {
-                ReshuffleMap<ExecSpace>(m_deInterleaveTraceMap,
-                                        m_traceCoeffsToElmtTrace);
-            }
-            if (m_trace.GetVecWidth() != 1) // do interleave
-            {
-                MemoryRegion<int> InterleaveTraceMap =
-                    MemoryRegion<int>::template create<MemSpace>(
-                        m_deInterleaveTraceMap.size(), ExecSpace::alignment);
-
-                BuildInterleaveMap<ExecSpace>(
-                    m_trace.GetBlocks(), m_trace.GetVecWidth(),
-                    m_deInterleaveTraceMap, InterleaveTraceMap);
-
-                ReshuffleMap<ExecSpace>(InterleaveTraceMap,
-                                        m_traceCoeffsToElmtTrace);
-            }
-            // update the vector width of map
-            m_traceVecWdith = m_trace.GetVecWidth();
-            // reorder the map and sign arrays to let trace data be accessed
-            // contiguously
-            ReorderMap();
-        }
-
-        if (out.GetVecWidth() != m_fieldVecWdith)
-        {
-            if (m_fieldVecWdith != 1) // deinterleave first
-            {
-                ReshuffleMap<ExecSpace>(m_deInterleaveFieldMap,
-                                        m_traceCoeffsToElmtMap);
-            }
-            if (out.GetVecWidth() != 1) // do interleave
-            {
-                MemoryRegion<int> InterleaveFieldMap =
-                    MemoryRegion<int>::template create<MemSpace>(
-                        m_deInterleaveFieldMap.size(), ExecSpace::alignment);
-
-                BuildInterleaveMap<ExecSpace>(
-                    out.GetBlocks(), out.GetVecWidth(), m_deInterleaveFieldMap,
-                    InterleaveFieldMap);
-
-                ReshuffleMap<ExecSpace>(InterleaveFieldMap,
-                                        m_traceCoeffsToElmtMap);
-            }
-            // update the vector width of map
-            m_fieldVecWdith = out.GetVecWidth();
-        }*/
-
-        // Step 2: Map Trace to Element
+        // Step 2: Map Trace to element.
         AddTraceIntegral(out);
     }
 
@@ -261,19 +224,36 @@ public:
             return;
         }
 
-        // Copy memory to the device, if necessary and get raw pointers.
-        TData *outPtr         = out.template GetPtr<MemSpace, ReadWrite>();
-        const TData *tracePtr = m_trace.template GetPtr<MemSpace, ReadOnly>();
-        const int *traceCoeffsToElmtSignPtr =
-            m_traceCoeffsToElmtSign.template GetPtr<MemSpace, ReadOnly>();
-        const int *traceCoeffsToElmtTracePtr =
-            m_traceCoeffsToElmtTrace.template GetPtr<MemSpace, ReadOnly>();
-        const int *traceCoeffsToElmtMapPtr =
-            m_traceCoeffsToElmtMap.template GetPtr<MemSpace, ReadOnly>();
+        for (size_t blk1 = 0; blk1 < m_trace.GetBlocks().size(); ++blk1)
+        {
+            // Initialize pointers.
+            auto tracePtr = m_trace.template GetPtr<MemSpace, ReadOnly>(blk1);
+            for (size_t blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
+            {
+                auto nFwdBwdCoeffsBlock = m_nFwdBwdCoeffsBlock[blk1][blk0];
 
-        AddTraceIntegralKernel<ExecSpace>(
-            m_nFwdBwdCoeffs, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-            traceCoeffsToElmtTracePtr, tracePtr, outPtr);
+                if (nFwdBwdCoeffsBlock > 0)
+                {
+                    // Initialize pointers.
+                    auto outPtr =
+                        out.template GetPtr<MemSpace, ReadWrite>(blk0);
+                    auto traceCoeffsToElmtSignPtr =
+                        m_traceCoeffsToElmtSign[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>();
+                    auto traceCoeffsToElmtTracePtr =
+                        m_traceCoeffsToElmtTrace[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>();
+                    auto traceCoeffsToElmtMapPtr =
+                        m_traceCoeffsToElmtMap[blk1][blk0]
+                            .template GetPtr<MemSpace, ReadOnly>();
+
+                    AddTraceIntegralKernel<ExecSpace>(
+                        nFwdBwdCoeffsBlock, traceCoeffsToElmtMapPtr,
+                        traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr,
+                        tracePtr, outPtr);
+                }
+            }
+        }
     }
 
     // className - for OperatorFactory
@@ -291,33 +271,11 @@ public:
 private:
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
     Field<TData, FieldState::Coeff> m_trace;
-    MemoryRegion<int> m_traceCoeffsToElmtMap;
-    MemoryRegion<int> m_traceCoeffsToElmtSign;
-    MemoryRegion<int> m_traceCoeffsToElmtTrace;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtMap;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtTrace;
+    std::vector<std::vector<MemoryRegion<int>>> m_traceCoeffsToElmtSign;
+    std::vector<std::vector<int>> m_nFwdBwdCoeffsBlock;
     int m_nFwdBwdCoeffs;
-
-    // stores the current vector width of ElmtMap / TraceMap
-    int m_fieldVecWdith = 1;
-    int m_traceVecWdith = 1;
-    // and the Deinterleave map to restore original layout
-    MemoryRegion<int> m_deInterleaveFieldMap;
-    MemoryRegion<int> m_deInterleaveTraceMap;
-
-    /// A function to order the map and sign arrays, to let trace data be
-    /// accessed contiguously. This does not affect deinterleave map.
-    void ReorderMap()
-    {
-        auto traceCoeffsToElmtMapPtr =
-            m_traceCoeffsToElmtMap.template GetPtr<MemSpace, ReadWrite>();
-        auto traceCoeffsToElmtSignPtr =
-            m_traceCoeffsToElmtSign.template GetPtr<MemSpace, ReadWrite>();
-        auto traceCoeffsToElmtTracePtr =
-            m_traceCoeffsToElmtTrace.template GetPtr<MemSpace, ReadWrite>();
-
-        ReOrderMapKernel<ExecSpace>(
-            m_traceCoeffsToElmtMap.size(), traceCoeffsToElmtMapPtr,
-            traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr);
-    }
 };
 
 } // namespace Nektar::Operators::detail
