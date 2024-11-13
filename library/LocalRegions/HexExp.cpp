@@ -1387,10 +1387,12 @@ void HexExp::v_LaplacianMatrixOp_MatFree_Kernel(
                           false, CollDir1, CollDir2);
     IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac, Deformed,
                           CollDir0, false, CollDir2);
-    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(), 1);
+    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
+                1);
     IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac, Deformed,
                           CollDir0, CollDir1, false);
-    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(), 1);
+    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
+                1);
 }
 
 void HexExp::v_ComputeLaplacianMetric()

@@ -83,10 +83,9 @@ public:
 
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            auto inptr =
-                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
+            auto inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
             {
@@ -150,10 +149,9 @@ public:
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
-            auto expptr =
-                fixt_expected
-                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
+            auto expptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
                 for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
@@ -227,10 +225,9 @@ public:
         }
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            auto inptr =
-                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
+            auto inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
             {
@@ -291,10 +288,9 @@ public:
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
-            auto expptr =
-                fixt_expected
-                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
+            auto expptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
                 for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
@@ -364,10 +360,9 @@ public:
         fixt_explist->GetCoords(x, y, z);
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            auto inptr =
-                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
+            auto inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();
                  ++e, ++el)
             {
@@ -420,10 +415,9 @@ public:
         for (unsigned int blk = 0; blk < fixt_expected->GetBlocks().size();
              ++blk)
         {
-            auto expptr =
-                fixt_expected
-                    ->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(blk);
             auto &block = fixt_expected->GetBlocks()[blk];
+            auto expptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int n = 0; n < fixt_explist->GetCoordim(0); n++)
             {
                 for (unsigned int e = 0, cnt = 0; e < block.GetNumElements();

@@ -103,44 +103,6 @@ public:
     }
 
     /**
-     * @brief Templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a
-     *        src pointer
-     *
-     * @param src         - pointer data type TDataIn to copy from
-     * @param size        - number of element of type TDataIn to copy
-     * @param alignment   - memory alignment
-     * @param device_only - flag to only allocated memory on device
-     */
-    template <typename TDataIn>
-    MemoryRegionHost(const std::string name, const TDataIn *src,
-                     const size_t size, const size_t alignment,
-                     const size_t device_rank, const bool device_only)
-    {
-        m_size        = size;
-        m_device_rank = device_rank;
-        m_device_only = device_only;
-        m_alignment   = alignment;
-
-        CreateMemory(name);
-
-        if (!m_device_only)
-        {
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                std::memcpy(m_host, src, m_size * sizeof(TData));
-            }
-            else
-            {
-                std::copy(src, src + size, m_host);
-            }
-
-            m_host_valid = true;
-            m_initialize = false;
-        }
-    }
-
-    /**
      * @brief Destructor method.
      *
      */
@@ -161,6 +123,7 @@ public:
         m_name        = "";
     }
 
+protected:
     /**
      * @brief Move operator
      *
@@ -223,50 +186,8 @@ public:
     }
 
     /**
-     * @brief Get the storage alignment
-     *
-     * @return - size_t
-     */
-    size_t GetAlignment() const
-    {
-        return m_alignment;
-    }
-
-    /**
-     * @brief Get the name
-     *
-     * @return - std::string
-     */
-    size_t GetDeviceRank() const
-    {
-        return m_device_rank;
-    }
-
-    /**
-     * @brief Get the storage size
-     *
-     * @return - size_t
-     */
-    size_t size() const
-    {
-        return m_size;
-    }
-
-    /**
-     * @brief Get the name
-     *
-     * @return - std::string
-     */
-    std::string GetName() const
-    {
-        return m_name;
-    }
-
-protected:
-    /**
      * @brief Create hostmemory
      *
-     * @param alignment - memory alignment
      */
     void CreateMemory(const std::string name)
     {
@@ -354,25 +275,15 @@ protected:
 
             TData *dst = m_host + offset;
 
-            // Special handling for the simd_t.
-            using simd_t = tinysimd::simd<TData>;
-
-            if constexpr (std::is_same_v<simd_t, TData>)
+            // If the value is zero, memset is the most efficent.
+            if (val == TData(0))
             {
-                std::fill(dst, dst + size, val);
+                std::memset(dst, 0, size * sizeof(TData));
             }
+            // Otherwise use the fill function.
             else
             {
-                // If the value is zero, memset is the most efficent.
-                if (val == TData(0))
-                {
-                    std::memset(dst, 0, size * sizeof(TData));
-                }
-                // Otherwuse use the fill function.
-                else
-                {
-                    std::fill(dst, dst + size, val);
-                }
+                std::fill(dst, dst + size, val);
             }
 
             m_host_valid = true;

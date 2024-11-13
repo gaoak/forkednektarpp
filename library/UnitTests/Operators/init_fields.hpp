@@ -286,11 +286,11 @@ public:
         for (unsigned int blk = 0; blk < fixt_out->GetBlocks().size(); ++blk)
         {
             const TData *outptr =
-                fixt_out->template GetPtr<NektarSpaces::HostSpace, ReadOnly>(
-                    blk);
+                fixt_out->GetBlocks()[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             const TData *expptr =
-                fixt_expected
-                    ->template GetPtr<NektarSpaces::HostSpace, ReadOnly>(blk);
+                fixt_expected->GetBlocks()[blk]
+                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
 
             if ((fixt_out->GetBlocks()[blk].GetNumElements() !=
                  fixt_expected->GetBlocks()[blk].GetNumElements()) ||
@@ -355,9 +355,9 @@ public:
     {
         for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            double *inptr =
-                in.template GetPtr<NektarSpaces::HostSpace, ReadWrite>(blk);
             auto &block = in.GetBlocks()[blk];
+            double *inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
             unsigned int numElmtsPad =
                 block.GetNumElements() + block.GetNumPaddingElements();
             for (unsigned int component = 0; component < in.GetNumComponents();
