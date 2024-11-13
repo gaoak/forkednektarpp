@@ -180,8 +180,9 @@ public:
         for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             // Initialize pointers.
-            auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>(blk);
-            auto mapPtr   = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
+            auto inoutPtr =
+                inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
+            auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
             auto bndcoeffPtr =
                 m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
             auto signPtr =

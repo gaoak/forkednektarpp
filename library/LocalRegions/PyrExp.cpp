@@ -1297,10 +1297,12 @@ void PyrExp::v_LaplacianMatrixOp_MatFree_Kernel(
                                      Deformed);
     StdPyrExp::IProductWRTBaseKernel(base0, dbase1, base2, wsp4, wsp2, jac,
                                      Deformed);
-    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(), 1);
+    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
+                1);
     StdPyrExp::IProductWRTBaseKernel(base0, base1, dbase2, wsp5, wsp2, jac,
                                      Deformed);
-    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(), 1);
+    Vmath::Vadd(m_ncoeffs, wsp2.data(), 1, outarray.data(), 1, outarray.data(),
+                1);
 }
 
 /** @brief: This method gets all of the factors which are

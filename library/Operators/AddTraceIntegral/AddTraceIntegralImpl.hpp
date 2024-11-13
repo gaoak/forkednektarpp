@@ -227,7 +227,8 @@ public:
         for (size_t blk1 = 0; blk1 < m_trace.GetBlocks().size(); ++blk1)
         {
             // Initialize pointers.
-            auto tracePtr = m_trace.template GetPtr<MemSpace, ReadOnly>(blk1);
+            auto tracePtr =
+                m_trace.GetBlocks()[blk1].template GetPtr<MemSpace, ReadOnly>();
             for (size_t blk0 = 0; blk0 < out.GetBlocks().size(); ++blk0)
             {
                 auto nFwdBwdCoeffsBlock = m_nFwdBwdCoeffsBlock[blk1][blk0];
@@ -235,8 +236,8 @@ public:
                 if (nFwdBwdCoeffsBlock > 0)
                 {
                     // Initialize pointers.
-                    auto outPtr =
-                        out.template GetPtr<MemSpace, ReadWrite>(blk0);
+                    auto outPtr = out.GetBlocks()[blk0]
+                                      .template GetPtr<MemSpace, ReadWrite>();
                     auto traceCoeffsToElmtSignPtr =
                         m_traceCoeffsToElmtSign[blk1][blk0]
                             .template GetPtr<MemSpace, ReadOnly>();

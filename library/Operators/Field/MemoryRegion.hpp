@@ -37,11 +37,10 @@
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/MiscUtils.hpp>
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
 
 #include "Operators/Field/MemoryRegionDevice.hpp"
 
-// Memory Qualifier
+// Memory access qualifier
 struct ReadOnly
 {
 };
@@ -569,19 +568,19 @@ public:
         if constexpr (std::is_same_v<TDataOut, TData>)
         {
             return std::vector<TDataOut, Alloc>(
-                m_storage->size(),
+                m_storage->m_size,
                 this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
         }
         else
         {
-            std::vector<TDataOut, Alloc> vector(m_storage->size());
+            std::vector<TDataOut, Alloc> vector(m_storage->m_size);
 
             // Copy the data from the input field
             auto ptr =
                 this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             auto vecPtr = vector.data();
 
-            std::copy(ptr, ptr + m_storage->size(), vecPtr);
+            std::copy(ptr, ptr + m_storage->m_size, vecPtr);
 
             return vector;
         }
@@ -604,19 +603,19 @@ public:
         if constexpr (std::is_same_v<TDataOut, TData>)
         {
             return Nektar::Array<Nektar::OneD, TDataOut>(
-                m_storage->size(),
+                m_storage->m_size,
                 this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>());
         }
         else
         {
-            Nektar::Array<Nektar::OneD, TDataOut> array(m_storage->size());
+            Nektar::Array<Nektar::OneD, TDataOut> array(m_storage->m_size);
 
             // Copy the data from the input field
             auto ptr =
                 this->template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
             auto arrPtr = array.data();
 
-            std::copy(ptr, ptr + m_storage->size(), arrPtr);
+            std::copy(ptr, ptr + m_storage->m_size, arrPtr);
 
             return array;
         }
@@ -630,7 +629,7 @@ public:
                      "MemoryRegion::GetAlignment - Storage has not allocated.");
         }
 
-        return m_storage->GetAlignment();
+        return m_storage->m_alignment;
     }
 
     /**
@@ -646,7 +645,7 @@ public:
                 "MemoryRegion::GetDeviceRank - Storage has not allocated.");
         }
 
-        return m_storage->GetDeviceRank();
+        return m_storage->m_device_rank;
     }
 
     /**
@@ -662,7 +661,7 @@ public:
                      "MemoryRegion::size - Storage has not allocated.");
         }
 
-        return m_storage->size();
+        return m_storage->m_size;
     }
 
     /**
@@ -677,7 +676,77 @@ public:
                      "MemoryRegion::GetName - Storage has not allocated.");
         }
 
-        return m_storage->GetName();
+        return m_storage->m_name;
+    }
+
+protected:
+    /**
+     * @brief Get the underlying storage of the memory region as the
+     *        requested type.
+     *
+     * @return MemoryRegion<TData> storage converted to the requested type
+     *
+     * This routine performs MemoryRegion conversions if necessary to
+     * enable casting of, for example a host memory region to a device
+     * memory region to support the use of a device operator if
+     * necessary.
+     *
+     * A runtime warning is provided if a transfer of data from device
+     * to host is required to achieve the conversion.
+     */
+    template <template <typename> class TMemoryRegion = MemoryRegionHost>
+    TMemoryRegion<TData> &GetStorage()
+    {
+        using T = TMemoryRegion<TData>;
+
+        static_assert(std::is_base_of<MemoryRegionHost<TData>, T>::value,
+                      "MemoryRegion::GetStorage - TMemoryRegion must derive "
+                      "MemoryRegionHost<TData>");
+
+        try
+        {
+            // This cast fails if e.g. a MemoryRegionDevice is requested from a
+            // MemoryRegionHost object.
+            auto &ret = dynamic_cast<T &>(*m_storage);
+
+            std::string name  = Nektar::demangleTypeName(typeid(T));
+            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
+
+            // Debug warning, a (possibly) undesired conversion occured.
+            std::string msg("MemoryRegion::GetStorage - "
+                            "Requested backing storage (");
+            msg += m_storage->m_name + ") of type " + name +
+                   " != actual storage type " + sname;
+
+            WARNINGL0(typeid(*m_storage) == typeid(T), msg);
+
+            return ret;
+        }
+        // Dynamic cast threw an exception, attempt to allocate the
+        // requested TMemoryRegion from old data.
+        catch (const std::bad_cast &e)
+        {
+            std::string name  = Nektar::demangleTypeName(typeid(T));
+            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
+
+            std::string msg("MemoryRegion::GetStorage - "
+                            "Converting backing storage (");
+            msg += m_storage->m_name + ") from " + sname + " to " + name;
+
+            WARNINGL0(false, msg);
+
+            // Make sure the memory is on the host.
+            m_storage->DeviceToHostCopy();
+
+            // Cast to the MemoryRegionHost base class.
+            auto &ret = dynamic_cast<MemoryRegionHost<TData> &>(*m_storage);
+
+            // Create new TMemoryRegion from the MemoryRegionHost base
+            // class.
+            m_storage = std::make_unique<T>(T(std::move(ret)));
+
+            return dynamic_cast<T &>(*m_storage);
+        }
     }
 
     /**
@@ -718,76 +787,6 @@ public:
         }
     }
 
-protected:
-    /**
-     * @brief Get the underlying storage of the memory region as the
-     *        requested type.
-     *
-     * @return MemoryRegion<TData> storage converted to the requested type
-     *
-     * This routine performs MemoryRegion conversions if necessary to
-     * enable casting of, for example a host memory region to a device
-     * memory region to support the use of a device operator if
-     * necessary.
-     *
-     * A runtime warning is provided if a transfer of data from device
-     * to host is required to achieve the conversion.
-     */
-    template <template <typename> class TMemoryRegion = MemoryRegionHost>
-    TMemoryRegion<TData> &GetStorage()
-    {
-        using T = TMemoryRegion<TData>;
-
-        static_assert(std::is_base_of<MemoryRegionHost<TData>, T>::value,
-                      "MemoryRegion::GetStorage - TMemoryRegion must derive "
-                      "MemoryRegionHost<TData>");
-
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionDevice is requested from a
-            // MemoryRegionHost object.
-            auto &ret = dynamic_cast<T &>(*m_storage);
-
-            std::string name  = Nektar::demangleTypeName(typeid(T));
-            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
-
-            // Debug warning, a (possibly) undesired conversion occured.
-            std::string msg("MemoryRegion::GetStorage - "
-                            "Requested backing storage (");
-            msg += m_storage->GetName() + ") of type " + name +
-                   " != actual storage type " + sname;
-
-            WARNINGL0(typeid(*m_storage) == typeid(T), msg);
-
-            return ret;
-        }
-        // Dynamic cast threw an exception, attempt to allocate the
-        // requested TMemoryRegion from old data.
-        catch (const std::bad_cast &e)
-        {
-            std::string name  = Nektar::demangleTypeName(typeid(T));
-            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
-
-            std::string msg("MemoryRegion::GetStorage - "
-                            "Converting backing storage (");
-            msg += m_storage->GetName() + ") from " + sname + " to " + name;
-
-            WARNINGL0(false, msg);
-
-            // Make sure the memory is on the host.
-            m_storage->DeviceToHostCopy();
-
-            // Cast to the MemoryRegionHost base class.
-            auto &ret = dynamic_cast<MemoryRegionHost<TData> &>(*m_storage);
-
-            // Create new TMemoryRegion from the MemoryRegionHost base
-            // class.
-            m_storage = std::make_unique<T>(T(std::move(ret)));
-
-            return dynamic_cast<T &>(*m_storage);
-        }
-    }
-
     /**
      * @brief Static templated creation method. This method creates a
      *        new MemoryRegion that copies data from a pointer
@@ -813,12 +812,16 @@ protected:
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
             mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
-                name, src, size, alignment, device_rank, false);
+                name, size, alignment, device_rank, false);
+            mr.m_storage->template CopySRC<HostToHost>(src, size);
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
             mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
-                name, src, size, alignment, device_rank, device_only);
+                name, size, alignment, device_rank, device_only);
+            auto &ret =
+                dynamic_cast<MemoryRegionDevice<TData> &>(*mr.m_storage);
+            ret.template CopySRC<HostToDevice>(src, size);
         }
         else
         {
@@ -879,6 +882,5 @@ protected:
     }
 
     // Member variables:
-    size_t m_device_rank                               = 0;
     std::unique_ptr<MemoryRegionHost<TData>> m_storage = nullptr;
 };

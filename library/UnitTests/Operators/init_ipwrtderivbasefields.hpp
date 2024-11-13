@@ -53,10 +53,9 @@ public:
     {
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
-            double *inptr =
-                fixt_in->template GetPtr<NektarSpaces::HostSpace, WriteOnly>(
-                    blk);
             auto &block = fixt_in->GetBlocks()[blk];
+            double *inptr =
+                block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
             for (unsigned int k = 0; k < fixt_explist->GetCoordim(0); k++)
             {
                 for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();

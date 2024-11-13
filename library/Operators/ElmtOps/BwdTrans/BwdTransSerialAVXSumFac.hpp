@@ -79,25 +79,24 @@ public:
 
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Check alignment.
-            WARNINGL1(in.GetAlignment(blk) == simd_t::alignment,
-                      "Input Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-            WARNINGL1(out.GetAlignment(blk) == simd_t::alignment,
-                      "Output Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-
-            // Initialize pointers.
-            auto inPtr =
-                (in.GetBlocks()[blk].GetInterleaveWidth() == simd_t::width)
-                    ? in.template GetPtr<MemSpace, ReadOnly>(blk)
-                    : in.template GetPtr<MemSpace, ReadWrite>(blk);
-            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
-
             // Block dependent.
             auto &inblock     = in.GetBlocks()[blk];
             auto &outblock    = out.GetBlocks()[blk];
             const auto nElmts = inblock.GetNumElements();
+
+            // Check alignment.
+            WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
+                      "Input Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+            WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
+                      "Output Field are not aligned to the required alignment "
+                      "for the SIMD vector type.");
+
+            // Initialize pointers.
+            auto inPtr  = (inblock.GetInterleaveWidth() == simd_t::width)
+                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                              : inblock.template GetPtr<MemSpace, ReadWrite>();
+            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
             // Determine shape and type of the element.
             const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);

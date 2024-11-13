@@ -127,13 +127,15 @@ public:
 
         for (size_t blk = 0; blk < deriv.GetBlocks().size(); ++blk)
         {
-            auto derivPtr = deriv.template GetPtr<MemSpace, ReadWrite>(blk);
-            auto derivCoeffPtr =
-                derivCoeff.template GetPtr<MemSpace, ReadWrite>(blk);
-
             // Block dependent.
-            auto &derivblock  = deriv.GetBlocks()[blk];
-            const auto nElmts = derivblock.GetNumElements();
+            auto &derivblock      = deriv.GetBlocks()[blk];
+            auto &derivCoeffBlock = derivCoeff.GetBlocks()[blk];
+            const auto nElmts     = derivblock.GetNumElements();
+
+            // Initialize pointers.
+            auto derivPtr = derivblock.template GetPtr<MemSpace, ReadWrite>();
+            auto derivCoeffPtr =
+                derivCoeffBlock.template GetPtr<MemSpace, ReadWrite>();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);

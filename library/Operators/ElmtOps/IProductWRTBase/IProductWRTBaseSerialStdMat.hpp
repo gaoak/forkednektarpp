@@ -114,19 +114,18 @@ public:
         // Loop over the blocks.
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
-            // Initialize pointers.
-            auto inPtr  = (in.GetBlocks()[blk].GetInterleaveWidth() ==
-                          m_implInterleaveWidth)
-                              ? in.template GetPtr<MemSpace, ReadOnly>(blk)
-                              : in.template GetPtr<MemSpace, ReadWrite>(blk);
-            auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(blk);
-            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
-
             // Block dependent.
             auto &inblock        = in.GetBlocks()[blk];
             auto &outblock       = out.GetBlocks()[blk];
             const auto nElmts    = inblock.GetNumElements();
             const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+            // Initialize pointers.
+            auto inPtr = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                             ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                             : inblock.template GetPtr<MemSpace, ReadWrite>();
+            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
+            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
 
             // Determine shape and type of the element.
             const auto expPtr = this->m_expansionList->GetExp(exp_idx);

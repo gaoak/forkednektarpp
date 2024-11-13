@@ -274,18 +274,15 @@ public:
         }
 
         // Get pointers.
-        const auto inPtr   = in.template GetPtr<MemSpace, ReadOnly>(0);
-        const auto matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
-        const auto mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
-        const auto signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
-        const auto ncoeffPtr =
-            m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
-        const auto offsetPtr = m_offset.template GetPtr<MemSpace, ReadOnly>();
-        const auto matOffsetPtr =
-            m_matOffset.template GetPtr<MemSpace, ReadOnly>();
-        const auto mapOffsetPtr =
-            m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.template GetPtr<MemSpace, WriteOnly>(0);
+        auto inPtr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
+        auto mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
+        auto signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
+        auto ncoeffPtr    = m_nEdgeCoeff.template GetPtr<MemSpace, ReadOnly>();
+        auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
+        auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
+        auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
+        auto outPtr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
 
         // Apply Robin boundary conditions.
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();

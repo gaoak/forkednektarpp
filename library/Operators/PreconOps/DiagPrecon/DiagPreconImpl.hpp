@@ -134,15 +134,17 @@ public:
         for (size_t blk = 0; blk < unit_vec.GetBlocks().size(); ++blk)
         {
             // Block dependent.
-            auto &block       = unit_vec.GetBlocks()[blk];
-            const auto nmTot  = block.GetNumData();
-            const auto nElmts = block.GetNumElements();
+            auto &unitvecblock = unit_vec.GetBlocks()[blk];
+            auto &actionblock  = action.GetBlocks()[blk];
+            auto &diagblock    = locdiag.GetBlocks()[blk];
+            const auto nmTot   = unitvecblock.GetNumData();
+            const auto nElmts  = unitvecblock.GetNumElements();
 
             for (size_t mode = 0; mode < nmTot; ++mode)
             {
                 // Set ith term in unit vector to be 1.
                 auto unitptr =
-                    unit_vec.template GetPtr<MemSpace, WriteOnly>(blk);
+                    unitvecblock.template GetPtr<MemSpace, WriteOnly>();
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 1.0,
                                                     unitptr);
 
@@ -153,14 +155,13 @@ public:
 
                 // Copy the ith row term from the action field to get
                 // the ith diagonal.
-                auto actptr = action.template GetPtr<MemSpace, ReadOnly>(blk);
-                auto diagptr =
-                    locdiag.template GetPtr<MemSpace, WriteOnly>(blk);
+                auto actptr = actionblock.template GetPtr<MemSpace, ReadOnly>();
+                auto diagptr = diagblock.template GetPtr<MemSpace, WriteOnly>();
                 CopyDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode,
                                                      actptr, diagptr);
 
                 // Reset the ith term in the unit vector to be 0.
-                unitptr = unit_vec.template GetPtr<MemSpace, WriteOnly>(blk);
+                unitptr = unitvecblock.template GetPtr<MemSpace, WriteOnly>();
                 SetDiagonalKernel<ExecSpace, TData>(nmTot, nElmts, mode, 0.0,
                                                     unitptr);
             }

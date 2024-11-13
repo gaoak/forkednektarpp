@@ -335,7 +335,8 @@ public:
             if (nbndCoeffBlock > 0)
             {
                 // Initialize pointers.
-                auto inoutPtr = inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                auto inoutPtr = inout.GetBlocks()[blk]
+                                    .template GetPtr<MemSpace, ReadWrite>();
                 auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
                 auto bndcoeffPtr =
                     m_bndCoeff[blk].template GetPtr<MemSpace, ReadOnly>();
@@ -367,8 +368,8 @@ public:
                 if (nParDirBndSignBlock > 0)
                 {
                     // Initialize pointers.
-                    auto inoutPtr =
-                        inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                    auto inoutPtr = inout.GetBlocks()[blk]
+                                        .template GetPtr<MemSpace, ReadWrite>();
                     auto parDirBndSignPtr =
                         m_parDirBndSign[blk]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -402,8 +403,8 @@ public:
                 if (nParDirBndSignBlock > 0)
                 {
                     // Initialize pointers.
-                    auto inoutPtr =
-                        inout.template GetPtr<MemSpace, ReadWrite>(blk);
+                    auto inoutPtr = inout.GetBlocks()[blk]
+                                        .template GetPtr<MemSpace, ReadWrite>();
                     auto parDirBndSignPtr =
                         m_parDirBndSign[blk]
                             .template GetPtr<MemSpace, ReadOnly>();
@@ -419,7 +420,8 @@ public:
             for (size_t blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
                 // Initialize pointers.
-                auto inPtr = inout.template GetPtr<MemSpace, ReadOnly>(blk1);
+                auto inPtr = inout.GetBlocks()[blk1]
+                                 .template GetPtr<MemSpace, ReadOnly>();
                 for (size_t blk0 = 0; blk0 < inout.GetBlocks().size(); ++blk0)
                 {
                     auto nLocCoeffBlock = m_nLocCoeffBlock[blk1][blk0];
@@ -428,7 +430,8 @@ public:
                     {
                         // Initialize pointers.
                         auto outPtr =
-                            inout.template GetPtr<MemSpace, WriteOnly>(blk0);
+                            inout.GetBlocks()[blk0]
+                                .template GetPtr<MemSpace, WriteOnly>();
                         auto locid0Ptr =
                             m_locid0[blk1][blk0]
                                 .template GetPtr<MemSpace, ReadOnly>();

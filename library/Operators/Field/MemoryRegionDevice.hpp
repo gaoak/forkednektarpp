@@ -112,41 +112,6 @@ public:
     }
 
     /**
-     * @brief Templated creation method. This method creates a
-     *        new MemoryRegion that copies data from a
-     *        src pointer
-     *
-     * @param src       - pointer data type TDataIn to copy from
-     * @param size      - number of element of type TDataIn to copy
-     * @param alignment - memory alignment
-     */
-    template <typename TDataIn>
-    MemoryRegionDevice(const std::string name, const TDataIn *src,
-                       const size_t size, const size_t alignment,
-                       const size_t device_rank, const bool device_only)
-        : MemoryRegionHost<TData>(name, size, alignment, device_rank,
-                                  device_only)
-    {
-        CreateMemory();
-
-        if constexpr (std::is_same_v<TDataIn, TData>)
-        {
-            deviceMemcpy<HostToDevice>(this->m_device, src, this->m_size,
-                                       this->m_device_rank);
-        }
-        else
-        {
-            std::vector<TData> tmp(this->m_size);
-            std::copy(src, src + size, tmp.begin());
-            deviceMemcpy<HostToDevice>(this->m_device, tmp.data(), this->m_size,
-                                       this->m_device_rank);
-        }
-
-        this->m_device_valid = true;
-        this->m_initialize   = false;
-    }
-
-    /**
      * @brief Destructor method.
      *
      */
@@ -160,12 +125,13 @@ public:
         }
     }
 
+protected:
     /**
      * @brief Move operator
      *
-     * @param rhs - MemoryRegionHost to move from
+     * @param rhs - MemoryRegionDevice to move from
      *
-     * @return    - MemoryRegion<TData>&
+     * @return    - MemoryRegionDevice<TData>&
      */
     void operator=(MemoryRegionDevice &&rhs)
     {
@@ -205,7 +171,6 @@ public:
         return os << msg.str();
     }
 
-protected:
     /**
      * @brief Create device memory
      *
