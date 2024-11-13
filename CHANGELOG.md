@@ -7,6 +7,7 @@ v5.8.0
 - Use GLL quadrature points on Tri Dirichlet BCs with CG (!1895)
 - Add FieldConvert module to perform local stability analysis for compressible flows (!1319)
 - Remove get() accessor from Array data structure (!1937)
+- Fix issue with `StdTetExp::v_LocCollapsedToLocCoord` (!1946)
 
 **CI**
 -- fix CubeAllElements performance test tolerance (!1943)
