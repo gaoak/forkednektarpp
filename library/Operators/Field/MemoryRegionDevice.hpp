@@ -312,13 +312,6 @@ protected:
     template <typename MemCopy, typename TDataIn>
     void CopySRC(const TDataIn *src, const size_t size, const size_t offset = 0)
     {
-        if constexpr (!std::is_same_v<TDataIn, TData>)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::CopySRC - non-homogeneous datatype "
-                     "not supported on MemoryRegionDevice");
-        }
-
         if constexpr (std::is_same_v<MemCopy, HostToHost>)
         {
             MemoryRegionHost<TData>::template CopySRC<MemCopy, TData>(src, size,
@@ -327,7 +320,17 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
         {
             TData *dst = this->m_host + offset;
-            deviceMemcpy<DeviceToHost>(dst, src, size, this->m_device_rank);
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                deviceMemcpy<DeviceToHost>(dst, src, size, this->m_device_rank);
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                deviceMemcpy<DeviceToHost>(tmp.data(), src, size,
+                                           this->m_device_rank);
+                std::copy(tmp.data(), tmp.data() + size, dst);
+            }
             this->m_device_valid = false;
             this->m_host_valid   = true;
             this->m_initialize   = false;
@@ -335,7 +338,17 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
         {
             TData *dst = this->m_device + offset;
-            deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                std::copy(src, src + size, tmp.data());
+                deviceMemcpy<HostToDevice>(dst, tmp.data(), size,
+                                           this->m_device_rank);
+            }
             this->m_device_valid = true;
             this->m_host_valid   = false;
             this->m_initialize   = false;
@@ -343,7 +356,19 @@ protected:
         else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
         {
             TData *dst = this->m_device + offset;
-            deviceMemcpy<DeviceToDevice>(dst, src, size, this->m_device_rank);
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                deviceMemcpy<DeviceToDevice>(dst, src, size,
+                                             this->m_device_rank);
+            }
+            else
+            {
+                NEKERROR(
+                    Nektar::ErrorUtil::efatal,
+                    "MemoryRegionDevice::CopySRC - non-homogeneous datatype "
+                    "not supported for DeviceToDevice copy");
+            }
+
             this->m_device_valid = true;
             this->m_host_valid   = false;
             this->m_initialize   = false;
