@@ -12,15 +12,14 @@ Note: Multi-device capabilities are not yet fully implemented.
 template <typename TData> class MemoryRegion
 {
     ...
+
+    MemoryRegion() = default; // Default removes implicit moves
+    MemoryRegion(const MemoryRegion &) = delete;
     virtual ~MemoryRegion() = default; // Default removes implicit moves
 
     ...
 
 protected:
-
-    MemoryRegion() = default; // Default removes implicit moves
-    MemoryRegion(const MemoryRegion &) = delete;
-
     ...
 
     // Member variables:
@@ -134,7 +133,7 @@ For example, a new instance of a \lstinline[style=C++Style]!Nektar::Array<Nektar
 \end{lstlisting}
 
 \subsection{Memory Access}
-Three types of memory access qualifier are used along the \lstinline[style=C++Style]!MemoryRegion! class: \lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!. Memory access is performed by calling a \lstinline[style=C++Style]!GetPtr<MemSpace, MemQualifier>()! member function, where \lstinline[style=C++Style]!MemSpace! is again a template parameter indicating on which memory space (host or device) the data access is required, while \lstinline[style=C++Style]!MemQualifier! is the template parameter for the memory access qualifier (\lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!). For example, the various memrory access mode can be requested on the device as follow:
+Three types of memory access qualifier are used along the \lstinline[style=C++Style]!MemoryRegion! class: \lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!. Memory access is performed by calling a \lstinline[style=C++Style]!GetPtr<MemSpace, MemAccess>()! member function, where \lstinline[style=C++Style]!MemSpace! is again a template parameter indicating on which memory space (host or device) the data access is required, while \lstinline[style=C++Style]!MemAccess! is the template parameter for the memory access qualifier (\lstinline[style=C++Style]!ReadOnly!, \lstinline[style=C++Style]!WriteOnly!, and \lstinline[style=C++Style]!ReadWrite!). For example, the various memrory access mode can be requested on the device as follow:
 \begin{lstlisting}[style=C++Style]
  auto ptr0 = MR.template GetPtr<NektarSpaces::DeviceSpace, ReadOnly>;
  auto ptr1 = MR.template GetPtr<NektarSpaces::DeviceSpace, WriteOnly>;
@@ -191,17 +190,12 @@ MemoryRegionHost(const std::string name, const size_t size,
                  const bool device_only)
 {
     m_size        = size;
+    m_alignment   = alignment;
+    m_initialize  = true;
     m_device_rank = device_rank;
     m_device_only = device_only;
-    m_alignment   = alignment;
+    m_name        = name;
 
-    CreateMemory(name);
-}
-\end{lstlisting}
-
-\begin{lstlisting}[style=C++Style]
-void CreateMemory(const std::string name)
-{
     if (!m_device_only)
     {
         m_host = static_cast<TData *>(::operator new[](
@@ -209,9 +203,6 @@ void CreateMemory(const std::string name)
 
         m_host_valid = false;
     }
-
-    m_initialize = true;
-    m_name       = name;
 }
 \end{lstlisting}
 
@@ -251,13 +242,6 @@ MemoryRegionDevice(const std::string name, const size_t size,
                    const bool device_only)
     : MemoryRegionHost<TData>(name, size, alignment, device_rank,
                               device_only)
-{
-    CreateMemory();
-}
-\end{lstlisting}
-
-\begin{lstlisting}[style=C++Style]
-void CreateMemory()
 {
     deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
 }

@@ -129,7 +129,7 @@ public:
             m_vExchange.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
 
         // Copy RHS into initial residual
-        m_r_A.template Copy<MemSpace, DeviceToDevice>(in);
+        m_r_A.template Copy<MemSpace>(in);
 
         // Assembly (communication)
         m_assmbScatrOp->apply(m_r_A, m_wk, true);

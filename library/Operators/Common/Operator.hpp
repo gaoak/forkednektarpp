@@ -173,11 +173,11 @@ public:
         size_t found1 = fieldStateStr.find("1");
         if (found0 != std::string::npos)
         {
-            fieldStateStr = FieldStateString(FieldState(0));
+            fieldStateStr = "Phys";
         }
         else if (found1 != std::string::npos)
         {
-            fieldStateStr = FieldStateString(FieldState(1));
+            fieldStateStr = "Coeff";
         }
         else
         {

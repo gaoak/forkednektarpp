@@ -34,12 +34,33 @@
 
 #pragma once
 
+// Memory access qualifier
+struct ReadOnly
+{
+};
+struct WriteOnly
+{
+};
+struct ReadWrite
+{
+};
+
+// const_if metafunction return "const T" type if B = true and "T" type
+// otherwise.
+template <bool B, typename TData = void> struct const_if
+{
+    typedef TData type;
+};
+
+template <class TData> struct const_if<true, TData>
+{
+    typedef const TData type;
+};
+
 template <typename TData> class MemoryRegion;
 
 /**
- * @brief Stores underlying data for a Field on the host.
- *
- * It acts as a holder for a contiguous block of memory, allocated on the
+ * @brief Acts as a holder for a contiguous block of memory, allocated on the
  * host system.
  *
  * This class also acts as a base class for device-aware builds.
@@ -49,14 +70,6 @@ template <typename TData> class MemoryRegionHost
     friend class MemoryRegion<TData>;
 
 public:
-    /**
-     * @brief Constructor methods - no base, copy methods
-     *
-     */
-    MemoryRegionHost()                                       = delete;
-    MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
-    MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
-
     /**
      * @brief Constructor methods - create a new memory region.
      *
@@ -69,11 +82,19 @@ public:
                      const bool device_only)
     {
         m_size        = size;
+        m_alignment   = alignment;
+        m_initialize  = true;
         m_device_rank = device_rank;
         m_device_only = device_only;
-        m_alignment   = alignment;
+        m_name        = name;
 
-        CreateMemory(name);
+        if (!m_device_only)
+        {
+            m_host = static_cast<TData *>(::operator new[](
+                m_size * sizeof(TData), std::align_val_t(m_alignment)));
+
+            m_host_valid = false;
+        }
     }
 
     /**
@@ -82,16 +103,11 @@ public:
      * @param rhs - MemoryRegionHost to move from
      */
     MemoryRegionHost(MemoryRegionHost &&rhs)
+        : m_host(rhs.m_host), m_size(rhs.m_size), m_alignment(rhs.m_alignment),
+          m_host_valid(rhs.m_host_valid), m_initialize(rhs.m_initialize),
+          m_device_rank(rhs.m_device_rank), m_device_only(rhs.m_device_only),
+          m_name(rhs.m_name)
     {
-        m_host        = rhs.m_host;
-        m_size        = rhs.m_size;
-        m_alignment   = rhs.m_alignment;
-        m_host_valid  = rhs.m_host_valid;
-        m_initialize  = rhs.m_initialize;
-        m_device_rank = rhs.m_device_rank;
-        m_device_only = rhs.m_device_only;
-        m_name        = rhs.m_name;
-
         rhs.m_host        = nullptr;
         rhs.m_size        = 0;
         rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -125,6 +141,14 @@ public:
 
 protected:
     /**
+     * @brief Constructor methods - no base, copy methods
+     *
+     */
+    MemoryRegionHost()                                       = delete;
+    MemoryRegionHost(const MemoryRegionHost &rhs)            = delete;
+    MemoryRegionHost &operator=(const MemoryRegionHost &rhs) = delete;
+
+    /**
      * @brief Move operator
      *
      * @param rhs - MemoryRegionHost to move from
@@ -133,11 +157,6 @@ protected:
      */
     MemoryRegionHost &operator=(MemoryRegionHost &&rhs)
     {
-        if (m_host)
-        {
-            operator delete[](m_host, std::align_val_t(m_alignment));
-        }
-
         m_host        = rhs.m_host;
         m_size        = rhs.m_size;
         m_alignment   = rhs.m_alignment;
@@ -186,62 +205,14 @@ protected:
     }
 
     /**
-     * @brief Create hostmemory
-     *
-     */
-    void CreateMemory(const std::string name)
-    {
-        if (!m_device_only)
-        {
-            m_host = static_cast<TData *>(::operator new[](
-                m_size * sizeof(TData), std::align_val_t(m_alignment)));
-
-            m_host_valid = false;
-        }
-
-        m_initialize = true;
-        m_name       = name;
-    }
-
-    /**
-     * @brief Get the const pointer to the host memory - assumes the data
-     *        will not be modified.
+     * @brief Get the pointer to the host memory
      *
      * @return - TData*
      *
-     * This is a virtual function so that subclasses can get const host memory
      */
-    virtual const TData *GetHostConstPtr()
-    {
-        if (m_host == nullptr)
-        {
-            // Throw an error.
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostConstPtr - "
-                     "attempt to access host memory (" +
-                         m_name + ") without it being allocated.");
-        }
-
-        if (m_initialize)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostConstPtr - "
-                     "attempt to get a const host pointer (" +
-                         m_name + ") before the data is initialized.");
-        }
-
-        return m_host;
-    }
-
-    /**
-     * @brief Get the pointer to the host memory - assumes the data
-     *        will be modified.
-     *
-     * @return - TData*
-     *
-     * This is a virtual function so that subclasses can get host memory
-     */
-    virtual TData *GetHostPtr([[maybe_unused]] const bool write_only = false)
+    template <typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
+    GetHostPtr()
     {
         if (m_host == nullptr)
         {
@@ -252,8 +223,24 @@ protected:
                          m_name + ") without it being allocated.");
         }
 
-        m_host_valid = true;
-        m_initialize = false;
+        if constexpr (std::is_same_v<MemAccess, ReadOnly> ||
+                      std::is_same_v<MemAccess, ReadWrite>)
+        {
+            if (m_initialize)
+            {
+                NEKERROR(Nektar::ErrorUtil::efatal,
+                         "MemoryRegionHost::GetHostPtr - "
+                         "attempt to get a const host pointer (" +
+                             m_name + ") before the data is initialized.");
+            }
+        }
+
+        if constexpr (std::is_same_v<MemAccess, WriteOnly> ||
+                      std::is_same_v<MemAccess, ReadWrite>)
+        {
+            m_host_valid = true;
+            m_initialize = false;
+        }
 
         return m_host;
     }
@@ -298,8 +285,9 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_host pointer
      */
-    template <typename MemCopy, typename TDataIn>
-    void CopySRC(const TDataIn *src, const size_t size, const size_t offset = 0)
+    template <typename TDataIn>
+    void CopyFromHostPtr(const TDataIn *src, const size_t size,
+                         const size_t offset = 0)
     {
         if (!m_device_only)
         {

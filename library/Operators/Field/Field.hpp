@@ -38,8 +38,6 @@
 
 #include "MemoryRegion.hpp"
 
-std::string FieldStateString(FieldState);
-
 static constexpr FieldState DefaultState = FieldState::Phys;
 
 using default_fp_type = double;
@@ -148,10 +146,10 @@ public:
      *
      * @return    - TData*
      */
-    template <typename MemSpace, typename MemQualifier>
-    typename const_if<std::is_same_v<MemQualifier, ReadOnly>, TData>::type *GetPtr()
+    template <typename MemSpace, typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
     {
-        return m_memory_region.template GetPtr<MemSpace, MemQualifier>() +
+        return m_memory_region.template GetPtr<MemSpace, MemAccess>() +
                m_offset;
     }
 
@@ -518,8 +516,7 @@ public:
             auto nElmts = this->GetBlocks()[blk].GetNumElements();
             auto nPts   = this->GetBlocks()[blk].GetNumData();
             auto src =
-                this->GetBlocks()[blk]
-                    .template GetPtr<NektarSpaces::HostSpace, ReadOnly>();
+                this->GetBlocks()[blk].template GetPtr<MemSpace, ReadOnly>();
             auto device_rank = this->GetDeviceRank(blk);
             for (auto n = 0; n < this->GetNumComponents(); n++)
             {
@@ -626,8 +623,7 @@ public:
      * @param field - Field to copy from
      *
      */
-    template <typename MemSpace, typename MemCopy = DeviceToDevice>
-    void Copy(Field &field)
+    template <typename MemSpace> void Copy(Field &field)
     {
         if (this->GetBlocks().size() != field.GetBlocks().size())
         {
@@ -651,7 +647,7 @@ public:
 
         for (size_t mr = 0; mr < m_memory_regions.size(); ++mr)
         {
-            m_memory_regions[mr].template Copy<MemSpace, MemCopy>(
+            m_memory_regions[mr].template Copy<MemSpace>(
                 field.m_memory_regions[mr]);
         }
         for (size_t blk = 0; blk < m_block_accessors.size(); ++blk)
@@ -669,8 +665,7 @@ public:
      *
      */
     template <typename MemSpace, typename TDataIn,
-              typename MemCopy = HostToDevice,
-              class Alloc      = std::allocator<TDataIn>>
+              class Alloc = std::allocator<TDataIn>>
     void CopyVector(const std::vector<TDataIn, Alloc> &array)
     {
         size_t nSize = 0;
@@ -690,18 +685,7 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
-                      std::is_same_v<MemCopy, DeviceToHost>)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "Field::CopyVector - Can only copy std::vector "
-                     "from HostToHost or from "
-                     "HostToDevice.");
-        }
-        else
-        {
-            this->template CopySRC<MemSpace, MemCopy>(array.data());
-        }
+        this->template CopyFromHostPtr<MemSpace>(array.data());
     }
 
     /**
@@ -711,8 +695,7 @@ public:
      * @param array - Nektar::Array to copy from
      *
      */
-    template <typename MemSpace, typename TDataIn,
-              typename MemCopy = HostToDevice>
+    template <typename MemSpace, typename TDataIn>
     void CopyArray(const Nektar::Array<Nektar::OneD, TDataIn> &array)
     {
         size_t nSize = 0;
@@ -732,18 +715,7 @@ public:
             NEKERROR(Nektar::ErrorUtil::efatal, msg.str());
         }
 
-        if constexpr (std::is_same_v<MemCopy, DeviceToDevice> ||
-                      std::is_same_v<MemCopy, DeviceToHost>)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "Field::CopyArray - Can only copy Nektar::Array "
-                     "from HostToHost or from "
-                     "HostToDevice.");
-        }
-        else
-        {
-            this->template CopySRC<MemSpace, MemCopy>(array.data());
-        }
+        this->template CopyFromHostPtr<MemSpace>(array.data());
     }
 
     /**
@@ -821,12 +793,15 @@ private:
     }
 
     /**
-     * @brief Copy the data from a pointer
+     * @brief Copy the data from a host source pointer. This is a helper
+     * function to copy the source data from a host container (vector, array,
+     * etc.). CopyFromHostPtr should not be otherwise used and has been made
+     * private.
      *
-     * @param const TDataIn*
+     * @param const TDataIn* src
      */
-    template <typename MemSpace, typename MemCopy, typename TDataIn>
-    void CopySRC(const TDataIn *src)
+    template <typename MemSpace, typename TDataIn>
+    void CopyFromHostPtr(const TDataIn *src)
     {
         auto compSize = 0;
         for (auto &block : this->GetBlocks())
@@ -843,8 +818,8 @@ private:
             for (auto n = 0; n < this->GetNumComponents(); n++)
             {
                 m_memory_regions[m_blk_to_mr_mapping[blk]]
-                    .template CopySRC<MemSpace, MemCopy>(src + n * compSize,
-                                                         nElmts * nPts, offset);
+                    .template CopyFromHostPtr<MemSpace>(src + n * compSize,
+                                                        nElmts * nPts, offset);
                 offset += nSize;
             }
             src += nElmts * nPts;
