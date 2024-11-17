@@ -70,10 +70,10 @@ private:
 
 Memory access to the private \lstinline[style=C++Style]!MemoryRegion! member variable is obtained through a templated \lstinline[style=C++Style]!GetPtr()! member function replicating the behavior of the \lstinline[style=C++Style]!MemoryRegion! class.  
 \begin{lstlisting}[style=C++Style]
-template <typename MemSpace, typename MemQualifier>
-typename const_if<std::is_same_v<MemQualifier, ReadOnly>, TData>::type *GetPtr()
+template <typename MemSpace, typename MemAccess>
+typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *GetPtr()
 {
-    return m_memory_region.template GetPtr<MemSpace, MemQualifier>() +
+    return m_memory_region.template GetPtr<MemSpace, MemAccess>() +
            m_offset;
 }
 \end{lstlisting}

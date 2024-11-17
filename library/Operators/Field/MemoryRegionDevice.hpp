@@ -62,18 +62,11 @@ class MemoryRegionDevice : public MemoryRegionHost<TData>
 
 public:
     /**
-     * @brief Constructor methods - no base, copy methods
-     *
-     */
-    MemoryRegionDevice()                                         = delete;
-    MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
-    MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
-
-    /**
      * @brief Constructor methods - create a new memory region.
      *
-     * @param size      - size of memory
-     * @param alignment - memory alignment
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionDevice(const std::string name, const size_t size,
                        const size_t alignment, const size_t device_rank,
@@ -81,20 +74,18 @@ public:
         : MemoryRegionHost<TData>(name, size, alignment, device_rank,
                                   device_only)
     {
-        CreateMemory();
+        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
      * @brief Constructor methods - move from another MemoryRegionDevice
      *
-     * @param rhs - MemoryRegionHost to move from
+     * @param rhs - MemoryRegionDevice to move from
      */
     MemoryRegionDevice(MemoryRegionDevice<TData> &&rhs)
-        : MemoryRegionHost<TData>(std::move(rhs))
+        : MemoryRegionHost<TData>(std::move(rhs)), m_device(rhs.m_device),
+          m_device_valid(rhs.m_device_valid)
     {
-        m_device       = rhs.m_device;
-        m_device_valid = rhs.m_device_valid;
-
         rhs.m_device       = nullptr;
         rhs.m_device_valid = false;
     }
@@ -108,7 +99,7 @@ public:
     MemoryRegionDevice<TData>(MemoryRegionHost<TData> &&host)
         : MemoryRegionHost<TData>(std::move(host))
     {
-        CreateMemory();
+        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
     }
 
     /**
@@ -126,6 +117,14 @@ public:
     }
 
 protected:
+    /**
+     * @brief Constructor methods - no base, copy methods
+     *
+     */
+    MemoryRegionDevice()                                         = delete;
+    MemoryRegionDevice(const MemoryRegionDevice &rhs)            = delete;
+    MemoryRegionDevice &operator=(const MemoryRegionDevice &rhs) = delete;
+
     /**
      * @brief Move operator
      *
@@ -172,102 +171,57 @@ protected:
     }
 
     /**
-     * @brief Create device memory
-     *
-     */
-    void CreateMemory()
-    {
-        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
-    }
-
-    /**
-     * @brief Get the const pointer to the host memory - assumes the data
-     * will not be modified.
+     * @brief Get the const pointer to the host memory
      *
      * @return - TData*
      */
-    const TData *GetHostConstPtr() override
+    template <typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
+    GetHostPtr()
     {
-        if (this->m_initialize)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::GetHostConstPtr - attempt to get a "
-                     "const host pointer (" +
-                         this->m_name +
-                         ") before the data is "
-                         "initialized.");
-        }
-
-        DeviceToHostCopy(); // Move to host if necessary
-
-        return this->m_host;
-    }
-
-    /**
-     * @brief Get the pointer to the host memory - assumes the data
-     * will be modified.
-     *
-     * @return - TData*
-     */
-    TData *GetHostPtr(const bool write_only) override
-    {
-        if (write_only)
-        {
-            this->m_host_valid = true;
-            this->m_initialize = false;
-        }
-        else
+        if constexpr (std::is_same_v<MemAccess, ReadOnly>)
         {
             DeviceToHostCopy(); // Move to host if necessary
         }
-
-        this->m_device_valid = false;
+        else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+        {
+            this->m_host_valid   = true;
+            this->m_initialize   = false;
+            this->m_device_valid = false;
+        }
+        else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+        {
+            DeviceToHostCopy(); // Move to host if necessary
+            this->m_device_valid = false;
+        }
 
         return this->m_host;
     }
 
     /**
-     * @brief Get the const pointer to the Device memory - assumes the data
-     * will not be modified.
+     * @brief Get the pointer to the Device memory
      *
      * @return - TData*
      */
-    const TData *GetDeviceConstPtr()
+    template <typename MemAccess>
+    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
+    GetDevicePtr()
     {
-        if (this->m_initialize)
-        {
-            NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionDevice::GetDeviceConstPtr - attempt to get a "
-                     "const device pointer (" +
-                         this->m_name +
-                         ") before the data is "
-                         "initialized.");
-        }
-
-        HostToDeviceCopy(); // Move to device if necessary
-
-        return this->m_device;
-    }
-
-    /**
-     * @brief Get the pointer to the device memory - assumes the data
-     * will be modified.
-     *
-     * @return - TData*
-     */
-    TData *GetDevicePtr(const bool write_only = false)
-    {
-        if (write_only)
-        {
-            this->m_device_valid = true;
-            this->m_initialize   = false;
-        }
-        else
+        if constexpr (std::is_same_v<MemAccess, ReadOnly>)
         {
             HostToDeviceCopy(); // Move to device if necessary
         }
-
-        this->m_host_valid = false;
+        else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+        {
+            this->m_device_valid = true;
+            this->m_initialize   = false;
+            this->m_host_valid   = false;
+        }
+        else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+        {
+            HostToDeviceCopy(); // Move to device if necessary
+            this->m_host_valid = false;
+        }
 
         return this->m_device;
     }
@@ -282,12 +236,9 @@ protected:
     void Initialize(const TData val, const size_t count = 0,
                     const size_t offset = 0)
     {
-        this->m_host_valid   = false;
-        this->m_initialize   = false;
-        this->m_device_valid = true;
+        MemoryRegionHost<TData>::Initialize(val, count, offset);
 
-        auto size = (count == 0) ? this->m_size : count;
-
+        auto size  = (count == 0) ? this->m_size : count;
         TData *dst = this->m_device + offset;
 
         // If the value is zero, memset is the most efficent.
@@ -300,6 +251,9 @@ protected:
         {
             deviceFill(dst, val, size, this->m_device_rank);
         }
+
+        this->m_device_valid = true;
+        this->m_initialize   = false;
     }
 
     /**
@@ -309,70 +263,26 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_device pointer
      */
-    template <typename MemCopy, typename TDataIn>
-    void CopySRC(const TDataIn *src, const size_t size, const size_t offset = 0)
+    template <typename TDataIn>
+    void CopyFromHostPtr(const TDataIn *src, const size_t size,
+                         const size_t offset = 0)
     {
-        if constexpr (std::is_same_v<MemCopy, HostToHost>)
+        MemoryRegionHost<TData>::template CopyFromHostPtr<TData>(src, size,
+                                                                 offset);
+        TData *dst = this->m_device + offset;
+        if constexpr (std::is_same_v<TDataIn, TData>)
         {
-            MemoryRegionHost<TData>::template CopySRC<MemCopy, TData>(src, size,
-                                                                      offset);
+            deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
         }
-        else if constexpr (std::is_same_v<MemCopy, DeviceToHost>)
+        else
         {
-            TData *dst = this->m_host + offset;
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                deviceMemcpy<DeviceToHost>(dst, src, size, this->m_device_rank);
-            }
-            else
-            {
-                std::vector<TData> tmp(size);
-                deviceMemcpy<DeviceToHost>(tmp.data(), src, size,
-                                           this->m_device_rank);
-                std::copy(tmp.data(), tmp.data() + size, dst);
-            }
-            this->m_device_valid = false;
-            this->m_host_valid   = true;
-            this->m_initialize   = false;
+            std::vector<TData> tmp(size);
+            std::copy(src, src + size, tmp.data());
+            deviceMemcpy<HostToDevice>(dst, tmp.data(), size,
+                                       this->m_device_rank);
         }
-        else if constexpr (std::is_same_v<MemCopy, HostToDevice>)
-        {
-            TData *dst = this->m_device + offset;
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
-            }
-            else
-            {
-                std::vector<TData> tmp(size);
-                std::copy(src, src + size, tmp.data());
-                deviceMemcpy<HostToDevice>(dst, tmp.data(), size,
-                                           this->m_device_rank);
-            }
-            this->m_device_valid = true;
-            this->m_host_valid   = false;
-            this->m_initialize   = false;
-        }
-        else if constexpr (std::is_same_v<MemCopy, DeviceToDevice>)
-        {
-            TData *dst = this->m_device + offset;
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                deviceMemcpy<DeviceToDevice>(dst, src, size,
-                                             this->m_device_rank);
-            }
-            else
-            {
-                NEKERROR(
-                    Nektar::ErrorUtil::efatal,
-                    "MemoryRegionDevice::CopySRC - non-homogeneous datatype "
-                    "not supported for DeviceToDevice copy");
-            }
-
-            this->m_device_valid = true;
-            this->m_host_valid   = false;
-            this->m_initialize   = false;
-        }
+        this->m_device_valid = true;
+        this->m_initialize   = false;
     }
 
     /**

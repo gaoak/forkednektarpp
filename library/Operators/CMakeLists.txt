@@ -305,7 +305,6 @@ SET(OPERATORS_HEADERS
 
 # Common source file.
 SET(OPERATORS_SOURCES
-    Field/Field.cpp
     Common/Operator.cpp
     )
 

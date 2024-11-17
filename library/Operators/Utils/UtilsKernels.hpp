@@ -91,7 +91,7 @@ void ReshuffleMap(MemoryRegion<int> &deInterleaveMap, MemoryRegion<int> &map)
     MemoryRegion<int> temp = MemoryRegion<int>::template Create<MemSpace>(
         map.size(), ExecSpace::alignment, true);
     // copy map to temp
-    temp.template Copy<MemSpace, DeviceToDevice>(map);
+    temp.template Copy<MemSpace>(map);
 
     // ReMapping using the deinterleave map, temp is used as workspace
     auto deInterleaveMapPtr =
