@@ -106,9 +106,8 @@ public:
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-        [[maybe_unused]] bool doCheckCollDir1,
-        [[maybe_unused]] bool doCheckCollDir2);
+        const bool Deformed, [[maybe_unused]] bool CollDir0,
+        [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2);
 
     /** \brief return the number of edges in 3D expansion
      */
@@ -180,9 +179,8 @@ protected:
         const Array<OneD, const NekDouble> &base2,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-        [[maybe_unused]] bool doCheckCollDir1,
-        [[maybe_unused]] bool doCheckCollDir2) = 0;
+        const bool Deformed, [[maybe_unused]] bool CollDir0,
+        [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,

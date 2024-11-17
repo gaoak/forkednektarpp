@@ -535,8 +535,8 @@ void StdTriExp::v_IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base1,
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-    const bool Deformed, [[maybe_unused]] const bool doCheckCollDir0,
-    [[maybe_unused]] const bool doCheckCollDir1)
+    const bool Deformed, [[maybe_unused]] const bool CollDir0,
+    [[maybe_unused]] const bool CollDir1)
 {
     IProductWRTBaseKernel(base0, base1, inarray, outarray, jac, Deformed);
 }

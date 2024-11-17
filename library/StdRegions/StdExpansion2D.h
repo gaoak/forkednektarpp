@@ -88,16 +88,8 @@ public:
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-        [[maybe_unused]] bool doCheckCollDir1);
-
-    // needs deprating
-    STD_REGIONS_EXPORT void IProductWRTBase_SumFacKernel(
-        const Array<OneD, const NekDouble> &base0,
-        const Array<OneD, const NekDouble> &base1,
-        const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &wsp,
-        bool doCheckCollDir0 = true, bool doCheckCollDir1 = true);
+        const bool Deformed, [[maybe_unused]] bool CollDir0,
+        [[maybe_unused]] bool CollDir1);
 
 protected:
     /** \brief This function evaluates the expansion at a single
@@ -140,8 +132,8 @@ protected:
         const Array<OneD, const NekDouble> &base1,
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-        const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-        [[maybe_unused]] bool doCheckCollDir1) = 0;
+        const bool Deformed, [[maybe_unused]] bool CollDir0,
+        [[maybe_unused]] bool CollDir1) = 0;
 
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp_MatFree(
         const Array<OneD, const NekDouble> &inarray,

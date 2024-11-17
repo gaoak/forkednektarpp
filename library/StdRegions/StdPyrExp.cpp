@@ -453,9 +453,8 @@ void StdPyrExp::v_IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base2,
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-    const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1,
-    [[maybe_unused]] bool doCheckCollDir2)
+    const bool Deformed, [[maybe_unused]] bool CollDir0,
+    [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
 {
     IProductWRTBaseKernel(base0, base1, base2, inarray, outarray, jac,
                           Deformed);

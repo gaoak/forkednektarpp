@@ -58,13 +58,11 @@ void StdExpansion3D::IProductWRTBaseKernel(
     const Array<OneD, const NekDouble> &base2,
     const Array<OneD, const NekDouble> &inarray,
     Array<OneD, NekDouble> &outarray, Array<OneD, NekDouble> &jac,
-    const bool Deformed, [[maybe_unused]] bool doCheckCollDir0,
-    [[maybe_unused]] bool doCheckCollDir1,
-    [[maybe_unused]] bool doCheckCollDir2)
+    const bool Deformed, [[maybe_unused]] bool CollDir0,
+    [[maybe_unused]] bool CollDir1, [[maybe_unused]] bool CollDir2)
 {
     v_IProductWRTBaseKernel(base0, base1, base2, inarray, outarray, jac,
-                            Deformed, doCheckCollDir0, doCheckCollDir1,
-                            doCheckCollDir2);
+                            Deformed, CollDir0, CollDir1, CollDir2);
 }
 
 void StdExpansion3D::v_GenStdMatBwdDeriv(const int dir, DNekMatSharedPtr &mat)
@@ -75,6 +73,10 @@ void StdExpansion3D::v_GenStdMatBwdDeriv(const int dir, DNekMatSharedPtr &mat)
     const int nq1 = m_base[1]->GetNumPoints();
     const int nq2 = m_base[2]->GetNumPoints();
     const int nq  = nq0 * nq1 * nq2;
+
+    const bool CollDir0 = m_base[0]->Collocation();
+    const bool CollDir1 = m_base[1]->Collocation();
+    const bool CollDir2 = m_base[2]->Collocation();
 
     Array<OneD, NekDouble> in(nq, 0.0);
     Array<OneD, NekDouble> out(m_ncoeffs);
@@ -92,21 +94,24 @@ void StdExpansion3D::v_GenStdMatBwdDeriv(const int dir, DNekMatSharedPtr &mat)
         // do standard iproduct
         if (dir == 0)
         {
-            v_IProductWRTBaseKernel(
-                m_base[0]->GetDbdata(), m_base[1]->GetBdata(),
-                m_base[2]->GetBdata(), in, out, one, false, false, true, true);
+            v_IProductWRTBaseKernel(m_base[0]->GetDbdata(),
+                                    m_base[1]->GetBdata(),
+                                    m_base[2]->GetBdata(), in, out, one, false,
+                                    false, CollDir1, CollDir2);
         }
         else if (dir == 1)
         {
-            v_IProductWRTBaseKernel(
-                m_base[0]->GetBdata(), m_base[1]->GetDbdata(),
-                m_base[2]->GetBdata(), in, out, one, false, true, false, true);
+            v_IProductWRTBaseKernel(m_base[0]->GetBdata(),
+                                    m_base[1]->GetDbdata(),
+                                    m_base[2]->GetBdata(), in, out, one, false,
+                                    CollDir0, false, CollDir2);
         }
         else // dir == 2
         {
-            v_IProductWRTBaseKernel(
-                m_base[0]->GetBdata(), m_base[1]->GetBdata(),
-                m_base[2]->GetDbdata(), in, out, one, false, true, true, false);
+            v_IProductWRTBaseKernel(m_base[0]->GetBdata(),
+                                    m_base[1]->GetBdata(),
+                                    m_base[2]->GetDbdata(), in, out, one, false,
+                                    CollDir0, CollDir1, false);
         }
         in[i] = 0.0;
 
