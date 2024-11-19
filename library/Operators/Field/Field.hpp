@@ -269,7 +269,14 @@ template <typename TData, FieldState TState = DefaultState> class Field
 public:
     Field(){};
     Field(const Field &) = delete;
-    ~Field()             = default; // Default removes implicit moves
+    ~Field()
+    {
+        if (m_host)
+        {
+            operator delete[](m_host, std::align_val_t(m_alignment));
+        }
+        m_host = nullptr;
+    }
 
     /**
      * @brief Construct a new Field object by moving storage from an existing
@@ -280,12 +287,23 @@ public:
     Field(Field &&rhs)
         : m_name(std::move(rhs.m_name)),
           m_var_names(std::move(rhs.m_var_names)),
+          m_host(std::move(rhs.m_host)),
+          m_alignment(std::move(rhs.m_alignment)),
           m_num_device(std::move(rhs.m_num_device)),
           m_block_accessors(std::move(rhs.m_block_accessors)),
           m_memory_regions(std::move(rhs.m_memory_regions)),
           m_blk_to_mr_offset(std::move(rhs.m_blk_to_mr_offset)),
           m_blk_to_mr_mapping(std::move(rhs.m_blk_to_mr_mapping))
     {
+        rhs.m_name = "";
+        rhs.m_var_names.clear();
+        rhs.m_host       = nullptr;
+        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_num_device = 1;
+        rhs.m_block_accessors.clear();
+        rhs.m_memory_regions.clear();
+        rhs.m_blk_to_mr_offset.clear();
+        rhs.m_blk_to_mr_mapping.clear();
     }
 
     /**
@@ -299,12 +317,23 @@ public:
     {
         m_name              = std::move(rhs.m_name);
         m_var_names         = std::move(rhs.m_var_names);
+        m_host              = std::move(rhs.m_host);
+        m_alignment         = std::move(rhs.m_alignment);
         m_num_device        = std::move(rhs.m_num_device);
         m_block_accessors   = std::move(rhs.m_block_accessors);
         m_memory_regions    = std::move(rhs.m_memory_regions);
         m_blk_to_mr_offset  = std::move(rhs.m_blk_to_mr_offset);
         m_blk_to_mr_mapping = std::move(rhs.m_blk_to_mr_mapping);
 
+        rhs.m_name = "";
+        rhs.m_var_names.clear();
+        rhs.m_host       = nullptr;
+        rhs.m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
+        rhs.m_num_device = 1;
+        rhs.m_block_accessors.clear();
+        rhs.m_memory_regions.clear();
+        rhs.m_blk_to_mr_offset.clear();
+        rhs.m_blk_to_mr_mapping.clear();
         return *this;
     }
 
@@ -329,7 +358,7 @@ public:
         const bool device_only = false)
     {
         size_t num_device = 1;
-        auto field        = Field(name, components, num_device);
+        auto field        = Field(name, components, alignment, num_device);
 
         SetBlockToMemoryRegionMapping<MemSpace>(field, blockAttr, alignment,
                                                 device_only);
@@ -381,7 +410,7 @@ public:
         [[maybe_unused]] const bool device_only = false)
     {
         size_t num_device = 1;
-        auto field        = Field(name, nvar, num_device);
+        auto field        = Field(name, nvar, alignment, num_device);
 
         SetBlockToMemoryRegionMapping<MemSpace>(field, blockAttr, alignment,
                                                 device_only);
@@ -417,10 +446,10 @@ public:
         const std::vector<BlockAttributes> blockAttr, const size_t alignment,
         const bool device_only = false)
     {
-
 #if defined(NEKTAR_USE_SINGLE_MEMORY_REGION_PER_DEVICE)
         std::vector<size_t> offset(field.m_num_device, 0);
         std::vector<size_t> size(field.m_num_device, 0);
+        size_t hsize = 0;
         for (size_t blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Set one-to-one MemoryRegion to device mapping.
@@ -432,33 +461,79 @@ public:
 
             // Compute MemoryRegion memory size.
             size[mr] += nsize;
+            hsize += nsize;
         }
+
+        // Allocate contiguous memory on the host.
+        if (!device_only)
+        {
+            field.m_host = static_cast<TData *>(::operator new[](
+                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+        }
+
+        auto hsrc = field.m_host;
         for (size_t mr = 0; mr < field.m_num_device; ++mr)
         {
-            // Allocate memory.
+            // Create memory region.
             auto device_rank = mr;
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template Create<MemSpace>(
-                    field.m_name + std::to_string(mr), size[mr], alignment,
-                    device_only, device_rank));
+            if (!device_only)
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
+                        field.m_name + std::to_string(mr), hsrc, size[mr],
+                        alignment, device_rank));
+                hsrc += size;
+            }
+            else
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::template Create<MemSpace>(
+                        field.m_name + std::to_string(mr), size[mr], alignment,
+                        device_only, device_rank));
+            }
 
             // Zero memory.
             field.m_memory_regions[mr].template Initialize<MemSpace>(0);
         }
 #else
+        size_t hsize = 0;
         for (size_t blk = 0; blk < blockAttr.size(); ++blk)
         {
             // Set one-to-one block to MemoryRegion mapping.
+            auto nsize = blockAttr[blk].size() * field.GetNumComponents();
             field.m_blk_to_mr_mapping.push_back(blk);
             field.m_blk_to_mr_offset.push_back(0);
+            hsize += nsize;
+        }
 
-            // Allocate memory.
+        // Allocate contiguous memory on the host.
+        if (!device_only)
+        {
+            field.m_host = static_cast<TData *>(::operator new[](
+                hsize * sizeof(TData), std::align_val_t(field.m_alignment)));
+        }
+
+        auto hsrc = field.m_host;
+        for (size_t blk = 0; blk < blockAttr.size(); ++blk)
+        {
+            // Create memory region.
             auto device_rank = blk % field.m_num_device;
             auto size        = blockAttr[blk].size() * field.GetNumComponents();
-            field.m_memory_regions.push_back(
-                MemoryRegion<TData>::template Create<MemSpace>(
-                    field.m_name + std::to_string(blk), size, alignment,
-                    device_only, device_rank));
+            if (!device_only)
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
+                        field.m_name + std::to_string(blk), hsrc, size,
+                        alignment, device_rank));
+                hsrc += size;
+            }
+            else
+            {
+                field.m_memory_regions.push_back(
+                    MemoryRegion<TData>::template Create<MemSpace>(
+                        field.m_name + std::to_string(blk), size, alignment,
+                        device_only, device_rank));
+            }
 
             // Zero memory.
             field.m_memory_regions[blk].template Initialize<MemSpace>(0);
@@ -778,14 +853,17 @@ private:
      * @param blocks     Field data layout specification.
      * @param components Names of components for vector field.
      */
-    Field(const std::string name, const int nvar, const size_t num_device)
-        : m_name(name), m_var_names(nvar), m_num_device(num_device)
+    Field(const std::string name, const int nvar, const size_t alignment,
+          const size_t num_device)
+        : m_name(name), m_var_names(nvar), m_alignment(alignment),
+          m_num_device(num_device)
     {
     }
 
     Field(const std::string name, const std::vector<std::string> components,
-          const size_t num_device)
-        : m_name(name), m_var_names(components), m_num_device(num_device)
+          const size_t alignment, const size_t num_device)
+        : m_name(name), m_var_names(components), m_alignment(alignment),
+          m_num_device(num_device)
     {
     }
 
@@ -826,6 +904,8 @@ private:
     // Member variables:
     std::string m_name;
     std::vector<std::string> m_var_names;
+    TData *m_host       = nullptr;
+    size_t m_alignment  = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     size_t m_num_device = 1;
     std::vector<BlockAccessor<TData>> m_block_accessors;
     std::vector<MemoryRegion<TData>> m_memory_regions;

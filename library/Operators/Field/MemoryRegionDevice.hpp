@@ -78,6 +78,23 @@ public:
     }
 
     /**
+     * @brief Constructor methods - create a new memory region from an
+     * existing host pointer. Specialized constructor method used by
+     * Field.hpp to allocate a contiguous host memory coupled with
+     * distributed device memory.
+     *
+     * @param h_src       - host src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     */
+    MemoryRegionDevice(const std::string name, TData *h_src, const size_t size,
+                       const size_t alignment, const size_t device_rank)
+        : MemoryRegionHost<TData>(name, h_src, size, alignment, device_rank)
+    {
+        deviceMalloc(this->m_device, this->m_size, this->m_device_rank);
+    }
+
+    /**
      * @brief Constructor methods - move from another MemoryRegionDevice
      *
      * @param rhs - MemoryRegionDevice to move from
@@ -289,7 +306,7 @@ protected:
      * @brief Perform a host to device copy.
      *
      */
-    void HostToDeviceCopy(void) override
+    void HostToDeviceCopy(void)
     {
         if (!this->m_device_valid)
         {
@@ -334,7 +351,7 @@ protected:
      * @brief Perform a device to host copy.
      *
      */
-    void DeviceToHostCopy(void) override
+    void DeviceToHostCopy(void)
     {
         if (!this->m_host_valid)
         {

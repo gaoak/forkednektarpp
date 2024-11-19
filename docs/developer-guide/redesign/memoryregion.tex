@@ -159,6 +159,9 @@ protected:
 
     ...
 
+
+    bool m_owned = true; // Flag indicating if the host pointer is owned
+                         // by the current object.
     TData *m_host      = nullptr;
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -189,6 +192,7 @@ MemoryRegionHost(const std::string name, const size_t size,
                  const size_t alignment, const size_t device_rank,
                  const bool device_only)
 {
+    m_owned       = true;
     m_size        = size;
     m_alignment   = alignment;
     m_initialize  = true;

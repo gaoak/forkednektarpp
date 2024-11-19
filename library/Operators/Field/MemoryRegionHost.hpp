@@ -81,6 +81,7 @@ public:
                      const size_t alignment, const size_t device_rank,
                      const bool device_only)
     {
+        m_owned       = true;
         m_size        = size;
         m_alignment   = alignment;
         m_initialize  = true;
@@ -98,16 +99,42 @@ public:
     }
 
     /**
+     * @brief Constructor methods - create a new memory region from an
+     * existing host pointer. Specialized constructor method used by
+     * Field.hpp to allocate a contiguous host memory coupled with
+     * distributed device memory.
+     *
+     * @param h_src       - host src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     */
+    MemoryRegionHost(const std::string name, TData *h_src, const size_t size,
+                     const size_t alignment, const size_t device_rank)
+    {
+        m_owned       = false;
+        m_size        = size;
+        m_alignment   = alignment;
+        m_initialize  = true;
+        m_device_rank = device_rank;
+        m_device_only = false;
+        m_name        = name;
+
+        m_host       = h_src;
+        m_host_valid = false;
+    }
+
+    /**
      * @brief Constructor methods - move from another MemoryRegionHost
      *
      * @param rhs - MemoryRegionHost to move from
      */
     MemoryRegionHost(MemoryRegionHost &&rhs)
-        : m_host(rhs.m_host), m_size(rhs.m_size), m_alignment(rhs.m_alignment),
-          m_host_valid(rhs.m_host_valid), m_initialize(rhs.m_initialize),
-          m_device_rank(rhs.m_device_rank), m_device_only(rhs.m_device_only),
-          m_name(rhs.m_name)
+        : m_owned(rhs.m_owned), m_host(rhs.m_host), m_size(rhs.m_size),
+          m_alignment(rhs.m_alignment), m_host_valid(rhs.m_host_valid),
+          m_initialize(rhs.m_initialize), m_device_rank(rhs.m_device_rank),
+          m_device_only(rhs.m_device_only), m_name(rhs.m_name)
     {
+        rhs.m_owned       = true;
         rhs.m_host        = nullptr;
         rhs.m_size        = 0;
         rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -124,11 +151,12 @@ public:
      */
     virtual ~MemoryRegionHost()
     {
-        if (m_host)
+        if (m_host && m_owned)
         {
             operator delete[](m_host, std::align_val_t(m_alignment));
         }
 
+        m_owned       = true;
         m_host        = nullptr;
         m_size        = 0;
         m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -157,6 +185,7 @@ protected:
      */
     MemoryRegionHost &operator=(MemoryRegionHost &&rhs)
     {
+        m_owned       = rhs.m_owned;
         m_host        = rhs.m_host;
         m_size        = rhs.m_size;
         m_alignment   = rhs.m_alignment;
@@ -166,6 +195,7 @@ protected:
         m_device_only = rhs.m_device_only;
         m_name        = rhs.m_name;
 
+        rhs.m_owned       = true;
         rhs.m_host        = nullptr;
         rhs.m_size        = 0;
         rhs.m_alignment   = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
@@ -307,25 +337,9 @@ protected:
         }
     }
 
-    /**
-     * @brief Perform a host to device copy.
-     *
-     * This is a virtual function so that subclasses can copy memory.
-     */
-    virtual void HostToDeviceCopy()
-    {
-    }
-
-    /**
-     * @brief Perform a device to host copy.
-     *
-     * This is a virtual function so that subclasses can copy memory.
-     */
-    virtual void DeviceToHostCopy()
-    {
-    }
-
     // Member variables:
+    bool m_owned = true; // Flag indicating if the host pointer is owned
+                         // by the current object.
     TData *m_host      = nullptr;
     size_t m_size      = 0;
     size_t m_alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
