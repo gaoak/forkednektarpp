@@ -85,16 +85,17 @@ public:
     {
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
-        m_coordDim = this->m_expansionList->GetExp(0)->GetCoordim();
-
-        ASSERTL0(m_coordDim <= out.GetNumComponents(),
+        ASSERTL0(this->m_expansionList->GetExp(0)->GetCoordim() <=
+                     out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
 
         // Initialize index.
-        m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
+        size_t exp_idx = 0;
 
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
             auto &inblock     = in.GetBlocks()[m_blk];
             auto &outblock    = out.GetBlocks()[m_blk];
@@ -115,8 +116,7 @@ public:
             auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
+            const auto shapeType = m_expPtr->DetShapeType();
 
             // Get current interleave width.
             m_in_interleave_width = inblock.GetInterleaveWidth();
@@ -131,7 +131,7 @@ public:
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
@@ -183,7 +183,7 @@ public:
             }
 
             // Increment index for next element type.
-            m_exp_idx += nElmts;
+            exp_idx += nElmts;
         }
     }
 
@@ -200,9 +200,10 @@ public:
     }
 
 private:
-    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk;
     unsigned int m_in_interleave_width;
-    unsigned int m_coordDim;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
 
     std::vector<MemoryRegion<TData>> m_df;
     BasisDataMap<simd_t> m_zeroMap;
@@ -221,10 +222,9 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-        const auto nCoord = this->m_expansionList->GetCoordim(0);
+        const auto nCoord = m_expPtr->GetCoordim();
 
-        const auto nq0     = expPtr->GetNumPoints(0);
+        const auto nq0     = m_expPtr->GetNumPoints(0);
         const auto nqTot   = nq0;
         const auto nqBlock = nqTot * simd_t::width;
 
@@ -242,7 +242,7 @@ private:
 
         const auto D0 = m_derivativeMap[m_basisKeys[0]]
                             .template GetPtr<MemSpace, ReadOnly>();
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         // Initialize pointers.
@@ -307,7 +307,7 @@ private:
                             .template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         typename simd_t::scalarType *tmpOut[3];
@@ -351,11 +351,10 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-        const auto nCoord = this->m_expansionList->GetCoordim(0);
+        const auto nCoord = m_expPtr->GetCoordim();
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
 
         const auto nqTot   = nq0 * nq1;
         const auto nqBlock = nqTot * simd_t::width;
@@ -381,7 +380,7 @@ private:
             m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         typename simd_t::scalarType *tmpOut[3];
@@ -452,7 +451,7 @@ private:
             m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         typename simd_t::scalarType *tmpOut[3];
@@ -498,11 +497,9 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
 
         const auto nqTot    = nq0 * nq1 * nq2;
         const auto nqBlocks = nqTot * simd_t::width;
@@ -538,7 +535,7 @@ private:
             m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         typename simd_t::scalarType *tmpOut[3];
@@ -619,7 +616,7 @@ private:
             m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
         typename simd_t::scalarType *tmpOut[3];

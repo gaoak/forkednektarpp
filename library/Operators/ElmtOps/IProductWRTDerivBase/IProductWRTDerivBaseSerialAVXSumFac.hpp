@@ -102,11 +102,13 @@ public:
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize index.
-        m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
+        size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
             auto &inblock     = in.GetBlocks()[m_blk];
             auto &outblock    = out.GetBlocks()[m_blk];
@@ -127,8 +129,7 @@ public:
             auto outPtr = outblock.template GetPtr<MemSpace, ReadWrite>();
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
+            const auto shapeType = m_expPtr->DetShapeType();
 
             // Get current interleave width.
             m_in_interleave_width  = inblock.GetInterleaveWidth();
@@ -144,7 +145,7 @@ public:
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
@@ -196,7 +197,7 @@ public:
             }
 
             // Increment index for next element type.
-            m_exp_idx += nElmts;
+            exp_idx += nElmts;
         }
     }
 
@@ -213,8 +214,10 @@ public:
     }
 
 private:
-    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk;
     unsigned int m_in_interleave_width, m_out_interleave_width;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
 
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
@@ -244,26 +247,23 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nq0 = expPtr->GetNumPoints(0);
-
-        const auto ncoord = this->m_expansionList->GetCoordim(0);
+        const auto ncoord = m_expPtr->GetCoordim();
 
         // Fetch basis key for the current element type.
-        m_basisKeys[0] = expPtr->GetBasis(0)->GetBasisKey();
+        m_basisKeys[0] = m_expPtr->GetBasis(0)->GetBasisKey();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         // Workspace for kernels.
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ncoord);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
-        typename simd_t::scalarType *tmpPtr =
+        auto tmpPtr =
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         size_t ipt = 1;
@@ -322,23 +322,20 @@ private:
               int nq0>
     void Operator1D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-        const auto ncoord = this->m_expansionList->GetCoordim(0);
+        const auto ncoord = m_expPtr->GetCoordim();
 
         // Fetch basis key for the current element type.
-        m_basisKeys[0] = expPtr->GetBasis(0)->GetBasisKey();
+        m_basisKeys[0] = m_expPtr->GetBasis(0)->GetBasisKey();
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         // Workspace for kernels.
         std::vector<simd_t, tinysimd::allocator<simd_t>> df_tmp(ncoord);
         std::vector<simd_t, tinysimd::allocator<simd_t>> tmp0(nq0);
-        typename simd_t::scalarType *tmpPtr =
+        auto tmpPtr =
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
 
         size_t ipt = 1;
@@ -396,19 +393,17 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
 
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-
-        const auto ncoord = this->m_expansionList->GetCoordim(0);
+        const auto ncoord = m_expPtr->GetCoordim();
 
         const auto ndf   = 2u * ncoord;
         const auto nqTot = nq0 * nq1;
-        const auto nmTot = expPtr->GetNcoeffs();
+        const auto nmTot = m_expPtr->GetNcoeffs();
 
         // Get Basis and weight data.
         const auto B0 =
@@ -447,15 +442,14 @@ private:
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
         {
-            const bool colldir0 = expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = expPtr->GetBasis(1)->Collocation();
+            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
 
             size_t width_ratio = m_in_interleave_width == 1
                                      ? 1
@@ -500,7 +494,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -553,13 +547,11 @@ private:
               int nm1, int nq0, int nq1>
     void Operator2D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-        const auto ncoord = this->m_expansionList->GetCoordim(0);
+        const auto ncoord = m_expPtr->GetCoordim();
 
         const auto ndf   = 2u * ncoord;
         const auto nqTot = nq0 * nq1;
-        const auto nmTot = expPtr->GetNcoeffs();
+        const auto nmTot = m_expPtr->GetNcoeffs();
 
         // Get Basis and weight data.
         const auto B0 =
@@ -598,15 +590,14 @@ private:
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
         {
-            const bool colldir0 = expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = expPtr->GetBasis(1)->Collocation();
+            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
 
             size_t width_ratio = m_in_interleave_width == 1
                                      ? 1
@@ -651,7 +642,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -703,19 +694,17 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-        const auto nm2 = expPtr->GetBasisNumModes(2);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
 
         const auto ndf   = 9u;
         const auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot = expPtr->GetNcoeffs();
+        const auto nmTot = m_expPtr->GetNcoeffs();
 
         // Get Basis and weight data.
         const auto B0 =
@@ -762,16 +751,15 @@ private:
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            const bool colldir0 = expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = expPtr->GetBasis(1)->Collocation();
-            const bool colldir2 = expPtr->GetBasis(2)->Collocation();
+            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+            const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
 
             size_t width_ratio = m_in_interleave_width == 1
                                      ? 1
@@ -823,7 +811,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -882,7 +870,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -940,7 +928,7 @@ private:
         {
             std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -997,11 +985,9 @@ private:
               int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(const TData *inPtr, TData *outPtr)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
         const auto ndf   = 9u;
         const auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot = expPtr->GetNcoeffs();
+        const auto nmTot = m_expPtr->GetNcoeffs();
 
         // Get Basis and weight data.
         const auto B0 =
@@ -1048,16 +1034,15 @@ private:
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(inPtr);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(outPtr);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(outPtr);
 
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            const bool colldir0 = expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = expPtr->GetBasis(1)->Collocation();
-            const bool colldir2 = expPtr->GetBasis(2)->Collocation();
+            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+            const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
 
             size_t width_ratio = m_in_interleave_width == 1
                                      ? 1
@@ -1109,7 +1094,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -1168,7 +1153,7 @@ private:
         if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
@@ -1226,7 +1211,7 @@ private:
         {
             std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
             const bool isModified =
-                (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+                (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
             // Get geometric factors.
             const simd_t *F0 =
