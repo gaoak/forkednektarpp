@@ -361,7 +361,6 @@ public:
                 // from a MemoryRegionHost storage.
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
                 ret.Initialize(val, count, offset);
             }
             catch (const std::bad_cast &e)
@@ -371,7 +370,6 @@ public:
 
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
                 ret.Initialize(val, count, offset);
             }
         }
@@ -584,6 +582,75 @@ public:
 
 private:
     /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion from an existing host src pointer. Specialized
+     *        constructor method used by Field.hpp to allocate a contiguous
+     *        host memory coupled with distributed device memory. This method
+     *        should not be otherwise used and has been made protected.
+     * @param name        - name of the memory region
+     * @param h_src       - host src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace>
+    static MemoryRegion<TData> CreateFromHostPtr(const std::string name,
+                                                 TData *h_src,
+                                                 const size_t size,
+                                                 const size_t alignment,
+                                                 const size_t device_rank = 0)
+    {
+        auto mr = MemoryRegion();
+
+        // Create a new MemoryRegion and polymorphically store as
+        // MemoryRegionHost.
+        if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
+        {
+            mr.m_storage = std::make_unique<MemoryRegionHost<TData>>(
+                name, h_src, size, alignment, device_rank);
+        }
+        else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
+        {
+            mr.m_storage = std::make_unique<MemoryRegionDevice<TData>>(
+                name, h_src, size, alignment, device_rank);
+        }
+        else
+        {
+            std::string msg("MemoryRegion::create - "
+                            "invaid memory space (");
+            msg += name + "): " + Nektar::demangleTypeName(typeid(MemSpace));
+
+            NEKERROR(Nektar::ErrorUtil::efatal, msg);
+        }
+
+        return mr;
+    }
+
+    /**
+     * @brief Static templated creation method. This method creates a
+     *        new MemoryRegion from an existing host src pointer. Specialized
+     *        constructor method used by Field.hpp to allocate a contiguous
+     *        host memory coupled with distributed device memory. This method
+     *        should not be otherwise used and has been made protected.
+     *
+     * @param h_src       - host src pointer
+     * @param size        - size of memory
+     * @param alignment   - memory alignment
+     *
+     * @return MemoryRegion<TData>
+     */
+    template <typename MemSpace>
+    static MemoryRegion<TData> CreateFromHostPtr(TData *h_src,
+                                                 const size_t size,
+                                                 const size_t alignment,
+                                                 const size_t device_rank = 0)
+    {
+        return MemoryRegion<TData>::template CreateFromHostPtr<MemSpace>(
+            "", h_src, size, alignment, device_rank);
+    }
+
+    /**
      * @brief Get the underlying storage of the memory region as the
      *        requested type.
      *
@@ -598,7 +665,7 @@ private:
      * to host is required to achieve the conversion.
      */
     template <template <typename> class TMemoryRegion = MemoryRegionHost>
-    TMemoryRegion<TData> &GetStorage()
+    void GetStorage()
     {
         using T = TMemoryRegion<TData>;
 
@@ -606,14 +673,13 @@ private:
                       "MemoryRegion::GetStorage - TMemoryRegion must derive "
                       "MemoryRegionHost<TData>");
 
+        std::string name  = Nektar::demangleTypeName(typeid(T));
+        std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
         try
         {
-            // This cast fails if e.g. a MemoryRegionDevice is requested from a
+            // This cast fails if a MemoryRegionDevice is requested from a
             // MemoryRegionHost object.
-            auto &ret = dynamic_cast<T &>(*m_storage);
-
-            std::string name  = Nektar::demangleTypeName(typeid(T));
-            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
+            [[maybe_unused]] auto &ret = dynamic_cast<T &>(*m_storage);
 
             // Debug warning, a (possibly) undesired conversion occured.
             std::string msg("MemoryRegion::GetStorage - "
@@ -622,41 +688,27 @@ private:
                    " != actual storage type " + sname;
 
             WARNINGL0(typeid(*m_storage) == typeid(T), msg);
-
-            return ret;
         }
         // Dynamic cast threw an exception, attempt to allocate the
         // requested TMemoryRegion from old data.
         catch (const std::bad_cast &e)
         {
-            std::string name  = Nektar::demangleTypeName(typeid(T));
-            std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
+            // Create new TMemoryRegion from the MemoryRegionHost base
+            // class.
+            m_storage = std::make_unique<T>(T(std::move(*m_storage)));
 
+            // Debug warning, a (possibly) undesired conversion occured.
             std::string msg("MemoryRegion::GetStorage - "
                             "Converting backing storage (");
             msg += m_storage->m_name + ") from " + sname + " to " + name;
 
             WARNINGL0(false, msg);
-
-            // Make sure the memory is on the host.
-            m_storage->DeviceToHostCopy();
-
-            // Cast to the MemoryRegionHost base class.
-            auto &ret = dynamic_cast<MemoryRegionHost<TData> &>(*m_storage);
-
-            // Create new TMemoryRegion from the MemoryRegionHost base
-            // class.
-            m_storage = std::make_unique<T>(T(std::move(ret)));
-
-            return dynamic_cast<T &>(*m_storage);
         }
     }
 
     /**
-     * @brief Copy the data from a host source pointer. This is a helper
-     * function to copy the source data from a host container (vector, array,
-     * etc.). CopyFromHostPtr should not be otherwise used and has been made
-     * private.
+     * @brief Templated copy method. This method copies data from a
+     *        src pointer
      *
      * @param src - pointer to copy from
      * @param size- size of memory
@@ -685,7 +737,6 @@ private:
                 // from a MemoryRegionHost storage
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
                 ret.CopyFromHostPtr(src, size, offset);
             }
             catch (const std::bad_cast &e)
@@ -695,7 +746,6 @@ private:
 
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-
                 ret.CopyFromHostPtr(src, size, offset);
             }
         }
