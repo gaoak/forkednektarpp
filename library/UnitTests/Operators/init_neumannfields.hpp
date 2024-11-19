@@ -58,7 +58,7 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        NeuBndCond<>::template Create<ExecSpace, Impl>(fixt_explist)
+        NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_out);
     }
 
@@ -66,7 +66,7 @@ public:
     {
         using ExecSpace = NektarSpaces::Serial;
         using Impl      = Operators::StdMat;
-        NeuBndCond<>::template Create<ExecSpace, Impl>(fixt_explist)
+        NeuBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_expected);
     }
 };

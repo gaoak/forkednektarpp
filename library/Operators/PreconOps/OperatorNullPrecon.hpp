@@ -55,7 +55,7 @@ public:
 
 // Descriptor / traits class for NullPrecon to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct NullPrecon
+template <typename TData> struct NullPrecon
 {
     using class_name = OperatorNullPrecon<TData>;
 

@@ -126,9 +126,9 @@ public:
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
         auto HelmSolveOp =
-            HelmSolve<>::template Create<ExecSpace, Impl>(fixt_explist);
+            HelmSolve<double>::template Create<ExecSpace, Impl>(fixt_explist);
         auto DiagPreconOp =
-            DiagPrecon<>::template Create<ExecSpace, Impl>(fixt_explist);
+            DiagPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
         HelmSolveOp->setPrecon(DiagPreconOp);
         HelmSolveOp->setLambda(1.0);
         HelmSolveOp->apply(*fixt_in, *fixt_out);

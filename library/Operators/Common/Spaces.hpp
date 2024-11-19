@@ -130,16 +130,14 @@ using DeviceSpace = HostSpace;
 // Execution space.
 struct Serial
 {
-    using memory_space = NektarSpaces::HostSpace;
-    static constexpr size_t alignment =
-        tinysimd::simd<default_fp_type>::alignment;
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
 };
 
 struct AVX
 {
-    using memory_space = NektarSpaces::HostSpace;
-    static constexpr size_t alignment =
-        tinysimd::simd<default_fp_type>::alignment;
+    using memory_space                = NektarSpaces::HostSpace;
+    static constexpr size_t alignment = tinysimd::simd<double>::alignment;
 };
 
 struct CUDA

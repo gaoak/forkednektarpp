@@ -72,7 +72,7 @@ public:
 
 // Descriptor / traits class for Assembly+scatter to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct AssmbScatr
+template <typename TData> struct AssmbScatr
 {
     using class_name = OperatorAssmbScatr<TData>;
 

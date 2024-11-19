@@ -135,8 +135,8 @@ public:
             m_out_interleave_width = outblock.GetInterleaveWidth();
 
             // Set to new interleave width.
-            inblock.SetInterleaveWidth(simd_t::width);
-            outblock.SetInterleaveWidth(simd_t::width);
+            inblock.template SetInterleaveWidth<TData>(simd_t::width);
+            outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
             // Get required number of element groups.
             m_nElmtGroup = inblock.GetNumElmtGroups();

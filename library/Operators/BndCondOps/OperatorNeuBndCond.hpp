@@ -61,7 +61,7 @@ public:
 
 // Descriptor / traits class for NeuBndCond to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct NeuBndCond
+template <typename TData> struct NeuBndCond
 {
     using class_name = OperatorNeuBndCond<TData>;
 

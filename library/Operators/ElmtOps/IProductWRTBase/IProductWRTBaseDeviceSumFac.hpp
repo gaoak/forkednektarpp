@@ -156,14 +156,14 @@ public:
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inPtr);
-            inblock.SetInterleaveWidth(m_implInterleaveWidth);
+            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
             if (lambda == 1.0)
             {
                 ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                     outblock.GetInterleaveWidth(), nElmtsPad,
                     outblock.GetNumData(), outPtr);
             }
-            outblock.SetInterleaveWidth(m_implInterleaveWidth);
+            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
             // Function call to kernel functions.
             if (dimension == 1)

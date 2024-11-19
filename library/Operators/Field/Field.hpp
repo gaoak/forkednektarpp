@@ -42,8 +42,6 @@ std::string FieldStateString(FieldState);
 
 static constexpr FieldState DefaultState = FieldState::Phys;
 
-using default_fp_type = double;
-
 /**
  * @brief A block means a group of elements of identical shape,
  * basis and order. BlockAttributes stores the most basic
@@ -64,7 +62,7 @@ public:
 
     BlockAttributes(const BlockAttributes &) = default;
 
-    template <typename TData = default_fp_type>
+    template <typename TData>
     void SetInterleaveWidth(const size_t interleave_width)
     {
         if (interleave_width != 1)
@@ -268,8 +266,7 @@ std::vector<BlockAttributes> GetBlockAttributes(
  * @tparam TData  The floating-point representation used by the field.
  * @tparam TState A FieldState value representing the state of the field.
  */
-template <typename TData = default_fp_type, FieldState TState = DefaultState>
-class Field
+template <typename TData, FieldState TState = DefaultState> class Field
 {
 public:
     Field(){};
@@ -656,7 +653,7 @@ public:
         }
         for (size_t blk = 0; blk < m_block_accessors.size(); ++blk)
         {
-            m_block_accessors[blk].SetInterleaveWidth(
+            m_block_accessors[blk].template SetInterleaveWidth<TData>(
                 field.m_block_accessors[blk].GetInterleaveWidth());
         }
     }

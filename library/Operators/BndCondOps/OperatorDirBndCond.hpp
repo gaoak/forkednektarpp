@@ -62,7 +62,7 @@ public:
 
 // Descriptor / traits class for DirBndCond to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct DirBndCond
+template <typename TData> struct DirBndCond
 {
     using class_name = OperatorDirBndCond<TData>;
 

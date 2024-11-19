@@ -68,7 +68,7 @@ public:
 
 // Descriptor / traits class for HelmSolve to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct HelmSolve
+template <typename TData> struct HelmSolve
 {
     using class_name = OperatorHelmSolve<TData>;
 

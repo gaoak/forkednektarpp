@@ -66,7 +66,7 @@ public:
 };
 
 // Descriptor / traits class for IProductWRTDerivBase
-template <typename TData = default_fp_type> struct IProductWRTDerivBase
+template <typename TData> struct IProductWRTDerivBase
 {
     using class_name = OperatorIProductWRTDerivBase<TData>;
 

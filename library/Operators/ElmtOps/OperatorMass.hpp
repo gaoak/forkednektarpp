@@ -62,7 +62,7 @@ public:
 };
 
 // Descriptor / traits class for Mass
-template <typename TData = default_fp_type> struct Mass
+template <typename TData> struct Mass
 {
     using class_name = OperatorMass<TData>;
 
