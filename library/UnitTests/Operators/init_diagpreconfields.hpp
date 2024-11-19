@@ -79,9 +79,9 @@ public:
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
         auto HelmholtzOp =
-            Helmholtz<>::template Create<ExecSpace, Impl>(fixt_explist);
+            Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist);
         auto DiagPreconOp =
-            DiagPrecon<>::template Create<ExecSpace, Impl>(fixt_explist);
+            DiagPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
         HelmholtzOp->setLambda(1.0);
         DiagPreconOp->configure(HelmholtzOp);
         DiagPreconOp->apply(*fixt_in, *fixt_out);

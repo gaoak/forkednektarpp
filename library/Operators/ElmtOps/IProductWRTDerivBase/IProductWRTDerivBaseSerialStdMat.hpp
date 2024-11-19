@@ -164,8 +164,8 @@ public:
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
                 outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
                 outPtr);
-            inblock.SetInterleaveWidth(m_implInterleaveWidth);
-            outblock.SetInterleaveWidth(m_implInterleaveWidth);
+            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
             // Allocate storate.
             if (m_wsp.size() <= blk)

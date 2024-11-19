@@ -81,7 +81,7 @@ protected:
 };
 
 // Descriptor / traits class for ConjGrad to be used by Operator create function
-template <typename TData = default_fp_type> struct ConjGrad
+template <typename TData> struct ConjGrad
 {
     using class_name = OperatorConjGrad<TData>;
 

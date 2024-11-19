@@ -70,7 +70,7 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        Mass<>::template Create<ExecSpace, Impl>(fixt_explist)
+        Mass<double>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_in, *fixt_out);
     }
 

@@ -70,7 +70,7 @@ protected:
 };
 
 // Descriptor / traits class for Helmholtz
-template <typename TData = default_fp_type> struct Helmholtz
+template <typename TData> struct Helmholtz
 {
     using class_name = OperatorHelmholtz<TData>;
 

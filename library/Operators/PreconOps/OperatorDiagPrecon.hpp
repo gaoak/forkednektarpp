@@ -55,7 +55,7 @@ public:
 
 // Descriptor / traits class for DiagPrecon to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct DiagPrecon
+template <typename TData> struct DiagPrecon
 {
     using class_name = OperatorDiagPrecon<TData>;
 

@@ -63,7 +63,7 @@ public:
 };
 
 // Descriptor / traits class for MultiplyByElmtInvMass
-template <typename TData = default_fp_type> struct MultiplyByElmtInvMass
+template <typename TData> struct MultiplyByElmtInvMass
 {
     using class_name = OperatorMultiplyByElmtInvMass<TData>;
 

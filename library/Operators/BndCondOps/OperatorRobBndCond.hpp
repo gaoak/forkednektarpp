@@ -58,7 +58,7 @@ public:
 
 // Descriptor / traits class for RobBndCond to be used by Operator create
 // function
-template <typename TData = default_fp_type> struct RobBndCond
+template <typename TData> struct RobBndCond
 {
     using class_name = OperatorRobBndCond<TData>;
 

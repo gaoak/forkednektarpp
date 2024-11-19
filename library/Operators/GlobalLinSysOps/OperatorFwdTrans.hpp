@@ -65,7 +65,7 @@ public:
 };
 
 // Descriptor / traits class for FwdTrans
-template <typename TData = default_fp_type> struct FwdTrans
+template <typename TData> struct FwdTrans
 {
     using class_name = OperatorFwdTrans<TData>;
 

@@ -58,7 +58,7 @@ public:
 
     template <typename ExecSpace, typename Impl> void RunTestCase()
     {
-        DirBndCond<>::template Create<ExecSpace, Impl>(fixt_explist)
+        DirBndCond<double>::template Create<ExecSpace, Impl>(fixt_explist)
             ->apply(*fixt_out);
     }
 

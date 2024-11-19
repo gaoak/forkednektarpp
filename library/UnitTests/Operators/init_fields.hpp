@@ -368,7 +368,7 @@ public:
                     inptr + component * block.size());
             }
 
-            block.SetInterleaveWidth(1);
+            block.template SetInterleaveWidth<TData>(1);
         }
     }
 

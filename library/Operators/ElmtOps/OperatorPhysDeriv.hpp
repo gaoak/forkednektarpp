@@ -61,7 +61,7 @@ public:
 };
 
 // Descriptor / traits class for PhysDeriv
-template <typename TData = default_fp_type> struct PhysDeriv
+template <typename TData> struct PhysDeriv
 {
     using class_name = OperatorPhysDeriv<TData>;
 

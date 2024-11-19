@@ -64,7 +64,7 @@ public:
 };
 
 // Descriptor / traits class for AddTraceIntegral
-template <typename TData = default_fp_type> struct AddTraceIntegral
+template <typename TData> struct AddTraceIntegral
 {
     using class_name = OperatorAddTraceIntegral<TData>;
 
