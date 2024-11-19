@@ -86,11 +86,13 @@ public:
         const auto dimension = this->m_expansionList->GetShapeDimension();
 
         // Initialize index.
-        m_exp_idx = 0; // accumulates over blocks, also used in operatorND()
+        size_t exp_idx = 0;
 
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
             auto &inblock     = in.GetBlocks()[m_blk];
             auto &outblock    = out.GetBlocks()[m_blk];
@@ -111,8 +113,7 @@ public:
             auto outPtr = outblock.template GetPtr<MemSpace, ReadWrite>();
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
+            const auto shapeType = m_expPtr->DetShapeType();
 
             // Get current interleave width.
             m_in_interleave_width  = inblock.GetInterleaveWidth();
@@ -128,7 +129,7 @@ public:
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
@@ -180,7 +181,7 @@ public:
             }
 
             // Increment index for next element type.
-            m_exp_idx += nElmts;
+            exp_idx += nElmts;
         }
     }
 
@@ -195,8 +196,10 @@ public:
     static std::string className;
 
 private:
-    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk;
     unsigned int m_in_interleave_width, m_out_interleave_width;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
 
     std::vector<MemoryRegion<TData>> m_jac;
     BasisDataMap<simd_t> m_basisMap;
@@ -215,19 +218,16 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
 
         const auto nmTot = nm0;
         const auto nqTot = nq0;
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -280,10 +280,9 @@ private:
         constexpr auto nqTot = nq0;
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -331,20 +330,18 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
 
         const auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -352,10 +349,9 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -409,14 +405,12 @@ private:
               int nm1, int nq0, int nq1>
     void Operator2D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
         constexpr auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -424,10 +418,9 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -480,22 +473,20 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-        const auto nm2 = expPtr->GetBasisNumModes(2);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
 
         const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -505,10 +496,9 @@ private:
             wsp1(wsp1Size), wsp2(wsp2Size);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)
@@ -566,14 +556,12 @@ private:
               int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
         constexpr auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -583,10 +571,9 @@ private:
             wsp1(wsp1Size), wsp2(wsp2Size);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto jacSize = 1;
         if constexpr (DEFORMED)

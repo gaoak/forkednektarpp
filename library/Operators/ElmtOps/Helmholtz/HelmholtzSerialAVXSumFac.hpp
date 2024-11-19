@@ -111,10 +111,12 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Initialize index.
-        m_exp_idx = 0; // accumulated across each block.
+        size_t exp_idx = 0;
 
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
             auto &inblock     = in.GetBlocks()[m_blk];
             auto &outblock    = out.GetBlocks()[m_blk];
@@ -135,8 +137,7 @@ public:
             auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
             // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(m_exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
+            const auto shapeType = m_expPtr->DetShapeType();
 
             // Get current interleave width.
             m_in_interleave_width = inblock.GetInterleaveWidth();
@@ -151,7 +152,7 @@ public:
             // Fetch basis key for the current element type.
             for (size_t d = 0; d < dimension; ++d)
             {
-                m_basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
+                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
             }
 
             switch (shapeType)
@@ -203,7 +204,7 @@ public:
             }
 
             // Increment index for next element type.
-            m_exp_idx += nElmts;
+            exp_idx += nElmts;
         }
     }
 
@@ -219,8 +220,10 @@ public:
     }
 
 private:
-    unsigned int m_nElmtGroup, m_blk, m_exp_idx;
+    unsigned int m_nElmtGroup, m_blk;
     unsigned int m_in_interleave_width;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
 
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
@@ -254,10 +257,8 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nq0 = expPtr->GetNumPoints(0);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
 
         constexpr auto ndf = 1;
 
@@ -266,22 +267,20 @@ private:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
 
         // Allocate workspace.
-        TData *bwd = static_cast<TData *>(
+        auto bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        TData *deriv0 = static_cast<TData *>(
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto deriv0 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
@@ -350,8 +349,6 @@ private:
               int nq0>
     void Operator1D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
         constexpr auto ndf = 1;
 
         const auto nqTot = nq0;
@@ -359,22 +356,20 @@ private:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
 
         // Allocate workspace.
-        TData *bwd = static_cast<TData *>(
+        auto bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        TData *deriv0 = static_cast<TData *>(
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto deriv0 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
@@ -442,13 +437,11 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
 
         constexpr auto ndf = 4;
 
@@ -457,7 +450,7 @@ private:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -477,27 +470,25 @@ private:
 
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
-        TData *bwd = static_cast<TData *>(
+        auto bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
-        TData *deriv0 = static_cast<TData *>(
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto deriv0 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
-        TData *deriv1 = static_cast<TData *>(
+        auto deriv1 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv1vec =
+        auto deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
@@ -587,9 +578,8 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -610,20 +600,18 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         alignas(simd_t::alignment) TData bwd[nqTot * simd_t::width];
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
         alignas(simd_t::alignment) TData deriv0[nqTot * simd_t::width];
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
         alignas(simd_t::alignment) TData deriv1[nqTot * simd_t::width];
-        typename simd_t::vectorType *deriv1vec =
+        auto deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
@@ -702,15 +690,13 @@ private:
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(const TData *input, TData *output)
     {
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
 
-        const auto nm0 = expPtr->GetBasisNumModes(0);
-        const auto nm1 = expPtr->GetBasisNumModes(1);
-        const auto nm2 = expPtr->GetBasisNumModes(2);
-
-        const auto nq0 = expPtr->GetNumPoints(0);
-        const auto nq1 = expPtr->GetNumPoints(1);
-        const auto nq2 = expPtr->GetNumPoints(2);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
 
         constexpr auto ndf = 9;
         const auto nqTot   = nq0 * nq1 * nq2;
@@ -718,7 +704,7 @@ private:
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -745,35 +731,33 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size), wsp2(wsp2Size);
 
-        TData *bwd = static_cast<TData *>(
+        auto bwd = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
 
-        TData *deriv0 = static_cast<TData *>(
+        auto deriv0 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
-        TData *deriv1 = static_cast<TData *>(
+        auto deriv1 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv1vec =
+        auto deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
-        TData *deriv2 = static_cast<TData *>(
+        auto deriv2 = static_cast<TData *>(
             ::operator new[](nqTot *simd_t::width * sizeof(TData),
                              std::align_val_t(simd_t::alignment)));
-        typename simd_t::vectorType *deriv2vec =
+        auto deriv2vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
@@ -878,10 +862,8 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
-        const auto expPtr = this->m_expansionList->GetExp(m_exp_idx);
-
         const bool isModified =
-            (expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -909,26 +891,24 @@ private:
             wsp1(wsp1Size), wsp2(wsp2Size);
 
         alignas(simd_t::alignment) TData bwd[nqTot * simd_t::width];
-        typename simd_t::vectorType *bwdvec =
-            reinterpret_cast<typename simd_t::vectorType *>(bwd);
+        auto bwdvec = reinterpret_cast<typename simd_t::vectorType *>(bwd);
 
         alignas(simd_t::alignment) TData deriv0[nqTot * simd_t::width];
-        typename simd_t::vectorType *deriv0vec =
+        auto deriv0vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
         alignas(simd_t::alignment) TData deriv1[nqTot * simd_t::width];
-        typename simd_t::vectorType *deriv1vec =
+        auto deriv1vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
         alignas(simd_t::alignment) TData deriv2[nqTot * simd_t::width];
-        typename simd_t::vectorType *deriv2vec =
+        auto deriv2vec =
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
         // Initialize pointers.
-        const typename simd_t::vectorType *tmpIn =
+        auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        typename simd_t::scalarType *tmpOut =
-            reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         auto dfSize = 1;
         if constexpr (DEFORMED)
