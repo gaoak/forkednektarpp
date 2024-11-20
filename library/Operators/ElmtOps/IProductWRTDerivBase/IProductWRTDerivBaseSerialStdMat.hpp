@@ -98,7 +98,7 @@ public:
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
                         expPtr->GetStdExp()->IProductWRTDerivBase(
-                                d, tmp, t = temp + i * nmTot);
+                            d, tmp, t = temp + i * nmTot);
                     }
                     // copy temp to matPtr
                     for (size_t i = 0; i < nqTot; ++i)
@@ -259,9 +259,8 @@ public:
             {
                 TData alpha = (d != 0 || APPEND);
                 Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                           matPtr[d].data(), nmTot,
-                           wspPtr + d * nElmts * nqTot, nqTot, alpha, outPtr,
-                           nmTot);
+                           matPtr[d].data(), nmTot, wspPtr + d * nElmts * nqTot,
+                           nqTot, alpha, outPtr, nmTot);
             }
 
             // Increment index for next element type.
