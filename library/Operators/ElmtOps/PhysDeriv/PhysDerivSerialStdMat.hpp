@@ -81,19 +81,28 @@ public:
             if (m_mat.find(basisKeys) == m_mat.end())
             {
                 size_t nqTot = expPtr->GetTotPoints();
-                Array<OneD, TData> tmp(nqTot), t;
+                Array<OneD, NekDouble> tmp(nqTot), t;
                 // Get deriv matrix.
                 auto &matPtr = m_mat[basisKeys];
                 matPtr       = std::vector<Array<OneD, TData>>(dimension);
                 for (size_t d = 0; d < dimension; ++d)
                 {
                     matPtr[d] = Array<OneD, TData>(nqTot * nqTot);
+                    Array<OneD, NekDouble> temp(nqTot * nqTot);
                     for (int i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
-                        expPtr->GetStdExp()->PhysDeriv(
-                            d, tmp, t = matPtr[d] + i * nqTot);
+                        expPtr->GetStdExp()->PhysDeriv(d, tmp,
+                                                       t = temp + i * nqTot);
+                    }
+                    // copy temp to matPtr
+                    for (int i = 0; i < nqTot; ++i)
+                    {
+                        for (int j = 0; j < nqTot; ++j)
+                        {
+                            matPtr[d][j + i * nqTot] = temp[j + i * nqTot];
+                        }
                     }
                 }
             }
@@ -165,9 +174,9 @@ public:
             for (size_t d = 0; d < dimension; ++d)
             {
                 // Perform matrix-matrix multiply.
-                Blas::Dgemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
-                            matPtr[d].data(), nqTot, inPtr, nqTot, 0.0,
-                            derivPtr + d * nqTot * nElmts, nqTot);
+                Blas::Gemm('N', 'N', nqTot, nElmts, nqTot, 1.0,
+                           matPtr[d].data(), nqTot, inPtr, nqTot, 0.0,
+                           derivPtr + d * nqTot * nElmts, nqTot);
             }
 
             if (deformed)

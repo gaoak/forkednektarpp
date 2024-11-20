@@ -178,11 +178,11 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            auto glodiagArr = m_glodiag.ToArray();
+            auto glodiagArr = m_glodiag.template ToArray<NekDouble>();
 
             contfield->GetLocalToGlobalMap()->UniversalAssemble(glodiagArr);
 
-            m_glodiag.template CopyArray<MemSpace, TData>(glodiagArr);
+            m_glodiag.template CopyArray<MemSpace, NekDouble>(glodiagArr);
         }
     }
 

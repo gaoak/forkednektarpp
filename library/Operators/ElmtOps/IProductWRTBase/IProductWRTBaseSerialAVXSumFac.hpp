@@ -73,9 +73,9 @@ public:
                                              ExecSpace::alignment);
 
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData, simd_t>(
+        m_basisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasis, ExecSpace::alignment);
-        m_weightMap = GetBasisData<MemSpace, TData, simd_t>(
+        m_weightMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eWeights, ExecSpace::alignment);
     }
 

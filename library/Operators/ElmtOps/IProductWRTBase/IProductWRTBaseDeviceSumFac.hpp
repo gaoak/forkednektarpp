@@ -63,8 +63,10 @@ public:
                                              ExecSpace::alignment);
 
         // Initialize the basis data.
-        m_basisMap  = GetBasisData<MemSpace, TData>(expansionList, eBasis);
-        m_weightMap = GetBasisData<MemSpace, TData>(expansionList, eWeights);
+        m_basisMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eBasis);
+        m_weightMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eWeights);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,

@@ -175,9 +175,20 @@ public:
                 // Perform batched matrix-vector multiply.
                 const auto dmatPtr =
                     m_dmat[blk].template GetPtr<MemSpace, ReadOnly>();
-                OneMKL::dgemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha,
-                                    dmatPtr, nmTot, nmTot * nmTot, inPtr, nmTot,
-                                    nmTot, beta, outPtr, nmTot, nmTot, nElmts);
+                if constexpr (std::is_same_v<TData, double>)
+                {
+                    OneMKL::dgemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha,
+                                        dmatPtr, nmTot, nmTot * nmTot, inPtr,
+                                        nmTot, nmTot, beta, outPtr, nmTot,
+                                        nmTot, nElmts);
+                }
+                else
+                {
+                    OneMKL::sgemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha,
+                                        dmatPtr, nmTot, nmTot * nmTot, inPtr,
+                                        nmTot, nmTot, beta, outPtr, nmTot,
+                                        nmTot, nElmts);
+                }
             }
             else
             {
@@ -192,8 +203,18 @@ public:
                     m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
                 const auto scalePtr =
                     m_scale[blk].template GetPtr<MemSpace, ReadOnly>();
-                OneMKL::dgemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha,
-                              matPtr, nmTot, inPtr, nmTot, beta, outPtr, nmTot);
+                if constexpr (std::is_same_v<TData, double>)
+                {
+                    OneMKL::dgemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha,
+                                  matPtr, nmTot, inPtr, nmTot, beta, outPtr,
+                                  nmTot);
+                }
+                else
+                {
+                    OneMKL::sgemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha,
+                                  matPtr, nmTot, inPtr, nmTot, beta, outPtr,
+                                  nmTot);
+                }
                 Nektar::parallel_for<ExecSpace>(
                     0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
                         outPtr[i] *= scalePtr[i / nmTot];

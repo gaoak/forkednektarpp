@@ -56,7 +56,8 @@ public:
         : OperatorBwdTrans<TData>(expansionList)
     {
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData>(expansionList, eBasis);
+        m_basisMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eBasis);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,

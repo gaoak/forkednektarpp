@@ -92,8 +92,10 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         contfield->GetSession()->LoadParameter("NekLinSysMaxIterations",
                                                m_maxIter, 5000);
+        NekDouble tolerance;
         contfield->GetSession()->LoadParameter("IterativeSolverTolerance",
-                                               m_tol, 1.0E-09);
+                                               tolerance, 1.0E-09);
+        m_tol = tolerance;
 
         m_assmbScatrOp =
             AssmbScatr<TData>::template Create<ExecSpace, Implementation>(

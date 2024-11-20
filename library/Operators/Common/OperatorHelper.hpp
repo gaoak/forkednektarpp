@@ -282,7 +282,7 @@ std::vector<MemoryRegion<TData>> SetJacobian(
         // Deformed geometry.
         if (expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed)
         {
-            Array<OneD, Array<OneD, TData>> jacArray(interleave_width);
+            Array<OneD, Array<OneD, NekDouble>> jacArray(interleave_width);
 
             // Allocate memory and get pointer.
             jacs.push_back(MemoryRegion<TData>::template Create<MemSpace>(
@@ -306,7 +306,7 @@ std::vector<MemoryRegion<TData>> SetJacobian(
                     else
                     {
                         jacArray[i] =
-                            Array<OneD, TData>(expPtr->GetTotPoints(), 0.0);
+                            Array<OneD, NekDouble>(expPtr->GetTotPoints(), 0.0);
                     }
                 }
 
