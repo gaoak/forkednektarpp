@@ -77,6 +77,8 @@ ADD_NEKTAR_EXECUTABLE(test_ipwrtbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_serial_sumfac.cpp)
+ADD_NEKTAR_EXECUTABLE(test_mass_serial_sumfac
+    COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_helmholtz_serial_sumfac
     COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_helmholtz_serial_sumfac.cpp)
 ADD_NEKTAR_EXECUTABLE(test_physderiv_serial_sumfac
@@ -94,6 +96,8 @@ IF (${NEKTAR_ENABLE_SIMD_AVX2} OR ${NEKTAR_ENABLE_SIMD_AVX512})
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtbase_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_ipwrtderivbase_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_ipwrtderivbase_avx_sumfac.cpp)
+    ADD_NEKTAR_EXECUTABLE(test_mass_avx_sumfac
+        COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_mass_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_physderiv_avx_sumfac
         COMPONENT unit-test DEPENDS ${OPERATOR_UNIT_TEST_DEPENDS} SOURCES test_physderiv_avx_sumfac.cpp)
     ADD_NEKTAR_EXECUTABLE(test_helmholtz_avx_sumfac
@@ -331,6 +335,7 @@ SET_UNIT_TEST(AddTraceIntegral_serial_sumfac test_addtraceintegral_serial_sumfac
 SET_UNIT_TEST(BwdTrans_serial_sumfac test_bwdtrans_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTBase_serial_sumfac test_ipwrtbase_serial_sumfac FALSE)
 SET_UNIT_TEST(IProductWRTDerivBase_serial_sumfac test_ipwrtderivbase_serial_sumfac FALSE)
+SET_UNIT_TEST(Mass_serial_sumfac test_mass_serial_sumfac FALSE)
 SET_UNIT_TEST(PhysDeriv_serial_sumfac test_physderiv_serial_sumfac FALSE)
 SET_UNIT_TEST(Helmholtz_serial_sumfac test_helmholtz_serial_sumfac FALSE)
 
@@ -341,6 +346,7 @@ IF (NEKTAR_ENABLE_SIMD_AVX2 OR NEKTAR_ENABLE_SIMD_AVX512)
     SET_UNIT_TEST(BwdTrans_avx_sumfac test_bwdtrans_avx_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTBase_avx_sumfac test_ipwrtbase_avx_sumfac FALSE)
     SET_UNIT_TEST(IProductWRTDerivBase_avx_sumfac test_ipwrtderivbase_avx_sumfac FALSE)
+    SET_UNIT_TEST(Mass_avx_sumfac test_mass_avx_sumfac FALSE)
     SET_UNIT_TEST(PhysDeriv_avx_sumfac test_physderiv_avx_sumfac FALSE)
     SET_UNIT_TEST(Helmholtz_avx_sumfac test_helmholtz_avx_sumfac FALSE)
 ENDIF()

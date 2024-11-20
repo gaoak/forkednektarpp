@@ -284,8 +284,8 @@ protected:
     void CopyFromHostPtr(const TDataIn *src, const size_t size,
                          const size_t offset = 0)
     {
-        MemoryRegionHost<TData>::template CopyFromHostPtr<TData>(src, size,
-                                                                 offset);
+        MemoryRegionHost<TData>::template CopyFromHostPtr<TDataIn>(src, size,
+                                                                   offset);
         TData *dst = this->m_device + offset;
         if constexpr (std::is_same_v<TDataIn, TData>)
         {
