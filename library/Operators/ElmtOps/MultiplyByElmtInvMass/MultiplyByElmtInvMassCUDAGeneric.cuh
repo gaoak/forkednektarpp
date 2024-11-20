@@ -172,13 +172,24 @@ public:
             const TData beta  = 0.0;
             if (deformed)
             {
-                // Perform batched matrix-vector multiply.
                 const auto dmatPtr =
                     m_dmat[blk].template GetPtr<MemSpace, ReadOnly>();
-                cublasDgemmStridedBatched(
-                    handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, 1, nmTot, &alpha,
-                    dmatPtr, nmTot, nmTot * nmTot, inPtr, nmTot, nmTot, &beta,
-                    outPtr, nmTot, nmTot, nElmts);
+                if constexpr (std::is_same<TData, double>::value)
+                {
+                    // Perform batched matrix-vector multiply.
+                    cublasDgemmStridedBatched(
+                        handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, 1, nmTot,
+                        &alpha, dmatPtr, nmTot, nmTot * nmTot, inPtr, nmTot,
+                        nmTot, &beta, outPtr, nmTot, nmTot, nElmts);
+                }
+                else
+                {
+                    // Perform batched matrix-vector multiply.
+                    cublasSgemmStridedBatched(
+                        handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, 1, nmTot,
+                        &alpha, dmatPtr, nmTot, nmTot * nmTot, inPtr, nmTot,
+                        nmTot, &beta, outPtr, nmTot, nmTot, nElmts);
+                }
             }
             else
             {
@@ -193,9 +204,18 @@ public:
                     m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
                 const auto scalePtr =
                     m_scale[blk].template GetPtr<MemSpace, ReadOnly>();
-                cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
-                            nmTot, &alpha, matPtr, nmTot, inPtr, nmTot, &beta,
-                            outPtr, nmTot);
+                if constexpr (std::is_same<TData, double>::value)
+                {
+                    cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
+                                nmTot, &alpha, matPtr, nmTot, inPtr, nmTot,
+                                &beta, outPtr, nmTot);
+                }
+                else
+                {
+                    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
+                                nmTot, &alpha, matPtr, nmTot, inPtr, nmTot,
+                                &beta, outPtr, nmTot);
+                }
                 Nektar::parallel_for<ExecSpace>(
                     0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
                         outPtr[i] *= scalePtr[i / nmTot];

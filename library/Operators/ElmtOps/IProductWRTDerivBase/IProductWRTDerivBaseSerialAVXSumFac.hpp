@@ -75,23 +75,23 @@ public:
                                                     ExecSpace::alignment);
 
         // Initialize the basis data.
-        m_Bmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eBasis,
-                                                       simd_t::alignment);
-        m_Wmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eWeights,
-                                                       simd_t::alignment);
+        m_Bmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+            expansionList, eBasis, simd_t::alignment);
+        m_Wmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+            expansionList, eWeights, simd_t::alignment);
 
         // Initialize the derivative matrix.
-        m_Dmap = GetBasisData<MemSpace, TData, simd_t>(
+        m_Dmap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eDerivative, simd_t::alignment);
 
         // Initialize the BD data.
-        m_BDmap = GetBasisData<MemSpace, TData, simd_t>(
+        m_BDmap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasisDerivative, simd_t::alignment);
 
         // Initialize the geometric factors.
-        m_Fac0 = GetBasisData<MemSpace, TData, simd_t>(
+        m_Fac0 = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eHalfMultOnePlusZero, simd_t::alignment);
-        m_Fac1 = GetBasisData<MemSpace, TData, simd_t>(
+        m_Fac1 = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eTwoOverOneMinusZero, simd_t::alignment);
     }
 

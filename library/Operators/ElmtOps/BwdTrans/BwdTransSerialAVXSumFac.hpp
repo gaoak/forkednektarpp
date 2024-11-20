@@ -65,7 +65,7 @@ public:
             dimension, LibUtilities::NullBasisKey);
 
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData, simd_t>(
+        m_basisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasis, ExecSpace::alignment);
     }
 

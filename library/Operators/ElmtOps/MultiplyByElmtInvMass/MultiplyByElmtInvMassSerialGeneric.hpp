@@ -173,7 +173,7 @@ public:
                     m_dmat[blk].template GetPtr<MemSpace, ReadOnly>();
                 for (size_t e = 0; e < nElmts; e++)
                 {
-                    Blas::Dgemv('N', nmTot, nmTot, alpha, dmatPtr, nmTot, inPtr,
+                    Blas::Gemv('N', nmTot, nmTot, alpha, dmatPtr, nmTot, inPtr,
                                 1, beta, outPtr, 1);
                     inPtr += nmTot;
                     outPtr += nmTot;
@@ -193,7 +193,7 @@ public:
                     m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
                 const auto scalePtr =
                     m_scale[blk].template GetPtr<MemSpace, ReadOnly>();
-                Blas::Dgemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr,
+                Blas::Gemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr,
                             nmTot, inPtr, nmTot, beta, outPtr, nmTot);
                 Nektar::parallel_for<ExecSpace>(
                     0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {

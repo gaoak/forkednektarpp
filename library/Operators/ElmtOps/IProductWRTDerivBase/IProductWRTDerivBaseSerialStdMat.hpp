@@ -86,18 +86,27 @@ public:
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 size_t nmTot = expPtr->GetNcoeffs();
-                Array<OneD, TData> tmp(nqTot), t;
+                Array<OneD, NekDouble> tmp(nqTot), t;
                 // Get IProductWRTDerivBase matrix.
                 auto &matPtr = m_mat[basisKeys];
                 for (size_t d = 0; d < dimension; ++d)
                 {
                     matPtr.push_back(Array<OneD, TData>(nqTot * nmTot));
+                    Array<OneD, NekDouble> temp(nqTot * nmTot);
                     for (size_t i = 0; i < nqTot; ++i)
                     {
                         Vmath::Zero(nqTot, tmp, 1);
                         tmp[i] = 1.0;
                         expPtr->GetStdExp()->IProductWRTDerivBase(
-                            d, tmp, t = matPtr[d] + i * nmTot);
+                                d, tmp, t = temp + i * nmTot);
+                    }
+                    // copy temp to matPtr
+                    for (size_t i = 0; i < nqTot; ++i)
+                    {
+                        for (size_t j = 0; j < nmTot; ++j)
+                        {
+                            matPtr[d][j + i * nmTot] = temp[j + i * nmTot];
+                        }
                     }
                 }
             }
@@ -249,10 +258,10 @@ public:
             for (size_t d = 0; d < dimension; d++)
             {
                 TData alpha = (d != 0 || APPEND);
-                Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                            matPtr[d].data(), nmTot,
-                            wspPtr + d * nElmts * nqTot, nqTot, alpha, outPtr,
-                            nmTot);
+                Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
+                           matPtr[d].data(), nmTot,
+                           wspPtr + d * nElmts * nqTot, nqTot, alpha, outPtr,
+                           nmTot);
             }
 
             // Increment index for next element type.

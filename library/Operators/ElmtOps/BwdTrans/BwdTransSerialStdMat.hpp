@@ -75,15 +75,24 @@ public:
             {
                 const auto nqTot = expPtr->GetTotPoints();
                 const auto nmTot = expPtr->GetNcoeffs();
-                Array<OneD, TData> tmp(nmTot), t;
+                Array<OneD, NekDouble> tmp(nmTot), t;
                 // Get BwdTrans matrix.
                 auto &matPtr = m_mat[basisKeys];
                 matPtr       = Array<OneD, TData>(nmTot * nqTot);
+                Array<OneD, NekDouble> temp(nmTot * nqTot);
                 for (size_t i = 0; i < nmTot; ++i)
                 {
                     Vmath::Zero(nmTot, tmp, 1);
                     tmp[i] = 1.0;
-                    expPtr->GetStdExp()->BwdTrans(tmp, t = matPtr + i * nqTot);
+                    expPtr->GetStdExp()->BwdTrans(tmp, t = temp + i * nqTot);
+                }
+                // copy temp to matPtr
+                for (size_t i = 0; i < nmTot; ++i)
+                {
+                    for (size_t j = 0; j < nqTot; ++j)
+                    {
+                        matPtr[j + i * nqTot] = temp[j + i * nqTot];
+                    }
                 }
             }
         }
@@ -138,8 +147,8 @@ public:
             const auto &matPtr = m_mat[basisKeys];
 
             // Perform matrix-matrix multiply.
-            Blas::Dgemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
-                        nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
+            Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
+                       nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
 
             // Increment index for next element type.
             exp_idx += nElmts;

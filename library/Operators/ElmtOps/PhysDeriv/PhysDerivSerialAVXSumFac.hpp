@@ -72,11 +72,11 @@ public:
                                                     ExecSpace::alignment);
 
         // Initialize the zeros.
-        m_zeroMap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eZeros,
+        m_zeroMap = GetBasisData<MemSpace, NekDouble, simd_t>(expansionList, eZeros,
                                                           simd_t::alignment);
 
         // Initialize the derivative matrix.
-        m_derivativeMap = GetBasisData<MemSpace, TData, simd_t>(
+        m_derivativeMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eDerivative, simd_t::alignment);
     }
 

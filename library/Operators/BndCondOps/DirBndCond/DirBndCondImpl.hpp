@@ -386,12 +386,12 @@ public:
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
             // Copy the data from the input field.
-            auto inoutarr = inout.ToArray();
+            auto inoutarr = inout.template ToArray<NekDouble>();
 
             contfield->GetLocalToGlobalMap()->UniversalAbsMaxBnd(inoutarr);
 
             // Copy the data to the output field.
-            inout.template CopyArray<MemSpace>(inoutarr);
+            inout.template CopyArray<MemSpace, NekDouble>(inoutarr);
         }
 
         if (m_nParDirBndSignSize > 0)

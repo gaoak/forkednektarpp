@@ -83,8 +83,9 @@ public:
         {
             auto sign = assmbMap->GetLocalToGlobalSign();
 
-            m_sign = MemoryRegion<TData>::template FromArray<MemSpace, TData>(
-                sign, ExecSpace::alignment, device_only);
+            m_sign =
+                MemoryRegion<TData>::template FromArray<MemSpace, NekDouble>(
+                    sign, ExecSpace::alignment, device_only);
         }
     }
 
@@ -152,11 +153,11 @@ public:
             std::dynamic_pointer_cast<ContField>(this->m_expansionList);
         if (contfield->GetSession()->GetComm()->GetRowComm()->GetSize() > 1)
         {
-            auto globalArr = global.ToArray();
+            auto globalArr = global.template ToArray<NekDouble>();
 
             contfield->GetLocalToGlobalMap()->UniversalAssemble(globalArr);
 
-            global.template CopyArray<MemSpace, TData>(globalArr);
+            global.template CopyArray<MemSpace, NekDouble>(globalArr);
         }
     }
 

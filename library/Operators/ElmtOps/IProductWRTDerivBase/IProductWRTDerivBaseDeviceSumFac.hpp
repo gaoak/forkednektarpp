@@ -70,13 +70,16 @@ public:
             expansionList, locblocks, ExecSpace::alignment, transpose);
 
         // Initialize the basis data.
-        m_basisMap = GetBasisData<MemSpace, TData>(expansionList, eBasis);
-        m_dbasisMap =
-            GetBasisData<MemSpace, TData>(expansionList, eBasisDerivative);
-        m_weightMap = GetBasisData<MemSpace, TData>(expansionList, eWeights);
-        m_pointMap  = GetBasisData<MemSpace, TData>(expansionList, eZeros);
-        m_derivativeMap =
-            GetBasisData<MemSpace, TData>(expansionList, eDerivative);
+        m_basisMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eBasis);
+        m_dbasisMap = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eBasisDerivative);
+        m_weightMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eWeights);
+        m_pointMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eZeros);
+        m_derivativeMap = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eDerivative);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,

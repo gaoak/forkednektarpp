@@ -83,16 +83,25 @@ public:
             {
                 size_t nqTot = expPtr->GetTotPoints();
                 size_t nmTot = expPtr->GetNcoeffs();
-                Array<OneD, TData> tmp(nqTot), t;
+                Array<OneD, NekDouble> tmp(nqTot), t;
                 // Get IProductWRTBase matrix.
                 auto &matPtr = m_mat[basisKeys];
                 matPtr       = Array<OneD, TData>(nqTot * nmTot);
+                Array<OneD, NekDouble> temp(nqTot * nmTot);
                 for (size_t i = 0; i < nqTot; ++i)
                 {
                     Vmath::Zero(nqTot, tmp, 1);
                     tmp[i] = 1.0;
-                    expPtr->GetStdExp()->IProductWRTBase(tmp, t = matPtr +
-                                                                  i * nmTot);
+                    expPtr->GetStdExp()->IProductWRTBase(tmp,
+                                                         t = temp + i * nmTot);
+                }
+                // copy temp to matPtr
+                for (size_t i = 0; i < nqTot; ++i)
+                {
+                    for (size_t j = 0; j < nmTot; ++j)
+                    {
+                        matPtr[j + i * nmTot] = temp[j + i * nmTot];
+                    }
                 }
             }
         }
@@ -185,8 +194,8 @@ public:
             const auto &matPtr = m_mat[basisKeys];
 
             // Perform matrix-matrix multiply.
-            Blas::Dgemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),
-                        nmTot, wspPtr, nqTot, 0.0, outPtr, nmTot);
+            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, lambda, matPtr.data(),
+                       nmTot, wspPtr, nqTot, 0.0, outPtr, nmTot);
 
             // Increment index for next element type.
             exp_idx += nElmts;

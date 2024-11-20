@@ -63,11 +63,12 @@ public:
             expansionList, locblocks, ExecSpace::alignment, transpose);
 
         // Initialize the points.
-        m_zeroMap = GetBasisData<MemSpace, TData>(expansionList, eZeros);
+        m_zeroMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eZeros);
 
         // Initialize the derivative matrix.
-        m_derivativeMap =
-            GetBasisData<MemSpace, TData>(expansionList, eDerivative);
+        m_derivativeMap = GetBasisData<MemSpace, NekDouble, TData>(
+            expansionList, eDerivative);
     }
 
     void apply(Field<TData, FieldState::Phys> &in,

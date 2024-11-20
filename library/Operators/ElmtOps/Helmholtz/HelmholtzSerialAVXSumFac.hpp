@@ -57,6 +57,8 @@ class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
                               TData>::type;
     using MemSpace = typename ExecSpace::memory_space;
 
+    Array<OneD, TData> Null1DArray;
+
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmholtz<TData>(expansionList)
@@ -70,21 +72,21 @@ public:
                                                     ExecSpace::alignment);
 
         // Initialize the basis data.
-        m_Bmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eBasis,
-                                                       simd_t::alignment);
-        m_Wmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eWeights,
-                                                       simd_t::alignment);
+        m_Bmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+            expansionList, eBasis, simd_t::alignment);
+        m_Wmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+            expansionList, eWeights, simd_t::alignment);
         // Initialize the derivative matrix.
-        m_Dmap = GetBasisData<MemSpace, TData, simd_t>(
+        m_Dmap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eDerivative, simd_t::alignment);
 
         // Initialize the BD data.
-        m_BDmap = GetBasisData<MemSpace, TData, simd_t>(
+        m_BDmap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasisDerivative, simd_t::alignment);
 
         // Initialize the Z data.
-        m_Zmap = GetBasisData<MemSpace, TData, simd_t>(expansionList, eZeros,
-                                                       simd_t::alignment);
+        m_Zmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+            expansionList, eZeros, simd_t::alignment);
 
         auto nCoord = this->m_expansionList->GetCoordim(0);
         m_diffCoeff = std::vector<TData>(nCoord * (nCoord + 1) / 2, 0.0);

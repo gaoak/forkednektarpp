@@ -45,8 +45,8 @@ namespace Nektar::Operators::detail
 // Update the operator class name if reusing this file i.e. OperatorXXXBaseImpl
 template <>
 void OperatorIProductWRTDerivBaseImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
-                                      default_fp_type>::@Shape@Block
-                (const default_fp_type *input, default_fp_type *output)
+                                      @TData@>::@Shape@Block
+                (const @TData@ *input, @TData@ *output)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call
