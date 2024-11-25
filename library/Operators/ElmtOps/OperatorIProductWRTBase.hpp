@@ -52,14 +52,21 @@ public:
     ~OperatorIProductWRTBase() override = default;
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out,
-                       const TData lambda = 1.0) = 0;
+                       Field<TData, FieldState::Coeff> &out) = 0;
 
     virtual void operator()(Field<TData, FieldState::Phys> &in,
                             Field<TData, FieldState::Coeff> &out)
     {
         apply(in, out);
     }
+
+    void SetLambda(TData lambda)
+    {
+        m_lambda = lambda;
+    }
+
+protected:
+    TData m_lambda = 1.0;
 };
 
 // Descriptor / traits class for IProductWRTBase

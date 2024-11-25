@@ -36,11 +36,11 @@
 /* Switch macros for two level switch over modes and then quadrature
    orders when deformation is not a template parameter */
 
-#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment>(inPtr, outPtr)
+#define OPERATOR1D_DEF operator1D<LibUtilities::eSegment>(inblock, outblock)
 
 #define OPERATOR1D_Q(r, i)                                                     \
     case NQ(i):                                                                \
-        operator1D<LibUtilities::eSegment, NM(i), NQ(i)>(inPtr, outPtr);       \
+        operator1D<LibUtilities::eSegment, NM(i), NQ(i)>(inblock, outblock);   \
         break;
 
 #define OPERATOR1D_M(r, i)                                                     \
@@ -54,12 +54,13 @@
         }                                                                      \
         break;
 
-#define OPERATOR2D_DEF_TRI operator2D<LibUtilities::eTriangle>(inPtr, outPtr)
+#define OPERATOR2D_DEF_TRI                                                     \
+    operator2D<LibUtilities::eTriangle>(inblock, outblock)
 
 #define OPERATOR2D_Q_TRI(r, i)                                                 \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eTriangle, NM(i), NM(i), NQ(i), NQ_M1(i)>(    \
-            inPtr, outPtr);                                                    \
+            inblock, outblock);                                                \
         break;
 
 #define OPERATOR2D_M_TRI(r, i)                                                 \
@@ -74,12 +75,12 @@
         break;
 
 #define OPERATOR2D_DEF_QUAD                                                    \
-    operator2D<LibUtilities::eQuadrilateral>(inPtr, outPtr)
+    operator2D<LibUtilities::eQuadrilateral>(inblock, outblock)
 
 #define OPERATOR2D_Q_QUAD(r, i)                                                \
     case NQ(i):                                                                \
         operator2D<LibUtilities::eQuadrilateral, NM(i), NM(i), NQ(i), NQ(i)>(  \
-            inPtr, outPtr);                                                    \
+            inblock, outblock);                                                \
         break;
 
 #define OPERATOR2D_M_QUAD(r, i)                                                \
@@ -93,12 +94,13 @@
         }                                                                      \
         break;
 
-#define OPERATOR3D_DEF_HEX operator3D<LibUtilities::eHexahedron>(inPtr, outPtr)
+#define OPERATOR3D_DEF_HEX                                                     \
+    operator3D<LibUtilities::eHexahedron>(inblock, outblock)
 
 #define OPERATOR3D_Q_HEX(r, i)                                                 \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eHexahedron, NM(i), NM(i), NM(i), NQ(i),      \
-                   NQ(i), NQ(i)>(inPtr, outPtr);                               \
+                   NQ(i), NQ(i)>(inblock, outblock);                           \
         break;
 
 #define OPERATOR3D_M_HEX(r, i)                                                 \
@@ -112,12 +114,13 @@
         }                                                                      \
         break;
 
-#define OPERATOR3D_DEF_TET operator3D<LibUtilities::eTetrahedron>(inPtr, outPtr)
+#define OPERATOR3D_DEF_TET                                                     \
+    operator3D<LibUtilities::eTetrahedron>(inblock, outblock)
 
 #define OPERATOR3D_Q_TET(r, i)                                                 \
     case NQ(i):                                                                \
         operator3D<LibUtilities::eTetrahedron, NM(i), NM(i), NM(i), NQ(i),     \
-                   NQ_M1(i), NQ_M1(i)>(inPtr, outPtr);                         \
+                   NQ_M1(i), NQ_M1(i)>(inblock, outblock);                     \
         break;
 
 #define OPERATOR3D_M_TET(r, i)                                                 \
@@ -131,12 +134,12 @@
         }                                                                      \
         break;
 
-#define OPERATOR3D_DEF_PRISM operator3D<LibUtilities::ePrism>(inPtr, outPtr)
+#define OPERATOR3D_DEF_PRISM operator3D<LibUtilities::ePrism>(inblock, outblock)
 
 #define OPERATOR3D_Q_PRISM(r, i)                                               \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePrism, NM(i), NM(i), NM(i), NQ(i), NQ(i),    \
-                   NQ_M1(i)>(inPtr, outPtr);                                   \
+                   NQ_M1(i)>(inblock, outblock);                               \
         break;
 
 #define OPERATOR3D_M_PRISM(r, i)                                               \
@@ -151,12 +154,12 @@
         }                                                                      \
         break;
 
-#define OPERATOR3D_DEF_PYR operator3D<LibUtilities::ePyramid>(inPtr, outPtr)
+#define OPERATOR3D_DEF_PYR operator3D<LibUtilities::ePyramid>(inblock, outblock)
 
 #define OPERATOR3D_Q_PYR(r, i)                                                 \
     case NQ(i):                                                                \
         operator3D<LibUtilities::ePyramid, NM(i), NM(i), NM(i), NQ(i), NQ(i),  \
-                   NQ_M1(i)>(inPtr, outPtr);                                   \
+                   NQ_M1(i)>(inblock, outblock);                               \
         break;
 
 #define OPERATOR3D_M_PYR(r, i)                                                 \

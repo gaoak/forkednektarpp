@@ -38,9 +38,7 @@
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/PhysDeriv/PhysDerivSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -74,131 +72,21 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        size_t dimension = this->m_expansionList->GetShapeDimension();
-
         // Initialize index.
         size_t exp_idx = 0;
 
-        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[blk];
-            auto &outblock       = out.GetBlocks()[blk];
-            const auto nElmts    = inblock.GetNumElements();
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Initialize pointers.
-            auto inPtr = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                             ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                             : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-            auto dfPtr  = m_df[blk].template GetPtr<MemSpace, ReadOnly>();
-
-            // Determine shape and type of the element.
-            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
-            const auto shape    = expPtr->DetShapeType();
-            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
-                                  SpatialDomains::eDeformed;
-            const auto nCoord = expPtr->GetCoordim();
-            const auto nq0    = expPtr->GetNumPoints(0);
-            const auto nq1    = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
-            const auto nq2    = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
-
-            const auto D0 = m_derivativeMap[expPtr->GetBasis(0)->GetBasisKey()]
-                                .template GetPtr<MemSpace, ReadOnly>();
-            const auto D1 =
-                (dimension > 1)
-                    ? m_derivativeMap[expPtr->GetBasis(1)->GetBasisKey()]
-                          .template GetPtr<MemSpace, ReadOnly>()
-                    : nullptr;
-            const auto D2 =
-                (dimension > 2)
-                    ? m_derivativeMap[expPtr->GetBasis(2)->GetBasisKey()]
-                          .template GetPtr<MemSpace, ReadOnly>()
-                    : nullptr;
-            const auto Z0 = m_zeroMap[expPtr->GetBasis(0)->GetBasisKey()]
-                                .template GetPtr<MemSpace, ReadOnly>();
-            const auto Z1 = (dimension > 1)
-                                ? m_zeroMap[expPtr->GetBasis(1)->GetBasisKey()]
-                                      .template GetPtr<MemSpace, ReadOnly>()
-                                : nullptr;
-            const auto Z2 = (dimension > 2)
-                                ? m_zeroMap[expPtr->GetBasis(2)->GetBasisKey()]
-                                      .template GetPtr<MemSpace, ReadOnly>()
-                                : nullptr;
-
-            constexpr bool SharedMemory = true;
-
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-                (TData *)inPtr);
-            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-            // Function call to kernel functions.
-            if (dimension == 1)
-            {
-                if (deformed)
-                {
-                    constexpr bool Deformed = true;
-
-                    PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
-                        nq0, nCoord, nElmtsPad, D0, dfPtr, inPtr, outPtr);
-                }
-                else
-                {
-                    constexpr bool Deformed = false;
-
-                    PhysDeriv1DKernel<ExecSpace, Implementation, Deformed>(
-                        nq0, nCoord, nElmtsPad, D0, dfPtr, inPtr, outPtr);
-                }
-            }
-            else if (dimension == 2)
-            {
-                if (deformed)
-                {
-                    constexpr bool Deformed = true;
-
-                    PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(shape, nq0, nq1, nCoord,
-                                                    nElmtsPad, D0, D1, Z0, Z1,
-                                                    dfPtr, inPtr, outPtr);
-                }
-                else
-                {
-                    constexpr bool Deformed = false;
-
-                    PhysDeriv2DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(shape, nq0, nq1, nCoord,
-                                                    nElmtsPad, D0, D1, Z0, Z1,
-                                                    dfPtr, inPtr, outPtr);
-                }
-            }
-            else if (dimension == 3)
-            {
-                if (deformed)
-                {
-                    constexpr bool Deformed = true;
-
-                    PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(
-                        shape, nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
-                        dfPtr, inPtr, outPtr);
-                }
-                else
-                {
-                    constexpr bool Deformed = false;
-
-                    PhysDeriv3DKernel<ExecSpace, Implementation, Deformed,
-                                      SharedMemory>(
-                        shape, nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
-                        dfPtr, inPtr, outPtr);
-                }
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -214,7 +102,66 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 private:
+    unsigned int m_blk;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
+
     BasisDataMap<TData> m_zeroMap;
     BasisDataMap<TData> m_derivativeMap;
     std::vector<MemoryRegion<TData>> m_df;
@@ -222,6 +169,238 @@ private:
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
+
+    void SegBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator1D<LibUtilities::Seg, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator1D<LibUtilities::Seg, false>(inblock, outblock);
+        }
+    }
+
+    void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator2D<LibUtilities::Tri, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator2D<LibUtilities::Tri, false>(inblock, outblock);
+        }
+    }
+
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator2D<LibUtilities::Quad, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator2D<LibUtilities::Quad, false>(inblock, outblock);
+        }
+    }
+
+    void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator3D<LibUtilities::Hex, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator3D<LibUtilities::Hex, false>(inblock, outblock);
+        }
+    }
+
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator3D<LibUtilities::Prism, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator3D<LibUtilities::Prism, false>(inblock, outblock);
+        }
+    }
+
+    void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator3D<LibUtilities::Pyr, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator3D<LibUtilities::Pyr, false>(inblock, outblock);
+        }
+    }
+
+    void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        if (deformed)
+        {
+            Operator3D<LibUtilities::Tet, true>(inblock, outblock);
+        }
+        else
+        {
+            Operator3D<LibUtilities::Tet, false>(inblock, outblock);
+        }
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Shape size.
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+
+        const auto nCoord = m_expPtr->GetCoordim();
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
+            nq0, nCoord, nElmtsPad, D0, dfPtr, inptr, outptr);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool SharedMemory = true;
+
+        // Shape size.
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+
+        const auto nCoord = m_expPtr->GetCoordim();
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
+                          SharedMemory>(nq0, nq1, nCoord, nElmtsPad, D0, D1, Z0,
+                                        Z1, dfPtr, inptr, outptr);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool SharedMemory = true;
+
+        // Shape size.
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
+                          SharedMemory>(nq0, nq1, nq2, nElmtsPad, D0, D1, D2,
+                                        Z0, Z1, Z2, dfPtr, inptr, outptr);
+    }
 };
 
 } // namespace Nektar::Operators::detail

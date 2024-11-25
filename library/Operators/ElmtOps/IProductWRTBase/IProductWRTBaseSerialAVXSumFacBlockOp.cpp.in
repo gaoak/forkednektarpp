@@ -46,7 +46,7 @@ namespace Nektar::Operators::detail
 template <>
 void OperatorIProductWRTBaseImpl<NektarSpaces::@ExecSpace@, Operators::SumFac,
                                       @TData@>::@Shape@Block
-                (const @TData@ *input, @TData@ *output)
+                (BlockAccessor<@TData@> &input, BlockAccessor<@TData@> &output)
 {
     // The following will use predefined code found in the Operators/Common
     // directory to import boost_pp code to make wrapper code to call

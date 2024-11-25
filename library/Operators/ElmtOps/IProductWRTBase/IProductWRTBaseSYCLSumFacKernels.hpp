@@ -36,20 +36,16 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseSegKernel(
+NEK_FORCE_INLINE static void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -117,12 +113,12 @@ void IProductWRTBaseSegKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseSegKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     TData *s_wsp0   = shared;
@@ -195,14 +191,14 @@ void IProductWRTBaseSegKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseQuadKernel(
+NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -297,14 +293,14 @@ void IProductWRTBaseQuadKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseQuadKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
@@ -424,14 +420,14 @@ void IProductWRTBaseQuadKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseQuadKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1;
     TData *s_wsp0            = shared;
@@ -540,15 +536,15 @@ void IProductWRTBaseQuadKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTriKernel(
+NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     TData *__restrict__ wsp, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -640,7 +636,7 @@ void IProductWRTBaseTriKernel(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             TData iprod_01 = 0.0;
             for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
@@ -686,14 +682,14 @@ void IProductWRTBaseTriKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTriKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
 
@@ -813,7 +809,7 @@ void IProductWRTBaseTriKernel_QP(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(2) == 0 && item_ct1.get_local_id(1) == 0)
             {
@@ -865,15 +861,15 @@ void IProductWRTBaseTriKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTriKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP_1D(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const bool correct,
+    const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -979,7 +975,7 @@ void IProductWRTBaseTriKernel_QP_1D(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(2) == 0)
             {
@@ -1022,7 +1018,7 @@ void IProductWRTBaseTriKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseHexKernel(
+NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1031,7 +1027,7 @@ void IProductWRTBaseHexKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
 
@@ -1169,7 +1165,7 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseHexKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1177,8 +1173,8 @@ void IProductWRTBaseHexKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -1353,7 +1349,7 @@ void IProductWRTBaseHexKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseHexKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1361,8 +1357,8 @@ void IProductWRTBaseHexKernel_QP_1D(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_wsp0            = shared;
@@ -1512,16 +1508,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTetKernel(
+NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -1658,7 +1654,7 @@ void IProductWRTBaseTetKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int r = 0u; r < nm2; ++r)
             {
@@ -1758,16 +1754,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTetKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -1950,7 +1946,7 @@ void IProductWRTBaseTetKernel_QP(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(2) == 0 && item_ct1.get_local_id(1) == 0)
             {
@@ -2064,10 +2060,10 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBaseTetKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex1,
     const unsigned int *__restrict__ pindex2,
     const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
@@ -2075,7 +2071,7 @@ void IProductWRTBaseTetKernel_QP_1D(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -2222,7 +2218,7 @@ void IProductWRTBaseTetKernel_QP_1D(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2;
                  idx += item_ct1.get_local_range(2))
@@ -2310,16 +2306,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePrismKernel(
+NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
 
@@ -2449,7 +2445,7 @@ void IProductWRTBasePrismKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int q = 0u; q < nm1; ++q)
             {
@@ -2517,16 +2513,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePrismKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -2700,7 +2696,7 @@ void IProductWRTBasePrismKernel_QP(
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
             {
@@ -2772,10 +2768,10 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePrismKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex,
     const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
@@ -2783,7 +2779,7 @@ void IProductWRTBasePrismKernel_QP_1D(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -2927,7 +2923,7 @@ void IProductWRTBasePrismKernel_QP_1D(
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1;
                  idx += item_ct1.get_local_range(2))
@@ -2985,16 +2981,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePyrKernel(
+NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
 
@@ -3170,7 +3166,7 @@ void IProductWRTBasePyrKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             TData prod = 0.0;
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
@@ -3231,16 +3227,16 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePyrKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1,
-    TData *__restrict__ shared, const TData scale = 1.0)
+    TData *__restrict__ out, TData *__restrict__ shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
 {
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -3458,7 +3454,7 @@ void IProductWRTBasePyrKernel_QP(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(2) == 0 &&
                 item_ct1.get_local_id(1) == 0 && item_ct1.get_local_id(0) == 0)
@@ -3528,17 +3524,17 @@ Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-void IProductWRTBasePyrKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
-    const sycl::nd_item<3> &item_ct1, TData *__restrict__ shared,
+    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1,
     const TData scale = 1.0)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -3681,7 +3677,7 @@ void IProductWRTBasePyrKernel_QP_1D(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (item_ct1.get_local_id(2) == 0)
             {
@@ -3734,606 +3730,468 @@ void IProductWRTBasePyrKernel_QP_1D(
     }
 }
 
-// Launchers
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+{
+    IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, shared, item_ct1, scale);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase1DKernel_QP(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+{
+    IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, shared, item_ct1, scale);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    TData *__restrict__ wsp, const TData *__restrict__ in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, wsp,
+            in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, wsp, in, out, shared, item_ct1, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict out,
+    TData *__restrict shared, const sycl::nd_item<3> &item_ct1,
+    const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, in,
+            out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, in, out, shared, item_ct1, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ jac,
+    const TData *__restrict__ in, TData *__restrict out,
+    TData *__restrict shared, const sycl::nd_item<3> &item_ct1,
+    const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, in,
+            out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, in, out, shared, item_ct1, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict out,
+    TData *__restrict shared, const sycl::nd_item<3> &item_ct1,
+    const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, wsp, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shared, item_ct1,
+            scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shared, item_ct1,
+            scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shared, item_ct1,
+            scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+{
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, shared, item_ct1, scale);
+    }
+}
+
+// Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
-                        const unsigned int nelmts, const TData *basis0,
-                        const TData *w0, const TData *jac, const TData *in,
-                        TData *out, const TData scale = 1.0)
+NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *basis0, const TData *w0, const TData *jac, const TData *in,
+    TData *out, const TData scale = 1.0)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
-                   : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
-
-    unsigned int nshared = SHMEM ? nm0 * nq0 + nq0 : 0u;
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if constexpr (MULTILEVEL)
     {
-        nshared += nq0;
-
-        Q.submit([&](sycl::handler &cgh) {
+        Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
-
+             const sycl::range<3> blocksize(1, 1, std::min(nq0, SYCLBlockSize));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
              cgh.parallel_for(
-                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                       sycl::range<3>(1, 1, blocksize),
-                                   sycl::range<3>(1, 1, blocksize)),
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmPtr = shared
+                     TData *shmptr = shared
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED,
-                                                 SHMEM>(
-                         nm0, nq0, nelmts, basis0, w0, jac, in, out, item_ct1,
-                         shmPtr, scale);
+                     IProductWRTBase1DKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                         nm0, nq0, nelmt, basis0, w0, jac, in, out, shmptr,
+                         item_ct1, scale);
                  });
          }).wait();
     }
     else
     {
-        Q.submit([&](sycl::handler &cgh) {
+        Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
-
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
              cgh.parallel_for(
-                 sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                       sycl::range<3>(1, 1, blocksize),
-                                   sycl::range<3>(1, 1, blocksize)),
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmPtr = shared
+                     TData *shmptr = shared
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-                         nm0, nq0, nelmts, basis0, w0, jac, in, out, item_ct1,
-                         shmPtr, scale);
+                     IProductWRTBase1DKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                         nm0, nq0, nelmt, basis0, w0, jac, in, out, shmptr,
+                         item_ct1, scale);
                  });
          }).wait();
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
-                        const unsigned int nm0, const unsigned int nm1,
-                        const unsigned int nq0, const unsigned int nq1,
-                        const unsigned int nelmts, const bool correct,
-                        [[maybe_unused]] const unsigned int *index0,
-                        const TData *basis0, const TData *basis1,
-                        const TData *w0, const TData *w1, const TData *jac,
-                        TData *wsp, const TData *in, TData *out,
-                        const TData scale = 1.0)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0, const TData *basis0,
+    const TData *basis1, const TData *w0, const TData *w1, const TData *jac,
+    TData *wsp, const TData *in, TData *out, const TData scale = 1.0)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const sycl::range<3> blocksize2d =
-        sycl::range<3>(1, std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
-                   : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+            nq0, nq1, nm0, nm1);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = nm0 * nq0 + nm1 * nq1 + nq0 + nq1;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 + nm0 * nq1;
-
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
+        Q.submit([&](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize2d,
-                                       blocksize2d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED,
-                                                      SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
-                             w0, w1, jac, in, out, item_ct1, shmPtr, scale);
+             const sycl::range<3> blocksize(1, std::min(nq0, 16u),
+                                            std::min(nq1, 16u));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #else
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND,
-                                                         DEFORMED, SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
-                             w0, w1, jac, in, out, item_ct1, shmPtr, scale);
+         const sycl::range<3> blocksize(1, 1,
+             std::min(nq0 * nq1, SYCLBlockSize);
+         const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED,
-                                                   SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1,
-                             w0, w1, jac, wsp, in, out, item_ct1, shmPtr,
-                             scale);
-                     });
-             }).wait();
-        }
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                     IProductWRTBase2DKernel_QP<SHAPE_TYPE, SCALE, APPEND,
+                                                DEFORMED, SHMEM>(
+                         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
+                         basis1, w0, w1, jac, in, out, shmptr, item_ct1, scale);
+#else
+                IProductWRTBase2DKernel_QP_1D<SHAPE_TYPE, SCALE, APPEND,
+                                              DEFORMED, SHMEM>(
+                    nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
+                    basis0, basis1, w0, w1, jac, in, out, shmptr, item_ct1,
+                    scale);
+#endif
+                 });
+         }).wait();
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = nm0 * nq0 + nmTot * nq1 + nq0 + nq1;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 + nm0 * nq1 + 1u;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize2d,
-                                       blocksize2d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED,
-                                                     SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
-                             basis1, w0, w1, jac, in, out, item_ct1, shmPtr,
-                             scale);
-                     });
-             }).wait();
-#else
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                                        SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, index0,
-                             basis0, basis1, w0, w1, jac, in, out, item_ct1,
-                             shmPtr, scale);
-                     });
-             }).wait();
-#endif
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED,
-                                                  SHMEM>(
-                             nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0,
-                             basis1, w0, w1, jac, wsp, in, out, item_ct1,
-                             shmPtr, scale);
-                     });
-             }).wait();
-        }
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     IProductWRTBase2DKernel<SHAPE_TYPE, SCALE, APPEND,
+                                             DEFORMED, SHMEM>(
+                         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
+                         basis1, w0, w1, jac, wsp, in, out, shmptr, item_ct1,
+                         scale);
+                 });
+         }).wait();
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
-                        const unsigned int nm0, const unsigned int nm1,
-                        const unsigned int nm2, const unsigned int nq0,
-                        const unsigned int nq1, const unsigned int nq2,
-                        const unsigned int nelmts, const bool correct,
-                        [[maybe_unused]] const unsigned int *index0,
-                        [[maybe_unused]] const unsigned int *index1,
-                        [[maybe_unused]] const unsigned int *index2,
-                        const TData *basis0, const TData *basis1,
-                        const TData *basis2, const TData *w0, const TData *w1,
-                        const TData *w2, const TData *jac, TData *wsp,
-                        const TData *in, TData *out, const TData scale = 1.0)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1,
+    [[maybe_unused]] const unsigned int *index2, const TData *basis0,
+    const TData *basis1, const TData *basis2, const TData *w0, const TData *w1,
+    const TData *w2, const TData *jac, TData *wsp, const TData *in, TData *out,
+    const TData scale = 1.0)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const sycl::range<3> blocksize3d =
-        sycl::range<3>(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int blocksize =
-        MULTILEVEL
-            ? std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize)
-            : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    const unsigned int nshared =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 + nq1 + nq2 : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
-
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
+        Q.submit([&](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-
-                         IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED,
-                                                     SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-                             item_ct1, shmPtr, scale);
+             const sycl::range<3> blocksize(
+                 std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #else
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                                        SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-                             item_ct1, shmPtr, scale);
+             const sycl::range<3> blocksize(1, 1,
+                 std::min(nq0 * nq1 * nq2, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED,
-                                                  SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             basis0, basis1, basis2, w0, w1, w2, jac, wsp, in,
-                             out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-        }
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                     IProductWRTBase3DKernel_QP<SHAPE_TYPE, SCALE, APPEND,
+                                                DEFORMED, SHMEM>(
+                         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                         basis0, basis1, basis2, w0, w1, w2, jac, in, out,
+                         shmptr, item_ct1, scale);
+#else
+                IProductWRTBase3DKernel_QP_1D<SHAPE_TYPE, SCALE, APPEND,
+                                              DEFORMED, SHMEM>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                    index0, index1, basis0, basis1, basis2, w0, w1, w2, jac, in,
+                    out, shmptr, item_ct1, scale);
+#endif
+                 });
+         }).wait();
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2
-                  : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2;
-
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-
-                         IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED,
-                                                     SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-#else
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-
-                         IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                                        SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, index0, index1, index2, basis0, basis1,
-                             basis2, w0, w1, w2, jac, in, out, item_ct1, shmPtr,
-                             scale);
-                     });
-             }).wait();
-#endif
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED,
-                                                  SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             wsp, in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 + nq1 + nq2 : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared +=
-                nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + nm1;
-
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-
-                         IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED,
-                                                       SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-#else
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-
-                         IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND,
-                                                          DEFORMED, SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, index0, index1, index2, basis0, basis1,
-                             basis2, w0, w1, w2, jac, in, out, item_ct1, shmPtr,
-                             scale);
-                     });
-             }).wait();
-#endif
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED,
-                                                    SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             wsp, in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2 + 1u;
-
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED,
-                                                     SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-#else
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED,
-                                                        SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, index0, index1, basis0, basis1, basis2,
-                             w0, w1, w2, jac, in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-#endif
-        }
-        else
-        {
-            Q.submit([&](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item_ct1) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED,
-                                                  SHMEM>(
-                             nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts,
-                             correct, basis0, basis1, basis2, w0, w1, w2, jac,
-                             wsp, in, out, item_ct1, shmPtr, scale);
-                     });
-             }).wait();
-        }
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item_ct1) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     IProductWRTBase3DKernel<SHAPE_TYPE, SCALE, APPEND,
+                                             DEFORMED, SHMEM>(
+                         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                         basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
+                         shmptr, item_ct1, scale);
+                 });
+         }).wait();
     }
 }
 

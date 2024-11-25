@@ -59,12 +59,6 @@ public:
     OperatorPhysDerivImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorPhysDeriv<TData>(expansionList)
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
         // Initialise derivative factor with paddings.
         auto blocks = GetBlockAttributes<TData>(FieldState::Phys, expansionList,
                                                 simd_t::width);
@@ -83,8 +77,6 @@ public:
     void apply(Field<TData, FieldState::Phys> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
         ASSERTL0(this->m_expansionList->GetExp(0)->GetCoordim() <=
                      out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
@@ -97,93 +89,13 @@ public:
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
 
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[m_blk];
-            auto &outblock    = out.GetBlocks()[m_blk];
-            const auto nElmts = inblock.GetNumElements();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Check alignment.
-            WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
-                      "Input Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-            WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
-                      "Output Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-
-            // Initialize pointers.
-            auto inPtr  = (inblock.GetInterleaveWidth() == simd_t::width)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-            // Determine shape and type of the element.
-            const auto shapeType = m_expPtr->DetShapeType();
-
-            // Get current interleave width.
-            m_in_interleave_width = inblock.GetInterleaveWidth();
-
-            // Set to new interleave width.
-            inblock.template SetInterleaveWidth<TData>(simd_t::width);
-            outblock.template SetInterleaveWidth<TData>(simd_t::width);
-
-            // Get required number of element groups.
-            m_nElmtGroup = inblock.GetNumElmtGroups();
-
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; ++d)
-            {
-                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            switch (shapeType)
-            {
-                // Segment
-                case LibUtilities::Seg:
-                {
-                    SegBlock(inPtr, outPtr);
-                    break;
-                }
-                // Quads
-                case LibUtilities::Quad:
-                {
-                    QuadBlock(inPtr, outPtr);
-                    break;
-                }
-                // Triangles
-                case LibUtilities::Tri:
-                {
-                    TriBlock(inPtr, outPtr);
-                    break;
-                }
-                // Hexes
-                case LibUtilities::Hex:
-                {
-                    HexBlock(inPtr, outPtr);
-                    break;
-                }
-                // Tet
-                case LibUtilities::Tet:
-                {
-                    TetBlock(inPtr, outPtr);
-                    break;
-                }
-                // Pyr
-                case LibUtilities::Pyr:
-                {
-                    PyrBlock(inPtr, outPtr);
-                    break;
-                }
-                // Prism
-                case LibUtilities::Prism:
-                {
-                    PrismBlock(inPtr, outPtr);
-                    break;
-                }
-                default:
-                    std::cout << "shapetype not implemented" << std::endl;
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -199,72 +111,152 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Check alignment.
+        WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
+                  "Input Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+        WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
+                  "Output Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 private:
-    unsigned int m_nElmtGroup, m_blk;
-    unsigned int m_in_interleave_width;
+    unsigned int m_blk;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
     std::vector<MemoryRegion<TData>> m_df;
     BasisDataMap<simd_t> m_zeroMap;
     BasisDataMap<simd_t> m_derivativeMap;
-    std::vector<LibUtilities::BasisKey> m_basisKeys;
 
-    void SegBlock(const TData *inPtr, TData *outPtr);
-    void TriBlock(const TData *inPtr, TData *outPtr);
-    void QuadBlock(const TData *inPtr, TData *outPtr);
-    void HexBlock(const TData *inPtr, TData *outPtr);
-    void PrismBlock(const TData *inPtr, TData *outPtr);
-    void PyrBlock(const TData *inPtr, TData *outPtr);
-    void TetBlock(const TData *inPtr, TData *outPtr);
+    void SegBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void TriBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock);
+    void HexBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock);
+    void PyrBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void TetBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
-        const auto nCoord = m_expPtr->GetCoordim();
-
+        // Shape size.
         const auto nq0     = m_expPtr->GetNumPoints(0);
         const auto nqTot   = nq0;
         const auto nqBlock = nqTot * simd_t::width;
 
-        const auto ndf = nCoord;
-
-        int dfsize = ndf;
+        const auto nCoord = m_expPtr->GetCoordim();
+        const auto ndf    = nCoord;
+        int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        auto tmpIn =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto tmpIn =
+            reinterpret_cast<const typename simd_t::vectorType *>(input);
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_nElmtGroup * simd_t::width * nqTot);
+                output +
+                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         }
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Get the basic derivative.
@@ -286,12 +278,13 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nCoord,
               int nq0>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot   = nq0;
         constexpr auto nqBlock = nqTot * simd_t::width;
 
-        // Get size of derivative factor block.
         constexpr auto ndf = nCoord;
         int dfsize         = ndf;
         if constexpr (DEFORMED)
@@ -299,36 +292,47 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_nElmtGroup * simd_t::width * nqTot);
+                output +
+                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         }
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Get the basic derivative.
@@ -349,59 +353,70 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
-        const auto nCoord = m_expPtr->GetCoordim();
-
+        // Shape size.
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
 
         const auto nqTot   = nq0 * nq1;
         const auto nqBlock = nqTot * simd_t::width;
 
-        const auto ndf = 2 * nCoord;
-        int dfsize     = ndf;
+        const auto nCoord = m_expPtr->GetCoordim();
+        const auto ndf    = 2 * nCoord;
+        int dfsize        = ndf;
         if constexpr (DEFORMED)
         {
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 = m_derivativeMap[m_basisKeys[1]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto Z0 =
-            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z1 =
-            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_nElmtGroup * simd_t::width * nqTot);
+                output +
+                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         }
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Results written to tmpOut0, tmpOut1.
@@ -425,8 +440,10 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nCoord,
               int nq0, int nq1>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot   = nq0 * nq1;
         constexpr auto nqBlock = nqTot * simd_t::width;
 
@@ -437,42 +454,52 @@ private:
             dfsize *= nqTot;
         }
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 = m_derivativeMap[m_basisKeys[1]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto Z0 =
-            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z1 =
-            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output + d * m_nElmtGroup * simd_t::width * nqTot);
+                output +
+                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         }
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Results written to tmpOut0, tmpOut1.
@@ -495,8 +522,10 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
         const auto nq2 = m_expPtr->GetNumPoints(2);
@@ -511,52 +540,61 @@ private:
             dfsize *= nqTot;
         }
 
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 = m_derivativeMap[m_basisKeys[1]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D2 = m_derivativeMap[m_basisKeys[2]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto Z0 =
-            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z1 =
-            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z2 =
-            m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
         tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + m_nElmtGroup * simd_t::width * nqTot);
+            output + outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * m_nElmtGroup * simd_t::width * nqTot);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+            output + 2 * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Get the basic derivative.
@@ -580,8 +618,10 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nq0,
               int nq1, int nq2>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot    = nq0 * nq1 * nq2;
         constexpr auto nqBlocks = nqTot * simd_t::width;
 
@@ -592,52 +632,61 @@ private:
             dfsize *= nqTot;
         }
 
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch derivative factor.
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            in_interleave_width == 1 ? 1 : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
         PhysDeriv3DWorkspace<SHAPE_TYPE>(nq0, nq1, nq2, wsp0Size, wsp1Size);
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size),
             wsp1(wsp1Size);
 
-        // Get derivative factor pointer.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        const auto D0 = m_derivativeMap[m_basisKeys[0]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 = m_derivativeMap[m_basisKeys[1]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto D2 = m_derivativeMap[m_basisKeys[2]]
-                            .template GetPtr<MemSpace, ReadOnly>();
-        const auto Z0 =
-            m_zeroMap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z1 =
-            m_zeroMap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto Z2 =
-            m_zeroMap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-
         // Initialize pointers.
+        auto input  = (in_interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
         tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + m_nElmtGroup * simd_t::width * nqTot);
+            output + outblock.GetNumElmtGroups() * simd_t::width * nqTot);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * m_nElmtGroup * simd_t::width * nqTot);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+            output + 2 * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nqTot,
-                    (TData *)input + e * nqTot * simd_t::width);
+                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
             }
 
             // Get the basic derivative.

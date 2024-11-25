@@ -44,11 +44,10 @@ namespace Nektar::Operators::detail
 {
 
 template <bool SHMEM, typename TData>
-void BwdTransSegKernel(const unsigned int ssize, const unsigned int nm0,
-                       const unsigned int nq0, const unsigned int nelmt,
-                       const TData *KOKKOS_RESTRICT basis0,
-                       const TData *KOKKOS_RESTRICT in,
-                       TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransSegKernel(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nq0,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -109,11 +108,10 @@ void BwdTransSegKernel(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransSegKernel_QP(const unsigned int ssize, const unsigned int nm0,
-                          const unsigned int nq0, const unsigned int nelmt,
-                          const TData *KOKKOS_RESTRICT basis0,
-                          const TData *KOKKOS_RESTRICT in,
-                          TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransSegKernel_QP(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nq0,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -168,7 +166,7 @@ void BwdTransSegKernel_QP(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransQuadKernel(
+NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
@@ -261,14 +259,12 @@ void BwdTransQuadKernel(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransQuadKernel_QP(const unsigned int ssize, const unsigned int nm0,
-                           const unsigned int nm1, const unsigned int nmTot,
-                           const unsigned int nq0, const unsigned int nq1,
-                           const unsigned int nelmt,
-                           const TData *KOKKOS_RESTRICT basis0,
-                           const TData *KOKKOS_RESTRICT basis1,
-                           const TData *KOKKOS_RESTRICT in,
-                           TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -356,14 +352,12 @@ void BwdTransQuadKernel_QP(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransQuadKernel_QP_1D(const unsigned int ssize, const unsigned int nm0,
-                              const unsigned int nm1, const unsigned int nmTot,
-                              const unsigned int nq0, const unsigned int nq1,
-                              const unsigned int nelmt,
-                              const TData *KOKKOS_RESTRICT basis0,
-                              const TData *KOKKOS_RESTRICT basis1,
-                              const TData *KOKKOS_RESTRICT in,
-                              TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransQuadKernel_QP_1D(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -451,15 +445,13 @@ void BwdTransQuadKernel_QP_1D(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTriKernel(const unsigned int ssize, const unsigned int nm0,
-                       const unsigned int nm1, const unsigned int nmTot,
-                       const unsigned int nq0, const unsigned int nq1,
-                       const unsigned int nelmt, const bool correct,
-                       const TData *KOKKOS_RESTRICT basis0,
-                       const TData *KOKKOS_RESTRICT basis1,
-                       TData *KOKKOS_RESTRICT wsp,
-                       const TData *KOKKOS_RESTRICT in,
-                       TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransTriKernel(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -537,7 +529,7 @@ void BwdTransTriKernel(const unsigned int ssize, const unsigned int nm0,
                                    s_basis0[p * nq0 + i];
                         }
 
-                        if (correct)
+                        if (isModified)
                         {
                             tmp += in[nmTot * warpsize * iwarp + warpsize +
                                       ilane] *
@@ -555,14 +547,12 @@ void BwdTransTriKernel(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTriKernel_QP(const unsigned int ssize, const unsigned int nm0,
-                          const unsigned int nm1, const unsigned int nmTot,
-                          const unsigned int nq0, const unsigned int nq1,
-                          const unsigned int nelmt, const bool correct,
-                          const TData *KOKKOS_RESTRICT basis0,
-                          const TData *KOKKOS_RESTRICT basis1,
-                          const TData *KOKKOS_RESTRICT in,
-                          TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -643,7 +633,7 @@ void BwdTransTriKernel_QP(const unsigned int ssize, const unsigned int nm0,
                         tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         tmp +=
                             s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
@@ -657,14 +647,12 @@ void BwdTransTriKernel_QP(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTriKernel_QP_1D(const unsigned int ssize, const unsigned int nm0,
-                             const unsigned int nm1, const unsigned int nmTot,
-                             const unsigned int nq0, const unsigned int nq1,
-                             const unsigned int nelmt, const bool correct,
-                             const TData *KOKKOS_RESTRICT basis0,
-                             const TData *KOKKOS_RESTRICT basis1,
-                             const TData *KOKKOS_RESTRICT in,
-                             TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void BwdTransTriKernel_QP_1D(
+    const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -745,7 +733,7 @@ void BwdTransTriKernel_QP_1D(const unsigned int ssize, const unsigned int nm0,
                         tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         tmp +=
                             s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
@@ -759,7 +747,7 @@ void BwdTransTriKernel_QP_1D(const unsigned int ssize, const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransHexKernel(
+NEK_FORCE_INLINE static void BwdTransHexKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
@@ -885,7 +873,7 @@ void BwdTransHexKernel(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransHexKernel_QP(
+NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
@@ -1008,7 +996,7 @@ void BwdTransHexKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransHexKernel_QP_1D(
+NEK_FORCE_INLINE static void BwdTransHexKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
@@ -1131,11 +1119,11 @@ void BwdTransHexKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTetKernel(
+NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
@@ -1259,7 +1247,7 @@ void BwdTransTetKernel(
                                        s_basis0[p * nq0 + i];
                             }
 
-                            if (correct)
+                            if (isModified)
                             {
                                 // top vertex
                                 TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1299,11 +1287,11 @@ void BwdTransTetKernel(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTetKernel_QP(
+NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
@@ -1434,7 +1422,7 @@ void BwdTransTetKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1465,11 +1453,11 @@ void BwdTransTetKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransTetKernel_QP_1D(
+NEK_FORCE_INLINE static void BwdTransTetKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const unsigned int *KOKKOS_RESTRICT pindex,
+    const bool isModified, const unsigned int *KOKKOS_RESTRICT pindex,
     const unsigned int *KOKKOS_RESTRICT qindex,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
@@ -1598,7 +1586,7 @@ void BwdTransTetKernel_QP_1D(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1629,11 +1617,11 @@ void BwdTransTetKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPrismKernel(
+NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
@@ -1748,7 +1736,7 @@ void BwdTransPrismKernel(
                                        s_basis0[p * nq0 + i];
                             }
 
-                            if (correct)
+                            if (isModified)
                             {
                                 for (unsigned int q = 0u; q < nm1; ++q)
                                 {
@@ -1773,11 +1761,11 @@ void BwdTransPrismKernel(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPrismKernel_QP(
+NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
@@ -1892,7 +1880,7 @@ void BwdTransPrismKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
@@ -1909,11 +1897,11 @@ void BwdTransPrismKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPrismKernel_QP_1D(
+NEK_FORCE_INLINE static void BwdTransPrismKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
@@ -2028,7 +2016,7 @@ void BwdTransPrismKernel_QP_1D(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
@@ -2045,11 +2033,11 @@ void BwdTransPrismKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPyrKernel(
+NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
@@ -2171,7 +2159,7 @@ void BwdTransPyrKernel(
                                        s_basis0[p * nq0 + i];
                             }
 
-                            if (correct)
+                            if (isModified)
                             {
                                 // top vertex
                                 TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -2194,11 +2182,11 @@ void BwdTransPyrKernel(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPyrKernel_QP(
+NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
@@ -2340,7 +2328,7 @@ void BwdTransPyrKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -2358,11 +2346,11 @@ void BwdTransPyrKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-void BwdTransPyrKernel_QP_1D(
+NEK_FORCE_INLINE static void BwdTransPyrKernel_QP_1D(
     const unsigned int ssize, const unsigned int nm0, const unsigned int nm1,
     const unsigned int nm2, const unsigned int nmTot, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nq2, const unsigned int nelmt,
-    const bool correct, const TData *KOKKOS_RESTRICT basis0,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
     const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
@@ -2504,7 +2492,7 @@ void BwdTransPyrKernel_QP_1D(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -2521,217 +2509,302 @@ void BwdTransPyrKernel_QP_1D(
         });
 }
 
+template <bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans1DKernel(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nq0,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+{
+    BwdTransSegKernel<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
+}
+
+template <bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans1DKernel_QP(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nq0,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+{
+    BwdTransSegKernel_QP<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, TData *KOKKOS_RESTRICT wsp,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                  basis0, basis1, wsp, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                 isModified, basis0, basis1, wsp, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel_QP(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                     basis0, basis1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                    isModified, basis0, basis1, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel_QP_1D(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
+                                        nelmt, basis0, basis1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
+                                       nelmt, isModified, basis0, basis1, in,
+                                       out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                 nelmt, basis0, basis1, basis2, wsp, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                 nelmt, isModified, basis0, basis1, basis2, wsp,
+                                 in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                   nelmt, isModified, basis0, basis1, basis2,
+                                   wsp, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                 nelmt, isModified, basis0, basis1, basis2, wsp,
+                                 in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel_QP(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                    nq2, nelmt, basis0, basis1, basis2, in,
+                                    out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                    nq2, nelmt, isModified, basis0, basis1,
+                                    basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                      nq2, nelmt, isModified, basis0, basis1,
+                                      basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                    nq2, nelmt, isModified, basis0, basis1,
+                                    basis2, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel_QP_1D(
+    const unsigned int nshared, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                       nq2, nelmt, basis0, basis1, basis2, in,
+                                       out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                       nq2, nelmt, isModified, basis0, basis1,
+                                       basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
+                                         nq1, nq2, nelmt, isModified, basis0,
+                                         basis1, basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
+                                       nq2, nelmt, isModified, basis0, basis1,
+                                       basis2, in, out);
+    }
+}
+
 // Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
-                 const unsigned int nelmt, const TData *basis0, const TData *in,
-                 TData *out)
+NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
+                                              const unsigned int nq0,
+                                              const unsigned int nelmt,
+                                              const TData *basis0,
+                                              const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
+
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
 
     if constexpr (MULTILEVEL)
     {
-        unsigned int nshared = nm0 + (SHMEM ? nm0 * nq0 : 0u);
-        BwdTransSegKernel_QP<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
+        BwdTrans1DKernel_QP<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
     }
     else
     {
-        unsigned int nshared = nm0 * nq0;
-        BwdTransSegKernel<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
+        BwdTrans1DKernel<SHMEM>(nshared, nm0, nq0, nelmt, basis0, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                 const unsigned int nm1, const unsigned int nq0,
-                 const unsigned int nq1, const unsigned int nelmt,
-                 const bool correct, const TData *basis0, const TData *basis1,
-                 [[maybe_unused]] TData *wsp, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *basis0, const TData *basis1, [[maybe_unused]] TData *wsp,
+    const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    if (shapetype == LibUtilities::Quad)
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nm0,
+                                                                nm1);
+
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = SHMEM ? nq0 * nm0 + nq1 * nm1 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nmTot + nq0 * nm1;
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransQuadKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
-                                         nelmt, basis0, basis1, in, out);
+        BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>(nshared, nm0, nm1, nq0, nq1,
+                                               nelmt, isModified, basis0,
+                                               basis1, in, out);
 #else
-            BwdTransQuadKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
-                                            nelmt, basis0, basis1, in, out);
+        BwdTrans2DKernel_QP_1D<SHAPE_TYPE, SHMEM>(nshared, nm0, nm1, nq0, nq1,
+                                                  nelmt, isModified, basis0,
+                                                  basis1, in, out);
 #endif
-        }
-        else
-        {
-            BwdTransQuadKernel<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                      basis0, basis1, wsp, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared = SHMEM ? nm0 * nq0 + nmTot * nq1 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nmTot + nm0 * nq1;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransTriKernel_QP<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
-                                        nelmt, correct, basis0, basis1, in,
-                                        out);
-#else
-            BwdTransTriKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1,
-                                           nelmt, correct, basis0, basis1, in,
-                                           out);
-#endif
-        }
-        else
-        {
-            BwdTransTriKernel<SHMEM>(nshared, nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                     correct, basis0, basis1, wsp, in, out);
-        }
+        BwdTrans2DKernel<SHAPE_TYPE, SHMEM>(nshared, nm0, nm1, nq0, nq1, nelmt,
+                                            isModified, basis0, basis1, wsp, in,
+                                            out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                 const unsigned int nm1, const unsigned int nm2,
-                 const unsigned int nq0, const unsigned int nq1,
-                 const unsigned int nq2, const unsigned int nelmt,
-                 const bool correct,
-                 [[maybe_unused]] const unsigned int *index0,
-                 [[maybe_unused]] const unsigned int *index1,
-                 const TData *basis0, const TData *basis1, const TData *basis2,
-                 [[maybe_unused]] TData *wsp, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
+    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
+    const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    if (shapetype == LibUtilities::Hex)
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2,
+                                                                nm0, nm1, nm2);
+
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared = SHMEM ? nq0 * nm0 + nq1 * nm1 + nq2 * nm2 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
-                       (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransHexKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                        nq2, nelmt, basis0, basis1, basis2, in,
-                                        out);
+        BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>(nshared, nm0, nm1, nm2, nq0, nq1,
+                                               nq2, nelmt, isModified, basis0,
+                                               basis1, basis2, in, out);
 #else
-            BwdTransHexKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
-                                           nq1, nq2, nelmt, basis0, basis1,
-                                           basis2, in, out);
+        BwdTrans3DKernel_QP_1D<SHAPE_TYPE, SHMEM>(
+            nshared, nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, in, out);
 #endif
-        }
-        else
-        {
-            BwdTransHexKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                     nq2, nelmt, basis0, basis1, basis2, wsp,
-                                     in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
-                       (nm0 * nq1 * nq2);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransTetKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                        nq2, nelmt, correct, basis0, basis1,
-                                        basis2, in, out);
-#else
-            BwdTransTetKernel_QP_1D<SHMEM>(
-                nshared, nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct,
-                index0, index1, basis0, basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransTetKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                     nq2, nelmt, correct, basis0, basis1,
-                                     basis2, wsp, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-        unsigned int nshared = SHMEM ? nm0 * nq0 + nm1 * nq1 + nm12 * nq2 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransPrismKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
-                                          nq1, nq2, nelmt, correct, basis0,
-                                          basis1, basis2, in, out);
-#else
-            BwdTransPrismKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
-                                             nq1, nq2, nelmt, correct, basis0,
-                                             basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransPrismKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                       nq2, nelmt, correct, basis0, basis1,
-                                       basis2, wsp, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        unsigned int nshared =
-            SHMEM ? nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransPyrKernel_QP<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                        nq2, nelmt, correct, basis0, basis1,
-                                        basis2, in, out);
-#else
-            BwdTransPyrKernel_QP_1D<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0,
-                                           nq1, nq2, nelmt, correct, basis0,
-                                           basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransPyrKernel<SHMEM>(nshared, nm0, nm1, nm2, nmTot, nq0, nq1,
-                                     nq2, nelmt, correct, basis0, basis1,
-                                     basis2, wsp, in, out);
-        }
+        BwdTrans3DKernel<SHAPE_TYPE, SHMEM>(nshared, nm0, nm1, nm2, nq0, nq1,
+                                            nq2, nelmt, isModified, basis0,
+                                            basis1, basis2, wsp, in, out);
     }
 }
 

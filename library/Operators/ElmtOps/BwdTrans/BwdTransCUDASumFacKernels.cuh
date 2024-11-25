@@ -36,20 +36,14 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransSegKernel(const unsigned int nm0,
-                                  const unsigned int nq0,
-                                  const unsigned int nelmt,
-                                  const TData *__restrict__ basis0,
-                                  const TData *__restrict__ in,
-                                  TData *__restrict__ out)
+__device__ __forceinline__ void BwdTransSegKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
@@ -91,12 +85,10 @@ __global__ void BwdTransSegKernel(const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransSegKernel_QP(const unsigned int nm0,
-                                     const unsigned int nq0,
-                                     const unsigned int nelmt,
-                                     const TData *__restrict__ basis0,
-                                     const TData *__restrict__ in,
-                                     TData *__restrict__ out)
+__device__ __forceinline__ void BwdTransSegKernel_QP(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
@@ -144,7 +136,7 @@ __global__ void BwdTransSegKernel_QP(const unsigned int nm0,
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransQuadKernel(
+__device__ __forceinline__ void BwdTransQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -216,7 +208,7 @@ __global__ void BwdTransQuadKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransQuadKernel_QP(
+__device__ __forceinline__ void BwdTransQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -306,7 +298,7 @@ __global__ void BwdTransQuadKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransQuadKernel_QP_1D(
+__device__ __forceinline__ void BwdTransQuadKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -388,10 +380,10 @@ __global__ void BwdTransQuadKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTriKernel(
+__device__ __forceinline__ void BwdTransTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
@@ -452,7 +444,7 @@ __global__ void BwdTransTriKernel(
                            s_basis0[p * nq0 + i];
                 }
 
-                if (correct)
+                if (isModified)
                 {
                     tmp += in[nmTot * warpsize * iwarp + warpsize + ilane] *
                            s_basis0[nq0 + i] * s_basis1[nq1 + j];
@@ -467,10 +459,10 @@ __global__ void BwdTransTriKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTriKernel_QP(
+__device__ __forceinline__ void BwdTransTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
@@ -548,7 +540,7 @@ __global__ void BwdTransTriKernel_QP(
                     tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
                 }
 
-                if (correct)
+                if (isModified)
                 {
                     tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 }
@@ -564,10 +556,10 @@ __global__ void BwdTransTriKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTriKernel_QP_1D(
+__device__ __forceinline__ void BwdTransTriKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
@@ -639,7 +631,7 @@ __global__ void BwdTransTriKernel_QP_1D(
                 tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
             }
 
-            if (correct)
+            if (isModified)
             {
                 tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
             }
@@ -654,7 +646,7 @@ __global__ void BwdTransTriKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransHexKernel(
+__device__ __forceinline__ void BwdTransHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -756,7 +748,7 @@ __global__ void BwdTransHexKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransHexKernel_QP(
+__device__ __forceinline__ void BwdTransHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -885,7 +877,7 @@ __global__ void BwdTransHexKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransHexKernel_QP_1D(
+__device__ __forceinline__ void BwdTransHexKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -998,10 +990,10 @@ __global__ void BwdTransHexKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTetKernel(
+__device__ __forceinline__ void BwdTransTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
@@ -1103,7 +1095,7 @@ __global__ void BwdTransTetKernel(
                             s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1140,10 +1132,10 @@ __global__ void BwdTransTetKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTetKernel_QP(
+__device__ __forceinline__ void BwdTransTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -1273,7 +1265,7 @@ __global__ void BwdTransTetKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1308,10 +1300,10 @@ __global__ void BwdTransTetKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransTetKernel_QP_1D(
+__device__ __forceinline__ void BwdTransTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -1426,7 +1418,7 @@ __global__ void BwdTransTetKernel_QP_1D(
                 tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
-            if (correct)
+            if (isModified)
             {
                 // top vertex
                 TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1459,10 +1451,10 @@ __global__ void BwdTransTetKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPrismKernel(
+__device__ __forceinline__ void BwdTransPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
@@ -1556,7 +1548,7 @@ __global__ void BwdTransPrismKernel(
                             s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
@@ -1578,10 +1570,10 @@ __global__ void BwdTransPrismKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPrismKernel_QP(
+__device__ __forceinline__ void BwdTransPrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -1700,7 +1692,7 @@ __global__ void BwdTransPrismKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
@@ -1721,10 +1713,10 @@ __global__ void BwdTransPrismKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPrismKernel_QP_1D(
+__device__ __forceinline__ void BwdTransPrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -1829,7 +1821,7 @@ __global__ void BwdTransPrismKernel_QP_1D(
                 tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
-            if (correct)
+            if (isModified)
             {
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
@@ -1848,10 +1840,10 @@ __global__ void BwdTransPrismKernel_QP_1D(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPyrKernel(
+__device__ __forceinline__ void BwdTransPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
@@ -1951,7 +1943,7 @@ __global__ void BwdTransPyrKernel(
                             s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -1973,10 +1965,10 @@ __global__ void BwdTransPyrKernel(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPyrKernel_QP(
+__device__ __forceinline__ void BwdTransPyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -2120,7 +2112,7 @@ __global__ void BwdTransPyrKernel_QP(
                         tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
                     }
 
-                    if (correct)
+                    if (isModified)
                     {
                         // top vertex
                         TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -2142,10 +2134,10 @@ __global__ void BwdTransPyrKernel_QP(
 }
 
 template <bool SHMEM, typename TData>
-__global__ void BwdTransPyrKernel_QP_1D(
+__device__ __forceinline__ void BwdTransPyrKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -2272,7 +2264,7 @@ __global__ void BwdTransPyrKernel_QP_1D(
                 tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
-            if (correct)
+            if (isModified)
             {
                 // top vertex
                 TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
@@ -2291,252 +2283,336 @@ __global__ void BwdTransPyrKernel_QP_1D(
     }
 }
 
+template <bool SHMEM, typename TData>
+__global__ void BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
+                                 const unsigned int nelmt,
+                                 const TData *__restrict__ basis0,
+                                 const TData *__restrict__ in,
+                                 TData *__restrict__ out)
+{
+    BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out);
+}
+
+template <bool SHMEM, typename TData>
+__global__ void BwdTrans1DKernel_QP(const unsigned int nm0,
+                                    const unsigned int nq0,
+                                    const unsigned int nelmt,
+                                    const TData *__restrict__ basis0,
+                                    const TData *__restrict__ in,
+                                    TData *__restrict__ out)
+{
+    BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    TData *__restrict__ wsp, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
+                                  basis1, wsp, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+                                 basis0, basis1, wsp, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans2DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
+                                     basis1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                    isModified, basis0, basis1, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans2DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        BwdTransQuadKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                        basis0, basis1, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        BwdTransTriKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                       isModified, basis0, basis1, in, out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 basis0, basis1, basis2, wsp, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 isModified, basis0, basis1, basis2, wsp, in,
+                                 out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                   isModified, basis0, basis1, basis2, wsp, in,
+                                   out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 isModified, basis0, basis1, basis2, wsp, in,
+                                 out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans3DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                    basis0, basis1, basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                    isModified, basis0, basis1, basis2, in,
+                                    out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                      nelmt, isModified, basis0, basis1, basis2,
+                                      in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                    isModified, basis0, basis1, basis2, in,
+                                    out);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+__global__ void BwdTrans3DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        BwdTransHexKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                       nelmt, basis0, basis1, basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        BwdTransTetKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                       nelmt, isModified, basis0, basis1,
+                                       basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        BwdTransPrismKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                         nelmt, isModified, basis0, basis1,
+                                         basis2, in, out);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        BwdTransPyrKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                       nelmt, isModified, basis0, basis1,
+                                       basis2, in, out);
+    }
+}
+
 // Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-BwdTrans1DKernel(const unsigned int nm0, const unsigned int nq0,
-                 const unsigned int nelmt, const TData *basis0, const TData *in,
-                 TData *out)
+NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
+                                              const unsigned int nq0,
+                                              const unsigned int nelmt,
+                                              const TData *basis0,
+                                              const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
-                   : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) * BwdTransSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
 
     if constexpr (MULTILEVEL)
     {
-        unsigned int nshared = sizeof(TData) * (nm0 + (SHMEM ? nm0 * nq0 : 0u));
-        BwdTransSegKernel_QP<SHMEM>
+        const unsigned int blocksize =
+            std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        BwdTrans1DKernel_QP<SHMEM>
             <<<gridsize, NektarSpaces::vector_width<TData>::value, nshared>>>(
                 nm0, nq0, nelmt, basis0, in, out);
     }
     else
     {
-        unsigned int nshared = SHMEM ? sizeof(TData) * (nm0 * nq0) : 0u;
-        BwdTransSegKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        BwdTrans1DKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
             nm0, nq0, nelmt, basis0, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-BwdTrans2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                 const unsigned int nm1, const unsigned int nq0,
-                 const unsigned int nq1, const unsigned int nelmt,
-                 const bool correct, const TData *basis0, const TData *basis1,
-                 TData *wsp, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
+    TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize)
-                   : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+                            nq0, nq1, nm0, nm1);
 
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nq0 * nm0 + nq1 * nm1) : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nmTot + nq0 * nm1);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransQuadKernel_QP<SHMEM><<<gridsize, blocksize2d, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in, out);
+        const dim3 blocksize = dim3(std::min(nq0, 16u), std::min(nq1, 16u), 1u);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out);
 #else
-            BwdTransQuadKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, in, out);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        BwdTrans2DKernel_QP_1D<SHAPE_TYPE, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out);
 #endif
-        }
-        else
-        {
-            BwdTransQuadKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, wsp, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nmTot * nq1) : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nmTot + nm0 * nq1);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransTriKernel_QP<SHMEM><<<nelmt, blocksize2d, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0, basis1, in,
-                out);
-#else
-            BwdTransTriKernel_QP_1D<SHMEM><<<nelmt, blocksize, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0, basis1, in,
-                out);
-#endif
-        }
-        else
-        {
-            BwdTransTriKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nmTot, nq0, nq1, nelmt, correct, basis0, basis1, wsp,
-                in, out);
-        }
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        BwdTrans2DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, nshared>>>(
+            nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in,
+            out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-BwdTrans3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nm0,
-                 const unsigned int nm1, const unsigned int nm2,
-                 const unsigned int nq0, const unsigned int nq1,
-                 const unsigned int nq2, const unsigned int nelmt,
-                 const bool correct,
-                 [[maybe_unused]] const unsigned int *index0,
-                 [[maybe_unused]] const unsigned int *index1,
-                 const TData *basis0, const TData *basis1, const TData *basis2,
-                 TData *wsp, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
+    const TData *basis1, const TData *basis2, TData *wsp, const TData *in,
+    TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize3d =
-        dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int blocksize =
-        MULTILEVEL
-            ? std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize)
-            : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize = std::min(
-        MULTILEVEL ? nelmt : (nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+                            nq0, nq1, nq2, nm0, nm1, nm2);
 
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2) : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared +=
-                sizeof(TData) * (nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
-                                 (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2));
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransHexKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
-                basis2, in, out);
+        const dim3 blocksize =
+            dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                               nelmt, isModified, basis0,
+                                               basis1, basis2, in, out);
 #else
-            BwdTransHexKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
-                basis2, in, out);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        BwdTrans3DKernel_QP_1D<SHAPE_TYPE, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                               nelmt, isModified, basis0,
+                                               basis1, basis2, in, out);
 #endif
-        }
-        else
-        {
-            BwdTransHexKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
-                basis2, wsp, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmode2 * nq2)
-                  : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) *
-                       (nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
-                        (nm0 * nq1 * nq2));
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransTetKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, in, out);
-#else
-            BwdTransTetKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, index0,
-                index1, basis0, basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransTetKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, wsp, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nm12 * nq2) : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared +=
-                sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransPrismKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, in, out);
-#else
-            BwdTransPrismKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransPrismKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, wsp, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nmode2 * nq2) : 0u;
-        if constexpr (MULTILEVEL)
-        {
-            nshared +=
-                sizeof(TData) * (nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2));
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            BwdTransPyrKernel_QP<SHMEM><<<gridsize, blocksize3d, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, in, out);
-#else
-            BwdTransPyrKernel_QP_1D<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, in, out);
-#endif
-        }
-        else
-        {
-            BwdTransPyrKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, correct, basis0,
-                basis1, basis2, wsp, in, out);
-        }
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        BwdTrans3DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, nshared>>>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
+            basis2, wsp, in, out);
     }
 }
 

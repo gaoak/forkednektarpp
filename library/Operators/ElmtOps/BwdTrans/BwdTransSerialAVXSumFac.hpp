@@ -58,12 +58,6 @@ public:
     OperatorBwdTransImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorBwdTrans<TData>(expansionList)
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
         // Initialize the basis data.
         m_basisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasis, ExecSpace::alignment);
@@ -72,8 +66,6 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
         // Initialize index.
         size_t exp_idx = 0;
 
@@ -82,93 +74,13 @@ public:
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
 
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[blk];
-            auto &outblock    = out.GetBlocks()[blk];
-            const auto nElmts = inblock.GetNumElements();
+            auto &inblock  = in.GetBlocks()[blk];
+            auto &outblock = out.GetBlocks()[blk];
 
-            // Check alignment.
-            WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
-                      "Input Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-            WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
-                      "Output Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-
-            // Initialize pointers.
-            auto inPtr  = (inblock.GetInterleaveWidth() == simd_t::width)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-            // Determine shape and type of the element.
-            const auto shapeType = m_expPtr->DetShapeType();
-
-            // Get current interleave width.
-            m_in_interleave_width = inblock.GetInterleaveWidth();
-
-            // Set to new interleave width.
-            inblock.template SetInterleaveWidth<TData>(simd_t::width);
-            outblock.template SetInterleaveWidth<TData>(simd_t::width);
-
-            // Get required number of element groups.
-            m_nElmtGroup = inblock.GetNumElmtGroups();
-
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; ++d)
-            {
-                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            switch (shapeType)
-            {
-                // Segment
-                case LibUtilities::Seg:
-                {
-                    SegBlock(inPtr, outPtr);
-                    break;
-                }
-                // Quads
-                case LibUtilities::Quad:
-                {
-                    QuadBlock(inPtr, outPtr);
-                    break;
-                }
-                // Triangles
-                case LibUtilities::Tri:
-                {
-                    TriBlock(inPtr, outPtr);
-                    break;
-                }
-                // Hexes
-                case LibUtilities::Hex:
-                {
-                    HexBlock(inPtr, outPtr);
-                    break;
-                }
-                // Tet
-                case LibUtilities::Tet:
-                {
-                    TetBlock(inPtr, outPtr);
-                    break;
-                }
-                // Pyr
-                case LibUtilities::Pyr:
-                {
-                    PyrBlock(inPtr, outPtr);
-                    break;
-                }
-                // Prism
-                case LibUtilities::Prism:
-                {
-                    PrismBlock(inPtr, outPtr);
-                    break;
-                }
-                default:
-                    std::cout << "shapetype not implemented" << std::endl;
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -184,60 +96,145 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Check alignment.
+        WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
+                  "Input Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+        WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
+                  "Output Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 private:
-    BasisDataMap<simd_t> m_basisMap;
-    std::vector<LibUtilities::BasisKey> m_basisKeys;
-
-    int m_nElmtGroup;
-    unsigned int m_in_interleave_width;
-
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    void SegBlock(const TData *inPtr, TData *outPtr);
-    void TriBlock(const TData *inPtr, TData *outPtr);
-    void QuadBlock(const TData *inPtr, TData *outPtr);
-    void HexBlock(const TData *inPtr, TData *outPtr);
-    void PrismBlock(const TData *inPtr, TData *outPtr);
-    void PyrBlock(const TData *inPtr, TData *outPtr);
-    void TetBlock(const TData *inPtr, TData *outPtr);
+    BasisDataMap<simd_t> m_basisMap;
+
+    void SegBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void TriBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock);
+
+    void HexBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock);
+
+    void PyrBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void TetBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
     // templated operator(), which is instantiated by SwitchNodesPoints.h
     // and used in apply().
     // size based template version
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nq0>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot = nq0;
         constexpr auto nmTot = nm0;
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
+            // BwdTrans kernel.
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -247,41 +244,54 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nq0 = m_expPtr->GetNumPoints(0);
 
         const auto nqTot = nq0;
         const auto nmTot = nm0;
 
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+
         // Workspace for kernels - also checks preconditions.
         BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, bPtr0, tmpIn, tmpOut);
+            // BwdTrans kernel.
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -292,14 +302,36 @@ private:
     // size based template version
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nq0, int nq1>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot = nq0 * nq1;
-        const auto nmTot =
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -307,32 +339,25 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
-                                         bPtr1, wsp0, tmpIn, tmpOut);
+            // BwdTrans kernel.
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
+                                         basis1, wsp0, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -342,8 +367,10 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
 
@@ -354,8 +381,28 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -363,32 +410,25 @@ private:
         std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, bPtr0,
-                                         bPtr1, wsp0, tmpIn, tmpOut);
+            // BwdTrans kernel.
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
+                                         basis1, wsp0, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -399,14 +439,39 @@ private:
     // size based template version
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nm2, int nq0, int nq1, int nq2>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis2 =
+            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
@@ -416,35 +481,26 @@ private:
             wsp1(wsp1Size);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr2 = m_basisMap[m_basisKeys[2]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
+            // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, bPtr0, bPtr1, bPtr2, wsp0,
-                                         wsp1, tmpIn, tmpOut);
+                                         isModified, basis0, basis1, basis2,
+                                         wsp0, wsp1, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -454,8 +510,10 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
         const auto nm2 = m_expPtr->GetBasisNumModes(2);
@@ -468,8 +526,31 @@ private:
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis2 =
+            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0;
@@ -479,35 +560,26 @@ private:
             wsp1(wsp1Size);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (int e = 0; e < m_nElmtGroup; ++e)
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
             }
 
-            // Fetch basis data.
-            const auto bPtr0 = m_basisMap[m_basisKeys[0]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr1 = m_basisMap[m_basisKeys[1]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-            const auto bPtr2 = m_basisMap[m_basisKeys[2]]
-                                   .template GetPtr<MemSpace, ReadOnly>();
-
+            // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, bPtr0, bPtr1, bPtr2, wsp0,
-                                         wsp1, tmpIn, tmpOut);
+                                         isModified, basis0, basis1, basis2,
+                                         wsp0, wsp1, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;

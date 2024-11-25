@@ -114,8 +114,7 @@ public:
     }
 
     void apply(Field<TData, FieldState::Phys> &in,
-               Field<TData, FieldState::Coeff> &out,
-               bool APPEND = false) override
+               Field<TData, FieldState::Coeff> &out) override
     {
         size_t dimension = this->m_expansionList->GetShapeDimension();
 
@@ -127,144 +126,18 @@ public:
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < out.GetBlocks().size(); ++blk)
+        for (m_blk = 0; m_blk < out.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[blk];
-            auto &outblock       = out.GetBlocks()[blk];
-            const auto nElmts    = inblock.GetNumElements();
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Initialize pointers.
-            auto inPtr = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                             ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                             : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = APPEND
-                              ? outblock.template GetPtr<MemSpace, ReadWrite>()
-                              : outblock.template GetPtr<MemSpace, WriteOnly>();
-            auto dfPtr  = m_df[blk].template GetPtr<MemSpace, ReadOnly>();
-            auto jacPtr = m_jac[blk].template GetPtr<MemSpace, ReadOnly>();
-
-            // Determine shape and type of the element.
-            const auto expPtr   = this->m_expansionList->GetExp(exp_idx);
-            const auto deformed = expPtr->GetMetricInfo()->GetGtype() ==
-                                  SpatialDomains::eDeformed;
-            const auto nCoord = expPtr->GetCoordim();
-            const auto nqTot  = expPtr->GetTotPoints();
-            const auto nmTot  = expPtr->GetNcoeffs();
-            const auto ndf    = dimension * nCoord;
-
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-                (TData *)inPtr);
-            if (nCoord > 1)
-            {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nElmtsPad,
-                    inblock.GetNumData(), (TData *)inPtr + inblock.size());
-            }
-            if (nCoord > 2)
-            {
-                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                    inblock.GetInterleaveWidth(), nElmtsPad,
-                    inblock.GetNumData(), (TData *)inPtr + 2 * inblock.size());
-            }
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outPtr);
-            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-            // Allocate storate.
-            if (m_wsp.size() <= blk)
-            {
-                m_wsp.push_back(std::vector<TData>(dimension * nElmts * nqTot));
-            }
-
-            // Get workspace pointer.
-            auto wspPtr = m_wsp[blk].data();
-
-            // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
-            if (deformed)
-            {
-                for (size_t d = 0; d < dimension; ++d)
-                {
-                    Vmath::Vmul(nElmts * nqTot, dfPtr + d, ndf, inPtr, 1,
-                                wspPtr + d * nElmts * nqTot, 1);
-                    for (size_t i = 1; i < nCoord; ++i)
-                    {
-                        Vmath::Vvtvp(nElmts * nqTot, dfPtr + d + i * dimension,
-                                     ndf, inPtr + i * inblock.size(), 1,
-                                     wspPtr + d * nElmts * nqTot, 1,
-                                     wspPtr + d * nElmts * nqTot, 1);
-                    }
-                }
-            }
-            else
-            {
-                for (size_t e = 0; e < nElmts; ++e)
-                {
-                    for (size_t d = 0; d < dimension; ++d)
-                    {
-                        Vmath::Smul(nqTot, dfPtr[ndf * e + d],
-                                    inPtr + e * nqTot, 1,
-                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1);
-                        for (size_t i = 1; i < nCoord; ++i)
-                        {
-                            Vmath::Svtvp(
-                                nqTot, dfPtr[ndf * e + d + i * dimension],
-                                inPtr + i * inblock.size() + e * nqTot, 1,
-                                wspPtr + d * nElmts * nqTot + e * nqTot, 1,
-                                wspPtr + d * nElmts * nqTot + e * nqTot, 1);
-                        }
-                    }
-                }
-            }
-
-            // Multiply by jacobian.
-            if (deformed)
-            {
-                for (size_t d = 0; d < dimension; ++d)
-                {
-                    Vmath::Vmul(nElmts * nqTot, jacPtr, 1,
-                                wspPtr + d * nElmts * nqTot, 1,
-                                wspPtr + d * nElmts * nqTot, 1);
-                }
-            }
-            else
-            {
-                for (size_t e = 0; e < nElmts; ++e)
-                {
-                    for (size_t d = 0; d < dimension; ++d)
-                    {
-                        Vmath::Smul(nqTot, jacPtr[e],
-                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1,
-                                    wspPtr + d * nElmts * nqTot + e * nqTot, 1);
-                    }
-                }
-            }
-
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            // Fetch matrix.
-            const auto &matPtr = m_mat[basisKeys];
-
-            // Perform matrix-matrix multiply.
-            for (size_t d = 0; d < dimension; d++)
-            {
-                TData alpha = (d != 0 || APPEND);
-                Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0,
-                           matPtr[d].data(), nmTot, wspPtr + d * nElmts * nqTot,
-                           nqTot, alpha, outPtr, nmTot);
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -280,7 +153,147 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = this->m_append
+                          ? outblock.template GetPtr<MemSpace, ReadWrite>()
+                          : outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        auto dfPtr  = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+        auto jacPtr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Determine shape and type of the element.
+        const auto dimension = m_expPtr->GetShapeDimension();
+        const auto deformed =
+            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
+        const auto nCoord = m_expPtr->GetCoordim();
+        const auto nqTot  = m_expPtr->GetTotPoints();
+        const auto nmTot  = m_expPtr->GetNcoeffs();
+        const auto ndf    = dimension * nCoord;
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), inblock.GetNumElementsWithPadding(),
+            inblock.GetNumData(), (TData *)inptr);
+        if (nCoord > 1)
+        {
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                (TData *)inptr + inblock.size());
+        }
+        if (nCoord > 2)
+        {
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                (TData *)inptr + 2 * inblock.size());
+        }
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            outblock.GetInterleaveWidth(), outblock.GetNumElementsWithPadding(),
+            outblock.GetNumData(), outptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        auto nElmts = inblock.GetNumElements();
+
+        // Allocate storate.
+        if (m_wsp.size() <= m_blk)
+        {
+            m_wsp.push_back(std::vector<TData>(dimension * nElmts * nqTot));
+        }
+
+        // Get workspace pointer.
+        auto wspptr = m_wsp[m_blk].data();
+
+        // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
+        if (deformed)
+        {
+            for (size_t d = 0; d < dimension; ++d)
+            {
+                Vmath::Vmul(nElmts * nqTot, dfPtr + d, ndf, inptr, 1,
+                            wspptr + d * nElmts * nqTot, 1);
+                for (size_t i = 1; i < nCoord; ++i)
+                {
+                    Vmath::Vvtvp(nElmts * nqTot, dfPtr + d + i * dimension, ndf,
+                                 inptr + i * inblock.size(), 1,
+                                 wspptr + d * nElmts * nqTot, 1,
+                                 wspptr + d * nElmts * nqTot, 1);
+                }
+            }
+        }
+        else
+        {
+            for (size_t e = 0; e < nElmts; ++e)
+            {
+                for (size_t d = 0; d < dimension; ++d)
+                {
+                    Vmath::Smul(nqTot, dfPtr[ndf * e + d], inptr + e * nqTot, 1,
+                                wspptr + d * nElmts * nqTot + e * nqTot, 1);
+                    for (size_t i = 1; i < nCoord; ++i)
+                    {
+                        Vmath::Svtvp(nqTot, dfPtr[ndf * e + d + i * dimension],
+                                     inptr + i * inblock.size() + e * nqTot, 1,
+                                     wspptr + d * nElmts * nqTot + e * nqTot, 1,
+                                     wspptr + d * nElmts * nqTot + e * nqTot,
+                                     1);
+                    }
+                }
+            }
+        }
+
+        // Multiply by jacobian.
+        if (deformed)
+        {
+            for (size_t d = 0; d < dimension; ++d)
+            {
+                Vmath::Vmul(nElmts * nqTot, jacPtr, 1,
+                            wspptr + d * nElmts * nqTot, 1,
+                            wspptr + d * nElmts * nqTot, 1);
+            }
+        }
+        else
+        {
+            for (size_t e = 0; e < nElmts; ++e)
+            {
+                for (size_t d = 0; d < dimension; ++d)
+                {
+                    Vmath::Smul(nqTot, jacPtr[e],
+                                wspptr + d * nElmts * nqTot + e * nqTot, 1,
+                                wspptr + d * nElmts * nqTot + e * nqTot, 1);
+                }
+            }
+        }
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < dimension; d++)
+        {
+            basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+        }
+        const auto &matPtr = m_mat[basisKeys];
+
+        // Perform matrix-matrix multiply.
+        for (size_t d = 0; d < dimension; d++)
+        {
+            TData alpha = (d != 0 || this->m_append);
+            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, 1.0, matPtr[d].data(),
+                       nmTot, wspptr + d * nElmts * nqTot, nqTot, alpha, outptr,
+                       nmTot);
+        }
+    }
+
 private:
+    unsigned int m_blk;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
+
     std::vector<MemoryRegion<TData>> m_jac;
     std::vector<MemoryRegion<TData>> m_df;
     std::vector<std::vector<TData>> m_wsp;

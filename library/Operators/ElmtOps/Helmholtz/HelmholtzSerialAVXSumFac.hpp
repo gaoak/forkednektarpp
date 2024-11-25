@@ -38,12 +38,9 @@
 
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorHelmholtz.hpp"
-
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
+
+#include "ElmtOps/Helmholtz/HelmholtzSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -74,18 +71,18 @@ public:
         // Initialize the basis data.
         m_Bmap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasis, simd_t::alignment);
-        m_Wmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+        m_weightMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eWeights, simd_t::alignment);
         // Initialize the derivative matrix.
-        m_Dmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+        m_derivativeMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eDerivative, simd_t::alignment);
 
         // Initialize the BD data.
-        m_BDmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+        m_dbasisMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eBasisDerivative, simd_t::alignment);
 
         // Initialize the Z data.
-        m_Zmap = GetBasisData<MemSpace, NekDouble, simd_t>(
+        m_zeroMap = GetBasisData<MemSpace, NekDouble, simd_t>(
             expansionList, eZeros, simd_t::alignment);
 
         auto nCoord = this->m_expansionList->GetCoordim(0);
@@ -106,12 +103,6 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        size_t dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialize basiskey.
-        m_basisKeys = std::vector<LibUtilities::BasisKey>(
-            dimension, LibUtilities::NullBasisKey);
-
         // Initialize index.
         size_t exp_idx = 0;
 
@@ -120,93 +111,13 @@ public:
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
 
             // Block dependent.
-            auto &inblock     = in.GetBlocks()[m_blk];
-            auto &outblock    = out.GetBlocks()[m_blk];
-            const auto nElmts = inblock.GetNumElements();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Check alignment.
-            WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
-                      "Input Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-            WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
-                      "Output Field are not aligned to the required alignment "
-                      "for the SIMD vector type.");
-
-            // Initialize pointers.
-            auto inPtr  = (inblock.GetInterleaveWidth() == simd_t::width)
-                              ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                              : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-            // Determine shape and type of the element.
-            const auto shapeType = m_expPtr->DetShapeType();
-
-            // Get current interleave width.
-            m_in_interleave_width = inblock.GetInterleaveWidth();
-
-            // Set to new interleave width.
-            inblock.template SetInterleaveWidth<TData>(simd_t::width);
-            outblock.template SetInterleaveWidth<TData>(simd_t::width);
-
-            // Get required number of element groups.
-            m_nElmtGroup = inblock.GetNumElmtGroups();
-
-            // Fetch basis key for the current element type.
-            for (size_t d = 0; d < dimension; ++d)
-            {
-                m_basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            switch (shapeType)
-            {
-                // Segment
-                case LibUtilities::Seg:
-                {
-                    SegBlock(inPtr, outPtr);
-                    break;
-                }
-                // Quads
-                case LibUtilities::Quad:
-                {
-                    QuadBlock(inPtr, outPtr);
-                    break;
-                }
-                // Triangles
-                case LibUtilities::Tri:
-                {
-                    TriBlock(inPtr, outPtr);
-                    break;
-                }
-                // Hexes
-                case LibUtilities::Hex:
-                {
-                    HexBlock(inPtr, outPtr);
-                    break;
-                }
-                // Tet
-                case LibUtilities::Tet:
-                {
-                    TetBlock(inPtr, outPtr);
-                    break;
-                }
-                // Pyr
-                case LibUtilities::Pyr:
-                {
-                    PyrBlock(inPtr, outPtr);
-                    break;
-                }
-                // Prism
-                case LibUtilities::Prism:
-                {
-                    PrismBlock(inPtr, outPtr);
-                    break;
-                }
-                default:
-                    std::cout << "shapetype not implemented" << std::endl;
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -221,9 +132,71 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Check alignment.
+        WARNINGL1(inblock.GetAlignment() == simd_t::alignment,
+                  "Input Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+        WARNINGL1(outblock.GetAlignment() == simd_t::alignment,
+                  "Output Field are not aligned to the required alignment "
+                  "for the SIMD vector type.");
+
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 private:
-    unsigned int m_nElmtGroup, m_blk;
-    unsigned int m_in_interleave_width;
+    unsigned int m_blk;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -231,42 +204,82 @@ private:
     std::vector<MemoryRegion<TData>> m_df;
 
     BasisDataMap<simd_t> m_Bmap;
-    BasisDataMap<simd_t> m_BDmap;
-    BasisDataMap<simd_t> m_Dmap;
-    BasisDataMap<simd_t> m_Zmap;
-    BasisDataMap<simd_t> m_Wmap;
+    BasisDataMap<simd_t> m_dbasisMap;
+    BasisDataMap<simd_t> m_derivativeMap;
+    BasisDataMap<simd_t> m_zeroMap;
+    BasisDataMap<simd_t> m_weightMap;
 
-    std::vector<LibUtilities::BasisKey> m_basisKeys;
     std::vector<TData> m_diffCoeff;
 
     std::vector<TData> NullTDataVector;
 
-    void SegBlock(const TData *inPtr, TData *outPtr);
+    void SegBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
-    void TriBlock(const TData *inPtr, TData *outPtr);
+    void TriBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
-    void QuadBlock(const TData *inPtr, TData *outPtr);
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock);
 
-    void HexBlock(const TData *inPtr, TData *outPtr);
+    void HexBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
-    void PrismBlock(const TData *inPtr, TData *outPtr);
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock);
 
-    void PyrBlock(const TData *inPtr, TData *outPtr);
+    void PyrBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
-    void TetBlock(const TData *inPtr, TData *outPtr);
+    void TetBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nq0 = m_expPtr->GetNumPoints(0);
-
-        constexpr auto ndf = 1;
 
         const auto nqTot = nq0;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
+
+        constexpr auto ndf = 1;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Allocate workspace.
         auto bwd = static_cast<TData *>(
@@ -280,43 +293,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -333,7 +323,7 @@ private:
                 deriv0);
             // Step 5: Apply Laplacian metrics & inner product.
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
+                nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -349,13 +339,47 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nq0>
-    void Operator1D(const TData *input, TData *output)
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
-        constexpr auto ndf = 1;
-
-        const auto nqTot = nq0;
-        const auto nmTot =
+        // Shape size.
+        constexpr auto nqTot = nq0;
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0);
+
+        constexpr auto ndf = 1;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Allocate workspace.
         auto bwd = static_cast<TData *>(
@@ -369,43 +393,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv0);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -422,7 +423,7 @@ private:
                 deriv0);
             // Step 5: Apply Laplacian metrics & inner product.
             IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nq0, deriv0vec, BD0, W0, jacPtr, tmpOut);
+                nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -437,22 +438,65 @@ private:
 
     // Non-size based Operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
 
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
 
-        constexpr auto ndf = 4;
-
         const auto nqTot = nq0 * nq1;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
+        constexpr auto ndf = 4;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB1 =
+            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -462,10 +506,10 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            const auto Z0 =
-                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z1 =
-                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z0 =
+                m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z1 =
+                m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz2DHalfSpace<SHAPE_TYPE, simd_t>(nq0, nq1, Z0, Z1, m_h0,
                                                         m_h1);
         }
@@ -488,51 +532,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 =
-            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD1 =
-            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -552,10 +565,10 @@ private:
                 deriv1);
             // Step 5: Apply Laplacian metrics & inner product.
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
+                nm0, nm1, nq0, nq1, isModified, deriv0vec, DB0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
+                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, DB1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
@@ -573,15 +586,59 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nq0, int nq1>
-    void Operator2D(const TData *input, TData *output)
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         constexpr auto nqTot = nq0 * nq1;
-        constexpr auto ndf   = 4;
-        const auto nmTot =
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
+        constexpr auto ndf = 4;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB1 =
+            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0;
@@ -591,10 +648,10 @@ private:
 
         if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
         {
-            const auto Z0 =
-                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z1 =
-                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z0 =
+                m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z1 =
+                m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz2DHalfSpace<SHAPE_TYPE, simd_t>(nq0, nq1, Z0, Z1, m_h0,
                                                         m_h1);
         }
@@ -611,51 +668,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv1);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 =
-            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD1 =
-            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -675,10 +701,10 @@ private:
                 deriv1);
             // Step 4: Apply Laplacian metrics & inner product.
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, isModified, deriv0vec, BD0, B1, W0, W1,
+                nm0, nm1, nq0, nq1, isModified, deriv0vec, DB0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, BD1, W0, W1,
+                nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, DB1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
@@ -690,8 +716,10 @@ private:
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
+        // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
         const auto nm2 = m_expPtr->GetBasisNumModes(2);
@@ -700,13 +728,63 @@ private:
         const auto nq1 = m_expPtr->GetNumPoints(1);
         const auto nq2 = m_expPtr->GetNumPoints(2);
 
-        constexpr auto ndf = 9;
-        const auto nqTot   = nq0 * nq1 * nq2;
+        const auto nqTot = nq0 * nq1 * nq2;
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
+        constexpr auto ndf = 9;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_Bmap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB1 =
+            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB2 =
+            m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W2 =
+            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -720,12 +798,12 @@ private:
                       SHAPE_TYPE == LibUtilities::ePrism ||
                       SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            const auto Z0 =
-                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z1 =
-                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z2 =
-                m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z0 =
+                m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z1 =
+                m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z2 =
+                m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz3DHalfSpace<SHAPE_TYPE, simd_t>(
                 nq0, nq1, nq2, Z0, Z1, Z2, m_h0, m_h1, m_h2, m_h3);
         }
@@ -757,59 +835,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B2 =
-            m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 =
-            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D2 =
-            m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD1 =
-            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD2 =
-            m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W2 =
-            m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -832,14 +871,14 @@ private:
                 deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product.
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, DB0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, BD1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, DB1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
-                BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                DB2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -857,15 +896,67 @@ private:
     // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nm2, int nq0, int nq1, int nq2>
-    void Operator3D(const TData *input, TData *output)
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
     {
-        constexpr auto ndf   = 9;
+        // Shape size.
         constexpr auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
+        constexpr auto ndf = 9;
+        auto dfSize        = 1;
+        if constexpr (DEFORMED)
+        {
+            dfSize *= nqTot;
+        }
+
+        // Flag for collapsed coordinate correction.
         const bool isModified =
             (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto B0 = m_Bmap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_Bmap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_Bmap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB0 =
+            m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB1 =
+            m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto DB2 =
+            m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W2 =
+            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian and deriv factors.
+        auto jacPtr = reinterpret_cast<const simd_t *>(
+            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
+        auto dfPtr = reinterpret_cast<const simd_t *>(
+            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
         size_t wsp0Size = 0, wsp1Size = 0, wsp2Size = 0;
@@ -879,12 +970,12 @@ private:
                       SHAPE_TYPE == LibUtilities::ePrism ||
                       SHAPE_TYPE == LibUtilities::ePyramid)
         {
-            const auto Z0 =
-                m_Zmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z1 =
-                m_Zmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            const auto Z2 =
-                m_Zmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z0 =
+                m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z1 =
+                m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+            auto Z2 =
+                m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
             GetHelmholtz3DHalfSpace<SHAPE_TYPE, simd_t>(
                 nq0, nq1, nq2, Z0, Z1, Z2, m_h0, m_h1, m_h2, m_h3);
         }
@@ -908,59 +999,20 @@ private:
             reinterpret_cast<typename simd_t::vectorType *>(deriv2);
 
         // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-
-        auto dfSize = 1;
-        if constexpr (DEFORMED)
-        {
-            dfSize *= nqTot;
-        }
-
-        // Get jac and df pointers.
-        const simd_t *dfPtr = reinterpret_cast<const simd_t *>(
-            m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        const simd_t *jacPtr = reinterpret_cast<const simd_t *>(
-            m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-
-        // Get basis data pointers.
-        const auto B0 =
-            m_Bmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B1 =
-            m_Bmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto B2 =
-            m_Bmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D0 =
-            m_Dmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D1 =
-            m_Dmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto D2 =
-            m_Dmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD0 =
-            m_BDmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD1 =
-            m_BDmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto BD2 =
-            m_BDmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W0 =
-            m_Wmap[m_basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W1 =
-            m_Wmap[m_basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        const auto W2 =
-            m_Wmap[m_basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-
-        auto width_ratio = m_in_interleave_width == 1
-                               ? 1
-                               : m_in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, m_in_interleave_width);
-        for (size_t e = 0; e < m_nElmtGroup; ++e)
+        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
         {
             // Reshape, if necessary.
             if (e % width_ratio == 0)
             {
                 ReshapeStorage<ExecSpace, simd_t::width>(
-                    m_in_interleave_width, chunkSize, nmTot,
+                    interleave_width, chunkSize, nmTot,
                     (TData *)input + e * nmTot * simd_t::width);
             }
 
@@ -983,14 +1035,14 @@ private:
                 deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product.
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, BD0, B1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, DB0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, BD1,
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv1vec, B0, DB1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
-                BD2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                DB2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;

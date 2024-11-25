@@ -161,12 +161,12 @@ DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
              sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
                                sycl::range<3>(1, 1, blockSize)),
              [=](sycl::nd_item<3> item) {
-                 TData *shmPtr =
+                 TData *shmptr =
                      shared
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  DiffusionCoeff2DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                        shmPtr, item);
+                                        shmptr, item);
              });
      }).wait();
 }
@@ -188,12 +188,12 @@ DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
              sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
                                sycl::range<3>(1, 1, blockSize)),
              [=](sycl::nd_item<3> item) {
-                 TData *shmPtr =
+                 TData *shmptr =
                      shared
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  DiffusionCoeff3DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                        deriv2, shmPtr, item);
+                                        deriv2, shmptr, item);
              });
      }).wait();
 }

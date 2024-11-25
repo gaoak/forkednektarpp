@@ -40,11 +40,11 @@ namespace OneMKL
 
 using namespace oneapi::mkl;
 
-void sgemm(sycl::queue queue, std::string transposeA, std::string transposeB,
-           const unsigned int M, const unsigned int N, const unsigned int K,
-           const float alpha, const float *a, const unsigned int lda,
-           const float *b, const unsigned int ldb, const float beta, float *c,
-           const unsigned int ldc)
+void gemm(sycl::queue queue, std::string transposeA, std::string transposeB,
+          const unsigned int M, const unsigned int N, const unsigned int K,
+          const float alpha, const float *a, const unsigned int lda,
+          const float *b, const unsigned int ldb, const float beta, float *c,
+          const unsigned int ldc)
 {
     if (transposeA == "N" && transposeB == "N")
     {
@@ -76,11 +76,11 @@ void sgemm(sycl::queue queue, std::string transposeA, std::string transposeB,
     }
 }
 
-void dgemm(sycl::queue queue, std::string transposeA, std::string transposeB,
-           const unsigned int M, const unsigned int N, const unsigned int K,
-           const double alpha, const double *a, const unsigned int lda,
-           const double *b, const unsigned int ldb, const double beta,
-           double *c, const unsigned int ldc)
+void gemm(sycl::queue queue, std::string transposeA, std::string transposeB,
+          const unsigned int M, const unsigned int N, const unsigned int K,
+          const double alpha, const double *a, const unsigned int lda,
+          const double *b, const unsigned int ldb, const double beta, double *c,
+          const unsigned int ldc)
 {
     if (transposeA == "N" && transposeB == "N")
     {
@@ -112,14 +112,14 @@ void dgemm(sycl::queue queue, std::string transposeA, std::string transposeB,
     }
 }
 
-void sgemm_batch(sycl::queue queue, std::string transposeA,
-                 std::string transposeB, const unsigned int M,
-                 const unsigned int N, const unsigned int K, const float alpha,
-                 const float *a, const unsigned int lda,
-                 const unsigned int strideA, const float *b,
-                 const unsigned int ldb, const unsigned int strideB,
-                 const float beta, float *c, const unsigned int ldc,
-                 const unsigned int strideC, const unsigned int batchSize)
+void gemm_batch(sycl::queue queue, std::string transposeA,
+                std::string transposeB, const unsigned int M,
+                const unsigned int N, const unsigned int K, const float alpha,
+                const float *a, const unsigned int lda,
+                const unsigned int strideA, const float *b,
+                const unsigned int ldb, const unsigned int strideB,
+                const float beta, float *c, const unsigned int ldc,
+                const unsigned int strideC, const unsigned int batchSize)
 {
     if (transposeA == "N" && transposeB == "N")
     {
@@ -155,14 +155,14 @@ void sgemm_batch(sycl::queue queue, std::string transposeA,
     }
 }
 
-void dgemm_batch(sycl::queue queue, std::string transposeA,
-                 std::string transposeB, const unsigned int M,
-                 const unsigned int N, const unsigned int K, const double alpha,
-                 const double *a, const unsigned int lda,
-                 const unsigned int strideA, const double *b,
-                 const unsigned int ldb, const unsigned int strideB,
-                 const double beta, double *c, const unsigned int ldc,
-                 const unsigned int strideC, const unsigned int batchSize)
+void gemm_batch(sycl::queue queue, std::string transposeA,
+                std::string transposeB, const unsigned int M,
+                const unsigned int N, const unsigned int K, const double alpha,
+                const double *a, const unsigned int lda,
+                const unsigned int strideA, const double *b,
+                const unsigned int ldb, const unsigned int strideB,
+                const double beta, double *c, const unsigned int ldc,
+                const unsigned int strideC, const unsigned int batchSize)
 {
     if (transposeA == "N" && transposeB == "N")
     {

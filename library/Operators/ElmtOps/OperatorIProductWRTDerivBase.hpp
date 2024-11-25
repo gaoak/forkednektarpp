@@ -54,15 +54,21 @@ public:
     ~OperatorIProductWRTDerivBase() override = default;
 
     virtual void apply(Field<TData, FieldState::Phys> &in,
-                       Field<TData, FieldState::Coeff> &out,
-                       bool APPEND = false) = 0;
+                       Field<TData, FieldState::Coeff> &out) = 0;
 
     virtual void operator()(Field<TData, FieldState::Phys> &in,
-                            Field<TData, FieldState::Coeff> &out,
-                            [[maybe_unused]] bool APPEND = false)
+                            Field<TData, FieldState::Coeff> &out)
     {
         apply(in, out);
     }
+
+    void SetAppend(bool append)
+    {
+        m_append = append;
+    }
+
+protected:
+    bool m_append = false;
 };
 
 // Descriptor / traits class for IProductWRTDerivBase
