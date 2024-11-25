@@ -145,7 +145,7 @@ struct CUDA
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
 };
 
 struct HIP
@@ -153,7 +153,7 @@ struct HIP
     using memory_space                = NektarSpaces::DeviceSpace;
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 2048u;
 };
 
 struct SYCL
@@ -162,11 +162,11 @@ struct SYCL
 #if defined(SYCL_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
 #else
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 16u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 16u;
 #endif
 };
 
@@ -176,19 +176,18 @@ struct KOKKOS
 #if defined(KOKKOS_ENABLE_CUDA)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
 #elif defined(KOKKOS_ENABLE_HIP)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 2048u;
 #elif defined(KOKKOS_ENABLE_SYCL)
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 256u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
+    static constexpr unsigned int maximumBlockSize = 1024u;
 #else
     static constexpr size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__;
     static constexpr unsigned int defaultBlockSize = 1u;
-    static constexpr unsigned int defaultGridSize  = 1024u;
 #endif
 };
 

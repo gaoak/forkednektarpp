@@ -936,7 +936,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -959,7 +959,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -982,7 +982,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1005,7 +1005,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1027,7 +1027,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1050,7 +1050,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {
@@ -1073,7 +1073,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     if (cudaBuffer == nullptr)
     {

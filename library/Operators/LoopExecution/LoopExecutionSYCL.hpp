@@ -183,7 +183,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -236,7 +236,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -290,7 +290,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -317,7 +317,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
                 const Functor &functor, typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     using TData = typename Reduction::value_type;
 

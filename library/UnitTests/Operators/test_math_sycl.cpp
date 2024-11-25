@@ -211,8 +211,8 @@ BOOST_FIXTURE_TEST_CASE(sycl_innerproduct, MathKernels)
     BOOST_TEST(fabs(h_out - out) < 5.0E-10);
     boost::test_tools::output_test_stream output;
     {
-        std::cout << "SYCL = " << std::sqrt(h_out)
-                  << " ddot = " << std::sqrt(out) << std::endl;
+        std::cout << "SYCL = " << std::sqrt(std::abs(h_out))
+                  << " ddot = " << std::sqrt(std::abs(out)) << std::endl;
     }
 }
 
