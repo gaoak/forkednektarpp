@@ -34,6 +34,10 @@
 
 #pragma once
 
+#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
 template <bool DEFORMED, typename simd_type>

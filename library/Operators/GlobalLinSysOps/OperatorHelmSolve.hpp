@@ -60,7 +60,7 @@ public:
         apply(in, out);
     }
 
-    virtual void setLambda(const TData &lambda) = 0;
+    virtual void SetLambda(const TData &lambda) = 0;
 
     virtual void setPrecon(
         const std::shared_ptr<OperatorPrecon<TData>> &precon) = 0;

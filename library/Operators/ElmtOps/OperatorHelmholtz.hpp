@@ -60,7 +60,7 @@ public:
         this->apply(in, out);
     }
 
-    void setLambda(TData lambda)
+    void SetLambda(TData lambda)
     {
         m_lambda = lambda;
     }

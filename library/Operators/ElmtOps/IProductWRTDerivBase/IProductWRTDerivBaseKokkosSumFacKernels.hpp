@@ -36,20 +36,14 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <bool DEFORMED, typename TData>
-void IProductWRTDerivBase1DKernel(const unsigned int nq0,
-                                  const unsigned int ncoord,
-                                  const unsigned int nelmt,
-                                  const TData *KOKKOS_RESTRICT df,
-                                  const TData *KOKKOS_RESTRICT in,
-                                  TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -94,12 +88,10 @@ void IProductWRTDerivBase1DKernel(const unsigned int nq0,
 }
 
 template <bool DEFORMED, typename TData>
-void IProductWRTDerivBase1DKernel_QP(const unsigned int nq0,
-                                     const unsigned int ncoord,
-                                     const unsigned int nelmt,
-                                     const TData *KOKKOS_RESTRICT df,
-                                     const TData *KOKKOS_RESTRICT in,
-                                     TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -130,7 +122,7 @@ void IProductWRTDerivBase1DKernel_QP(const unsigned int nq0,
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase2DKernel(
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
@@ -231,7 +223,7 @@ void IProductWRTDerivBase2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase2DKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *KOKKOS_RESTRICT Z0,
     const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
@@ -292,7 +284,7 @@ void IProductWRTDerivBase2DKernel_QP(
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase2DKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *KOKKOS_RESTRICT Z0,
     const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
@@ -353,7 +345,7 @@ void IProductWRTDerivBase2DKernel_QP_1D(
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase3DKernel(
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
@@ -528,7 +520,7 @@ void IProductWRTDerivBase3DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase3DKernel_QP(
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
@@ -618,7 +610,7 @@ void IProductWRTDerivBase3DKernel_QP(
 }
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-void IProductWRTDerivBase3DKernel_QP_1D(
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
@@ -709,171 +701,83 @@ void IProductWRTDerivBase3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *df,
-                             const TData *in, TData *out)
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if constexpr (MULTILEVEL)
     {
-        IProductWRTDerivBase1DKernel_QP<DEFORMED>(nq0, ncoord, nelmts, df, in,
+        IProductWRTDerivBase1DKernel_QP<DEFORMED>(nq0, ncoord, nelmt, df, in,
                                                   out);
     }
     else
     {
-        IProductWRTDerivBase1DKernel<DEFORMED>(nq0, ncoord, nelmts, df, in,
-                                               out);
+        IProductWRTDerivBase1DKernel<DEFORMED>(nq0, ncoord, nelmt, df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
-                             const unsigned int nq0, const unsigned int nq1,
-                             const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *Z0,
-                             const TData *Z1, const TData *df, const TData *in,
-                             TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
+    const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    if (shapetype == LibUtilities::Quad)
+    const unsigned int nshared =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1);
+
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
+        IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
 #else
-            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
+        IProductWRTDerivBase2DKernel_QP_1D<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
 #endif
-        }
-        else
-        {
-            IProductWRTDerivBase2DKernel<LibUtilities::Quad, DEFORMED>(
-                0u, nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
-#else
-            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri, DEFORMED>(
-                nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = nq0 + nq1;
-            IProductWRTDerivBase2DKernel<LibUtilities::Tri, DEFORMED>(
-                nshared, nq0, nq1, ncoord, nelmts, Z0, Z1, df, in, out);
-        }
+        IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>(
+            nshared, nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
-                             const unsigned int nq0, const unsigned int nq1,
-                             const unsigned int nq2, const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *Z0,
-                             const TData *Z1, const TData *Z2, const TData *df,
-                             const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
+    const TData *Z1, const TData *Z2, const TData *df, const TData *in,
+    TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    if (shapetype == LibUtilities::Hex)
+    const unsigned int nshared =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1,
+                                                                     nq2);
+
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
+        IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
 #else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
+        IProductWRTDerivBase3DKernel_QP_1D<SHAPE_TYPE, DEFORMED>(
+            nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
 #endif
-        }
-        else
-        {
-            IProductWRTDerivBase3DKernel<LibUtilities::Hex, DEFORMED>(
-                0u, nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = nq0 + 2 * nq1 + nq2;
-            IProductWRTDerivBase3DKernel<LibUtilities::Tet, DEFORMED>(
-                nshared, nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                out);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = nq0 + nq2;
-            IProductWRTDerivBase3DKernel<LibUtilities::Prism, DEFORMED>(
-                nshared, nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                out);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED>(
-                nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = nq0 + nq1 + nq2;
-            IProductWRTDerivBase3DKernel<LibUtilities::Pyr, DEFORMED>(
-                nshared, nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in,
-                out);
-        }
+        IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>(
+            nshared, nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
     }
 }
 

@@ -38,9 +38,7 @@
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -63,145 +61,19 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
-        const bool device_only = true;
-
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[blk];
-            auto &outblock       = out.GetBlocks()[blk];
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Initialize pointers.
-            auto inPtr = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                             ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                             : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-            // Determine shape and type of the element.
-            const auto expPtr    = this->m_expansionList->GetExp(exp_idx);
-            const auto shapeType = expPtr->DetShapeType();
-            const auto nm0       = expPtr->GetBasisNumModes(0);
-            const auto nq0       = expPtr->GetNumPoints(0);
-            const auto nm1 = (dimension > 1) ? expPtr->GetBasisNumModes(1) : 0;
-            const auto nq1 = (dimension > 1) ? expPtr->GetNumPoints(1) : 0;
-            const auto nm2 = (dimension > 2) ? expPtr->GetBasisNumModes(2) : 0;
-            const auto nq2 = (dimension > 2) ? expPtr->GetNumPoints(2) : 0;
-            const auto basis0 = m_basisMap[expPtr->GetBasis(0)->GetBasisKey()]
-                                    .template GetPtr<MemSpace, ReadOnly>();
-            const auto basis1 =
-                (dimension > 1) ? m_basisMap[expPtr->GetBasis(1)->GetBasisKey()]
-                                      .template GetPtr<MemSpace, ReadOnly>()
-                                : nullptr;
-            const auto basis2 =
-                (dimension > 2) ? m_basisMap[expPtr->GetBasis(2)->GetBasisKey()]
-                                      .template GetPtr<MemSpace, ReadOnly>()
-                                : nullptr;
-
-            // Flag for collapsed coordinate correction.
-            bool correct = expPtr->GetBasis(0)->GetBasisType() ==
-                           LibUtilities::eModified_A;
-
-            // Set workspace.
-            if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-            {
-                if (m_wsp.size() <= blk)
-                {
-                    m_wsp.push_back(
-                        SetWorkspace(shapeType, nElmtsPad, nm0, nm1, nm2));
-                }
-            }
-
-            // Get workspace pointer.
-            auto wspPtr =
-                std::is_same_v<Implementation, Operators::SumFac>
-                    ? m_wsp[blk].template GetPtr<MemSpace, WriteOnly>()
-                    : nullptr;
-
-            constexpr bool SharedMemory = true;
-
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-                (TData *)inPtr);
-            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-            // Function call to kernel functions.
-            if (dimension == 1)
-            {
-                BwdTrans1DKernel<ExecSpace, Implementation, SharedMemory>(
-                    nm0, nq0, nElmtsPad, basis0, inPtr, outPtr);
-            }
-            else if (dimension == 2)
-            {
-                BwdTrans2DKernel<ExecSpace, Implementation, SharedMemory>(
-                    shapeType, nm0, nm1, nq0, nq1, nElmtsPad, correct, basis0,
-                    basis1, wspPtr, inPtr, outPtr);
-            }
-            else if (dimension == 3)
-            {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                const bool indexing = false;
-#else
-                const bool indexing =
-                    shapeType == LibUtilities::Tet &&
-                    std::is_same_v<Implementation, Operators::SumFacQP>;
-#endif
-                std::vector<LibUtilities::BasisKey> basisKeys{
-                    expPtr->GetBasis(0)->GetBasisKey(),
-                    expPtr->GetBasis(1)->GetBasisKey(),
-                    expPtr->GetBasis(2)->GetBasisKey()};
-
-                // Precompute index, if necessary.
-                if (indexing)
-                {
-                    if (m_index0.find(basisKeys) == m_index0.end())
-                    {
-                        const unsigned int nm01 =
-                            (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-                        std::vector<unsigned int> index0(nm01);
-                        std::vector<unsigned int> index1(nm01);
-                        for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
-                        {
-                            for (unsigned int q = 0; q < nm1 - p;
-                                 q++, mode_pq++)
-                            {
-                                index0[mode_pq] = p;
-                                index1[mode_pq] = q;
-                            }
-                        }
-                        m_index0[basisKeys] =
-                            MemoryRegion<unsigned int>::template FromVector<
-                                MemSpace>(index0, ExecSpace::alignment,
-                                          device_only);
-                        m_index1[basisKeys] =
-                            MemoryRegion<unsigned int>::template FromVector<
-                                MemSpace>(index1, ExecSpace::alignment,
-                                          device_only);
-                    }
-                }
-
-                auto index0 = indexing
-                                  ? m_index0[basisKeys]
-                                        .template GetPtr<MemSpace, ReadOnly>()
-                                  : nullptr;
-                auto index1 = indexing
-                                  ? m_index1[basisKeys]
-                                        .template GetPtr<MemSpace, ReadOnly>()
-                                  : nullptr;
-
-                BwdTrans3DKernel<ExecSpace, Implementation, SharedMemory>(
-                    shapeType, nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, correct,
-                    index0, index1, basis0, basis1, basis2, wspPtr, inPtr,
-                    outPtr);
-            }
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
             exp_idx += inblock.GetNumElements();
@@ -209,47 +81,47 @@ public:
     }
 
     size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
-                                  size_t nElmtsPad, size_t nm0, size_t nm1,
+                                  size_t nElmts, size_t nm0, size_t nm1,
                                   size_t nm2)
     {
         size_t wspsize = 0;
 
         if (shapeType == LibUtilities::Quad)
         {
-            wspsize = nm1 * nElmtsPad;
+            wspsize = nm1 * nElmts;
         }
         else if (shapeType == LibUtilities::Tri)
         {
-            wspsize = nm0 * nElmtsPad;
+            wspsize = nm0 * nElmts;
         }
         else if (shapeType == LibUtilities::Hex)
         {
-            wspsize = (nm1 * nm2 + nm2) * nElmtsPad;
+            wspsize = (nm1 * nm2 + nm2) * nElmts;
         }
         else if (shapeType == LibUtilities::Tet)
         {
-            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmtsPad;
+            wspsize = ((2 * nm1 - nm0 + 1) * nm0 / 2 + nm0) * nElmts;
         }
         else if (shapeType == LibUtilities::Prism)
         {
-            wspsize = (nm0 * nm1 + nm0) * nElmtsPad;
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
         }
         else if (shapeType == LibUtilities::Pyr)
         {
-            wspsize = (nm0 * nm1 + nm0) * nElmtsPad;
+            wspsize = (nm0 * nm1 + nm0) * nElmts;
         }
 
         return wspsize;
     }
 
     MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
-                                     size_t nElmtsPad, size_t nm0, size_t nm1,
+                                     size_t nElmts, size_t nm0, size_t nm1,
                                      size_t nm2)
     {
-        const bool device_only = true;
+        constexpr bool device_only = true;
 
         size_t wspsize =
-            GetSharedWorkspaceSize(shapeType, nElmtsPad, nm0, nm1, nm2);
+            GetSharedWorkspaceSize(shapeType, nElmts, nm0, nm1, nm2);
 
         return MemoryRegion<TData>::template Create<MemSpace>(
             wspsize, ExecSpace::alignment, device_only);
@@ -267,7 +139,66 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 private:
+    unsigned int m_blk;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
+
     BasisDataMap<TData> m_basisMap;
     std::vector<MemoryRegion<TData>> m_wsp;
     std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
@@ -278,6 +209,243 @@ private:
         std::is_same_v<Implementation, Operators::SumFac>
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
+
+    void SegBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        Operator1D<LibUtilities::Seg>(inblock, outblock);
+    }
+    void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        Operator2D<LibUtilities::Tri>(inblock, outblock);
+    }
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock)
+    {
+        Operator2D<LibUtilities::Quad>(inblock, outblock);
+    }
+    void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        Operator3D<LibUtilities::Hex>(inblock, outblock);
+    }
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        Operator3D<LibUtilities::Prism>(inblock, outblock);
+    }
+    void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        Operator3D<LibUtilities::Pyr>(inblock, outblock);
+    }
+    void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
+    {
+        Operator3D<LibUtilities::Tet>(inblock, outblock);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE>
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool SharedMemory = true;
+
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // BwdTrans kernel.
+        BwdTrans1DKernel<ExecSpace, Implementation, SharedMemory>(
+            nm0, nq0, nElmtsPad, basis0, inptr, outptr);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool SharedMemory = true;
+
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, 0));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // BwdTrans kernel.
+        BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory>(
+            nm0, nm1, nq0, nq1, nElmtsPad, isModified, basis0, basis1, wspptr,
+            inptr, outptr);
+    }
+
+    template <LibUtilities::ShapeType SHAPE_TYPE>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool device_only  = true;
+        constexpr bool SharedMemory = true;
+
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis2 =
+            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Precompute index, if necessary.
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+        const bool indexing = false;
+#else
+        const bool indexing =
+            SHAPE_TYPE == LibUtilities::Tet &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+#endif
+
+        if (indexing)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                std::vector<unsigned int> index0(nm01);
+                std::vector<unsigned int> index1(nm01);
+                for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
+                    {
+                        index0[mode_pq] = p;
+                        index1[mode_pq] = q;
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+            }
+        }
+
+        auto index0 =
+            indexing ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                     : nullptr;
+        auto index1 =
+            indexing ? m_index1[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                     : nullptr;
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nm0, nm1, nm2));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // BwdTrans kernel.
+        BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,
+            basis0, basis1, basis2, wspptr, inptr, outptr);
+    }
 };
 
 } // namespace Nektar::Operators::detail

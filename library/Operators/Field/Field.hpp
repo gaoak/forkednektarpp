@@ -567,8 +567,7 @@ public:
      */
     template <typename MemSpace, typename TDataOut = TData,
               class Alloc = std::allocator<TDataOut>>
-    MemoryRegion<TDataOut> ToMemoryRegion(
-        const size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    MemoryRegion<TDataOut> ToMemoryRegion()
     {
         size_t compSize = 0;
         for (auto &block : this->GetBlocks())
@@ -578,7 +577,7 @@ public:
 
         MemoryRegion<TDataOut> mr =
             MemoryRegion<TDataOut>::template Create<MemSpace>(
-                compSize * this->GetNumComponents(), alignment, false);
+                compSize * this->GetNumComponents(), this->m_alignment, false);
 
         // Copy the data from the input field
         auto dst = mr.template GetPtr<MemSpace, WriteOnly>();

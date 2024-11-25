@@ -82,7 +82,7 @@ public:
             Helmholtz<double>::template Create<ExecSpace, Impl>(fixt_explist);
         auto DiagPreconOp =
             DiagPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
-        HelmholtzOp->setLambda(1.0);
+        HelmholtzOp->SetLambda(1.0);
         DiagPreconOp->configure(HelmholtzOp);
         DiagPreconOp->apply(*fixt_in, *fixt_out);
     }

@@ -94,6 +94,9 @@ public:
                 this->m_expansionList);
         m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template Create<
             ExecSpace, Implementation>(this->m_expansionList);
+
+        m_IProductWRTBaseOp->SetLambda(this->m_lambda);
+        m_IProductWRTDerivBaseOp->SetAppend(true);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
@@ -106,13 +109,13 @@ public:
         this->m_PhysDerivOp->apply(this->m_bwd, this->m_deriv);
 
         // Step 3: Inner product for mass matrix operation
-        this->m_IProductWRTBaseOp->apply(this->m_bwd, out, this->m_lambda);
+        this->m_IProductWRTBaseOp->apply(this->m_bwd, out);
 
         // Step 4: Multiply by diffusion coefficient
         DiffusionCoeff(this->m_deriv);
 
         // Step 5: Inner product
-        this->m_IProductWRTDerivBaseOp->apply(this->m_deriv, out, true);
+        this->m_IProductWRTDerivBaseOp->apply(this->m_deriv, out);
     }
 
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)

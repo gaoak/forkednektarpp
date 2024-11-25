@@ -130,7 +130,7 @@ public:
         auto DiagPreconOp =
             DiagPrecon<double>::template Create<ExecSpace, Impl>(fixt_explist);
         HelmSolveOp->setPrecon(DiagPreconOp);
-        HelmSolveOp->setLambda(1.0);
+        HelmSolveOp->SetLambda(1.0);
         HelmSolveOp->apply(*fixt_in, *fixt_out);
     }
 

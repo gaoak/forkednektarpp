@@ -36,15 +36,11 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseSegKernel(
+__device__ __forceinline__ void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -116,7 +112,7 @@ __global__ void IProductWRTBaseSegKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseSegKernel_QP(
+__device__ __forceinline__ void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
@@ -192,7 +188,7 @@ __global__ void IProductWRTBaseSegKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseQuadKernel(
+__device__ __forceinline__ void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -294,7 +290,7 @@ __global__ void IProductWRTBaseQuadKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseQuadKernel_QP(
+__device__ __forceinline__ void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -412,7 +408,7 @@ __global__ void IProductWRTBaseQuadKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseQuadKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBaseQuadKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
@@ -522,10 +518,10 @@ __global__ void IProductWRTBaseQuadKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTriKernel(
+__device__ __forceinline__ void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     TData *__restrict__ wsp, const TData *__restrict__ in,
@@ -622,7 +618,7 @@ __global__ void IProductWRTBaseTriKernel(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             TData iprod_01 = 0.0;
             for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
@@ -668,10 +664,10 @@ __global__ void IProductWRTBaseTriKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTriKernel_QP(
+__device__ __forceinline__ void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool correct, const TData *__restrict__ basis0,
+    const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -785,7 +781,7 @@ __global__ void IProductWRTBaseTriKernel_QP(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.x == 0 && threadIdx.y == 0)
             {
@@ -829,10 +825,10 @@ __global__ void IProductWRTBaseTriKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTriKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBaseTriKernel_QP_1D(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nelmt, const bool correct,
+    const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
@@ -938,7 +934,7 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
         // Correction for singular vertex in collpased coordinates.
         // Basically we add phi_1 * phi_01 * (weighting, etc) to mode 00
         // With contributions from every quadrature point
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.x == 0)
             {
@@ -981,7 +977,7 @@ __global__ void IProductWRTBaseTriKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseHexKernel(
+__device__ __forceinline__ void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1121,7 +1117,7 @@ __global__ void IProductWRTBaseHexKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseHexKernel_QP(
+__device__ __forceinline__ void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1286,7 +1282,7 @@ __global__ void IProductWRTBaseHexKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseHexKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBaseHexKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
@@ -1433,10 +1429,10 @@ __global__ void IProductWRTBaseHexKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTetKernel(
+__device__ __forceinline__ void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -1579,7 +1575,7 @@ __global__ void IProductWRTBaseTetKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int r = 0u; r < nm2; ++r)
             {
@@ -1673,10 +1669,10 @@ __global__ void IProductWRTBaseTetKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTetKernel_QP(
+__device__ __forceinline__ void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -1847,7 +1843,7 @@ __global__ void IProductWRTBaseTetKernel_QP(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.x == 0 && threadIdx.y == 0)
             {
@@ -1944,10 +1940,10 @@ __global__ void IProductWRTBaseTetKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBaseTetKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBaseTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex1,
     const unsigned int *__restrict__ pindex2,
     const unsigned int *__restrict__ qindex2, const TData *__restrict__ basis0,
@@ -2097,7 +2093,7 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int idx = threadIdx.x; idx < nm2; idx += blockDim.x)
             {
@@ -2178,10 +2174,10 @@ __global__ void IProductWRTBaseTetKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePrismKernel(
+__device__ __forceinline__ void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -2316,7 +2312,7 @@ __global__ void IProductWRTBasePrismKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int q = 0u; q < nm1; ++q)
             {
@@ -2378,10 +2374,10 @@ __global__ void IProductWRTBasePrismKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePrismKernel_QP(
+__device__ __forceinline__ void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -2542,7 +2538,7 @@ __global__ void IProductWRTBasePrismKernel_QP(
         __syncthreads();
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.y == 0 && threadIdx.z == 0)
             {
@@ -2603,10 +2599,10 @@ __global__ void IProductWRTBasePrismKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePrismKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBasePrismKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex,
     const unsigned int *__restrict__ rindex, const TData *__restrict__ basis0,
@@ -2752,7 +2748,7 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
         __syncthreads();
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
             {
@@ -2801,10 +2797,10 @@ __global__ void IProductWRTBasePrismKernel_QP_1D(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePyrKernel(
+__device__ __forceinline__ void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -2985,7 +2981,7 @@ __global__ void IProductWRTBasePyrKernel(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             TData prod = 0.0;
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
@@ -3040,10 +3036,10 @@ __global__ void IProductWRTBasePyrKernel(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePyrKernel_QP(
+__device__ __forceinline__ void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
@@ -3249,7 +3245,7 @@ __global__ void IProductWRTBasePyrKernel_QP(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0)
             {
@@ -3307,10 +3303,10 @@ __global__ void IProductWRTBasePyrKernel_QP(
 }
 
 template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-__global__ void IProductWRTBasePyrKernel_QP_1D(
+__device__ __forceinline__ void IProductWRTBasePyrKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool correct,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -3454,7 +3450,7 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
         }
 
         // Add correction for collapsed coordinate.
-        if (correct)
+        if (isModified)
         {
             if (threadIdx.x == 0)
             {
@@ -3507,302 +3503,377 @@ __global__ void IProductWRTBasePyrKernel_QP_1D(
     }
 }
 
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+}
+
+template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase1DKernel_QP(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ basis0, const TData *__restrict__ w0,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, wsp,
+            in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, wsp, in, out, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase2DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, in,
+            out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, in, out, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase2DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ w0, const TData *__restrict__ w1,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    {
+        IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, in,
+            out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    {
+        IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
+            w1, jac, in, out, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict__ out,
+    const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, wsp, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase3DKernel_QP(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+}
+
+template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, typename TData>
+__global__ void IProductWRTBase3DKernel_QP_1D(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
+    const TData *__restrict__ basis2, const TData *__restrict__ w0,
+    const TData *__restrict__ w1, const TData *__restrict__ w2,
+    const TData *__restrict__ jac, const TData *__restrict__ in,
+    TData *__restrict__ out, const TData scale = 1.0)
+{
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    {
+        IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
+            w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    {
+        IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+            basis1, basis2, w0, w1, w2, jac, in, out, scale);
+    }
+}
+
+// Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTBase1DKernel(const unsigned int nm0, const unsigned int nq0,
-                        const unsigned int nelmts, const TData *basis0,
-                        const TData *w0, const TData *jac, const TData *in,
-                        TData *out, const TData scale = 1.0)
+NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
+    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+    const TData *basis0, const TData *w0, const TData *jac, const TData *in,
+    TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0, NektarSpaces::CUDA::defaultBlockSize)
-                   : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
-
-    unsigned int nshared = SHMEM ? sizeof(TData) * (nm0 * nq0 + nq0) : 0u;
+    const unsigned int nshared =
+        sizeof(TData) *
+        IProductWRTBaseSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
 
     if constexpr (MULTILEVEL)
     {
-        nshared += sizeof(TData) * (nq0);
-        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmts, basis0, w0,
-                                               jac, in, out, scale);
+        const unsigned int blocksize =
+            std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTBase1DKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmt, basis0, w0, jac,
+                                               in, out, scale);
     }
     else
     {
-        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmts, basis0, w0,
-                                               jac, in, out, scale);
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        IProductWRTBase1DKernel<SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmt, basis0, w0, jac,
+                                               in, out, scale);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTBase2DKernel(LibUtilities::ShapeType shapetype,
-                        const unsigned int nm0, const unsigned int nm1,
-                        const unsigned int nq0, const unsigned int nq1,
-                        const unsigned int nelmts, const bool correct,
-                        [[maybe_unused]] const unsigned int *index0,
-                        const TData *basis0, const TData *basis1,
-                        const TData *w0, const TData *w1, const TData *jac,
-                        TData *wsp, const TData *in, TData *out,
-                        const TData scale = 1.0)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0, const TData *basis0,
+    const TData *basis1, const TData *w0, const TData *w1, const TData *jac,
+    TData *wsp, const TData *in, TData *out, const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize)
-                   : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) *
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+            nq0, nq1, nm0, nm1);
 
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdQuadData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nm1 * nq1 + nq0 + nq1);
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize2d, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-                                                     nelmts, basis0, basis1, w0,
-                                                     w1, jac, in, out, scale);
+        const dim3 blocksize = dim3(std::min(nq0, 16u), std::min(nq1, 16u), 1u);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTBase2DKernel_QP<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nq0, nq1, nelmt,
+                                               isModified, basis0, basis1, w0,
+                                               w1, jac, in, out, scale);
 #else
-            IProductWRTBaseQuadKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(nm0, nm1, nmTot, nq0, nq1,
-                                                   nelmts, basis0, basis1, w0,
-                                                   w1, jac, in, out, scale);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTBase2DKernel_QP_1D<SHAPE_TYPE, SCALE, APPEND, DEFORMED,
+                                      SHMEM><<<gridsize, blocksize, nshared>>>(
+            nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0,
+            w1, jac, in, out, scale);
 #endif
-        }
-        else
-        {
-            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, basis0, basis1, w0, w1,
-                    jac, wsp, in, out, scale);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-        unsigned int nshared =
-            sizeof(TData) * (nm0 * nq0 + nmTot * nq1 + nq0 + nq1);
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nq0 * nq1 + nm0 * nq1 + 1u);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize2d, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1,
-                    w0, w1, jac, in, out, scale);
-#else
-            IProductWRTBaseTriKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, index0, basis0,
-                    basis1, w0, w1, jac, in, out, scale);
-#endif
-        }
-        else
-        {
-            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmts, correct, basis0, basis1,
-                    w0, w1, jac, wsp, in, out, scale);
-        }
+        IProductWRTBase2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nq0, nq1, nelmt,
+                                               isModified, basis0, basis1, w0,
+                                               w1, jac, wsp, in, out, scale);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTBase3DKernel(LibUtilities::ShapeType shapetype,
-                        const unsigned int nm0, const unsigned int nm1,
-                        const unsigned int nm2, const unsigned int nq0,
-                        const unsigned int nq1, const unsigned int nq2,
-                        const unsigned int nelmts, const bool correct,
-                        [[maybe_unused]] const unsigned int *index0,
-                        [[maybe_unused]] const unsigned int *index1,
-                        [[maybe_unused]] const unsigned int *index2,
-                        const TData *basis0, const TData *basis1,
-                        const TData *basis2, const TData *w0, const TData *w1,
-                        const TData *w2, const TData *jac, TData *wsp,
-                        const TData *in, TData *out, const TData scale = 1.0)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1,
+    [[maybe_unused]] const unsigned int *index2, const TData *basis0,
+    const TData *basis1, const TData *basis2, const TData *w0, const TData *w1,
+    const TData *w2, const TData *jac, TData *wsp, const TData *in, TData *out,
+    const TData scale = 1.0)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize3d =
-        dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int blocksize =
-        MULTILEVEL
-            ? std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize)
-            : NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) *
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
 
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        const unsigned int nmTot =
-            LibUtilities::StdHexData::getNumberOfCoefficients(nm0, nm1, nm2);
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) *
-                       (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                    basis2, w0, w1, w2, jac, in, out, scale);
+        const dim3 blocksize =
+            dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTBase3DKernel_QP<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
+                basis2, w0, w1, w2, jac, in, out, scale);
 #else
-            IProductWRTBaseHexKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                    basis2, w0, w1, w2, jac, in, out, scale);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTBase3DKernel_QP_1D<SHAPE_TYPE, SCALE, APPEND, DEFORMED,
+                                      SHMEM><<<gridsize, blocksize, nshared>>>(
+            nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+            basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
 #endif
-        }
-        else
-        {
-            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, basis0, basis1,
-                    basis2, w0, w1, w2, jac, wsp, in, out, scale);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        const unsigned int nmTot =
-            LibUtilities::StdTetData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) * (nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 +
-                                     nq0 + nq1 + nq2)
-                  : 0u;
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) *
-                       (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2 + nm2);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-#else
-            IProductWRTBaseTetKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
-                    jac, in, out, scale);
-#endif
-        }
-        else
-        {
-            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPrismData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
-                                        nm0 * nm1 * nq2 + nm1);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-#else
-            IProductWRTBasePrismKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
-                    jac, in, out, scale);
-#endif
-        }
-        else
-        {
-            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        const unsigned int nmTot =
-            LibUtilities::StdPyrData::getNumberOfCoefficients(nm0, nm1, nm2);
-        const unsigned int nmode2 =
-            nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-        unsigned int nshared =
-            SHMEM ? sizeof(TData) *
-                        (nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2)
-                  : 0u;
-
-        if constexpr (MULTILEVEL)
-        {
-            nshared += sizeof(TData) * (nq0 * nq1 * nq2 + nm0 * nq1 * nq2 +
-                                        nm0 * nm1 * nq2 + 1u);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize3d, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale);
-#else
-            IProductWRTBasePyrKernel_QP_1D<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    index0, index1, basis0, basis1, basis2, w0, w1, w2, jac, in,
-                    out, scale);
-#endif
-        }
-        else
-        {
-            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>
-                <<<gridsize, blocksize, nshared>>>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmts, correct,
-                    basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                    scale);
-        }
+        IProductWRTBase3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
+                basis2, w0, w1, w2, jac, wsp, in, out, scale);
     }
 }
 

@@ -91,7 +91,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     const size_t nq0, const size_t nq1, const size_t indim,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const typename simd_type::vectorType *inPtr,
+    const size_t inoffset, const typename simd_type::vectorType *inptr,
     typename simd_type::scalarType *out[2],
     [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1)
@@ -138,8 +138,8 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
                 }
             }
 
-            simd_type in0 = simd_type(inPtr[cnt_ji]);
-            simd_type in1 = simd_type(inPtr[inoffset + cnt_ji]);
+            simd_type in0 = simd_type(inptr[cnt_ji]);
+            simd_type in1 = simd_type(inptr[inoffset + cnt_ji]);
 
             simd_type out0 = df_tmp[0] * in0;
             out0.fma(df_tmp[2], in1);
@@ -149,7 +149,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
 
             if (indim == 3)
             {
-                simd_type in2 = simd_type(inPtr[2 * inoffset + cnt_ji]);
+                simd_type in2 = simd_type(inptr[2 * inoffset + cnt_ji]);
                 out0.fma(df_tmp[4], in2);
                 out1.fma(df_tmp[5], in2);
             }
@@ -178,7 +178,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
     const size_t nq0, const size_t nq1, const size_t nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const typename simd_type::vectorType *inPtr,
+    const size_t inoffset, const typename simd_type::vectorType *inptr,
     typename simd_type::scalarType *out[3])
 {
     const auto ndf   = 9;
@@ -213,9 +213,9 @@ NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
             df_tmp[8] = df_Ptr[i * ndf + 8];
         }
 
-        simd_type in0 = simd_type(inPtr[i]);
-        simd_type in1 = simd_type(inPtr[inoffset + i]);
-        simd_type in2 = simd_type(inPtr[2 * inoffset + i]);
+        simd_type in0 = simd_type(inptr[i]);
+        simd_type in1 = simd_type(inptr[inoffset + i]);
+        simd_type in2 = simd_type(inptr[2 * inoffset + i]);
 
         simd_type out0 = df_tmp[0] * in0;
         out0.fma(df_tmp[3], in1);
@@ -244,7 +244,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const size_t inoffset, const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
     [[maybe_unused]] const simd_type *Fac1a, const simd_type *Fac2,
-    const typename simd_type::vectorType *inPtr,
+    const typename simd_type::vectorType *inptr,
     typename simd_type::scalarType *out[3])
 {
     const auto ndf = 9;
@@ -298,9 +298,9 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     df_tmp[8] = df_Ptr[cnt_kji * ndf + 8];
                 }
 
-                simd_type in0 = simd_type(inPtr[cnt_kji]);
-                simd_type in1 = simd_type(inPtr[inoffset + cnt_kji]);
-                simd_type in2 = simd_type(inPtr[2 * inoffset + cnt_kji]);
+                simd_type in0 = simd_type(inptr[cnt_kji]);
+                simd_type in1 = simd_type(inptr[inoffset + cnt_kji]);
+                simd_type in2 = simd_type(inptr[2 * inoffset + cnt_kji]);
 
                 simd_type out0 = df_tmp[0] * in0;
                 out0.fma(df_tmp[3], in1);

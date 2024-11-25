@@ -36,20 +36,14 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
 template <bool DEFORMED, typename TData>
-void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                       const unsigned int nelmt,
-                       const TData *KOKKOS_RESTRICT D0,
-                       const TData *KOKKOS_RESTRICT df,
-                       const TData *KOKKOS_RESTRICT in,
-                       TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -101,12 +95,10 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
 }
 
 template <bool DEFORMED, typename TData>
-void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
-                          const unsigned int nelmt,
-                          const TData *KOKKOS_RESTRICT D0,
-                          const TData *KOKKOS_RESTRICT df,
-                          const TData *KOKKOS_RESTRICT in,
-                          TData *KOKKOS_RESTRICT out)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
@@ -143,7 +135,7 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel(
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -286,7 +278,7 @@ void PhysDeriv2DKernel(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel_QP(
+NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -390,7 +382,7 @@ void PhysDeriv2DKernel_QP(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel_QP_1D(
+NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -494,7 +486,7 @@ void PhysDeriv2DKernel_QP_1D(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -762,7 +754,7 @@ void PhysDeriv3DKernel(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel_QP(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -910,7 +902,7 @@ void PhysDeriv3DKernel_QP(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel_QP_1D(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -1059,186 +1051,83 @@ void PhysDeriv3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                  const unsigned int nelmts, const TData *D0, const TData *df,
-                  const TData *in, TData *out)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
+                                               const unsigned int ncoord,
+                                               const unsigned int nelmt,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
     if constexpr (MULTILEVEL)
     {
-        PhysDeriv1DKernel_QP<DEFORMED>(nq0, ncoord, nelmts, D0, df, in, out);
+        PhysDeriv1DKernel_QP<DEFORMED>(nq0, ncoord, nelmt, D0, df, in, out);
     }
     else
     {
-        PhysDeriv1DKernel<DEFORMED>(nq0, ncoord, nelmts, D0, df, in, out);
+        PhysDeriv1DKernel<DEFORMED>(nq0, ncoord, nelmt, D0, df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                  const unsigned int nq1, const unsigned int ncoord,
-                  const unsigned int nelmts, const TData *D0, const TData *D1,
-                  const TData *Z0, const TData *Z1, const TData *df,
-                  const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
+    const TData *Z1, const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 : 0u;
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1);
 
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1;
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv2DKernel_QP<LibUtilities::Quad, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
+        PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
 #else
-            PhysDeriv2DKernel_QP_1D<LibUtilities::Quad, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
+        PhysDeriv2DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
 #endif
-        }
-        else
-        {
-            PhysDeriv2DKernel<LibUtilities::Quad, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv2DKernel_QP<LibUtilities::Tri, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
-#else
-            PhysDeriv2DKernel_QP_1D<LibUtilities::Tri, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
-#endif
-        }
-        else
-        {
-            nshared += nq0 * nq1;
-            PhysDeriv2DKernel<LibUtilities::Tri, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in, out);
-        }
+        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                  const unsigned int nq1, const unsigned int nq2,
-                  const unsigned int nelmts, const TData *D0, const TData *D1,
-                  const TData *D2, const TData *Z0, const TData *Z1,
-                  const TData *Z2, const TData *df, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
+    const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
+    const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 + nq2 * nq2 : 0u;
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2);
 
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv3DKernel_QP<LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
+        PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 #else
-            PhysDeriv3DKernel_QP_1D<LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
+        PhysDeriv3DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 #endif
-        }
-        else
-        {
-            PhysDeriv3DKernel<LibUtilities::Hex, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv3DKernel_QP<LibUtilities::Tet, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#else
-            PhysDeriv3DKernel_QP_1D<LibUtilities::Tet, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#endif
-        }
-        else
-        {
-            nshared += nq0 + 2u * nq1 + nq2;
-            PhysDeriv3DKernel<LibUtilities::Tet, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv3DKernel_QP<LibUtilities::Prism, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#else
-            PhysDeriv3DKernel_QP_1D<LibUtilities::Prism, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#endif
-        }
-        else
-        {
-            nshared += nq0 + nq2;
-            PhysDeriv3DKernel<LibUtilities::Prism, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            PhysDeriv3DKernel_QP<LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#else
-            PhysDeriv3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-#endif
-        }
-        else
-        {
-            nshared += nq0 + nq1 + nq2;
-            PhysDeriv3DKernel<LibUtilities::Pyr, DEFORMED, SHMEM>(
-                nshared, nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df, in,
-                out);
-        }
+        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
     }
 }
 

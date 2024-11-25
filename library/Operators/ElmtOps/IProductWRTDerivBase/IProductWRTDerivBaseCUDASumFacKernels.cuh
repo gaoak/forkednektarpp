@@ -36,10 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -665,207 +661,123 @@ __global__ void IProductWRTDerivBase3DKernel_QP_1D(
 // Launchers
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTDerivBase1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *df,
-                             const TData *in, TData *out)
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int blocksize =
-        std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int blocksize =
+            std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
         IProductWRTDerivBase1DKernel_QP<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmts, df, in, out);
+            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, df, in, out);
     }
     else
     {
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
         IProductWRTDerivBase1DKernel<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmts, df, in, out);
+            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTDerivBase2DKernel(LibUtilities::ShapeType shapetype,
-                             const unsigned int nq0, const unsigned int nq1,
-                             const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *Z0,
-                             const TData *Z1, const TData *df, const TData *in,
-                             TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
+    const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize2d = dim3(std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int blocksize =
-        std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1);
 
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase2DKernel_QP<LibUtilities::Quad, DEFORMED>
-                <<<gridsize, blocksize2d>>>(nq0, nq1, ncoord, nelmts, Z0, Z1,
-                                            df, in, out);
+        const dim3 blocksize = dim3(std::min(nq0, 16u), std::min(nq1, 16u), 1u);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
+                                               df, in, out);
 #else
-            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Quad, DEFORMED>
-                <<<gridsize, blocksize2d>>>(nq0, nq1, ncoord, nelmts, Z0, Z1,
-                                            df, in, out);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTDerivBase2DKernel_QP_1D<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
+                                               df, in, out);
 #endif
-        }
-        else
-        {
-            IProductWRTDerivBase2DKernel<LibUtilities::Quad, DEFORMED>
-                <<<gridsize, blocksize>>>(nq0, nq1, ncoord, nelmts, Z0, Z1, df,
-                                          in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase2DKernel_QP<LibUtilities::Tri, DEFORMED>
-                <<<gridsize, blocksize2d>>>(nq0, nq1, ncoord, nelmts, Z0, Z1,
-                                            df, in, out);
-#else
-            IProductWRTDerivBase2DKernel_QP_1D<LibUtilities::Tri, DEFORMED>
-                <<<gridsize, blocksize2d>>>(nq0, nq1, ncoord, nelmts, Z0, Z1,
-                                            df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = sizeof(TData) * (nq0 + nq1);
-            IProductWRTDerivBase2DKernel<LibUtilities::Tri, DEFORMED>
-                <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmts, Z0,
-                                                   Z1, df, in, out);
-        }
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
+                                               df, in, out);
     }
 }
 
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::CUDA>,
-                               void>::type
-IProductWRTDerivBase3DKernel(LibUtilities::ShapeType shapetype,
-                             const unsigned int nq0, const unsigned int nq1,
-                             const unsigned int nq2, const unsigned int ncoord,
-                             const unsigned int nelmts, const TData *Z0,
-                             const TData *Z1, const TData *Z2, const TData *df,
-                             const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
+    const TData *Z1, const TData *Z2, const TData *df, const TData *in,
+    TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const dim3 blocksize3d =
-        dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-    const unsigned int blocksize =
-        std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1,
+                                                                     nq2);
 
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Hex, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
+        const dim3 blocksize =
+            dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
+                                               Z1, Z2, df, in, out);
 #else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Hex, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
+        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+
+        IProductWRTDerivBase3DKernel_QP_1D<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
+                                               Z1, Z2, df, in, out);
 #endif
-        }
-        else
-        {
-            IProductWRTDerivBase3DKernel<LibUtilities::Hex, DEFORMED>
-                <<<gridsize, blocksize>>>(nq0, nq1, nq2, ncoord, nelmts, Z0, Z1,
-                                          Z2, df, in, out);
-        }
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Tet, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Tet, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = sizeof(TData) * (nq0 + 2 * nq1 + nq2);
-            IProductWRTDerivBase3DKernel<LibUtilities::Tet, DEFORMED>
-                <<<gridsize, blocksize, nshared>>>(
-                    nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Prism, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Prism, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = sizeof(TData) * (nq0 + nq2);
-            IProductWRTDerivBase3DKernel<LibUtilities::Prism, DEFORMED>
-                <<<gridsize, blocksize, nshared>>>(
-                    nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        if constexpr (MULTILEVEL)
-        {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-            IProductWRTDerivBase3DKernel_QP<LibUtilities::Pyr, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#else
-            IProductWRTDerivBase3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED>
-                <<<gridsize, blocksize3d>>>(nq0, nq1, nq2, ncoord, nelmts, Z0,
-                                            Z1, Z2, df, in, out);
-#endif
-        }
-        else
-        {
-            unsigned int nshared = sizeof(TData) * (nq0 + nq1 + nq2);
-            IProductWRTDerivBase3DKernel<LibUtilities::Pyr, DEFORMED>
-                <<<gridsize, blocksize, nshared>>>(
-                    nq0, nq1, nq2, ncoord, nelmts, Z0, Z1, Z2, df, in, out);
-        }
+        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
+                                               Z1, Z2, df, in, out);
     }
 }
 

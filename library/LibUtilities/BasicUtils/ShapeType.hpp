@@ -92,12 +92,12 @@ constexpr unsigned int ShapeTypeDimMap[SIZE_ShapeType] = {
 
 namespace StdSegData
 {
-inline int getNumberOfCoefficients(int Na)
+inline constexpr int getNumberOfCoefficients(int Na)
 {
     return Na;
 }
 
-inline int getNumberOfBndCoefficients([[maybe_unused]] int Na)
+inline constexpr int getNumberOfBndCoefficients([[maybe_unused]] int Na)
 {
     return 2;
 }
@@ -106,7 +106,7 @@ inline int getNumberOfBndCoefficients([[maybe_unused]] int Na)
 // Dimensions of coefficients for each space
 namespace StdTriData
 {
-inline int getNumberOfCoefficients(int Na, int Nb)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb)
 {
     // Note these assertions have been set to > 0 because
     // it can also be used to evaluate face expansion
@@ -118,7 +118,7 @@ inline int getNumberOfCoefficients(int Na, int Nb)
     return Na * (Na + 1) / 2 + Na * (Nb - Na);
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -130,7 +130,7 @@ inline int getNumberOfBndCoefficients(int Na, int Nb)
 
 namespace StdQuadData
 {
-inline int getNumberOfCoefficients(int Na, int Nb)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb)
 {
     // Note these assertions have been set to > 0 because
     // it can also be used to evaluate face expansion
@@ -140,7 +140,7 @@ inline int getNumberOfCoefficients(int Na, int Nb)
     return Na * Nb;
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -150,7 +150,7 @@ inline int getNumberOfBndCoefficients(int Na, int Nb)
 
 namespace StdHexData
 {
-inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -158,7 +158,7 @@ inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
     return Na * Nb * Nc;
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -184,7 +184,7 @@ namespace StdTetData
  *
  * Sum = 28 = number of tet coefficients.
  */
-inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -207,7 +207,7 @@ inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
     return nCoef;
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL2(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL2(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -229,7 +229,7 @@ inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 
 namespace StdPyrData
 {
-inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -256,7 +256,7 @@ inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
     return nCoeff;
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -276,7 +276,7 @@ inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 
 namespace StdPrismData
 {
-inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -287,7 +287,7 @@ inline int getNumberOfCoefficients(int Na, int Nb, int Nc)
     return Nb * StdTriData::getNumberOfCoefficients(Na, Nc);
 }
 
-inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
+inline constexpr int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 {
     ASSERTL1(Na > 1, "Order in 'a' direction must be > 1.");
     ASSERTL1(Nb > 1, "Order in 'b' direction must be > 1.");
@@ -302,9 +302,9 @@ inline int getNumberOfBndCoefficients(int Na, int Nb, int Nc)
 }
 } // namespace StdPrismData
 
-inline int GetNumberOfCoefficients(ShapeType shape,
-                                   std::vector<unsigned int> &modes,
-                                   int offset = 0)
+inline constexpr int GetNumberOfCoefficients(ShapeType shape,
+                                             std::vector<unsigned int> &modes,
+                                             int offset = 0)
 {
     int returnval = 0;
     switch (shape)
@@ -342,8 +342,8 @@ inline int GetNumberOfCoefficients(ShapeType shape,
     return returnval;
 }
 
-inline int GetNumberOfCoefficients(ShapeType shape, int na, int nb = 0,
-                                   int nc = 0)
+inline constexpr int GetNumberOfCoefficients(ShapeType shape, int na,
+                                             int nb = 0, int nc = 0)
 {
     int returnval = 0;
     switch (shape)

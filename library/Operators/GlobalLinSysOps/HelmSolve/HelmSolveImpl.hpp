@@ -111,9 +111,9 @@ public:
         add<ExecSpace, TData>(out, m_tmp, out);
     }
 
-    void setLambda(const TData &lambda) override
+    void SetLambda(const TData &lambda) override
     {
-        m_HelmOp->setLambda(lambda);
+        m_HelmOp->SetLambda(lambda);
     }
 
     void setPrecon(

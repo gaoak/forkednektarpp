@@ -36,19 +36,17 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
 #include "Operators/Utils/SYCLQueue.hpp"
 
 namespace Nektar::Operators::detail
 {
 
 template <bool DEFORMED, typename TData>
-void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                       const unsigned int nelmt, const TData *__restrict D0,
-                       const TData *__restrict df, const TData *__restrict in,
-                       TData *__restrict out, const sycl::nd_item<3> &item_ct1)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict D0, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -89,11 +87,11 @@ void PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
 }
 
 template <bool DEFORMED, typename TData>
-void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
-                          const unsigned int nelmt, const TData *__restrict D0,
-                          const TData *__restrict df,
-                          const TData *__restrict in, TData *__restrict out,
-                          const sycl::nd_item<3> &item_ct1)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
+    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict D0, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out,
+    const sycl::nd_item<3> &item_ct1)
 {
 
     unsigned int e = item_ct1.get_group(2);
@@ -130,13 +128,13 @@ void PhysDeriv1DKernel_QP(const unsigned int nq0, const unsigned int ncoord,
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
-                       const unsigned int ncoord, const unsigned int nelmt,
-                       const TData *__restrict D0, const TData *__restrict D1,
-                       const TData *__restrict Z0, const TData *__restrict Z1,
-                       const TData *__restrict df, const TData *__restrict in,
-                       TData *__restrict out, TData *__restrict shared,
-                       const sycl::nd_item<3> &item_ct1)
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict Z0,
+    const TData *__restrict Z1, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf          = 2 * ncoord;
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -255,7 +253,7 @@ void PhysDeriv2DKernel(const unsigned int nq0, const unsigned int nq1,
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel_QP(
+NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
@@ -363,7 +361,7 @@ void PhysDeriv2DKernel_QP(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv2DKernel_QP_1D(
+NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
@@ -460,14 +458,14 @@ void PhysDeriv2DKernel_QP_1D(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
-                       const unsigned int nq2, const unsigned int nelmt,
-                       const TData *__restrict D0, const TData *__restrict D1,
-                       const TData *__restrict D2, const TData *__restrict Z0,
-                       const TData *__restrict Z1, const TData *__restrict Z2,
-                       const TData *__restrict df, const TData *__restrict in,
-                       TData *__restrict out, TData *__restrict shared,
-                       const sycl::nd_item<3> &item_ct1)
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *__restrict D0,
+    const TData *__restrict D1, const TData *__restrict D2,
+    const TData *__restrict Z0, const TData *__restrict Z1,
+    const TData *__restrict Z2, const TData *__restrict df,
+    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord   = 3u;
     const unsigned int ndf          = 9u;
@@ -705,7 +703,7 @@ void PhysDeriv3DKernel(const unsigned int nq0, const unsigned int nq1,
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel_QP(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
@@ -867,7 +865,7 @@ void PhysDeriv3DKernel_QP(
 
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
-void PhysDeriv3DKernel_QP_1D(
+NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
@@ -1010,457 +1008,201 @@ void PhysDeriv3DKernel_QP_1D(
 // PhysDeriv1DKernel
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-PhysDeriv1DKernel(const unsigned int nq0, const unsigned int ncoord,
-                  const unsigned int nelmts, const TData *D0, const TData *df,
-                  const TData *in, TData *out)
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
+                                               const unsigned int ncoord,
+                                               const unsigned int nelmt,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0, NektarSpaces::SYCL::defaultBlockSize)
-                   : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if constexpr (MULTILEVEL)
     {
         Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> localSize(
-                 1, 1, NektarSpaces::vector_width<TData>::value);
-             const sycl::range<3> globalSize(
-                 1, 1, gridsize * NektarSpaces::vector_width<TData>::value);
-
-             cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
-                              [=](sycl::nd_item<3> item) {
-                                  PhysDeriv1DKernel_QP<DEFORMED>(nq0, ncoord,
-                                                                 nelmts, D0, df,
-                                                                 in, out, item);
-                              });
+             const sycl::range<3> blocksize(1, 1, std::min(nq0, SYCLBlockSize));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     PhysDeriv1DKernel_QP<DEFORMED>(nq0, ncoord, nelmt, D0, df,
+                                                    in, out, item);
+                 });
          }).wait();
     }
     else
     {
         Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> localSize(1, 1, blocksize);
-             const sycl::range<3> globalSize(1, 1, gridsize * blocksize);
-
-             cgh.parallel_for(sycl::nd_range<3>(globalSize, localSize),
-                              [=](sycl::nd_item<3> item) {
-                                  PhysDeriv1DKernel<DEFORMED>(nq0, ncoord,
-                                                              nelmts, D0, df,
-                                                              in, out, item);
-                              });
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     PhysDeriv1DKernel<DEFORMED>(nq0, ncoord, nelmt, D0, df, in,
+                                                 out, item);
+                 });
          }).wait();
     }
 }
 
 //
 // PhysDeriv2DKernel
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-PhysDeriv2DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                  const unsigned int nq1, const unsigned int ncoord,
-                  const unsigned int nelmts, const TData *D0, const TData *D1,
-                  const TData *Z0, const TData *Z1, const TData *df,
-                  const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
+    const TData *Z1, const TData *df, const TData *in, TData *out)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const sycl::range<3> blocksize2d(1, std::min(nq0, 16u), std::min(nq1, 16u));
-    const unsigned int blocksize =
-        MULTILEVEL ? std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize)
-                   : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    unsigned int nshared = SHMEM ? nq0 * nq0 + nq1 * nq1 : 0u;
-
-    if (shapetype == LibUtilities::Quad)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1;
-
-            Q.submit([=](sycl::handler &cgh) {
-                 // Create local shared memory
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 // Set WorkGroup dimensions
-                 sycl::range<3> globalSize =
-                     sycl::range<3>(1, 1, gridsize) * blocksize2d;
-
-                 cgh.parallel_for(sycl::nd_range<3>(globalSize, blocksize2d),
-                                  [=](sycl::nd_item<3> item) {
-                                      TData *shmPtr =
-                                          shared
-                                              .template get_multi_ptr<
-                                                  sycl::access::decorated::no>()
-                                              .get();
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                                      PhysDeriv2DKernel_QP<LibUtilities::Quad,
-                                                           DEFORMED, SHMEM>(
-                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
-                                          Z1, df, in, out, shmPtr, item);
+             const sycl::range<3> blocksize(1, std::min(nq0, 16u),
+                                            std::min(nq1, 16u));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #else
-                                      PhysDeriv2DKernel_QP_1D<LibUtilities::Quad,
-                                                           DEFORMED, SHMEM>(
-                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
-                                          Z1, df, in, out, shmPtr, item);
+         const sycl::range<3> blocksize(1, 1,
+             std::min(nq0 * nq1, SYCLBlockSize);
+         const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #endif
-                                  });
-             }).wait();
-        }
-        else
-        {
-            Q.submit([=](sycl::handler &cgh) {
-                 // Create local shared memory
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 // Set WorkGroup dimensions
-                 const sycl::range<3> wgSize(1, 1, blocksize);
-                 const sycl::range<3> globalSize =
-                     sycl::range<3>(1, 1, gridsize) * wgSize;
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(globalSize, wgSize),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv2DKernel<LibUtilities::Quad, DEFORMED, SHMEM>(
-                             nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in,
-                             out, shmPtr, item);
-                     });
-             }).wait();
-        }
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                     PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+                         nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
+                         shmptr, item);
+#else
+                PhysDeriv2DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
+                    nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
+                    shmptr, item);
+#endif
+                 });
+         }).wait();
     }
-    else if (shapetype == LibUtilities::Tri)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1;
-
-            Q.submit([=](sycl::handler &cgh) {
-                 // Create local shared memory
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-                 // Set WorkGroup dimensions
-                 sycl::range<3> globalSize =
-                     sycl::range<3>(1, 1, gridsize) * blocksize2d;
-
-                 cgh.parallel_for(sycl::nd_range<3>(globalSize, blocksize2d),
-                                  [=](sycl::nd_item<3> item) {
-                                      TData *shmPtr =
-                                          shared
-                                              .template get_multi_ptr<
-                                                  sycl::access::decorated::no>()
-                                              .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                                      PhysDeriv2DKernel_QP<LibUtilities::Tri,
-                                                           DEFORMED, SHMEM>(
-                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
-                                          Z1, df, in, out, shmPtr, item);
-#else
-                                      PhysDeriv2DKernel_QP_1D<LibUtilities::Tri,
-                                                           DEFORMED, SHMEM>(
-                                          nq0, nq1, ncoord, nelmts, D0, D1, Z0,
-                                          Z1, df, in, out, shmPtr, item);
-#endif
-                                  });
-             }).wait();
-        }
-        else
-        {
-            nshared += nq0 * nq1;
-
-            Q.submit([=](sycl::handler &cgh) {
-                 // Create local shared memory
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 // Set WorkGroup dimensions
-                 sycl::range<3> wgSize(1, 1, blocksize);
-                 sycl::range<3> globalSize =
-                     sycl::range<3>(1, 1, gridsize) * wgSize;
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(globalSize, wgSize),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv2DKernel<LibUtilities::Tri, DEFORMED, SHMEM>(
-                             nq0, nq1, ncoord, nelmts, D0, D1, Z0, Z1, df, in,
-                             out, shmPtr, item);
-                     });
-             }).wait();
-        }
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+                         nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
+                         shmptr, item);
+                 });
+         }).wait();
     }
 }
 
 // PhysDeriv3DKernel
-template <typename ExecSpace, typename Implementation, bool DEFORMED,
-          bool SHMEM, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
-                               void>::type
-PhysDeriv3DKernel(LibUtilities::ShapeType shapetype, const unsigned int nq0,
-                  const unsigned int nq1, const unsigned int nq2,
-                  const unsigned int nelmts, const TData *D0, const TData *D1,
-                  const TData *D2, const TData *Z0, const TData *Z1,
-                  const TData *Z2, const TData *df, const TData *in, TData *out)
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
+    const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
+    const TData *in, TData *out)
 {
+    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const sycl::range<3> blocksize3d(std::min(nq0, 8u), std::min(nq1, 8u),
-                                     std::min(nq2, 8u));
-    const unsigned int blocksize =
-        MULTILEVEL
-            ? std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize)
-            : NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min(MULTILEVEL ? nelmts : (nelmts + blocksize - 1u) / blocksize,
-                 2147483647u);
+    const unsigned int nshared =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    unsigned int nshared = SHMEM ? (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) : 0u;
-
-    if (shapetype == LibUtilities::Hex)
+    if constexpr (MULTILEVEL)
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
 #if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                         PhysDeriv3DKernel_QP<LibUtilities::Hex, DEFORMED,
-                                              SHMEM>(nq0, nq1, nq2, nelmts, D0,
-                                                     D1, D2, Z0, Z1, Z2, df, in,
-                                                     out, shmPtr, item);
+             const sycl::range<3> blocksize(
+                 std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #else
-                         PhysDeriv3DKernel_QP_1D<LibUtilities::Hex, DEFORMED,
-                                                 SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
+             const sycl::range<3> blocksize(1, 1,
+                 std::min(nq0 * nq1 * nq2, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
 #endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv3DKernel<LibUtilities::Hex, DEFORMED, SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-                     });
-             }).wait();
-        }
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+#if !defined(NEKTAR_USE_QP_1D_KERNEL)
+                     PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+                         nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
+                         out, shmptr, item);
+#else
+                PhysDeriv3DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
+                    nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out,
+                    shmptr, item);
+#endif
+                 });
+         }).wait();
     }
-    else if (shapetype == LibUtilities::Tet)
+    else
     {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                         PhysDeriv3DKernel_QP<LibUtilities::Tet, DEFORMED,
-                                              SHMEM>(nq0, nq1, nq2, nelmts, D0,
-                                                     D1, D2, Z0, Z1, Z2, df, in,
-                                                     out, shmPtr, item);
-#else
-                         PhysDeriv3DKernel_QP_1D<LibUtilities::Tet, DEFORMED,
-                                                 SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-#endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            nshared += nq0 + 2u * nq1 + nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv3DKernel<LibUtilities::Tet, DEFORMED, SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-                     });
-             }).wait();
-        }
-    }
-    else if (shapetype == LibUtilities::Prism)
-    {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                         PhysDeriv3DKernel_QP<LibUtilities::Prism, DEFORMED,
-                                              SHMEM>(nq0, nq1, nq2, nelmts, D0,
-                                                     D1, D2, Z0, Z1, Z2, df, in,
-                                                     out, shmPtr, item);
-#else
-                         PhysDeriv3DKernel_QP_1D<LibUtilities::Prism, DEFORMED,
-                                                 SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-#endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            nshared += nq0 + nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv3DKernel<LibUtilities::Prism, DEFORMED,
-                                           SHMEM>(nq0, nq1, nq2, nelmts, D0, D1,
-                                                  D2, Z0, Z1, Z2, df, in, out,
-                                                  shmPtr, item);
-                     });
-             }).wait();
-        }
-    }
-    else if (shapetype == LibUtilities::Pyr)
-    {
-        if constexpr (MULTILEVEL)
-        {
-            nshared += nq0 * nq1 * nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           blocksize3d,
-                                       blocksize3d),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                         PhysDeriv3DKernel_QP<LibUtilities::Pyr, DEFORMED,
-                                              SHMEM>(nq0, nq1, nq2, nelmts, D0,
-                                                     D1, D2, Z0, Z1, Z2, df, in,
-                                                     out, shmPtr, item);
-#else
-                         PhysDeriv3DKernel_QP_1D<LibUtilities::Pyr, DEFORMED,
-                                                 SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-#endif
-                     });
-             }).wait();
-        }
-        else
-        {
-            nshared += nq0 + nq1 + nq2;
-            Q.submit([=](sycl::handler &cgh) {
-                 sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                       cgh);
-
-                 cgh.parallel_for(
-                     sycl::nd_range<3>(sycl::range<3>(1, 1, gridsize) *
-                                           sycl::range<3>(1, 1, blocksize),
-                                       sycl::range<3>(1, 1, blocksize)),
-                     [=](sycl::nd_item<3> item) {
-                         TData *shmPtr = shared
-                                             .template get_multi_ptr<
-                                                 sycl::access::decorated::no>()
-                                             .get();
-                         PhysDeriv3DKernel<LibUtilities::Pyr, DEFORMED, SHMEM>(
-                             nq0, nq1, nq2, nelmts, D0, D1, D2, Z0, Z1, Z2, df,
-                             in, out, shmPtr, item);
-                     });
-             }).wait();
-        }
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
+                                                   cgh);
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(
+                 1, 1,
+                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
+                          2147483647u));
+             cgh.parallel_for(
+                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                 [=](sycl::nd_item<3> item) {
+                     TData *shmptr = shared
+                                         .template get_multi_ptr<
+                                             sycl::access::decorated::no>()
+                                         .get();
+                     PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+                         nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
+                         out, shmptr, item);
+                 });
+         }).wait();
     }
 }
 

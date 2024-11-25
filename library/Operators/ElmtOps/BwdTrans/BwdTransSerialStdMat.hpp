@@ -101,57 +101,22 @@ public:
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Phys> &out) override
     {
-        const auto dimension = this->m_expansionList->GetShapeDimension();
-
-        // Initialize basiskey.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-
         // Initialize index.
         size_t exp_idx = 0;
 
         // Loop over the blocks.
-        for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
             // Block dependent.
-            auto &inblock        = in.GetBlocks()[blk];
-            auto &outblock       = out.GetBlocks()[blk];
-            const auto nElmts    = inblock.GetNumElements();
-            const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
 
-            // Initialize pointers.
-            auto inPtr = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
-                             ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                             : inblock.template GetPtr<MemSpace, ReadWrite>();
-            auto outPtr = outblock.template GetPtr<MemSpace, WriteOnly>();
-
-            // Determine shape and type of the element.
-            const auto expPtr = this->m_expansionList->GetExp(exp_idx);
-            const auto nmTot  = expPtr->GetNcoeffs();
-            const auto nqTot  = expPtr->GetTotPoints();
-
-            // Reshape, if necessary.
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-                (TData *)inPtr);
-            inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-            outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-            // Fetch basis key for the current element type.
-            for (unsigned int d = 0; d < dimension; d++)
-            {
-                basisKeys[d] = expPtr->GetBasis(d)->GetBasisKey();
-            }
-
-            // Fetch matrix.
-            const auto &matPtr = m_mat[basisKeys];
-
-            // Perform matrix-matrix multiply.
-            Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
-                       nqTot, inPtr, nmTot, 0.0, outPtr, nqTot);
+            this->BlockOperator(inblock, outblock);
 
             // Increment index for next element type.
-            exp_idx += nElmts;
+            exp_idx += inblock.GetNumElements();
         }
     }
 
@@ -167,7 +132,48 @@ public:
             expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Determine shape and type of the element.
+        const auto dimension = m_expPtr->GetShapeDimension();
+        const auto nmTot     = m_expPtr->GetNcoeffs();
+        const auto nqTot     = m_expPtr->GetTotPoints();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), inblock.GetNumElementsWithPadding(),
+            inblock.GetNumData(), (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Fetch matrix.
+        std::vector<LibUtilities::BasisKey> basisKeys(
+            dimension, LibUtilities::NullBasisKey);
+        for (unsigned int d = 0; d < dimension; d++)
+        {
+            basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+        }
+        const auto &matPtr = m_mat[basisKeys];
+
+        auto nElmts = inblock.GetNumElements();
+
+        // Perform matrix-matrix multiply.
+        Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(), nqTot,
+                   inptr, nmTot, 0.0, outptr, nqTot);
+    }
+
 private:
+    unsigned int m_blk;
+
+    LocalRegions::ExpansionSharedPtr m_expPtr;
+
     std::map<std::vector<LibUtilities::BasisKey>, Array<OneD, TData>> m_mat;
     static constexpr size_t m_implInterleaveWidth = 1;
 };
