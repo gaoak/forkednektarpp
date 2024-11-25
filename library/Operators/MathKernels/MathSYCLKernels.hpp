@@ -192,7 +192,7 @@ void reduceSumKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -244,7 +244,7 @@ void reduceMaxKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -297,7 +297,7 @@ void reduceMinKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -349,7 +349,7 @@ void ddotKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -399,7 +399,7 @@ void l1normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -449,7 +449,7 @@ void l2normKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -500,7 +500,7 @@ void lpnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -552,7 +552,7 @@ void linfnormKernel(const unsigned int gridSize, const unsigned int blockSize,
 
                  indx.barrier(sycl::access::fence_space::local_space);
 
-                 unsigned int n = 512;
+                 unsigned int n = NektarSpaces::SYCL::maximumBlockSize / 2;
                  while (n > 0)
                  {
                      if (blockSize > n && lid < n && lid + n < blockSize)
@@ -578,7 +578,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 reduceSumKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -598,7 +598,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 reduceMaxKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -618,7 +618,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 reduceMinKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -638,7 +638,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 ddotKernel(const unsigned int nsize, const TData *x, const TData *y, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -658,7 +658,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 l1normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -678,7 +678,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 l2normKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -699,7 +699,7 @@ lpnormKernel(const unsigned int nsize, const unsigned int p, const TData *x,
              TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {
@@ -719,7 +719,7 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 linfnormKernel(const unsigned int nsize, const TData *x, TData *out)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::SYCL::maximumBlockSize;
 
     if (syclBuffer == nullptr)
     {

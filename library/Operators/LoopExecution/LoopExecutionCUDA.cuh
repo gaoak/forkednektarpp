@@ -373,7 +373,7 @@ parallel_reduce(const unsigned int begin, const unsigned int end,
                 const Functor &functor, typename Reduction::value_type *out)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
-    const unsigned int gridSize  = ((end - begin) + blockSize - 1u) / blockSize;
+    const unsigned int gridSize  = NektarSpaces::CUDA::maximumBlockSize;
 
     using TData = typename Reduction::value_type;
 
