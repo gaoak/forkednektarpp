@@ -50,8 +50,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -82,7 +81,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -93,7 +92,6 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
     const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
 {
-
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
@@ -136,12 +134,14 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
     const sycl::nd_item<3> &item_ct1)
 {
-    const unsigned int ndf          = 2 * ncoord;
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
+    const unsigned int ndf = 2 * ncoord;
+
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_D0              = SHMEM ? shared : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
+
+    TData *s_D0 = SHMEM ? shared : (TData *)D0;
+    TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_xfrm0, *s_xfrm1;
 
     // Copy to shared memory.
@@ -184,8 +184,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -247,45 +246,21 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
     const TData *__restrict Z1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData xfrm0, xfrm1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
-        {
-            s_D0[idx] = D0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
-        {
-            s_D1[idx] = D1[idx];
-        }
-    }
 
     unsigned int e = item_ct1.get_group(2);
 
@@ -294,120 +269,6 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
         const unsigned int dfsize   = DEFORMED ? nqTot : 1;
         const unsigned int dfoffset = ndf * dfsize * e;
         const unsigned int offset   = nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp[idx] = in[offset + idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-             j += item_ct1.get_local_range(1))
-        {
-            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                 i += item_ct1.get_local_range(2))
-            {
-                const unsigned int cnt_ji = nq0 * j + i;
-                const unsigned int index  = offset + cnt_ji;
-                const unsigned int dfindex =
-                    DEFORMED ? dfoffset + cnt_ji : dfoffset;
-
-                // Compute tensorial derivative.
-                // Direction 0
-                TData d0 = 0.0;
-                for (unsigned int q = 0u; q < nq0; ++q)
-                {
-                    d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * j + q];
-                }
-
-                // Direction 1
-                TData d1 = 0.0;
-                for (unsigned int q = 0u; q < nq1; ++q)
-                {
-                    d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * q + i];
-                }
-
-                // Moving from standard to collapsed coordinates.
-                if constexpr (SHAPETYPE == LibUtilities::Tri)
-                {
-                    xfrm0 = 2.0 / (1.0 - Z1[j]);
-                    xfrm1 = 0.5 * (1.0 + Z0[i]);
-                    d0 *= xfrm0;
-                    d1 += d0 * xfrm1;
-                }
-
-                // Multiply by derivative factors.
-                for (unsigned int d = 0u; d < ncoord; d++)
-                {
-                    out[d * nelmt * nqTot + index] =
-                        d0 * df[(2u * d) * dfsize + dfindex] +
-                        d1 * df[(2u * d + 1u) * dfsize + dfindex];
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
-NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict Z0,
-    const TData *__restrict Z1, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int ndf   = 2 * ncoord;
-    const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData xfrm0, xfrm1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_D0[idx] = D0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_D1[idx] = D1[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-        const unsigned int dfoffset = ndf * dfsize * e;
-        const unsigned int offset   = nqTot * e;
-
-        // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_wsp[idx] = in[offset + idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
 
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
              idx += item_ct1.get_local_range(2))
@@ -422,21 +283,21 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
             TData d0 = 0.0;
             for (unsigned int q = 0u; q < nq0; ++q)
             {
-                d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * j + q];
+                d0 += D0[q * nq0 + i] * in[offset + nq0 * j + q];
             }
 
             // Direction 1
             TData d1 = 0.0;
             for (unsigned int q = 0u; q < nq1; ++q)
             {
-                d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * q + i];
+                d1 += D1[q * nq1 + j] * in[offset + nq0 * q + i];
             }
 
             // Moving from standard to collapsed coordinates.
             if constexpr (SHAPETYPE == LibUtilities::Tri)
             {
-                xfrm0 = 2.0 / (1.0 - Z1[j]);
-                xfrm1 = 0.5 * (1.0 + Z0[i]);
+                TData xfrm0 = 2.0 / (1.0 - Z1[j]);
+                TData xfrm1 = 0.5 * (1.0 + Z0[i]);
                 d0 *= xfrm0;
                 d1 += d0 * xfrm1;
             }
@@ -467,9 +328,10 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
     const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int ncoord   = 3u;
-    const unsigned int ndf          = 9u;
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     TData *s_D0              = SHMEM ? shared : (TData *)D0;
@@ -578,8 +440,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -697,57 +558,24 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
     const TData *__restrict Z0, const TData *__restrict Z1,
     const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
+    const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
 {
-    constexpr unsigned int ndf    = 9u;
     constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
-    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nq0 * nq0; idx += stride)
-        {
-            s_D0[idx] = D0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1 * nq1; idx += stride)
-        {
-            s_D1[idx] = D1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2 * nq2; idx += stride)
-        {
-            s_D2[idx] = D2[idx];
-        }
-    }
 
     unsigned int e = item_ct1.get_group(2);
 
@@ -756,172 +584,6 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
         const unsigned int dfsize   = DEFORMED ? nqTot : 1;
         const unsigned int dfoffset = ndf * dfsize * e;
         const unsigned int offset   = nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nqTot; idx += stride)
-        {
-            s_wsp[idx] = in[offset + idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // Compute tensorial derivative.
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                     i += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
-
-                    // Direction 0
-                    TData d0 = 0.0;
-                    for (unsigned int q = 0u; q < nq0; ++q)
-                    {
-                        d0 += s_D0[q * nq0 + i] *
-                              s_wsp[nq0 * nq1 * k + nq0 * j + q];
-                    }
-
-                    // Direction 1
-                    TData d1 = 0.0;
-                    for (unsigned int q = 0u; q < nq1; ++q)
-                    {
-                        d1 += s_D1[q * nq1 + j] *
-                              s_wsp[nq0 * nq1 * k + nq0 * q + i];
-                    }
-
-                    // Direction 2
-                    TData d2 = 0.0;
-                    for (unsigned int q = 0u; q < nq2; ++q)
-                    {
-                        d2 += s_D2[q * nq2 + k] *
-                              s_wsp[nq0 * nq1 * q + nq0 * j + i];
-                    }
-
-                    // Moving from standard to collapsed coordinates.
-                    if constexpr (SHAPETYPE == LibUtilities::Tet)
-                    {
-                        xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-                        xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
-
-                        TData xfrm = xfrm_eta1m * xfrm_eta2;
-                        TData tmp0 = xfrm * d0;
-                        TData tmp1 = xfrm_eta0 * tmp0;
-                        TData tmp2 = xfrm_eta2 * d1;
-                        d0         = tmp0;
-                        d1         = tmp1 + tmp2;
-                        d2 += tmp1 + xfrm_eta1 * tmp2;
-                    }
-                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
-                    {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                        d0 *= xfrm_eta2;
-                        d2 += xfrm_eta0 * d0;
-                    }
-                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                        d0 *= xfrm_eta2;
-                        d1 *= xfrm_eta2;
-                        d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
-                    }
-
-                    // Multiply by derivative factors.
-                    for (unsigned int d = 0u; d < ncoord; d++)
-                    {
-                        out[d * nelmt * nqTot + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
-                    }
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
-NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const TData *__restrict D0,
-    const TData *__restrict D1, const TData *__restrict D2,
-    const TData *__restrict Z0, const TData *__restrict Z1,
-    const TData *__restrict Z2, const TData *__restrict df,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    constexpr unsigned int ncoord = 3u;
-    constexpr unsigned int ndf    = 9u;
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp             = shared;
-    TData *s_D0              = SHMEM ? s_wsp + nqTot : (TData *)D0;
-    TData *s_D1              = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData *s_D2              = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
-    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_D0[idx] = D0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_D1[idx] = D1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_D2[idx] = D2[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-        const unsigned int dfoffset = ndf * dfsize * e;
-        const unsigned int offset   = nqTot * e;
-
-        // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_wsp[idx] = in[offset + idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
 
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
              idx += item_ct1.get_local_range(2))
@@ -937,30 +599,33 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
             TData d0 = 0.0;
             for (unsigned int q = 0u; q < nq0; ++q)
             {
-                d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * nq1 * k + nq0 * j + q];
+                d0 +=
+                    D0[q * nq0 + i] * in[offset + nq0 * nq1 * k + nq0 * j + q];
             }
 
             // Direction 1
             TData d1 = 0.0;
             for (unsigned int q = 0u; q < nq1; ++q)
             {
-                d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * nq1 * k + nq0 * q + i];
+                d1 +=
+                    D1[q * nq1 + j] * in[offset + nq0 * nq1 * k + nq0 * q + i];
             }
 
             // Direction 2
             TData d2 = 0.0;
             for (unsigned int q = 0u; q < nq2; ++q)
             {
-                d2 += s_D2[q * nq2 + k] * s_wsp[nq0 * nq1 * q + nq0 * j + i];
+                d2 +=
+                    D2[q * nq2 + k] * in[offset + nq0 * nq1 * q + nq0 * j + i];
             }
 
             // Moving from standard to collapsed coordinates.
             if constexpr (SHAPETYPE == LibUtilities::Tet)
             {
-                xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-                xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-                xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-                xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
+                TData xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
+                TData xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
+                TData xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
+                TData xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
 
                 TData xfrm = xfrm_eta1m * xfrm_eta2;
                 TData tmp0 = xfrm * d0;
@@ -972,16 +637,16 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
             }
             else if constexpr (SHAPETYPE == LibUtilities::Prism)
             {
-                xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
                 d0 *= xfrm_eta2;
                 d2 += xfrm_eta0 * d0;
             }
             else if constexpr (SHAPETYPE == LibUtilities::Pyr)
             {
-                xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-                xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
+                TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
                 d0 *= xfrm_eta2;
                 d1 *= xfrm_eta2;
                 d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
@@ -1014,8 +679,6 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
@@ -1023,9 +686,13 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, std::min(nq0, SYCLBlockSize));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -1036,12 +703,13 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
     }
     else
     {
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -1055,65 +723,48 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
 //
 // PhysDeriv2DKernel
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+          typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
     const TData *Z1, const TData *df, const TData *in, TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-             const sycl::range<3> blocksize(1, std::min(nq0, 16u),
-                                            std::min(nq1, 16u));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#else
-         const sycl::range<3> blocksize(1, 1,
-             std::min(nq0 * nq1, SYCLBlockSize);
-         const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#endif
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                     PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+                     PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED>(
                          nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
-                         shmptr, item);
-#else
-                PhysDeriv2DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
-                    nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
-                    shmptr, item);
-#endif
+                         item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int nshared =
+            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -1121,7 +772,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+                     PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, true>(
                          nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
                          shmptr, item);
                  });
@@ -1131,66 +782,49 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
 
 // PhysDeriv3DKernel
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+          typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
     const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
     const TData *in, TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-             const sycl::range<3> blocksize(
-                 std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#else
-             const sycl::range<3> blocksize(1, 1,
-                 std::min(nq0 * nq1 * nq2, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#endif
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-                     PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
+                     PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED>(
                          nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
-                         out, shmptr, item);
-#else
-                PhysDeriv3DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
-                    nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out,
-                    shmptr, item);
-#endif
+                         out, item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int nshared =
+            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -1198,7 +832,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-                     PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
+                     PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, true>(
                          nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
                          out, shmptr, item);
                  });

@@ -42,56 +42,40 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, bool MULTILEVEL>
-inline unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
-                                              const unsigned int nq1)
+template <LibUtilities::ShapeType SHAPE_TYPE>
+inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
+                                                        const unsigned int nq1)
 {
-    if constexpr (MULTILEVEL)
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return SHMEM * (nq0 * nq0 + nq1 * nq1) + nq0 * nq1;
+        return nq0 * nq0 + nq1 * nq1;
     }
-    else
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            return SHMEM * (nq0 * nq0 + nq1 * nq1);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            return SHMEM * (nq0 * nq0 + nq1 * nq1) + nq0 * nq1;
-        }
+        return nq0 * nq0 + nq1 * nq1 + nq0 * nq1;
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, bool MULTILEVEL>
-inline unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
-                                              const unsigned int nq1,
-                                              const unsigned int nq2)
+template <LibUtilities::ShapeType SHAPE_TYPE>
+inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
+                                                        const unsigned int nq1,
+                                                        const unsigned int nq2)
 {
-    if constexpr (MULTILEVEL)
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return SHMEM * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) + nq0 * nq1 * nq2;
+        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
     }
-    else
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            return SHMEM * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            return (SHMEM * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) + nq0 +
-                    2u * nq1 + nq2);
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            return SHMEM * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) + nq0 + nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            return SHMEM * (nq0 * nq0 + nq1 * nq1 + nq2 * nq2) + nq0 + nq1 +
-                   nq2;
-        }
+        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + 2u * nq1 + nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + nq1 + nq2;
     }
 }
 
