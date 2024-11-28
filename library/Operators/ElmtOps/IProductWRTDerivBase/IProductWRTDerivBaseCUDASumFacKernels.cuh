@@ -119,10 +119,11 @@ __global__ void IProductWRTDerivBase2DKernel(
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
-    const auto ndf                  = ncoord * 2;
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
+    const unsigned int ndf   = ncoord * 2;
     const unsigned int nqTot = nq0 * nq1;
+
     TData *s_f0, *s_f1;
 
     // Pre-compute factor.
@@ -196,75 +197,12 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
+    const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
+
     TData f0, f1;
 
     unsigned int e = blockIdx.x;
-    const auto ndf = ncoord * 2;
-
-    while (e < nelmt)
-    {
-        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-        const unsigned int dfoffset = ndf * dfsize * e;
-        const unsigned int offset   = nqTot * e;
-
-        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-        {
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
-            {
-                f0 = 2.0 / (1.0 - Z1[j]);
-            }
-
-            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-            {
-                const unsigned int cnt_ji = nq0 * j + i;
-                const unsigned int index  = offset + cnt_ji;
-                const unsigned int dfindex =
-                    DEFORMED ? dfoffset + cnt_ji : dfoffset;
-
-                TData sum1 = 0.0, sum2 = 0.0;
-                for (unsigned int d = 0u; d < ncoord; ++d)
-                {
-                    TData tmp = in[d * nelmt * nqTot + index];
-                    sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
-                    sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
-                }
-
-                // Moving from standard to collapsed coordinates.
-                if constexpr (SHAPETYPE == LibUtilities::Tri)
-                {
-                    f1 = 0.5 * (1.0 + Z0[i]);
-                }
-
-                if constexpr (SHAPETYPE == LibUtilities::Quad)
-                {
-                    out[index]                 = sum1;
-                    out[nelmt * nqTot + index] = sum2;
-                }
-                else if constexpr (SHAPETYPE == LibUtilities::Tri)
-                {
-                    out[index]                 = (sum1 + sum2 * f1) * f0;
-                    out[nelmt * nqTot + index] = sum2;
-                }
-            }
-        }
-
-        e += gridDim.x;
-    }
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase2DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const TData *__restrict__ Z0,
-    const TData *__restrict__ Z1, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
-{
-    const unsigned int nqTot = nq0 * nq1;
-    TData f0, f1;
-
-    unsigned int e = blockIdx.x;
-    const auto ndf = ncoord * 2;
 
     while (e < nelmt)
     {
@@ -317,17 +255,20 @@ __global__ void IProductWRTDerivBase2DKernel_QP_1D(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const auto ndf           = 9u;
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
+
     TData *s_f0, *s_f1, *s_f2, *s_f3;
 
     // Pre-compute factor.
@@ -470,110 +411,16 @@ __global__ void IProductWRTDerivBase3DKernel(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
-    const auto ndf           = 9u;
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData f0, f1, f2, f3;
 
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-        const unsigned int dfoffset = ndf * dfsize * e;
-        const unsigned int offset   = nqTot * e;
-
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
-            {
-                f2 = 2.0 / (1.0 - Z2[k]);
-            }
-
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                              SHAPETYPE == LibUtilities::Pyr)
-                {
-                    f3 = 0.5 * (1.0 + Z1[j]);
-                }
-
-                if constexpr (SHAPETYPE == LibUtilities::Tet)
-                {
-                    f0 = 2.0 / (1.0 - Z1[j]);
-                }
-
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
-
-                    TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-                    for (unsigned int d = 0u; d < ncoord; ++d)
-                    {
-                        TData tmp = in[d * nelmt * nqTot + index];
-                        sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
-                    }
-
-                    if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                                  SHAPETYPE == LibUtilities::Prism ||
-                                  SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        f1 = 0.5 * (1.0 + Z0[i]);
-                    }
-
-                    if constexpr (SHAPETYPE == LibUtilities::Hex)
-                    {
-                        out[index]                      = sum1;
-                        out[nelmt * nqTot + index]      = sum2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if constexpr (SHAPETYPE == LibUtilities::Tet)
-                    {
-                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
-                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
-                    {
-                        out[index]                 = (sum1 + sum3 * f1) * f2;
-                        out[nelmt * nqTot + index] = sum2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        out[index]                 = (sum1 + sum3 * f1) * f2;
-                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                }
-            }
-        }
-
-        e += gridDim.x;
-    }
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase3DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
-    const TData *__restrict__ Z2, const TData *__restrict__ df,
-    const TData *__restrict__ in, TData *__restrict__ out)
-{
-    const auto ndf           = 9u;
-    const unsigned int nqTot = nq0 * nq1 * nq2;
     TData f0, f1, f2, f3;
 
     unsigned int e = blockIdx.x;
@@ -698,38 +545,28 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        sizeof(TData) *
-        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const dim3 blocksize = dim3(std::min(nq0, 16u), std::min(nq1, 16u), 1u);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
-
-        IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
-                                               df, in, out);
-#else
         const unsigned int blocksize =
             std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
-        IProductWRTDerivBase2DKernel_QP_1D<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
-                                               df, in, out);
-#endif
+        IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize>>>(nq0, nq1, ncoord, nelmt, Z0, Z1, df, in,
+                                      out);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
         IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, Z0, Z1,
-                                               df, in, out);
+            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, ncoord, nelmt, Z0,
+                                                 Z1, df, in, out);
     }
 }
 
@@ -737,47 +574,34 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
-    const TData *Z1, const TData *Z2, const TData *df, const TData *in,
-    TData *out)
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
+    const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        sizeof(TData) *
-        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1,
-                                                                     nq2);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const dim3 blocksize =
-            dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
-
-        IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
-                                               Z1, Z2, df, in, out);
-#else
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
-        IProductWRTDerivBase3DKernel_QP_1D<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
-                                               Z1, Z2, df, in, out);
-#endif
+        IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize>>>(nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in,
+                                      out);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
         IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, ncoord, nelmt, Z0,
-                                               Z1, Z2, df, in, out);
+            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, Z0, Z1,
+                                                 Z2, df, in, out);
     }
 }
 

@@ -119,8 +119,7 @@ __global__ void PhysDeriv1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -132,46 +131,27 @@ __global__ void PhysDeriv2DKernel(
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
+    const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_D0 = SHMEM ? (TData *)shared : (TData *)D0;
-    TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
     TData *s_xfrm0, *s_xfrm1;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
+    // Precompute geometric factors.
+    if constexpr (SHAPETYPE == LibUtilities::Tri)
     {
-        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
+        s_xfrm0 = (TData *)shared;
+        s_xfrm1 = s_xfrm0 + nq1;
+
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_D0[idx] = D0[idx];
+            s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_D1[idx] = D1[idx];
+            s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
         }
 
-        // Precompute geometric factors.
-        if constexpr (SHAPETYPE == LibUtilities::Tri)
-        {
-            s_xfrm0 = s_D1 + nq1 * nq1;
-            s_xfrm1 = s_xfrm0 + nq1;
-
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
-            {
-                s_xfrm0[idx] = 2.0 / (1.0 - Z1[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-            {
-                s_xfrm1[idx] = 0.5 * (1.0 + Z0[idx]);
-            }
-        }
-    }
-
-    if constexpr (SHAPETYPE == LibUtilities::Tri || SHMEM)
-    {
         __syncthreads();
     }
 
@@ -198,33 +178,25 @@ __global__ void PhysDeriv2DKernel(
                 TData d0 = 0.0;
                 for (unsigned int q = 0u; q < nq0; ++q)
                 {
-                    d0 += s_D0[q * nq0 + i] *
-                          in[nqTot * warpsize * iwarp +
-                             warpsize * (nq0 * j + q) + ilane];
+                    d0 +=
+                        D0[q * nq0 + i] * in[nqTot * warpsize * iwarp +
+                                             warpsize * (nq0 * j + q) + ilane];
                 }
 
                 // Direction 1
                 TData d1 = 0.0;
                 for (unsigned int q = 0u; q < nq1; ++q)
                 {
-                    d1 += s_D1[q * nq1 + j] *
-                          in[nqTot * warpsize * iwarp +
-                             warpsize * (nq0 * q + i) + ilane];
+                    d1 +=
+                        D1[q * nq1 + j] * in[nqTot * warpsize * iwarp +
+                                             warpsize * (nq0 * q + i) + ilane];
                 }
 
                 // Moving from standard to collapsed coordinates.
                 if constexpr (SHAPETYPE == LibUtilities::Tri)
                 {
-                    if constexpr (SHMEM)
-                    {
-                        d0 *= s_xfrm0[j];
-                        d1 += d0 * s_xfrm1[i];
-                    }
-                    else
-                    {
-                        d0 *= 2.0 / (1.0 - Z1[j]);
-                        d1 += d0 * 0.5 * (1.0 + Z0[i]);
-                    }
+                    d0 *= s_xfrm0[j];
+                    d1 += d0 * s_xfrm1[i];
                 }
 
                 // Multiply by derivative factors.
@@ -249,8 +221,8 @@ __global__ void PhysDeriv2DKernel_QP(
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
+    const unsigned int nqTot = nq0 * nq1;
 
     unsigned int e = blockIdx.x;
 
@@ -306,8 +278,7 @@ __global__ void PhysDeriv2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -325,97 +296,76 @@ __global__ void PhysDeriv3DKernel(
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_D0 = SHMEM ? (TData *)shared : (TData *)D0;
-    TData *s_D1 = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-    TData *s_D2 = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
     TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
+    // Precompute geometric factors.
+    if constexpr (SHAPETYPE == LibUtilities::Tet)
     {
-        for (unsigned int idx = threadIdx.x; idx < nq0 * nq0; idx += blockDim.x)
+        s_xfrm_eta0  = (TData *)shared;
+        s_xfrm_eta1  = s_xfrm_eta0 + nq0;
+        s_xfrm_eta1m = s_xfrm_eta1 + nq1;
+        s_xfrm_eta2  = s_xfrm_eta1m + nq1;
+
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
         {
-            s_D0[idx] = D0[idx];
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq1 * nq1; idx += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_D1[idx] = D1[idx];
+            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
         }
 
-        for (unsigned int idx = threadIdx.x; idx < nq2 * nq2; idx += blockDim.x)
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
         {
-            s_D2[idx] = D2[idx];
+            s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
         }
 
-        // Precompute geometric factors.
-        if constexpr (SHAPETYPE == LibUtilities::Tet)
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
         {
-            s_xfrm_eta0  = s_D2 + nq2 * nq2;
-            s_xfrm_eta1  = s_xfrm_eta0 + nq0;
-            s_xfrm_eta1m = s_xfrm_eta1 + nq1;
-            s_xfrm_eta2  = s_xfrm_eta1m + nq1;
-
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-            {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
-            {
-                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
-            {
-                s_xfrm_eta1m[idx] = 2.0 / (1.0 - Z1[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-            {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-            }
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
         }
-        else if constexpr (SHAPETYPE == LibUtilities::Prism)
-        {
-            s_xfrm_eta0 = s_D2 + nq2 * nq2;
-            s_xfrm_eta2 = s_xfrm_eta0 + nq0;
 
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-            {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-            {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-            }
-        }
-        else if constexpr (SHAPETYPE == LibUtilities::Pyr)
-        {
-            s_xfrm_eta0 = s_D2 + nq2 * nq2;
-            s_xfrm_eta1 = s_xfrm_eta0 + nq0;
-            s_xfrm_eta2 = s_xfrm_eta1 + nq1;
-
-            for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
-            {
-                s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
-            {
-                s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
-            {
-                s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
-            }
-        }
+        __syncthreads();
     }
-
-    if constexpr (SHAPETYPE != LibUtilities::Hex || SHMEM)
+    else if constexpr (SHAPETYPE == LibUtilities::Prism)
     {
+        s_xfrm_eta0 = (TData *)shared;
+        s_xfrm_eta2 = s_xfrm_eta0 + nq0;
+
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        {
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        {
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+        }
+
+        __syncthreads();
+    }
+    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    {
+        s_xfrm_eta0 = (TData *)shared;
+        s_xfrm_eta1 = s_xfrm_eta0 + nq0;
+        s_xfrm_eta2 = s_xfrm_eta1 + nq1;
+
+        for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
+        {
+            s_xfrm_eta0[idx] = 0.5 * (1.0 + Z0[idx]);
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
+        {
+            s_xfrm_eta1[idx] = 0.5 * (1.0 + Z1[idx]);
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nq2; idx += blockDim.x)
+        {
+            s_xfrm_eta2[idx] = 2.0 / (1.0 - Z2[idx]);
+        }
+
         __syncthreads();
     }
 
@@ -444,7 +394,7 @@ __global__ void PhysDeriv3DKernel(
                     TData d0 = 0.0;
                     for (unsigned int q = 0u; q < nq0; ++q)
                     {
-                        d0 += s_D0[q * nq0 + i] *
+                        d0 += D0[q * nq0 + i] *
                               in[nqTot * warpsize * iwarp +
                                  warpsize * (nq0 * nq1 * k + nq0 * j + q) +
                                  ilane];
@@ -454,7 +404,7 @@ __global__ void PhysDeriv3DKernel(
                     TData d1 = 0.0;
                     for (unsigned int q = 0u; q < nq1; ++q)
                     {
-                        d1 += s_D1[q * nq1 + j] *
+                        d1 += D1[q * nq1 + j] *
                               in[nqTot * warpsize * iwarp +
                                  warpsize * (nq0 * nq1 * k + nq0 * q + i) +
                                  ilane];
@@ -464,7 +414,7 @@ __global__ void PhysDeriv3DKernel(
                     TData d2 = 0.0;
                     for (unsigned int q = 0u; q < nq2; ++q)
                     {
-                        d2 += s_D2[q * nq2 + k] *
+                        d2 += D2[q * nq2 + k] *
                               in[nqTot * warpsize * iwarp +
                                  warpsize * (nq0 * nq1 * q + nq0 * j + i) +
                                  ilane];
@@ -473,56 +423,24 @@ __global__ void PhysDeriv3DKernel(
                     // Moving from standard to collapsed coordinates.
                     if constexpr (SHAPETYPE == LibUtilities::Tet)
                     {
-                        if constexpr (SHMEM)
-                        {
-                            TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
-                            TData tmp0 = xfrm * d0;
-                            TData tmp1 = s_xfrm_eta0[i] * tmp0;
-                            TData tmp2 = s_xfrm_eta2[k] * d1;
-                            d0         = tmp0;
-                            d1         = tmp1 + tmp2;
-                            d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
-                        }
-                        else
-                        {
-                            TData xfrm =
-                                2.0 / (1.0 - Z1[j]) * 2.0 / (1.0 - Z2[k]);
-                            TData tmp0 = xfrm * d0;
-                            TData tmp1 = 0.5 * (1.0 + Z0[i]) * tmp0;
-                            TData tmp2 = 2.0 / (1.0 - Z2[k]) * d1;
-                            d0         = tmp0;
-                            d1         = tmp1 + tmp2;
-                            d2 += tmp1 + 0.5 * (1.0 + Z1[j]) * tmp2;
-                        }
+                        TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
+                        TData tmp0 = xfrm * d0;
+                        TData tmp1 = s_xfrm_eta0[i] * tmp0;
+                        TData tmp2 = s_xfrm_eta2[k] * d1;
+                        d0         = tmp0;
+                        d1         = tmp1 + tmp2;
+                        d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Prism)
                     {
-                        if constexpr (SHMEM)
-                        {
-                            d0 *= s_xfrm_eta2[k];
-                            d2 += s_xfrm_eta0[i] * d0;
-                        }
-                        else
-                        {
-                            d0 *= 2.0 / (1.0 - Z2[k]);
-                            d2 += 0.5 * (1.0 + Z0[i]) * d0;
-                        }
+                        d0 *= s_xfrm_eta2[k];
+                        d2 += s_xfrm_eta0[i] * d0;
                     }
                     else if constexpr (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        if constexpr (SHMEM)
-                        {
-                            d0 *= s_xfrm_eta2[k];
-                            d1 *= s_xfrm_eta2[k];
-                            d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
-                        }
-                        else
-                        {
-                            d0 *= 2.0 / (1.0 - Z2[k]);
-                            d1 *= 2.0 / (1.0 - Z2[k]);
-                            d2 += 0.5 * (1.0 + Z0[i]) * d0 +
-                                  0.5 * (1.0 + Z1[j]) * d1;
-                        }
+                        d0 *= s_xfrm_eta2[k];
+                        d1 *= s_xfrm_eta2[k];
+                        d2 += s_xfrm_eta0[i] * d0 + s_xfrm_eta1[j] * d1;
                     }
 
                     // Multiply by derivative factors.
@@ -698,15 +616,15 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     }
     else
     {
-        const unsigned int nshared =
+        const unsigned int shmemsize =
             sizeof(TData) * PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, true>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, ncoord, nelmt, D0, D1,
-                                               Z0, Z1, df, in, out);
+        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, ncoord, nelmt, D0,
+                                                 D1, Z0, Z1, df, in, out);
     }
 }
 
@@ -732,16 +650,16 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     }
     else
     {
-        const unsigned int nshared =
+        const unsigned int shmemsize =
             sizeof(TData) *
             PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, true>
-            <<<gridsize, blocksize, nshared>>>(nq0, nq1, nq2, nelmt, D0, D1, D2,
-                                               Z0, Z1, Z2, df, in, out);
+        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>
+            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1,
+                                                 D2, Z0, Z1, Z2, df, in, out);
     }
 }
 
