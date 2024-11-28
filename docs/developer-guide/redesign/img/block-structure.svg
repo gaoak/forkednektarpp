@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="191.80342mm"
+   height="127.67423mm"
+   viewBox="0 0 191.80342 127.67423"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25)"
+   sodipodi:docname="block-structure-3.svg"
+   inkscape:export-filename="block-structure-3.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showguides="false"
+     inkscape:zoom="1.2422184"
+     inkscape:cx="316.772"
+     inkscape:cy="187.16516"
+     inkscape:window-width="1368"
+     inkscape:window-height="699"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1"
+     showgrid="false" />
+  <defs
+     id="defs1">
+    <marker
+       style="overflow:visible"
+       id="marker14"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Triangle arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path14" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="marker13"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Triangle arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path13" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="Triangle"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Triangle arrow"
+       markerWidth="1"
+       markerHeight="1"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         transform="scale(0.5)"
+         style="fill:context-stroke;fill-rule:evenodd;stroke:context-stroke;stroke-width:1pt"
+         d="M 5.77,0 -2.88,5 V -5 Z"
+         id="path135" />
+    </marker>
+    <rect
+       x="308.60443"
+       y="90.683083"
+       width="222.9399"
+       height="57.231979"
+       id="rect4" />
+    <rect
+       x="326.95316"
+       y="97.146942"
+       width="148.17078"
+       height="19.929688"
+       id="rect2" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-5.3805224,-25.349592)">
+    <ellipse
+       style="fill:#ffffff;stroke:#008000;stroke-width:2.23604;stroke-dasharray:none"
+       id="path6-3-6-8-2"
+       cx="159.1786"
+       cy="118.99936"
+       rx="37.578316"
+       ry="28.432964" />
+    <ellipse
+       style="fill:#ffffff;stroke:#000080;stroke-width:2.76269;stroke-dasharray:none"
+       id="path6"
+       cx="62.457569"
+       cy="119.46003"
+       rx="54.609673"
+       ry="29.866928" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.284;stroke-dasharray:5.136, 1.284;stroke-dashoffset:0"
+       id="rect1"
+       width="190.51942"
+       height="23.925928"
+       x="6.0225224"
+       y="40.679298" />
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:2.64583px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX Bold';fill:#ffffff;stroke:#000000;stroke-width:1.1;stroke-dasharray:none"
+       x="84.58551"
+       y="25.895252"
+       id="text1"><tspan
+         sodipodi:role="line"
+         id="tspan1"
+         style="stroke-width:1.1"
+         x="84.58551"
+         y="25.895252" /></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text2"
+       style="font-weight:bold;font-size:10px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX Bold';white-space:pre;shape-inside:url(#rect2);display:inline;fill:#ffffff;stroke:#000000;stroke-width:2.64567;stroke-dasharray:none" />
+    <text
+       xml:space="preserve"
+       style="font-weight:bold;font-size:2.64583px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX Bold';fill:#ffffff;stroke:#000000;stroke-width:0.7;stroke-dasharray:none"
+       x="103.4904"
+       y="28.217331"
+       id="text3"><tspan
+         sodipodi:role="line"
+         id="tspan3"
+         style="stroke-width:0.7"
+         x="103.4904"
+         y="28.217331" /></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text4"
+       style="font-weight:bold;font-size:8px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX Bold';white-space:pre;shape-inside:url(#rect4);display:inline;fill:#ffffff;stroke:#000000;stroke-width:2.64567;stroke-dasharray:none" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.1111px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#000000;stroke:#000000;stroke-width:0.1;stroke-dasharray:none"
+       x="83.933083"
+       y="35.799473"
+       id="text5"><tspan
+         sodipodi:role="line"
+         id="tspan5"
+         style="font-size:14.1111px;fill:#000000;stroke-width:0.1;stroke-dasharray:none"
+         x="83.933083"
+         y="35.799473">Field</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.799999;stroke-dasharray:none"
+       id="rect5"
+       width="33.466862"
+       height="15.773889"
+       x="11.026779"
+       y="45.588493" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+       x="13.329087"
+       y="56.661087"
+       id="text5-6"><tspan
+         sodipodi:role="line"
+         id="tspan5-8"
+         style="font-size:8.46667px;fill:#000080;stroke-width:0.1;stroke-dasharray:none;stroke:#000080"
+         x="13.329087"
+         y="56.661087">Block 0</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.799999;stroke-dasharray:none"
+       id="rect5-2"
+       width="33.466862"
+       height="15.773889"
+       x="46.027248"
+       y="45.592472" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+       x="48.329563"
+       y="56.665066"
+       id="text5-6-6"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-8"
+         style="font-size:8.46667px;fill:#008000;stroke-width:0.1;stroke-dasharray:none;stroke:#008000"
+         x="48.329563"
+         y="56.665066">Block 1</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.799999;stroke-dasharray:none"
+       id="rect5-3"
+       width="33.466862"
+       height="15.773889"
+       x="81.304024"
+       y="45.740234" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+       x="83.606339"
+       y="56.812828"
+       id="text5-6-67"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87"
+         style="font-size:8.46667px;fill:#000080;stroke-width:0.1;stroke-dasharray:none;stroke:#000080"
+         x="83.606339"
+         y="56.812828">Block 2</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.799999;stroke-dasharray:none"
+       id="rect5-3-2"
+       width="33.466862"
+       height="15.773889"
+       x="116.58899"
+       y="45.68203" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+       x="118.8913"
+       y="56.754623"
+       id="text5-6-67-9"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87-7"
+         style="font-size:8.46667px;fill:#008000;stroke-width:0.1;stroke-dasharray:none;stroke:#008000"
+         x="118.8913"
+         y="56.754623">Block 3</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.893778;stroke-dasharray:none"
+       id="rect5-3-2-2"
+       width="41.592434"
+       height="15.84235"
+       x="151.44533"
+       y="45.599072" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#800080;stroke:#800080;stroke-width:0.1;stroke-dasharray:none"
+       x="157.99222"
+       y="56.811562"
+       id="text5-6-67-9-3"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87-7-5"
+         style="font-size:8.46667px;fill:#800080;stroke-width:0.1;stroke-dasharray:none;stroke:#800080"
+         x="157.99222"
+         y="56.811562">Block 4</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#000080;stroke-width:1.05264;stroke-dasharray:none"
+       id="rect5-6"
+       width="58.884884"
+       height="15.521253"
+       x="15.039935"
+       y="109.34542" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+       x="37.373283"
+       y="120.44452"
+       id="text5-6-4"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-3"
+         style="font-size:8.46667px;fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+         x="37.373283"
+         y="120.44452">MR 0</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#800080;stroke-width:0.715687;stroke-dasharray:none"
+       id="rect5-3-7"
+       width="26.642008"
+       height="15.858201"
+       x="77.919495"
+       y="109.08631" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#800080;stroke:#800080;stroke-width:0.1;stroke-dasharray:none"
+       x="80.163361"
+       y="120.0881"
+       id="text5-6-67-3"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87-3"
+         style="font-size:8.46667px;fill:#800080;stroke:#800080;stroke-width:0.1;stroke-dasharray:none"
+         x="80.163361"
+         y="120.0881">MR 1</tspan></text>
+    <rect
+       style="fill:#ffffff;stroke:#008000;stroke-width:1.03817;stroke-dasharray:none"
+       id="rect5-3-2-2-4"
+       width="56.632442"
+       height="15.697962"
+       x="130.77165"
+       y="109.22187" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+       x="147.85541"
+       y="119.78913"
+       id="text5-6-67-9-3-5"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87-7-5-7"
+         style="font-size:8.46667px;fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+         x="147.85541"
+         y="119.78913">MR 2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+       x="48.423241"
+       y="140.27711"
+       id="text5-6-4-5"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-3-5"
+         style="font-size:8.46667px;fill:#000080;stroke:#000080;stroke-width:0.1;stroke-dasharray:none"
+         x="48.423241"
+         y="140.27711">GPU 0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:'TeX Gyre ScholaX';-inkscape-font-specification:'TeX Gyre ScholaX';fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+       x="147.16844"
+       y="140.62231"
+       id="text5-6-67-9-3-5-5"><tspan
+         sodipodi:role="line"
+         id="tspan5-8-87-7-5-7-5"
+         style="font-size:8.46667px;fill:#008000;stroke:#008000;stroke-width:0.1;stroke-dasharray:none"
+         x="147.16844"
+         y="140.62231">GPU 1</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000080;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker13)"
+       d="M 98.814281,61.835681 68.539617,105.95456"
+       id="path8"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000080;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Triangle)"
+       d="M 31.902919,65.960942 31.646413,102.98828"
+       id="path9"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#800080;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Triangle)"
+       d="M 172.35007,66.04213 92.829946,104.16256"
+       id="path10"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#008000;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker13)"
+       d="M 62.218766,65.772683 136.82528,104.28022"
+       id="path11"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#008000;stroke-width:0.772129;stroke-linecap:butt;stroke-linejoin:miter;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#marker14)"
+       d="m 132.73132,65.573717 40.29522,39.358403"
+       id="path12"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+  </g>
+</svg>
