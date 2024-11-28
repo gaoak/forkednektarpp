@@ -791,8 +791,8 @@ private:
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
         IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                     DEFORMED>(
-            nq0, nq1, nq2, nCoord, nElmtsPad, Z0, Z1, Z2, dfptr, inptr, tmpptr);
+                                     DEFORMED>(nq0, nq1, nq2, nElmtsPad, Z0, Z1,
+                                               Z2, dfptr, inptr, tmpptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
                                 Append, DEFORMED, SharedMemory>(
             nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,

@@ -42,54 +42,40 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
-template <LibUtilities::ShapeType SHAPE_TYPE, bool MULTILEVEL>
+template <LibUtilities::ShapeType SHAPE_TYPE>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
                                                          const unsigned int nq1)
 {
-    if constexpr (MULTILEVEL)
+    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         return 0;
     }
-    else
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            return 0;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            return nq0 + nq1;
-        }
+        return nq0 + nq1;
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool MULTILEVEL>
+template <LibUtilities::ShapeType SHAPE_TYPE>
 inline unsigned int IProductWRTDerivBaseSharedMemorySize(const unsigned int nq0,
                                                          const unsigned int nq1,
                                                          const unsigned int nq2)
 {
-    if constexpr (MULTILEVEL)
+    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         return 0;
     }
-    else
+    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            return 0;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            return nq0 + 2 * nq1 + nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            return nq0 + nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            return nq0 + nq1 + nq2;
-        }
+        return nq0 + 2 * nq1 + nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+    {
+        return nq0 + nq2;
+    }
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+    {
+        return nq0 + nq1 + nq2;
     }
 }
 

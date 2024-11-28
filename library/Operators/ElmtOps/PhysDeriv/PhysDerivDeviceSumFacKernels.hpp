@@ -48,11 +48,11 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        return nq0 * nq0 + nq1 * nq1;
+        return 0;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        return nq0 * nq0 + nq1 * nq1 + nq0 * nq1;
+        return nq0 * nq1;
     }
 }
 
@@ -63,19 +63,19 @@ inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2;
+        return 0;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + 2u * nq1 + nq2;
+        return nq0 + 2u * nq1 + nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + nq2;
+        return nq0 + nq2;
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        return nq0 * nq0 + nq1 * nq1 + nq2 * nq2 + nq0 + nq1 + nq2;
+        return nq0 + nq1 + nq2;
     }
 }
 

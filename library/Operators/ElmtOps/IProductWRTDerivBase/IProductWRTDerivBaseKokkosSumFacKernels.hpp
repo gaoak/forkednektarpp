@@ -41,17 +41,14 @@ namespace Nektar::Operators::detail
 
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int gridsize, const unsigned int blocksize,
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize),
@@ -98,8 +95,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
-            unsigned int e = team.league_rank();
-
+            const unsigned int e        = team.league_rank();
             const unsigned int dfsize   = DEFORMED ? nq0 : 1;
             const unsigned int dfoffset = ncoord * dfsize * e;
             const unsigned int offset   = nq0 * e;
@@ -121,43 +117,40 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int gridsize, const unsigned int blocksize,
+    const unsigned int nshared, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int slevel   = 0u;
+
+    const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
-    const auto ndf           = 2 * ncoord;
 
-    const unsigned int shmem_size = Kokkos::View<
+    const unsigned int shmemsize = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
-
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nshared);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
             Kokkos::View<TData *,
                          Kokkos::DefaultExecutionSpace::scratch_memory_space,
                          Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
+                scratch(team.team_scratch(slevel), nshared);
             TData *s_f0, *s_f1;
 
             // Pre-compute factor.
-            if (SHAPETYPE == LibUtilities::Tri)
+            if (SHAPE_TYPE == LibUtilities::Tri)
             {
                 s_f0 = &scratch[0];
                 s_f1 = s_f0 + nq1;
@@ -204,12 +197,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
                         }
 
                         // Moving from standard to collapsed coordinates.
-                        if (SHAPETYPE == LibUtilities::Quad)
+                        if (SHAPE_TYPE == LibUtilities::Quad)
                         {
                             out[index]                 = sum1;
                             out[nelmt * nqTot + index] = sum2;
                         }
-                        else if (SHAPETYPE == LibUtilities::Tri)
+                        else if (SHAPE_TYPE == LibUtilities::Tri)
                         {
                             out[index] = (sum1 + sum2 * s_f1[i]) * s_f0[j];
                             out[nelmt * nqTot + index] = sum2;
@@ -222,7 +215,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *KOKKOS_RESTRICT Z0,
@@ -231,75 +224,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
+    const unsigned int ndf   = 2 * ncoord;
     const unsigned int nqTot = nq0 * nq1;
-    const auto ndf           = 2 * ncoord;
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
-            unsigned int e = team.league_rank();
-
-            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq1, nq0),
-                [&](const unsigned int &j, const unsigned int &i) {
-                    TData f0, f1;
-
-                    if (SHAPETYPE == LibUtilities::Tri)
-                    {
-                        f0 = 2.0 / (1.0 - Z1[j]);
-                        f1 = 0.5 * (1.0 + Z0[i]);
-                    }
-
-                    const unsigned int cnt_ji = nq0 * j + i;
-                    const unsigned int index  = offset + cnt_ji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_ji : dfoffset;
-
-                    TData sum1 = 0.0, sum2 = 0.0;
-                    for (unsigned int d = 0u; d < ncoord; ++d)
-                    {
-                        TData tmp = in[d * nelmt * nqTot + index];
-                        sum1 += df[(2u * d) * dfsize + dfindex] * tmp;
-                        sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
-                    }
-
-                    // Moving from standard to collapsed coordinates.
-                    if (SHAPETYPE == LibUtilities::Quad)
-                    {
-                        out[index]                 = sum1;
-                        out[nelmt * nqTot + index] = sum2;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Tri)
-                    {
-                        out[index]                 = (sum1 + sum2 * f1) * f0;
-                        out[nelmt * nqTot + index] = sum2;
-                    }
-                });
-        });
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
-    const unsigned int nelmt, const TData *KOKKOS_RESTRICT Z0,
-    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
-{
-    typedef Kokkos::TeamPolicy<>::member_type team_handle;
-
-    const unsigned int nqTot = nq0 * nq1;
-    const auto ndf           = 2 * ncoord;
-
-    Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
-        KOKKOS_LAMBDA(const team_handle &team) {
-            unsigned int e = team.league_rank();
-
+            const unsigned int e        = team.league_rank();
             const unsigned int dfsize   = DEFORMED ? nqTot : 1;
             const unsigned int dfoffset = ndf * dfsize * e;
             const unsigned int offset   = nqTot * e;
@@ -314,7 +245,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP_1D(
                         DEFORMED ? dfoffset + idx : dfoffset;
                     TData f0, f1;
 
-                    if (SHAPETYPE == LibUtilities::Tri)
+                    if (SHAPE_TYPE == LibUtilities::Tri)
                     {
                         f0 = 2.0 / (1.0 - Z1[j]);
                         f1 = 0.5 * (1.0 + Z0[i]);
@@ -330,12 +261,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP_1D(
 
                     // Moving from standard to collapsed
                     // coordinates.
-                    if (SHAPETYPE == LibUtilities::Quad)
+                    if (SHAPE_TYPE == LibUtilities::Quad)
                     {
                         out[index]                 = sum1;
                         out[nelmt * nqTot + index] = sum2;
                     }
-                    else if (SHAPETYPE == LibUtilities::Tri)
+                    else if (SHAPE_TYPE == LibUtilities::Tri)
                     {
                         out[index]                 = (sum1 + sum2 * f1) * f0;
                         out[nelmt * nqTot + index] = sum2;
@@ -344,43 +275,42 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP_1D(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int gridsize, const unsigned int blocksize,
+    const unsigned int nshared, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
     const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    const auto ndf                  = 9u;
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+    constexpr unsigned int slevel   = 0u;
+
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    const unsigned int shmem_size = Kokkos::View<
+    const unsigned int shmemsize = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
-
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(nshared);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
         KOKKOS_LAMBDA(const team_handle &team) {
             // Set shared memory.
             Kokkos::View<TData *,
                          Kokkos::DefaultExecutionSpace::scratch_memory_space,
                          Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
+                scratch(team.team_scratch(slevel), nshared);
             TData *s_f0, *s_f1, *s_f2, *s_f3;
 
             // Pre-compute factor.
-            if (SHAPETYPE == LibUtilities::Tet)
+            if (SHAPE_TYPE == LibUtilities::Tet)
             {
                 s_f0 = &scratch[0];
                 s_f1 = s_f0 + nq1;
@@ -409,7 +339,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
                 team.team_barrier();
             }
-            else if (SHAPETYPE == LibUtilities::Prism)
+            else if (SHAPE_TYPE == LibUtilities::Prism)
             {
                 s_f1 = &scratch[0];
                 s_f2 = s_f1 + nq0;
@@ -426,7 +356,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
                 team.team_barrier();
             }
-            else if (SHAPETYPE == LibUtilities::Pyr)
+            else if (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 s_f1 = &scratch[0];
                 s_f2 = s_f1 + nq0;
@@ -483,13 +413,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                                         tmp;
                             }
 
-                            if (SHAPETYPE == LibUtilities::Hex)
+                            if (SHAPE_TYPE == LibUtilities::Hex)
                             {
                                 out[index]                      = sum1;
                                 out[nelmt * nqTot + index]      = sum2;
                                 out[2u * nelmt * nqTot + index] = sum3;
                             }
-                            else if (SHAPETYPE == LibUtilities::Tet)
+                            else if (SHAPE_TYPE == LibUtilities::Tet)
                             {
                                 out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
                                              s_f0[j] * s_f2[k];
@@ -497,13 +427,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                                     (sum2 + sum3 * s_f3[j]) * s_f2[k];
                                 out[2u * nelmt * nqTot + index] = sum3;
                             }
-                            else if (SHAPETYPE == LibUtilities::Prism)
+                            else if (SHAPE_TYPE == LibUtilities::Prism)
                             {
                                 out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                                 out[nelmt * nqTot + index]      = sum2;
                                 out[2u * nelmt * nqTot + index] = sum3;
                             }
-                            else if (SHAPETYPE == LibUtilities::Pyr)
+                            else if (SHAPE_TYPE == LibUtilities::Pyr)
                             {
                                 out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                                 out[nelmt * nqTot + index] =
@@ -519,114 +449,25 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
+    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const auto ndf           = 9u;
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
-            unsigned int e = team.league_rank();
-
-            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nq1, nq0),
-                [&](const unsigned int &k, const unsigned int &j,
-                    const unsigned int &i) {
-                    TData f0, f1, f2, f3;
-
-                    if (SHAPETYPE == LibUtilities::Tet ||
-                        SHAPETYPE == LibUtilities::Prism ||
-                        SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        f1 = 0.5 * (1.0 + Z0[i]);
-                        f2 = 2.0 / (1.0 - Z2[k]);
-                    }
-
-                    if (SHAPETYPE == LibUtilities::Tet ||
-                        SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        f3 = 0.5 * (1.0 + Z1[j]);
-                    }
-
-                    if (SHAPETYPE == LibUtilities::Tet)
-                    {
-                        f0 = 2.0 / (1.0 - Z1[j]);
-                    }
-
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
-
-                    TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
-                    for (unsigned int d = 0u; d < ncoord; ++d)
-                    {
-                        TData tmp = in[d * nelmt * nqTot + index];
-                        sum1 += df[(3u * d) * dfsize + dfindex] * tmp;
-                        sum2 += df[(3u * d + 1u) * dfsize + dfindex] * tmp;
-                        sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
-                    }
-
-                    if (SHAPETYPE == LibUtilities::Hex)
-                    {
-                        out[index]                      = sum1;
-                        out[nelmt * nqTot + index]      = sum2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Tet)
-                    {
-                        out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
-                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Prism)
-                    {
-                        out[index]                 = (sum1 + sum3 * f1) * f2;
-                        out[nelmt * nqTot + index] = sum2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        out[index]                 = (sum1 + sum3 * f1) * f2;
-                        out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
-                        out[2u * nelmt * nqTot + index] = sum3;
-                    }
-                });
-        });
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP_1D(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
-{
-    typedef Kokkos::TeamPolicy<>::member_type team_handle;
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const auto ndf           = 9;
-
-    Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
-        KOKKOS_LAMBDA(const team_handle &team) {
-            unsigned int e = team.league_rank();
-
+            const unsigned int e        = team.league_rank();
             const unsigned int dfsize   = DEFORMED ? nqTot : 1;
             const unsigned int dfoffset = ndf * dfsize * e;
             const unsigned int offset   = nqTot * e;
@@ -642,21 +483,21 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP_1D(
                         DEFORMED ? dfoffset + idx : dfoffset;
                     TData f0, f1, f2, f3;
 
-                    if (SHAPETYPE == LibUtilities::Tet ||
-                        SHAPETYPE == LibUtilities::Prism ||
-                        SHAPETYPE == LibUtilities::Pyr)
+                    if (SHAPE_TYPE == LibUtilities::Tet ||
+                        SHAPE_TYPE == LibUtilities::Prism ||
+                        SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         f1 = 0.5 * (1.0 + Z0[i]);
                         f2 = 2.0 / (1.0 - Z2[k]);
                     }
 
-                    if (SHAPETYPE == LibUtilities::Tet ||
-                        SHAPETYPE == LibUtilities::Pyr)
+                    if (SHAPE_TYPE == LibUtilities::Tet ||
+                        SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         f3 = 0.5 * (1.0 + Z1[j]);
                     }
 
-                    if (SHAPETYPE == LibUtilities::Tet)
+                    if (SHAPE_TYPE == LibUtilities::Tet)
                     {
                         f0 = 2.0 / (1.0 - Z1[j]);
                     }
@@ -670,25 +511,25 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP_1D(
                         sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
                     }
 
-                    if (SHAPETYPE == LibUtilities::Hex)
+                    if (SHAPE_TYPE == LibUtilities::Hex)
                     {
                         out[index]                      = sum1;
                         out[nelmt * nqTot + index]      = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if (SHAPETYPE == LibUtilities::Tet)
+                    else if (SHAPE_TYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
                         out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if (SHAPETYPE == LibUtilities::Prism)
+                    else if (SHAPE_TYPE == LibUtilities::Prism)
                     {
                         out[index]                 = (sum1 + sum3 * f1) * f2;
                         out[nelmt * nqTot + index] = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if (SHAPETYPE == LibUtilities::Pyr)
+                    else if (SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         out[index]                 = (sum1 + sum3 * f1) * f2;
                         out[nelmt * nqTot + index] = (sum2 + sum3 * f3) * f2;
@@ -715,7 +556,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     }
     else
     {
-        IProductWRTDerivBase1DKernel<DEFORMED>(nq0, ncoord, nelmt, df, in, out);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        IProductWRTDerivBase1DKernel<DEFORMED>(gridsize, blocksize, nq0, ncoord,
+                                               nelmt, df, in, out);
     }
 }
 
@@ -729,23 +575,22 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
         IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>(
             nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
-#else
-        IProductWRTDerivBase2DKernel_QP_1D<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
-#endif
     }
     else
     {
+        const unsigned int nshared =
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
         IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>(
-            nshared, nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out);
+            gridsize, blocksize, nshared, nq0, nq1, ncoord, nelmt, Z0, Z1, df,
+            in, out);
     }
 }
 
@@ -753,31 +598,28 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
-    const TData *Z1, const TData *Z2, const TData *df, const TData *in,
-    TData *out)
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
+    const TData *df, const TData *in, TData *out)
 {
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, MULTILEVEL>(nq0, nq1,
-                                                                     nq2);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
         IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
-#else
-        IProductWRTDerivBase3DKernel_QP_1D<SHAPE_TYPE, DEFORMED>(
-            nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
-#endif
+            nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out);
     }
     else
     {
+        const unsigned int nshared =
+            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
         IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>(
-            nshared, nq0, nq1, nq2, ncoord, nelmt, Z0, Z1, Z2, df, in, out);
+            gridsize, blocksize, nshared, nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df,
+            in, out);
     }
 }
 
