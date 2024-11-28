@@ -41,17 +41,14 @@ namespace Nektar::Operators::detail
 
 template <bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(
+    const unsigned int gridsize, const unsigned int blocksize,
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT df,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize),
@@ -136,6 +133,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int gridsize, const unsigned int blocksize,
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int ncoord, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -143,9 +141,9 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
+
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
@@ -154,10 +152,6 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
-
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)
@@ -276,166 +270,26 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT Z0,
+    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     const unsigned int nqTot = nq0 * nq1;
     const unsigned int ndf   = 2 * ncoord;
 
-    const unsigned int shmem_size = Kokkos::View<
-        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
-
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
-            // Set shared memory.
-            Kokkos::View<TData *,
-                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
-            TData *s_wsp = &scratch[0];
-            TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
-            TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-
-            // Copy to shared memory.
-            if (SHMEM)
-            {
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq0 * nq0),
-                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq1 * nq1),
-                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
-            }
-
-            // Copy to shared memory.
             const unsigned int e        = team.league_rank();
             const unsigned int dfsize   = DEFORMED ? nqTot : 1;
             const unsigned int dfoffset = ndf * dfsize * e;
             const unsigned int offset   = nqTot * e;
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
-                                 [&](const unsigned int &idx) {
-                                     s_wsp[idx] = in[offset + idx];
-                                 });
-
-            team.team_barrier();
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadMDRange<Kokkos::Rank<2>, team_handle>(
-                    team, nq1, nq0),
-                [&](const unsigned int &j, const unsigned int &i) {
-                    const unsigned int cnt_ji = nq0 * j + i;
-                    const unsigned int index  = offset + cnt_ji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_ji : dfoffset;
-                    TData xfrm0, xfrm1;
-
-                    // Compute tensorial derivative.
-                    // Direction 0
-                    TData d0 = 0.0;
-                    for (unsigned int q = 0u; q < nq0; ++q)
-                    {
-                        d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * j + q];
-                    }
-
-                    // Direction 1
-                    TData d1 = 0.0;
-                    for (unsigned int q = 0u; q < nq1; ++q)
-                    {
-                        d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * q + i];
-                    }
-
-                    // Moving from standard to collapsed coordinates.
-                    if (SHAPETYPE == LibUtilities::Tri)
-                    {
-                        xfrm0 = 2.0 / (1.0 - Z1[j]);
-                        xfrm1 = 0.5 * (1.0 + Z0[i]);
-                        d0 *= xfrm0;
-                        d1 += d0 * xfrm1;
-                    }
-
-                    // Multiply by derivative factors.
-                    for (unsigned int d = 0u; d < ncoord; d++)
-                    {
-                        out[d * nelmt * nqTot + index] =
-                            d0 * df[(2u * d) * dfsize + dfindex] +
-                            d1 * df[(2u * d + 1u) * dfsize + dfindex];
-                    }
-                });
-
-            team.team_barrier();
-        });
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
-NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int ncoord, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
-{
-    typedef Kokkos::TeamPolicy<>::member_type team_handle;
-
-    const unsigned int nqTot = nq0 * nq1;
-    const unsigned int ndf   = 2 * ncoord;
-
-    const unsigned int shmem_size = Kokkos::View<
-        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
-
-    Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
-        KOKKOS_LAMBDA(const team_handle &team) {
-            // Set shared memory.
-            Kokkos::View<TData *,
-                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
-            TData *s_wsp = &scratch[0];
-            TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
-            TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-
-            // Copy to shared memory.
-            if (SHMEM)
-            {
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq0 * nq0),
-                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq1 * nq1),
-                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
-            }
-
-            // Copy to shared memory.
-            const unsigned int e        = team.league_rank();
-            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
-                                 [&](const unsigned int &idx) {
-                                     s_wsp[idx] = in[offset + idx];
-                                 });
-
-            team.team_barrier();
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nqTot),
@@ -445,28 +299,27 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
                     const unsigned int index = offset + idx;
                     const unsigned int dfindex =
                         DEFORMED ? dfoffset + idx : dfoffset;
-                    TData xfrm0, xfrm1;
 
                     // Compute tensorial derivative.
                     // Direction 0
                     TData d0 = 0.0;
                     for (unsigned int q = 0u; q < nq0; ++q)
                     {
-                        d0 += s_D0[q * nq0 + i] * s_wsp[nq0 * j + q];
+                        d0 += D0[q * nq0 + i] * in[offset + nq0 * j + q];
                     }
 
                     // Direction 1
                     TData d1 = 0.0;
                     for (unsigned int q = 0u; q < nq1; ++q)
                     {
-                        d1 += s_D1[q * nq1 + j] * s_wsp[nq0 * q + i];
+                        d1 += D1[q * nq1 + j] * in[offset + nq0 * q + i];
                     }
 
                     // Moving from standard to collapsed coordinates.
                     if (SHAPETYPE == LibUtilities::Tri)
                     {
-                        xfrm0 = 2.0 / (1.0 - Z1[j]);
-                        xfrm1 = 0.5 * (1.0 + Z0[i]);
+                        TData xfrm0 = 2.0 / (1.0 - Z1[j]);
+                        TData xfrm1 = 0.5 * (1.0 + Z0[i]);
                         d0 *= xfrm0;
                         d1 += d0 * xfrm1;
                     }
@@ -487,6 +340,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP_1D(
 template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
           typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
+    const unsigned int gridsize, const unsigned int blocksize,
     const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
@@ -495,22 +349,19 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out)
 {
-    constexpr unsigned int ncoord   = 3u;
-    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
+    constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
+
+    constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
+
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int ndf   = 9u;
 
     const unsigned int shmem_size = Kokkos::View<
         TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
         Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
     const unsigned int slevel = 0u;
-
-    const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-    const unsigned int gridsize =
-        std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
     Kokkos::parallel_for(
         Kokkos::TeamPolicy<>(gridsize, blocksize)
@@ -752,218 +603,29 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
         });
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
+template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT Z0,
-    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *KOKKOS_RESTRICT D0,
+    const TData *KOKKOS_RESTRICT D1, const TData *KOKKOS_RESTRICT D2,
+    const TData *KOKKOS_RESTRICT Z0, const TData *KOKKOS_RESTRICT Z1,
+    const TData *KOKKOS_RESTRICT Z2, const TData *KOKKOS_RESTRICT df,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out)
 {
     typedef Kokkos::TeamPolicy<>::member_type team_handle;
 
     constexpr unsigned int ncoord = 3u;
+    constexpr unsigned int ndf    = 9u;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int ndf   = 9u;
-
-    const unsigned int shmem_size = Kokkos::View<
-        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
 
     Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
+        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO),
         KOKKOS_LAMBDA(const team_handle &team) {
-            // Set shared memory.
-            Kokkos::View<TData *,
-                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
-            TData *s_wsp = &scratch[0];
-            TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
-            TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-            TData *s_D2  = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
-
-            // Copy to shared memory.
-            if (SHMEM)
-            {
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq0 * nq0),
-                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq1 * nq1),
-                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq2 * nq2),
-                    [&](const unsigned int &idx) { s_D2[idx] = D2[idx]; });
-            }
-
-            // Copy to shared memory.
             const unsigned int e        = team.league_rank();
             const unsigned int dfsize   = DEFORMED ? nqTot : 1;
             const unsigned int dfoffset = ndf * dfsize * e;
             const unsigned int offset   = nqTot * e;
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
-                                 [&](const unsigned int &idx) {
-                                     s_wsp[idx] = in[offset + idx];
-                                 });
-
-            team.team_barrier();
-
-            // Compute tensorial derivative.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadMDRange<Kokkos::Rank<3>, team_handle>(
-                    team, nq2, nq1, nq0),
-                [&](const unsigned int &k, const unsigned int &j,
-                    const unsigned int &i) {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    const unsigned int index   = offset + cnt_kji;
-                    const unsigned int dfindex =
-                        DEFORMED ? dfoffset + cnt_kji : dfoffset;
-                    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
-
-                    // Direction 0
-                    TData d0 = 0.0;
-                    for (unsigned int q = 0u; q < nq0; ++q)
-                    {
-                        d0 += s_D0[q * nq0 + i] *
-                              s_wsp[nq0 * nq1 * k + nq0 * j + q];
-                    }
-
-                    // Direction 1
-                    TData d1 = 0.0;
-                    for (unsigned int q = 0u; q < nq1; ++q)
-                    {
-                        d1 += s_D1[q * nq1 + j] *
-                              s_wsp[nq0 * nq1 * k + nq0 * q + i];
-                    }
-
-                    // Direction 2
-                    TData d2 = 0.0;
-                    for (unsigned int q = 0u; q < nq2; ++q)
-                    {
-                        d2 += s_D2[q * nq2 + k] *
-                              s_wsp[nq0 * nq1 * q + nq0 * j + i];
-                    }
-
-                    // Moving from standard to collapsed coordinates.
-                    if (SHAPETYPE == LibUtilities::Tet)
-                    {
-                        xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-                        xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
-
-                        TData xfrm = xfrm_eta1m * xfrm_eta2;
-                        TData tmp0 = xfrm * d0;
-                        TData tmp1 = xfrm_eta0 * tmp0;
-                        TData tmp2 = xfrm_eta2 * d1;
-                        d0         = tmp0;
-                        d1         = tmp1 + tmp2;
-                        d2 += tmp1 + xfrm_eta1 * tmp2;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Prism)
-                    {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                        d0 *= xfrm_eta2;
-                        d2 += xfrm_eta0 * d0;
-                    }
-                    else if (SHAPETYPE == LibUtilities::Pyr)
-                    {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
-                        d0 *= xfrm_eta2;
-                        d1 *= xfrm_eta2;
-                        d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
-                    }
-
-                    // Multiply by derivative factors.
-                    for (unsigned int d = 0u; d < ncoord; d++)
-                    {
-                        out[d * nelmt * nqTot + index] =
-                            d0 * df[(3u * d) * dfsize + dfindex] +
-                            d1 * df[(3u * d + 1u) * dfsize + dfindex] +
-                            d2 * df[(3u * d + 2u) * dfsize + dfindex];
-                    }
-                });
-
-            team.team_barrier();
-        });
-}
-
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, bool SHMEM,
-          typename TData>
-NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
-    const unsigned int ssize, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT D0, const TData *KOKKOS_RESTRICT D1,
-    const TData *KOKKOS_RESTRICT D2, const TData *KOKKOS_RESTRICT Z0,
-    const TData *KOKKOS_RESTRICT Z1, const TData *KOKKOS_RESTRICT Z2,
-    const TData *KOKKOS_RESTRICT df, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out)
-{
-    typedef Kokkos::TeamPolicy<>::member_type team_handle;
-
-    constexpr unsigned int ncoord = 3u;
-    const unsigned int ndf        = 3 * ncoord;
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    const unsigned int shmem_size = Kokkos::View<
-        TData *, Kokkos::DefaultExecutionSpace::scratch_memory_space,
-        Kokkos::MemoryTraits<Kokkos::Unmanaged>>::shmem_size(ssize);
-    const unsigned int slevel = 0u;
-
-    Kokkos::parallel_for(
-        Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-            .set_scratch_size(slevel, Kokkos::PerTeam(shmem_size)),
-        KOKKOS_LAMBDA(const team_handle &team) {
-            // Set shared memory.
-            Kokkos::View<TData *,
-                         Kokkos::DefaultExecutionSpace::scratch_memory_space,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-                scratch(team.team_scratch(slevel), ssize);
-            TData *s_wsp = &scratch[0];
-            TData *s_D0  = SHMEM ? s_wsp + nqTot : (TData *)D0;
-            TData *s_D1  = SHMEM ? s_D0 + nq0 * nq0 : (TData *)D1;
-            TData *s_D2  = SHMEM ? s_D1 + nq1 * nq1 : (TData *)D2;
-
-            // Copy to shared memory.
-            if (SHMEM)
-            {
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq0 * nq0),
-                    [&](const unsigned int &idx) { s_D0[idx] = D0[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq1 * nq1),
-                    [&](const unsigned int &idx) { s_D1[idx] = D1[idx]; });
-
-                Kokkos::parallel_for(
-                    Kokkos::TeamThreadRange(team, nq2 * nq2),
-                    [&](const unsigned int &idx) { s_D2[idx] = D2[idx]; });
-            }
-
-            // Copy to shared memory.
-            const unsigned int e        = team.league_rank();
-            const unsigned int dfsize   = DEFORMED ? nqTot : 1;
-            const unsigned int dfoffset = ndf * dfsize * e;
-            const unsigned int offset   = nqTot * e;
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
-                                 [&](const unsigned int &idx) {
-                                     s_wsp[idx] = in[offset + idx];
-                                 });
-
-            team.team_barrier();
 
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(team, nqTot),
@@ -974,40 +636,39 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
                     const unsigned int index = offset + idx;
                     const unsigned int dfindex =
                         DEFORMED ? dfoffset + idx : dfoffset;
-                    TData xfrm_eta0, xfrm_eta1, xfrm_eta1m, xfrm_eta2;
 
                     // Compute tensorial derivative.
                     // Direction 0
                     TData d0 = 0.0;
                     for (unsigned int q = 0u; q < nq0; ++q)
                     {
-                        d0 += s_D0[q * nq0 + i] *
-                              s_wsp[nq0 * nq1 * k + nq0 * j + q];
+                        d0 += D0[q * nq0 + i] *
+                              in[offset + nq0 * nq1 * k + nq0 * j + q];
                     }
 
                     // Direction 1
                     TData d1 = 0.0;
                     for (unsigned int q = 0u; q < nq1; ++q)
                     {
-                        d1 += s_D1[q * nq1 + j] *
-                              s_wsp[nq0 * nq1 * k + nq0 * q + i];
+                        d1 += D1[q * nq1 + j] *
+                              in[offset + nq0 * nq1 * k + nq0 * q + i];
                     }
 
                     // Direction 2
                     TData d2 = 0.0;
                     for (unsigned int q = 0u; q < nq2; ++q)
                     {
-                        d2 += s_D2[q * nq2 + k] *
-                              s_wsp[nq0 * nq1 * q + nq0 * j + i];
+                        d2 += D2[q * nq2 + k] *
+                              in[offset + nq0 * nq1 * q + nq0 * j + i];
                     }
 
                     // Moving from standard to collapsed coordinates.
                     if (SHAPETYPE == LibUtilities::Tet)
                     {
-                        xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
-                        xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
+                        TData xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
+                        TData xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
+                        TData xfrm_eta1m = 2.0 / (1.0 - Z1[j]);
+                        TData xfrm_eta2  = 2.0 / (1.0 - Z2[k]);
 
                         TData xfrm = xfrm_eta1m * xfrm_eta2;
                         TData tmp0 = xfrm * d0;
@@ -1019,16 +680,16 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP_1D(
                     }
                     else if (SHAPETYPE == LibUtilities::Prism)
                     {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                        TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
                         d0 *= xfrm_eta2;
                         d2 += xfrm_eta0 * d0;
                     }
                     else if (SHAPETYPE == LibUtilities::Pyr)
                     {
-                        xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
-                        xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
-                        xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
+                        TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
+                        TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
+                        TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
                         d0 *= xfrm_eta2;
                         d1 *= xfrm_eta2;
                         d2 += xfrm_eta0 * d0 + xfrm_eta1 * d1;
@@ -1066,12 +727,17 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
     }
     else
     {
-        PhysDeriv1DKernel<DEFORMED>(nq0, ncoord, nelmt, D0, df, in, out);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        PhysDeriv1DKernel<DEFORMED>(gridsize, blocksize, nq0, ncoord, nelmt, D0,
+                                    df, in, out);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+          typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
@@ -1080,28 +746,27 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
-#else
-        PhysDeriv2DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
-#endif
+        PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED>(nq0, nq1, ncoord, nelmt, D0,
+                                                   D1, Z0, Z1, df, in, out);
     }
     else
     {
-        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
+        const unsigned int nshared =
+            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED, true>(
+            gridsize, blocksize, nshared, nq0, nq1, ncoord, nelmt, D0, D1, Z0,
+            Z1, df, in, out);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool DEFORMED, bool SHMEM, typename TData>
+          typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *D2,
@@ -1111,23 +776,22 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
-    const unsigned int nshared =
-        PhysDerivSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2);
-
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
-#else
-        PhysDeriv3DKernel_QP_1D<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
-#endif
+        PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED>(nq0, nq1, nq2, nelmt, D0, D1,
+                                                   D2, Z0, Z1, Z2, df, in, out);
     }
     else
     {
-        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, SHMEM>(
-            nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
+        const unsigned int nshared =
+            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
+        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
+        const unsigned int gridsize =
+            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+
+        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED, true>(
+            gridsize, blocksize, nshared, nq0, nq1, nq2, nelmt, D0, D1, D2, Z0,
+            Z1, Z2, df, in, out);
     }
 }
 

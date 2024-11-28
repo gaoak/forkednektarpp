@@ -311,8 +311,6 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Shape size.
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
@@ -348,17 +346,14 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
-        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                          SharedMemory>(nq0, nq1, nCoord, nElmtsPad, D0, D1, Z0,
-                                        Z1, dfPtr, inptr, outptr);
+        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+            nq0, nq1, nCoord, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr, outptr);
     }
 
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Shape size.
         const auto nq0 = m_expPtr->GetNumPoints(0);
         const auto nq1 = m_expPtr->GetNumPoints(1);
@@ -397,9 +392,9 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
-        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                          SharedMemory>(nq0, nq1, nq2, nElmtsPad, D0, D1, D2,
-                                        Z0, Z1, Z2, dfPtr, inptr, outptr);
+        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+            nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr, inptr,
+            outptr);
     }
 };
 
