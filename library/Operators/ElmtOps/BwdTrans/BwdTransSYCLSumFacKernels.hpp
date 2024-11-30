@@ -67,8 +67,7 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -86,7 +85,7 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(
             out[nq0 * warpsize * iwarp + warpsize * i + ilane] = tmp;
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -154,8 +153,9 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -175,8 +175,7 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -212,7 +211,7 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -225,109 +224,11 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int i = item_ct1.get_local_id(1); i < nq0;
-             i += item_ct1.get_local_range(1))
-        {
-            for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
-                 q += item_ct1.get_local_range(2))
-            {
-                const unsigned int cnt_iq = nm1 * i + q;
-                unsigned int cnt_qp       = nm0 * q;
-
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
-                {
-                    tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
-                }
-                s_wsp1[cnt_iq] = tmp;
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-             j += item_ct1.get_local_range(1))
-        {
-            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                 i += item_ct1.get_local_range(2))
-            {
-                const unsigned int cnt_ji = nq0 * j + i;
-                unsigned int cnt_iq       = nm1 * i;
-
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
-                {
-                    tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
-                }
-                outptr[cnt_ji] = tmp;
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransQuadKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_basis0 = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -413,8 +314,9 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -434,8 +336,7 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -477,7 +378,7 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -491,116 +392,11 @@ NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmTot * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-             j += item_ct1.get_local_range(1))
-        {
-            for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                 p += item_ct1.get_local_range(2))
-            {
-                const unsigned int cnt_jp = nm0 * j + p;
-                unsigned int mode_pq      = (2u * nm1 - p + 1u) * p / 2u;
-
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
-                {
-                    tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
-                }
-                s_wsp1[cnt_jp] = tmp;
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-             j += item_ct1.get_local_range(1))
-        {
-            for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                 i += item_ct1.get_local_range(2))
-            {
-                const unsigned int cnt_ij = nq0 * j + i;
-                unsigned int cnt_jp       = nm0 * j;
-
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
-                {
-                    tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
-                }
-
-                if (isModified)
-                {
-                    tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                }
-
-                outptr[cnt_ij] = tmp;
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransTriKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *__restrict basis0,
-    const TData *__restrict basis1, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -693,9 +489,10 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -721,8 +518,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -781,7 +577,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -796,156 +592,10 @@ NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int i = item_ct1.get_local_id(0); i < nq0;
-             i += item_ct1.get_local_range(0))
-        {
-            for (unsigned int r = item_ct1.get_local_id(1); r < nm2;
-                 r += item_ct1.get_local_range(1))
-            {
-                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
-                     q += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r + q;
-                    unsigned int cnt_rqp       = nm1 * nm0 * r + nm0 * q;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
-                    {
-                        tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
-                    }
-                    s_wsp1[cnt_irq] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int j = item_ct1.get_local_id(0); j < nq1;
-             j += item_ct1.get_local_range(0))
-        {
-            for (unsigned int i = item_ct1.get_local_id(1); i < nq0;
-                 i += item_ct1.get_local_range(1))
-            {
-                for (unsigned int r = item_ct1.get_local_id(2); r < nm2;
-                     r += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i + r;
-                    unsigned int cnt_irq       = nm1 * nm2 * i + nm1 * r;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
-                    {
-                        tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[cnt_jir] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 2
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                     i += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int cnt_jir       = nq0 * nm2 * j + nm2 * i;
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
-                    {
-                        tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
-                    }
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransHexKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1065,6 +715,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
@@ -1093,8 +744,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -1188,198 +838,12 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
 template <bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + nm01 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm01 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 2
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
-                 p += item_ct1.get_local_range(1))
-            {
-                for (unsigned int q = item_ct1.get_local_id(2); q < nm1 - p;
-                     q += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kpq =
-                        nm01 * k + (2u * nm1 - p + 1u) * p / 2u + q;
-                    unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
-                    mode2 += nm2 * (nm2 + 1u) * p;
-                    mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                    mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode2 /= 2u;
-                    unsigned int mode_pqr =
-                        mode2 - ((nm2 > nm1)
-                                     ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                     : 0u);
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q;
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
-                    }
-                    s_wsp1[cnt_kpq] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                     p += item_ct1.get_local_range(2))
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_pq        = (2u * nm1 - p + 1u) * p / 2u;
-                    unsigned int cnt_kpq        = nm01 * k + mode_pq;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1 - p;
-                         ++q, ++cnt_kpq, ++mode_pq)
-                    {
-                        tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                     i += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
-                        tmp += tmp1 * s_wsp0[1];
-
-                        // bottom vertex
-                        tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[k];
-                        tmp += tmp1 * s_wsp0[nm2];
-
-                        // singular edge
-                        for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-                        {
-                            tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
-                            tmp1 *= s_basis2[(r + 1u) * nq2 + k];
-                            tmp += tmp1 * s_wsp0[nm2 + r];
-                        }
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransTetKernel_QP_1D(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
@@ -1393,6 +857,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP_1D(
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_wsp0   = shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
@@ -1439,7 +904,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP_1D(
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
         // direction 2
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nm1 * nm2;
+        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq2;
              idx += item_ct1.get_local_range(2))
         {
             const unsigned int k = idx / nm01;
@@ -1544,9 +1009,10 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1574,8 +1040,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -1648,7 +1113,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -1663,170 +1128,10 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm12 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 2
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
-                 p += item_ct1.get_local_range(1))
-            {
-                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
-                     q += item_ct1.get_local_range(2))
-                {
-                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
-                    unsigned int mode_pr        = (2u * nm2 - p + 1u) * p / 2u;
-                    unsigned int mode_pqr       = mode_pr * nm1 + (nm2 - p) * q;
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p;
-                         ++r, ++mode_pqr, ++mode_pr)
-                    {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
-                    }
-                    s_wsp1[mode_kpq] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                     p += item_ct1.get_local_range(2))
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
-                    {
-                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                     i += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        for (unsigned int q = 0u; q < nm1; ++q)
-                        {
-                            tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
-                                   s_basis0[nq0 + i] * s_wsp0[q * nm2 + 1u];
-                        }
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransPrismKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_wsp0   = shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1958,6 +1263,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1986,8 +1292,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
 
-    unsigned int e = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int e = item_ct1.get_global_id(2);
 
     while (e < nelmt)
     {
@@ -2066,7 +1371,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
             }
         }
 
-        e += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        e += item_ct1.get_global_range(2);
     }
 }
 
@@ -2083,193 +1388,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = shared;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = item_ct1.get_group(2);
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 =
-            item_ct1.get_local_range(2) * item_ct1.get_local_range(1) *
-                item_ct1.get_local_id(0) +
-            item_ct1.get_local_range(2) * item_ct1.get_local_id(1) +
-            item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2) *
-                                    item_ct1.get_local_range(1) *
-                                    item_ct1.get_local_range(0);
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 2
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int p = item_ct1.get_local_id(1); p < nm0;
-                 p += item_ct1.get_local_range(1))
-            {
-                for (unsigned int q = item_ct1.get_local_id(2); q < nm1;
-                     q += item_ct1.get_local_range(2))
-                {
-                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
-                    unsigned int mode2 =
-                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                    : 0u;
-                    unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
-                    mode_pqr -= (p - 1u) * p / 2u;
-                    mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode_pqr /= 2u;
-
-                    if (q < p)
-                    {
-                        mode_pqr += q * (nm2 - p);
-                        mode2 += mode_pqr;
-                        TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p;
-                             ++r, ++mode2, ++mode_pqr)
-                        {
-                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
-                        }
-                        s_wsp1[mode_kpq] = tmp;
-                    }
-                    else
-                    {
-                        mode_pqr += p * (nm2 - p);
-                        mode_pqr +=
-                            ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
-                        mode2 += mode_pqr;
-
-                        TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q;
-                             ++r, ++mode2, ++mode_pqr)
-                        {
-                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
-                        }
-                        s_wsp1[mode_kpq] = tmp;
-                    }
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 1
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int p = item_ct1.get_local_id(2); p < nm0;
-                     p += item_ct1.get_local_range(2))
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
-                    {
-                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        // direction 0
-        for (unsigned int k = item_ct1.get_local_id(0); k < nq2;
-             k += item_ct1.get_local_range(0))
-        {
-            for (unsigned int j = item_ct1.get_local_id(1); j < nq1;
-                 j += item_ct1.get_local_range(1))
-            {
-                for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
-                     i += item_ct1.get_local_range(2))
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
-                        tmp += tmp1 * s_wsp0[1];
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
-        e += item_ct1.get_group_range(2);
-    }
-}
-
-template <bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTransPyrKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     TData *s_wsp0   = shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
@@ -2477,29 +1596,6 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel_QP(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTrans2DKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        BwdTransQuadKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                        basis0, basis1, in, out, shared,
-                                        item_ct1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        BwdTransTriKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                       isModified, basis0, basis1, in, out,
-                                       shared, item_ct1);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2540,10 +1636,11 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const unsigned int *__restrict index0,
+    const unsigned int *__restrict index1, const TData *__restrict__ basis0,
+    const TData *__restrict__ basis1, const TData *__restrict__ basis2,
+    const TData *__restrict__ in, TData *__restrict out,
+    TData *__restrict shared, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
@@ -2554,8 +1651,8 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel_QP(
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    isModified, basis0, basis1, basis2, in, out,
-                                    shared, item_ct1);
+                                    isModified, index0, index1, basis0, basis1,
+                                    basis2, in, out, shared, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
@@ -2571,42 +1668,6 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void BwdTrans3DKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        BwdTransHexKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, basis0, basis1, basis2, in, out,
-                                       shared, item_ct1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        BwdTransTetKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, isModified, basis0, basis1,
-                                       basis2, in, out, shared, item_ct1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        BwdTransPrismKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                         nelmt, isModified, basis0, basis1,
-                                         basis2, in, out, shared, item_ct1);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        BwdTransPyrKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, isModified, basis0, basis1,
-                                       basis2, in, out, shared, item_ct1);
-    }
-}
-
 // Kernel launchers
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
@@ -2616,8 +1677,6 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
@@ -2627,11 +1686,15 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
-             const sycl::range<3> blocksize(1, 1, std::min(nq0, SYCLBlockSize));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -2646,14 +1709,15 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
     }
     else
     {
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -2676,8 +1740,6 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
     TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
@@ -2692,18 +1754,15 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([&](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-             const sycl::range<3> blocksize(1, std::min(nq0, 16u),
-                                            std::min(nq1, 16u));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#else
-         const sycl::range<3> blocksize(1, 1,
-             std::min(nq0 * nq1, SYCLBlockSize);
-         const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#endif
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -2711,28 +1770,23 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                      BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
                          basis1, in, out, shmptr, item);
-#else
-                BwdTrans2DKernel_QP_1D<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                    basis1, in, out, shmptr, item);
-#endif
                  });
          }).wait();
     }
     else
     {
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -2759,8 +1813,6 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
-    constexpr unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-
     constexpr bool MULTILEVEL =
         std::is_same_v<Implementation, Operators::SumFacQP>;
 
@@ -2775,18 +1827,15 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 
     if constexpr (MULTILEVEL)
     {
+        const unsigned int SYCLBlockSize =
+            std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
+        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+
         Q.submit([&](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-             const sycl::range<3> blocksize(
-                 std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#else
-             const sycl::range<3> blocksize(1, 1,
-                 std::min(nq0 * nq1 * nq2, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, std::min(nelmt, 2147483647u));
-#endif
+             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
@@ -2794,28 +1843,24 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                                          .template get_multi_ptr<
                                              sycl::access::decorated::no>()
                                          .get();
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
                      BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                         basis0, basis1, basis2, in, out, shmptr, item);
-#else
-                BwdTrans3DKernel_QP_1D<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                    basis0, basis1, basis2, in, out, shmptr, item);
-#endif
+                         index0, index1, basis0, basis1, basis2, in, out,
+                         shmptr, item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+        const unsigned int SYCLGridSize =
+            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+
         Q.submit([=](sycl::handler &cgh) {
              sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
                                                    cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(
-                 1, 1,
-                 std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize,
-                          2147483647u));
+             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {

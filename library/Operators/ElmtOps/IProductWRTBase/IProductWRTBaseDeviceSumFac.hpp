@@ -444,13 +444,9 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const bool indexing = false;
-#else
         const bool indexing =
             SHAPE_TYPE == LibUtilities::Tri &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
-#endif
 
         if (indexing)
         {
@@ -580,11 +576,6 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const bool indexingTet   = false;
-        const bool indexingPrism = false;
-        const bool indexingPyr   = false;
-#else
         const bool indexingTet =
             SHAPE_TYPE == LibUtilities::Tet &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
@@ -594,7 +585,6 @@ private:
         const bool indexingPyr =
             SHAPE_TYPE == LibUtilities::Pyr &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
-#endif
 
         // Precompute index, if necessary.
         if (indexingTet)
