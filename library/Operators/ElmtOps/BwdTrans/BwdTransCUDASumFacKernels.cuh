@@ -148,8 +148,9 @@ __device__ __forceinline__ void BwdTransQuadKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -217,100 +218,11 @@ __device__ __forceinline__ void BwdTransQuadKernel_QP(
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int i = threadIdx.y; i < nq0; i += blockDim.y)
-        {
-            for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
-            {
-                const unsigned int cnt_iq = nm1 * i + q;
-                unsigned int cnt_qp       = nm0 * q;
-
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
-                {
-                    tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
-                }
-                s_wsp1[cnt_iq] = tmp;
-            }
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-        {
-            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-            {
-                const unsigned int cnt_ji = nq0 * j + i;
-                unsigned int cnt_iq       = nm1 * i;
-
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
-                {
-                    tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
-                }
-                outptr[cnt_ji] = tmp;
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransQuadKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_basis0 = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -392,8 +304,9 @@ __device__ __forceinline__ void BwdTransTriKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -469,107 +382,11 @@ __device__ __forceinline__ void BwdTransTriKernel_QP(
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmTot * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0   = blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-        {
-            for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
-            {
-                const unsigned int cnt_jp = nm0 * j + p;
-                unsigned int mode_pq      = (2u * nm1 - p + 1u) * p / 2u;
-
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
-                {
-                    tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
-                }
-                s_wsp1[cnt_jp] = tmp;
-            }
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-        {
-            for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-            {
-                const unsigned int cnt_ij = nq0 * j + i;
-                unsigned int cnt_jp       = nm0 * j;
-
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
-                {
-                    tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
-                }
-
-                if (isModified)
-                {
-                    tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                }
-
-                outptr[cnt_ij] = tmp;
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransTriKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_basis0          = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -659,9 +476,10 @@ __device__ __forceinline__ void BwdTransHexKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -759,138 +577,10 @@ __device__ __forceinline__ void BwdTransHexKernel_QP(
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int i = threadIdx.z; i < nq0; i += blockDim.z)
-        {
-            for (unsigned int r = threadIdx.y; r < nm2; r += blockDim.y)
-            {
-                for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
-                {
-                    const unsigned int cnt_irq = nm1 * nm2 * i + nm1 * r + q;
-                    unsigned int cnt_rqp       = nm1 * nm0 * r + nm0 * q;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
-                    {
-                        tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
-                    }
-                    s_wsp1[cnt_irq] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int j = threadIdx.z; j < nq1; j += blockDim.z)
-        {
-            for (unsigned int i = threadIdx.y; i < nq0; i += blockDim.y)
-            {
-                for (unsigned int r = threadIdx.x; r < nm2; r += blockDim.x)
-                {
-                    const unsigned int cnt_jir = nq0 * nm2 * j + nm2 * i + r;
-                    unsigned int cnt_irq       = nm1 * nm2 * i + nm1 * r;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
-                    {
-                        tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[cnt_jir] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 2
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int cnt_jir       = nq0 * nm2 * j + nm2 * i;
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
-                    {
-                        tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
-                    }
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransHexKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nq0 * nm1 * nm2);
+    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1006,6 +696,7 @@ __device__ __forceinline__ void BwdTransTetKernel(
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
@@ -1136,174 +827,6 @@ __device__ __forceinline__ void BwdTransTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = (TData *)shared;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + nm01 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-
-    // Copy to (TData *)shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm01 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 2
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
-            {
-                for (unsigned int q = threadIdx.x; q < nm1 - p; q += blockDim.x)
-                {
-                    const unsigned int cnt_kpq =
-                        nm01 * k + (2u * nm1 - p + 1u) * p / 2u + q;
-                    unsigned int mode2 = (2u * (nm2 - p) - q + 1u) * q;
-                    mode2 += nm2 * (nm2 + 1u) * p;
-                    mode2 -= (2u * nm2 + 1u) * (p - 1u) * p / 2u;
-                    mode2 += (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode2 /= 2u;
-                    unsigned int mode_pqr =
-                        mode2 - ((nm2 > nm1)
-                                     ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                     : 0u);
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q;
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
-                    }
-                    s_wsp1[cnt_kpq] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_pq        = (2u * nm1 - p + 1u) * p / 2u;
-                    unsigned int cnt_kpq        = nm01 * k + mode_pq;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1 - p;
-                         ++q, ++cnt_kpq, ++mode_pq)
-                    {
-                        tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
-                        tmp += tmp1 * s_wsp0[1];
-
-                        // bottom vertex
-                        tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[k];
-                        tmp += tmp1 * s_wsp0[nm2];
-
-                        // singular edge
-                        for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-                        {
-                            tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
-                            tmp1 *= s_basis2[(r + 1u) * nq2 + k];
-                            tmp += tmp1 * s_wsp0[nm2 + r];
-                        }
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransTetKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const unsigned int *__restrict__ pindex,
     const unsigned int *__restrict__ qindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
@@ -1315,6 +838,7 @@ __device__ __forceinline__ void BwdTransTetKernel_QP_1D(
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
@@ -1359,7 +883,7 @@ __device__ __forceinline__ void BwdTransTetKernel_QP_1D(
         __syncthreads();
 
         // direction 2
-        for (unsigned int idx = threadIdx.x; idx < nq0 * nm1 * nm2;
+        for (unsigned int idx = threadIdx.x; idx < nm01 * nq2;
              idx += blockDim.x)
         {
             const unsigned int k = idx / nm01;
@@ -1464,9 +988,10 @@ __device__ __forceinline__ void BwdTransPrismKernel(
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_basis0          = SHMEM ? (TData *)shared : (TData *)basis0;
-    TData *s_basis1          = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2          = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+
+    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -1581,152 +1106,10 @@ __device__ __forceinline__ void BwdTransPrismKernel_QP(
     extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm12 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 2
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
-            {
-                for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
-                {
-                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
-                    unsigned int mode_pr        = (2u * nm2 - p + 1u) * p / 2u;
-                    unsigned int mode_pqr       = mode_pr * nm1 + (nm2 - p) * q;
-
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p;
-                         ++r, ++mode_pqr, ++mode_pr)
-                    {
-                        tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
-                    }
-                    s_wsp1[mode_kpq] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
-                    {
-                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        for (unsigned int q = 0u; q < nm1; ++q)
-                        {
-                            tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
-                                   s_basis0[nq0 + i] * s_wsp0[q * nm2 + 1u];
-                        }
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransPrismKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    TData *s_wsp0            = (TData *)shared;
-    TData *s_wsp1            = s_wsp0 + nmTot;
-    TData *s_wsp2            = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp1   = s_wsp0 + nmTot;
+    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1855,6 +1238,7 @@ __device__ __forceinline__ void BwdTransPyrKernel(
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
     TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
@@ -1978,175 +1362,7 @@ __device__ __forceinline__ void BwdTransPyrKernel_QP(
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    TData *s_wsp0   = (TData *)shared;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-    }
-
-    unsigned int e = blockIdx.x;
-
-    while (e < nelmt)
-    {
-        const TData *inptr = in + nmTot * e;
-        TData *outptr      = out + nqTot * e;
-
-        // Copy to shared memory.
-        const unsigned int idx0 = blockDim.x * blockDim.y * threadIdx.z +
-                                  blockDim.x * threadIdx.y + threadIdx.x;
-        const unsigned int stride = blockDim.x * blockDim.y * blockDim.z;
-        for (unsigned int idx = idx0; idx < nmTot; idx += stride)
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
-
-        __syncthreads();
-
-        // direction 2
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int p = threadIdx.y; p < nm0; p += blockDim.y)
-            {
-                for (unsigned int q = threadIdx.x; q < nm1; q += blockDim.x)
-                {
-                    const unsigned int mode_kpq = nm0 * nm1 * k + nm1 * p + q;
-                    unsigned int mode2 =
-                        (nm2 > nm1) ? p * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u
-                                    : 0u;
-                    unsigned int mode_pqr = nm1 * (2u * nm2 + 1u - nm1) * p;
-                    mode_pqr -= (p - 1u) * p / 2u;
-                    mode_pqr -= (p - 1u) * p * (2u * p - 1u) / 6u;
-                    mode_pqr /= 2u;
-
-                    if (q < p)
-                    {
-                        mode_pqr += q * (nm2 - p);
-                        mode2 += mode_pqr;
-                        TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - p;
-                             ++r, ++mode2, ++mode_pqr)
-                        {
-                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
-                        }
-                        s_wsp1[mode_kpq] = tmp;
-                    }
-                    else
-                    {
-                        mode_pqr += p * (nm2 - p);
-                        mode_pqr +=
-                            ((2u * (nm2 - p) - (q - p) + 1u) * (q - p)) / 2u;
-                        mode2 += mode_pqr;
-
-                        TData tmp = 0.0;
-                        for (unsigned int r = 0u; r < nm2 - q;
-                             ++r, ++mode2, ++mode_pqr)
-                        {
-                            tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
-                        }
-                        s_wsp1[mode_kpq] = tmp;
-                    }
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 1
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int p = threadIdx.x; p < nm0; p += blockDim.x)
-                {
-                    const unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j + p;
-                    unsigned int mode_kpq       = nm0 * nm1 * k + nm1 * p;
-
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
-                    {
-                        tmp += s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
-                    }
-                    s_wsp2[mode_kjp] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        // direction 0
-        for (unsigned int k = threadIdx.z; k < nq2; k += blockDim.z)
-        {
-            for (unsigned int j = threadIdx.y; j < nq1; j += blockDim.y)
-            {
-                for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
-                {
-                    const unsigned int cnt_kji = nq0 * nq1 * k + nq0 * j + i;
-                    unsigned int mode_kjp      = nm0 * nq1 * k + nm0 * j;
-
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-                    {
-                        tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
-                        tmp += tmp1 * s_wsp0[1];
-                    }
-
-                    outptr[cnt_kji] = tmp;
-                }
-            }
-        }
-
-        __syncthreads();
-
-        e += gridDim.x;
-    }
-}
-
-template <bool SHMEM, typename TData>
-__device__ __forceinline__ void BwdTransPyrKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
-
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     TData *s_wsp0   = (TData *)shared;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
@@ -2350,28 +1566,6 @@ __global__ void BwdTrans2DKernel_QP(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-__global__ void BwdTrans2DKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ in, TData *__restrict__ out)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        BwdTransQuadKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                        basis0, basis1, in, out);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        BwdTransTriKernel_QP_1D<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                       isModified, basis0, basis1, in, out);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
 __global__ void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -2413,6 +1607,8 @@ __global__ void BwdTrans3DKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
@@ -2428,8 +1624,8 @@ __global__ void BwdTrans3DKernel_QP(
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    isModified, basis0, basis1, basis2, in,
-                                    out);
+                                    isModified, index0, index1, basis0, basis1,
+                                    basis2, in, out);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
@@ -2442,43 +1638,6 @@ __global__ void BwdTrans3DKernel_QP(
         BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                     isModified, basis0, basis1, basis2, in,
                                     out);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-__global__ void BwdTrans3DKernel_QP_1D(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ in,
-    TData *__restrict__ out)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        BwdTransHexKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, basis0, basis1, basis2, in, out);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        BwdTransTetKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, isModified, basis0, basis1,
-                                       basis2, in, out);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        BwdTransPrismKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                         nelmt, isModified, basis0, basis1,
-                                         basis2, in, out);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        BwdTransPyrKernel_QP_1D<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                       nelmt, isModified, basis0, basis1,
-                                       basis2, in, out);
     }
 }
 
@@ -2535,22 +1694,13 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const dim3 blocksize = dim3(std::min(nq0, 16u), std::min(nq1, 16u), 1u);
+        const unsigned int blocksize =
+            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>
             <<<gridsize, blocksize, nshared>>>(
                 nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out);
-#else
-        const unsigned int blocksize =
-            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
-
-        BwdTrans2DKernel_QP_1D<SHAPE_TYPE, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
-                nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out);
-#endif
     }
     else
     {
@@ -2584,25 +1734,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 
     if constexpr (MULTILEVEL)
     {
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const dim3 blocksize =
-            dim3(std::min(nq0, 8u), std::min(nq1, 8u), std::min(nq2, 8u));
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
-
-        BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                               nelmt, isModified, basis0,
-                                               basis1, basis2, in, out);
-#else
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
-        BwdTrans3DKernel_QP_1D<SHAPE_TYPE, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                               nelmt, isModified, basis0,
-                                               basis1, basis2, in, out);
-#endif
+        BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>
+            <<<gridsize, blocksize, nshared>>>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+                basis0, basis1, basis2, in, out);
     }
     else
     {

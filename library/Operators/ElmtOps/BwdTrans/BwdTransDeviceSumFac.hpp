@@ -387,13 +387,9 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
-#if !defined(NEKTAR_USE_QP_1D_KERNEL)
-        const bool indexing = false;
-#else
         const bool indexing =
             SHAPE_TYPE == LibUtilities::Tet &&
             std::is_same_v<Implementation, Operators::SumFacQP>;
-#endif
 
         if (indexing)
         {

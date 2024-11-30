@@ -137,8 +137,7 @@ inline unsigned int BwdTransSharedMemorySize(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            nshared += nmTot + ((2u * nm1 - nm0 + 1u) * nm0 / 2u * nq2) +
-                       (nm0 * nq1 * nq2);
+            nshared += nmTot + (nm01 * nq2) + (nm0 * nq1 * nq2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
