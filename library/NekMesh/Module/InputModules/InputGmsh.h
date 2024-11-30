@@ -76,8 +76,8 @@ private:
     static std::vector<int> TriReordering(NekMesh::ElmtConfig conf);
     static std::vector<int> QuadReordering(NekMesh::ElmtConfig conf);
     static std::vector<int> HexReordering(NekMesh::ElmtConfig conf);
-    static std::vector<int> PrismReordering(NekMesh::ElmtConfig conf,
-                                            Logger &log);
+    static std::vector<int> PrismReordering(NekMesh::ElmtConfig conf);
+    static std::vector<int> PyrReordering(NekMesh::ElmtConfig conf);
     static std::vector<int> TetReordering(NekMesh::ElmtConfig conf);
     static std::vector<int> LineReordering(NekMesh::ElmtConfig conf);
 

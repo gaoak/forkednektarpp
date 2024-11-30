@@ -356,31 +356,20 @@ std::vector<int> tetTensorNodeOrdering(const std::vector<int> &nodes, int n)
     if (n > 4)
     {
         // Now align faces
-        vector<int> triVertId(3), toAlign(3);
-        triVertId[0] = 0;
-        triVertId[1] = 1;
-        triVertId[2] = 2;
+        vector<int> triVertId = {0, 1, 2};
 
         // Faces 0,2: triangle verts {0,2,1} --> {0,1,2}
         HOTriangle<int> hoTri(triVertId, tmpNodes[0]);
-        toAlign[0] = 0;
-        toAlign[1] = 2;
-        toAlign[2] = 1;
-
-        hoTri.Align(toAlign);
+        hoTri.Align({0, 2, 1});
         tmpNodes[0] = hoTri.surfVerts;
 
         hoTri.surfVerts = tmpNodes[2];
-        hoTri.Align(toAlign);
+        hoTri.Align({0, 2, 1});
         tmpNodes[2] = hoTri.surfVerts;
 
         // Face 3: triangle verts {1,2,0} --> {0,1,2}
-        toAlign[0] = 1;
-        toAlign[1] = 2;
-        toAlign[2] = 0;
-
         hoTri.surfVerts = tmpNodes[3];
-        hoTri.Align(toAlign);
+        hoTri.Align({1, 2, 0});
         tmpNodes[3] = hoTri.surfVerts;
     }
 
@@ -447,9 +436,6 @@ std::vector<int> tetTensorNodeOrdering(const std::vector<int> &nodes, int n)
  *             Gmsh                 tensor-product
  * ```
  *
- * @todo Make this routine work for higher orders. The Gmsh ordering seems
- *       a little different than other elements, therefore the functionality is
- *       (for now) hard-coded to orders less than 5.
  *
  * @param nodes   The integer IDs of the nodes to be reordered, in Gmsh format.
  * @param n       The number of nodes in one coordinate direction. If this is
@@ -458,8 +444,7 @@ std::vector<int> tetTensorNodeOrdering(const std::vector<int> &nodes, int n)
  *
  * @return The nodes vector in tensor-product ordering.
  */
-std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n,
-                                         Logger &log)
+std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n)
 {
     std::vector<int> nodeList;
 
@@ -470,6 +455,7 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n,
 
     nodeList.resize(nodes.size());
 
+    // Special case, just have a segment here with two points inside of it.
     if (n == 2)
     {
         nodeList[0] = nodes[1];
@@ -477,29 +463,53 @@ std::vector<int> prismTensorNodeOrdering(const std::vector<int> &nodes, int n,
         return nodeList;
     }
 
-    // For some reason, this ordering is different. Whereas Gmsh usually orders
-    // vertices first, followed by edges, this ordering goes VVE-VVE-VVE for the
-    // three edges that contain edge-interior information, but also vertex
-    // orientation is not the same as the original Gmsh prism. The below is done
-    // by looking at the ordering by hand and is hence why we don't support
-    // order > 4 right now.
-    if (n == 3)
+    // Nodes here are now ordered by looping over the nodes of a triangle of
+    // order n-2, and then for each node, we loop over the nodes of a high-order
+    // segment of order n-1. Since the prism in Gmsh is defined in a left-hand
+    // coordinate system, we also need to invert the order in the
+    // z-direction. So the logic here is:
+    //
+    // - gather triangles together, one per plane
+    // - reorder these using triTensorNodeOrdering
+    // - extract into the right order
+
+    // Vector to store ordering when looping over line
+    std::vector<int> lineReorder(n);
+    lineReorder[0]     = 1;
+    lineReorder[n - 1] = 0;
+    for (int i = 1; i < n - 1; ++i)
     {
-        nodeList[0] = nodes[1];
-        nodeList[1] = nodes[4];
-        nodeList[2] = nodes[2];
-        nodeList[3] = nodes[5];
-        nodeList[4] = nodes[0];
-        nodeList[5] = nodes[3];
-        nodeList[6] = nodes[7];
-        nodeList[7] = nodes[8];
-        nodeList[8] = nodes[6];
+        lineReorder[i] = n - i;
     }
 
-    if (n >= 4)
+    auto nTriNodes = (n - 1) * n / 2;
+
+    // Construct vectors of the triangular planes
+    std::vector<std::vector<int>> triPlanes(n);
+    for (int i = 0; i < n; ++i)
     {
-        log(FATAL) << "Prism Gmsh input and output is incomplete for orders "
-                   << "larger than 4." << endl;
+        auto triOffset = lineReorder[i];
+        std::vector<int> triNodes(nTriNodes);
+
+        for (int j = 0; j < nTriNodes; ++j)
+        {
+            triNodes[j] = triOffset + j * nTriNodes;
+        }
+
+        triPlanes[i] = triTensorNodeOrdering(triNodes, n - 1);
+    }
+
+    // Now reorder the planes into the tensor product ordering
+    for (int i = 0, b = 0; i < n - 1; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            for (int k = 0; k < n - 1 - i; ++k, ++b)
+            {
+                auto idx    = k + i * (2 * (n - 1) + 1 - i) / 2;
+                nodeList[b] = nodes[idx];
+            }
+        }
     }
 
     return nodeList;
@@ -565,22 +575,27 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
         return nodeList;
     }
 
-    int hexEdges[12][2]   = {{0, 1},
-                             {n - 1, n},
-                             {n * n - 1, -1},
-                             {n * (n - 1), -n},
-                             {0, n * n},
-                             {n - 1, n * n},
-                             {n * n - 1, n * n},
-                             {n * (n - 1), n * n},
-                             {n * n * (n - 1), 1},
-                             {n * n * (n - 1) + n - 1, n},
-                             {n * n * n - 1, -1},
-                             {n * n * (n - 1) + n * (n - 1), -n}};
-    int hexFaces[6][3]    = {{0, 1, n},         {0, 1, n * n},
-                             {n - 1, n, n * n}, {n * (n - 1), 1, n * n},
-                             {0, n, n * n},     {n * n * (n - 1), 1, n}};
-    int gmshToNekEdge[12] = {0, -3, 4, 1, 5, 2, 6, 7, 8, -11, 9, 10};
+    std::array<std::array<int, 2>, 12> hexEdges = {
+        {{0, 1},
+         {n - 1, n},
+         {n * n - 1, -1},
+         {n * (n - 1), -n},
+         {0, n * n},
+         {n - 1, n * n},
+         {n * n - 1, n * n},
+         {n * (n - 1), n * n},
+         {n * n * (n - 1), 1},
+         {n * n * (n - 1) + n - 1, n},
+         {n * n * n - 1, -1},
+         {n * n * (n - 1) + n * (n - 1), -n}}};
+    std::array<std::array<int, 3>, 6> hexFaces = {{{0, 1, n},
+                                                   {0, 1, n * n},
+                                                   {n - 1, n, n * n},
+                                                   {n * (n - 1), 1, n * n},
+                                                   {0, n, n * n},
+                                                   {n * n * (n - 1), 1, n}}};
+    std::array<int, 12> gmshToNekEdge          = {0, -3, 4, 1,   5, 2,
+                                                  6, 7,  8, -11, 9, 10};
 
     // Edges
     int offset = 8;
@@ -606,10 +621,10 @@ std::vector<int> hexTensorNodeOrdering(const std::vector<int> &nodes, int n)
     }
 
     // Faces
-    int gmsh2NekFace[6] = {0, 1, 4, 2, 3, 5};
+    std::array<int, 6> gmsh2NekFace = {0, 1, 4, 2, 3, 5};
 
     // Map which defines orientation between Gmsh and Nektar++ faces.
-    StdRegions::Orientation faceOrient[6] = {
+    std::array<StdRegions::Orientation, 6> faceOrient = {
         StdRegions::eDir1FwdDir2_Dir2FwdDir1,
         StdRegions::eDir1FwdDir1_Dir2FwdDir2,
         StdRegions::eDir1FwdDir2_Dir2FwdDir1,
@@ -1260,10 +1275,13 @@ vector<int> InputGmsh::CreateReordering(unsigned int InputGmshEntity,
             return TetReordering(it->second);
             break;
         case LibUtilities::ePrism:
-            return PrismReordering(it->second, log);
+            return PrismReordering(it->second);
             break;
         case LibUtilities::eHexahedron:
             return HexReordering(it->second);
+            break;
+        case LibUtilities::ePyramid:
+            return PyrReordering(it->second);
             break;
         case LibUtilities::eSegment:
             return LineReordering(it->second);
@@ -1413,8 +1431,8 @@ vector<int> InputGmsh::TetReordering(ElmtConfig conf)
     mapping.resize(4 + 6 * n);
 
     // Curvilinear edges.
-    static int gmshToNekEdge[6] = {0, 1, 2, 3, 5, 4};
-    static int gmshToNekRev[6]  = {0, 0, 1, 1, 1, 1};
+    std::array<int, 6> gmshToNekEdge = {0, 1, 2, 3, 5, 4};
+    std::array<int, 6> gmshToNekRev  = {0, 0, 1, 1, 1, 1};
 
     // Reorder edges.
     int offset, cnt = 4;
@@ -1446,12 +1464,8 @@ vector<int> InputGmsh::TetReordering(ElmtConfig conf)
     // Curvilinear faces.
     mapping.resize(4 + 6 * n + 4 * n2);
 
-    static int gmshToNekFace[4] = {0, 1, 3, 2};
-
-    vector<int> triVertId(3);
-    triVertId[0] = 0;
-    triVertId[1] = 1;
-    triVertId[2] = 2;
+    std::array<int, 4> gmshToNekFace = {0, 1, 3, 2};
+    vector<int> triVertId            = {0, 1, 2};
 
     // Loop over Gmsh faces
     for (i = 0; i < 4; ++i)
@@ -1462,7 +1476,6 @@ vector<int> InputGmsh::TetReordering(ElmtConfig conf)
 
         // Create a list of interior face nodes for this face only.
         vector<int> faceNodes(n2);
-        vector<int> toAlign(3);
         for (j = 0; j < n2; ++j)
         {
             faceNodes[j] = offset2 + j;
@@ -1477,18 +1490,12 @@ vector<int> InputGmsh::TetReordering(ElmtConfig conf)
         if (i == 0 || i == 2)
         {
             // Triangle verts {0,2,1} --> {0,1,2}
-            toAlign[0] = 0;
-            toAlign[1] = 2;
-            toAlign[2] = 1;
-            hoTri.Align(toAlign);
+            hoTri.Align({0, 2, 1});
         }
         else if (i == 3)
         {
             // Triangle verts {1,2,0} --> {0,1,2}
-            toAlign[0] = 1;
-            toAlign[1] = 2;
-            toAlign[2] = 0;
-            hoTri.Align(toAlign);
+            hoTri.Align({1, 2, 0});
         }
 
         // Fill in mapping.
@@ -1536,12 +1543,13 @@ vector<int> InputGmsh::TetReordering(ElmtConfig conf)
 /**
  * @brief Create a reordering for prisms.
  *
- * Note that whilst Gmsh MSH files have the capability to support
- * high-order prisms, presently Gmsh does not seem to be capable of
- * generating higher than second-order prismatic meshes, so most of the
- * following is untested.
+ * Gmsh has a slightly different definition compared to Nektar++, so that the
+ * \f$ (u,v,w) \f$ axes are represented by Nektar++ as \f$ (\xi_2, \xi_1, \xi_3)
+ * \f$ respectively. That is, the Gmsh prism uses a left-hand oriented element,
+ * whereas Nektar++ relies on a righ-hand oriented element. This makes the
+ * reordering process rather more complex.
  */
-vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
+vector<int> InputGmsh::PrismReordering(ElmtConfig conf)
 {
     const int order = conf.m_order;
     const int n     = order - 1;
@@ -1549,10 +1557,11 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
     int i;
     vector<int> mapping(6);
 
-    // To get from Gmsh -> Nektar++ prism, coordinates axes are
-    // different; need to mirror in the triangular faces, and then
-    // reorder vertices to make ordering anticlockwise on base quad.
-    static int nekToGmshVerts[6] = {3, 4, 1, 0, 5, 2};
+    // To get from Gmsh -> Nektar++ prism, coordinates axes are different; need
+    // to mirror in the triangular faces to account for left- vs. right-hand
+    // ordering, and then reorder vertices to make ordering anticlockwise on
+    // base quad.
+    std::array<int, 6> nekToGmshVerts = {3, 4, 1, 0, 5, 2};
     // Inverse (gmsh vert -> Nektar++ vert): 3->0, 4->1, 1->2, 0->3, 5->4, 2->5
 
     for (i = 0; i < 6; ++i)
@@ -1577,8 +1586,8 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
     //   {3,2}, {3,5}, {3,0}, {2,5}, {2,1}, {5,4}, {0,1}, {0,4}, {1,4}
     // Nektar++ mapping (negative indicates reverse orientation):
     //   = 2    = 7    = -3   = 6    = -1   = -8   = 0    = 4    = 5
-    static int gmshToNekEdge[9] = {2, 7, 3, 6, 1, 8, 0, 4, 5};
-    static int gmshToNekRev[9]  = {0, 0, 1, 0, 1, 1, 0, 0, 0};
+    std::array<int, 9> gmshToNekEdge = {2, 7, 3, 6, 1, 8, 0, 4, 5};
+    std::array<int, 9> gmshToNekRev  = {0, 0, 1, 0, 1, 1, 0, 0, 0};
 
     // Reorder edges.
     int offset, cnt = 6;
@@ -1618,7 +1627,7 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
     //   {3,5,2}, {0,1,4}, {3,2,1,0}, {3,0,4,5}, {2,5,4,1}
     //   = 3      = 1      = 0        = 4        = 2
     // This gives gmsh -> Nektar++ faces:
-    static int gmshToNekFace[5] = {3, 1, 0, 4, 2};
+    std::array<int, 5> gmshToNekFace = {3, 1, 0, 4, 2};
 
     // Face offsets
     vector<int> offsets(5), offsets2(5);
@@ -1642,16 +1651,7 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
 
     offset = 6 + 9 * n;
 
-    vector<int> triVertId(3);
-    triVertId[0] = 0;
-    triVertId[1] = 1;
-    triVertId[2] = 2;
-
-    vector<int> quadVertId(4);
-    quadVertId[0] = 0;
-    quadVertId[1] = 1;
-    quadVertId[2] = 2;
-    quadVertId[3] = 3;
+    vector<int> triVertId = {0, 1, 2}, quadVertId = {0, 1, 2, 3};
 
     for (i = 0; i < 5; ++i)
     {
@@ -1669,7 +1669,6 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
 
         // Create a list of interior face nodes for this face only.
         vector<int> faceNodes(nFacePts);
-        vector<int> toAlign(tri ? 3 : 4);
         for (int j = 0; j < nFacePts; ++j)
         {
             faceNodes[j] = offset2 + j;
@@ -1686,10 +1685,7 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
             if (i == 0)
             {
                 // Triangle verts {0,2,1} --> {0,1,2}
-                toAlign[0] = 0;
-                toAlign[1] = 2;
-                toAlign[2] = 1;
-                hoTri.Align(toAlign);
+                hoTri.Align({0, 2, 1});
             }
 
             // Fill in mapping.
@@ -1706,27 +1702,16 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
             // Apply reorientation
             if (i == 2)
             {
-                toAlign[0] = 3;
-                toAlign[1] = 2;
-                toAlign[2] = 1;
-                toAlign[3] = 0;
+                hoQuad.Align({3, 2, 1, 0});
             }
             else if (i == 3)
             {
-                toAlign[0] = 1;
-                toAlign[1] = 0;
-                toAlign[2] = 3;
-                toAlign[3] = 2;
+                hoQuad.Align({1, 0, 3, 2});
             }
             else if (i == 4)
             {
-                toAlign[0] = 3;
-                toAlign[1] = 0;
-                toAlign[2] = 1;
-                toAlign[3] = 2;
+                hoQuad.Align({3, 0, 1, 2});
             }
-
-            hoQuad.Align(toAlign);
 
             // Fill in mapping.
             for (int j = 0; j < nQuadInt; ++j)
@@ -1751,8 +1736,177 @@ vector<int> InputGmsh::PrismReordering(ElmtConfig conf, Logger &log)
     }
 
     // Reorder interior points
-    tmp = prismTensorNodeOrdering(intPoints, order - 1, log);
+    tmp = prismTensorNodeOrdering(intPoints, order - 1);
     mapping.insert(mapping.end(), tmp.begin(), tmp.end());
+
+    return mapping;
+}
+
+/**
+ * @brief Create a reordering for pyramids.
+ */
+vector<int> InputGmsh::PyrReordering(ElmtConfig conf)
+{
+    const int order    = conf.m_order;
+    const int n        = order - 1;
+    const int nQuadInt = n * n;
+    const int nTriInt  = n * (n - 1) / 2;
+
+    int i;
+
+    vector<int> mapping;
+
+    // Vertices are the same as Nektar++ ordering.
+    mapping.resize(5);
+    for (i = 0; i < 5; ++i)
+    {
+        mapping[i] = i;
+    }
+
+    if (order == 1)
+    {
+        return mapping;
+    }
+
+    // Gmsh edges (in terms of vertices):
+    //   {0, 1}, {0, 3}, {0, 4}, {1, 2}, {1, 4}, {2, 3}, {2, 4}, {3, 4}
+    // Nektar++ edges (in terms of vertices):
+    //   {0, 1}, {1, 2}, {3, 2}, {0, 3}, {0, 4}, {1, 4}, {2, 4}, {3, 4}
+    std::array<int, 8> gmshToNekEdge = {0, 3, 4, 1, 5, -2, 6, 7};
+
+    // Curvilinear edges.
+    mapping.resize(5 + 8 * n);
+
+    // Reorder edges.
+    int cnt = 5, offset;
+    for (i = 0; i < 8; ++i)
+    {
+        int edge = gmshToNekEdge[i];
+        offset   = 5 + n * abs(edge);
+
+        if (edge < 0)
+        {
+            for (int j = 0; j < n; ++j)
+            {
+                mapping[offset + n - j - 1] = cnt++;
+            }
+        }
+        else
+        {
+            for (int j = 0; j < n; ++j)
+            {
+                mapping[offset + j] = cnt++;
+            }
+        }
+    }
+
+    if (conf.m_faceNodes == false)
+    {
+        return mapping;
+    }
+
+    // Face offsets
+    vector<int> offsets(5), offsets2(5);
+    offset = 5 + 8 * n;
+
+    // Offsets in the gmsh order: face ordering is TTTTQ
+    offsets[0] = offset;
+    offsets[1] = offset + nTriInt;
+    offsets[2] = offset + 2 * nTriInt;
+    offsets[3] = offset + 3 * nTriInt;
+    offsets[4] = offset + 4 * nTriInt;
+
+    // Offsets in the Nektar++ order: face ordering is QTTTT
+    offsets2[0] = offset;
+    offsets2[1] = offset + nQuadInt;
+    offsets2[2] = offset + nQuadInt + nTriInt;
+    offsets2[3] = offset + nQuadInt + 2 * nTriInt;
+    offsets2[4] = offset + nQuadInt + 3 * nTriInt;
+
+    mapping.resize(5 + 8 * n + nQuadInt + 4 * nTriInt);
+
+    vector<int> triVertId = {0, 1, 2}, quadVertId = {0, 1, 2, 3};
+
+    // Gmsh faces (in terms of vertices):
+    //   {0, 1, 4}, {3, 0, 4}, {1, 2, 4}, {2, 3, 4}, {0, 3, 2, 1}
+    // Nektar++ faces (in terms of vertices):
+    //   {0, 1, 2, 3}, {0, 1, 4}, {1, 2, 4}, {3, 2, 4}, {0, 3, 4}
+
+    // Map which takes Gmsh -> Nektar++ faces in the local element.
+    std::array<int, 5> gmshToNekFace = {1, 4, 2, 3, 0};
+
+    for (i = 0; i < 5; ++i)
+    {
+        int face    = gmshToNekFace[i];
+        int offset2 = offsets[i];
+        offset      = offsets2[face];
+
+        bool tri     = i < 4;
+        int nFacePts = tri ? nTriInt : nQuadInt;
+
+        if (nFacePts == 0)
+        {
+            continue;
+        }
+
+        // Create a list of interior face nodes for this face only.
+        vector<int> faceNodes(nFacePts);
+        for (int j = 0; j < nFacePts; ++j)
+        {
+            faceNodes[j] = offset2 + j;
+        }
+
+        if (tri)
+        {
+            // Now get the reordering of this face, which puts Gmsh
+            // recursive ordering into Nektar++ row-by-row order.
+            vector<int> tmp = triTensorNodeOrdering(faceNodes, n - 1);
+            HOTriangle<int> hoTri(triVertId, tmp);
+
+            // Apply reorientation where needed (face 0 & 2 are okay)
+            if (i == 1 || i == 3)
+            {
+                // Triangle verts face 1 {3,0,4} --> {0,3,4}
+                // Triangle verts face 3 {2,3,4} --> {3,2,4}
+                hoTri.Align({1, 0, 2});
+            }
+
+            // Fill in mapping.
+            for (int j = 0; j < nTriInt; ++j)
+            {
+                mapping[offset + j] = hoTri.surfVerts[j];
+            }
+        }
+        else
+        {
+            vector<int> tmp = quadTensorNodeOrdering(faceNodes, n);
+            HOQuadrilateral<int> hoQuad(quadVertId, tmp);
+
+            // Apply reorientation: {0, 3, 2, 1} -> {0, 1, 2, 3}
+            hoQuad.Align({0, 3, 2, 1});
+
+            // Fill in mapping.
+            for (int j = 0; j < nQuadInt; ++j)
+            {
+                mapping[offset + j] = hoQuad.surfVerts[j];
+            }
+        }
+    }
+
+    if (conf.m_volumeNodes == false)
+    {
+        return mapping;
+    }
+
+    const int totPoints = Pyramid::GetNumNodes(conf);
+    vector<int> interior;
+    for (i = mapping.size(); i < totPoints; ++i)
+    {
+        interior.push_back(i);
+    }
+
+    // @TODO: Volume-interior nodes are _wrong_ but we don't use them (yet!)
+    mapping.insert(mapping.end(), interior.begin(), interior.end());
 
     return mapping;
 }
@@ -1770,7 +1924,8 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
     vector<int> mapping;
 
     // Map taking Gmsh edges to Nektar++ edges.
-    static int gmshToNekEdge[12] = {0, -3, 4, 1, 5, 2, 6, 7, 8, -11, 9, 10};
+    std::array<int, 12> gmshToNekEdge = {0, -3, 4, 1,   5, 2,
+                                         6, 7,  8, -11, 9, 10};
 
     // Push back vertices.
     mapping.resize(8);
@@ -1819,10 +1974,10 @@ vector<int> InputGmsh::HexReordering(ElmtConfig conf)
     mapping.resize(8 + 12 * n + 6 * n2);
 
     // Map which takes Gmsh -> Nektar++ faces in the local element.
-    static int gmsh2NekFace[6] = {0, 1, 4, 2, 3, 5};
+    std::array<int, 6> gmsh2NekFace = {0, 1, 4, 2, 3, 5};
 
     // Map which defines orientation between Gmsh and Nektar++ faces.
-    StdRegions::Orientation faceOrient[6] = {
+    std::array<StdRegions::Orientation, 6> faceOrient = {
         StdRegions::eDir1FwdDir2_Dir2FwdDir1,
         StdRegions::eDir1FwdDir1_Dir2FwdDir2,
         StdRegions::eDir1FwdDir2_Dir2FwdDir1,

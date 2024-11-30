@@ -325,7 +325,6 @@ void ProcessJac::Process()
         m_log(VERBOSE).Progress(i, el.size(), "Calculating Elemental Jacobian",
                                 i - 1);
     }
-    std::cout << std::endl;
 
     // Reorder the elements before push back based on the value of scaled
     // Jacobians.

@@ -656,4 +656,63 @@ void NodalTriExp::v_ComputeTraceNormal(const int edge)
     }
 }
 
+void NodalTriExp::v_GetTracePhysVals(
+    const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
+    const Array<OneD, const NekDouble> &inarray,
+    Array<OneD, NekDouble> &outarray, StdRegions::Orientation orient)
+{
+    int nquad0 = m_base[0]->GetNumPoints();
+    int nquad1 = m_base[1]->GetNumPoints();
+    int nt     = 0;
+    // Extract in Cartesian direction because we have to deal with
+    // e.g. Gauss-Radau points.
+    switch (edge)
+    {
+        case 0:
+            Vmath::Vcopy(nquad0, &(inarray[0]), 1, &(outarray[0]), 1);
+            nt = nquad0;
+            break;
+        case 1:
+            Vmath::Vcopy(nquad1, &(inarray[0]) + (nquad0 - 1), nquad0,
+                         &(outarray[0]), 1);
+            nt = nquad1;
+            break;
+        case 2:
+            Vmath::Vcopy(nquad1, &(inarray[0]), nquad0, &(outarray[0]), 1);
+            nt = nquad1;
+            break;
+        default:
+            ASSERTL0(false, "edge value (< 3) is out of range");
+            break;
+    }
+
+    ASSERTL1(EdgeExp->GetBasis(0)->GetPointsType() ==
+                 LibUtilities::eGaussLobattoLegendre,
+             "Edge expansion should be GLL");
+
+    // Interpolate if required
+    if (m_base[edge ? 1 : 0]->GetPointsKey() !=
+        EdgeExp->GetBasis(0)->GetPointsKey())
+    {
+        Array<OneD, NekDouble> outtmp(max(nquad0, nquad1));
+
+        Vmath::Vcopy(nt, outarray, 1, outtmp, 1);
+
+        LibUtilities::Interp1D(m_base[edge ? 1 : 0]->GetPointsKey(), outtmp,
+                               EdgeExp->GetBasis(0)->GetPointsKey(), outarray);
+    }
+
+    if (orient == StdRegions::eNoOrientation)
+    {
+        orient = GetTraceOrient(edge);
+    }
+
+    // Reverse data if necessary
+    if (orient == StdRegions::eBackwards)
+    {
+        Vmath::Reverse(EdgeExp->GetNumPoints(0), &outarray[0], 1, &outarray[0],
+                       1);
+    }
+}
+
 } // namespace Nektar::LocalRegions

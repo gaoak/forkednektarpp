@@ -319,6 +319,12 @@ private:
     }
 
     void v_ComputeTraceNormal(const int edge) override;
+
+    void v_GetTracePhysVals(const int edge,
+                            const StdRegions::StdExpansionSharedPtr &EdgeExp,
+                            const Array<OneD, const NekDouble> &inarray,
+                            Array<OneD, NekDouble> &outarray,
+                            StdRegions::Orientation orient) override;
 };
 
 typedef std::shared_ptr<NodalTriExp> NodalTriExpSharedPtr;

@@ -8,9 +8,13 @@ v5.8.0
 - Add FieldConvert module to perform local stability analysis for compressible flows (!1319)
 - Remove get() accessor from Array data structure (!1937)
 - Fix issue with `StdTetExp::v_LocCollapsedToLocCoord` (!1946)
+- Fix issue with `NodalTriExp::v_GetTracePhysVals` (!1951)
 
 **CI**
 -- fix CubeAllElements performance test tolerance (!1943)
+
+**NekMesh**
+- Add high-order pyramid and prism support from gmsh (!1956)
 
 v5.7.0
 -----

@@ -76,6 +76,7 @@ ADD_NEKTAR_TEST(Gmsh/v4.0/square_tri_lin)
 ADD_NEKTAR_TEST(Gmsh/v4.0/square_tri)
 
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_all)
+ADD_NEKTAR_TEST(Gmsh/v4.1/cube_all_p6)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_hex_lin)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_hex)
 ADD_NEKTAR_TEST(Gmsh/v4.1/cube_prism_lin)
