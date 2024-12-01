@@ -109,13 +109,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shared, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -124,12 +124,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
 
     TData *s_f0, *s_f1;
 
-    // Copy to shared memory.
+    // Pre-compute factor.
     const unsigned int idx0   = item_ct1.get_local_id(2);
     const unsigned int stride = item_ct1.get_local_range(2);
-    if constexpr (SHAPETYPE == LibUtilities::Tri)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        s_f0 = shared;
+        s_f0 = shmemptr;
         s_f1 = s_f0 + nq1;
 
         for (unsigned int idx = idx0; idx < nq1; idx += stride)
@@ -171,12 +171,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
                     sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
                 }
 
-                if constexpr (SHAPETYPE == LibUtilities::Quad)
+                if constexpr (SHAPE_TYPE == LibUtilities::Quad)
                 {
                     out[index]                 = sum1;
                     out[nelmt * nqTot + index] = sum2;
                 }
-                else if constexpr (SHAPETYPE == LibUtilities::Tri)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
                 {
                     out[index] = (sum1 + sum2 * s_f1[i]) * s_f0[j];
                     out[nelmt * nqTot + index] = sum2;
@@ -188,7 +188,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -217,9 +217,10 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
             const unsigned int index   = offset + idx;
             const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 f0 = 2.0 / (1.0 - Z1[j]);
+                f1 = 0.5 * (1.0 + Z0[i]);
             }
 
             TData sum1 = 0.0, sum2 = 0.0;
@@ -230,18 +231,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
                 sum2 += df[(2u * d + 1u) * dfsize + dfindex] * tmp;
             }
 
-            // Moving from standard to collapsed coordinates.
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
-            {
-                f1 = 0.5 * (1.0 + Z0[i]);
-            }
-
-            if constexpr (SHAPETYPE == LibUtilities::Quad)
+            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 out[index]                 = sum1;
                 out[nelmt * nqTot + index] = sum2;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Tri)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 out[index]                 = (sum1 + sum2 * f1) * f0;
                 out[nelmt * nqTot + index] = sum2;
@@ -252,13 +247,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ Z2,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shared,
+    TData *__restrict__ out, TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
@@ -270,12 +265,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
     TData *s_f0, *s_f1, *s_f2, *s_f3;
 
-    // Copy to shared memory.
+    // Pre-compute factor.
     const unsigned int idx0   = item_ct1.get_local_id(2);
     const unsigned int stride = item_ct1.get_local_range(2);
-    if constexpr (SHAPETYPE == LibUtilities::Tet)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        s_f0 = shared;
+        s_f0 = shmemptr;
         s_f1 = s_f0 + nq1;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
@@ -302,9 +297,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        s_f1 = shared;
+        s_f1 = shmemptr;
         s_f2 = s_f1 + nq0;
 
         for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -319,9 +314,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        s_f1 = shared;
+        s_f1 = shmemptr;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
 
@@ -372,13 +367,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                         sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
                     }
 
-                    if constexpr (SHAPETYPE == LibUtilities::Hex)
+                    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
                     {
                         out[index]                      = sum1;
                         out[nelmt * nqTot + index]      = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Tet)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
                                      s_f0[j] * s_f2[k];
@@ -386,13 +381,13 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
                             (sum2 + sum3 * s_f3[j]) * s_f2[k];
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                     {
                         out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                         out[nelmt * nqTot + index]      = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                         out[nelmt * nqTot + index] =
@@ -407,7 +402,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -433,37 +428,30 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1 * nq2;
              idx += item_ct1.get_local_range(2))
         {
-            const unsigned int i = idx % nq0;
-            const unsigned int j = (idx / nq0) % nq1;
-            const unsigned int k = idx / (nq0 * nq1);
+            const unsigned int i       = idx % nq0;
+            const unsigned int j       = (idx / nq0) % nq1;
+            const unsigned int k       = idx / (nq0 * nq1);
+            const unsigned int index   = offset + idx;
+            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::Prism ||
+                          SHAPE_TYPE == LibUtilities::Pyr)
             {
+                f1 = 0.5 * (1.0 + Z0[i]);
                 f2 = 2.0 / (1.0 - Z2[k]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::Pyr)
             {
                 f3 = 0.5 * (1.0 + Z1[j]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 f0 = 2.0 / (1.0 - Z1[j]);
             }
-
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
-            {
-                f1 = 0.5 * (1.0 + Z0[i]);
-            }
-
-            const unsigned int index   = offset + idx;
-            const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
             TData sum1 = 0.0, sum2 = 0.0, sum3 = 0.0;
             for (unsigned int d = 0u; d < ncoord; ++d)
@@ -474,25 +462,25 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
                 sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Hex)
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 out[index]                      = sum1;
                 out[nelmt * nqTot + index]      = sum2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Tet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
                 out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Prism)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 out[index]                      = (sum1 + sum3 * f1) * f2;
                 out[nelmt * nqTot + index]      = sum2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 out[index]                      = (sum1 + sum3 * f1) * f2;
                 out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
@@ -511,12 +499,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const TData *df, const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int SYCLBlockSize =
             std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
@@ -559,12 +544,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
     const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int SYCLBlockSize =
             std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
@@ -591,19 +573,19 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
             std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out, shmptr,
+                         nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out, shmemptr,
                          item_ct1);
                  });
          }).wait();
@@ -617,12 +599,9 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
     const TData *df, const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int SYCLBlockSize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
@@ -648,21 +627,21 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
         const unsigned int SYCLGridSize =
             std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
-        Q.submit([&](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
+        Q.submit([=](sycl::handler &cgh) {
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out, shmptr,
-                         item_ct1);
+                         nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out,
+                         shmemptr, item_ct1);
                  });
          }).wait();
     }

@@ -45,11 +45,11 @@ __device__ __forceinline__ void BwdTransSegKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -90,9 +90,9 @@ __device__ __forceinline__ void BwdTransSegKernel_QP(
     const TData *__restrict__ basis0, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_basis0 = SHMEM ? s_wsp0 + nm0 : (TData *)basis0;
 
     // Copy to shared memory.
@@ -143,13 +143,13 @@ __device__ __forceinline__ void BwdTransQuadKernel(
     TData *__restrict__ wsp, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -215,11 +215,11 @@ __device__ __forceinline__ void BwdTransQuadKernel_QP(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_basis0 = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -299,13 +299,13 @@ __device__ __forceinline__ void BwdTransTriKernel(
     const TData *__restrict__ basis1, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -379,11 +379,11 @@ __device__ __forceinline__ void BwdTransTriKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -471,13 +471,13 @@ __device__ __forceinline__ void BwdTransHexKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -574,11 +574,11 @@ __device__ __forceinline__ void BwdTransHexKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
@@ -688,7 +688,7 @@ __device__ __forceinline__ void BwdTransTetKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -697,7 +697,7 @@ __device__ __forceinline__ void BwdTransTetKernel(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
@@ -832,14 +832,14 @@ __device__ __forceinline__ void BwdTransTetKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -983,13 +983,13 @@ __device__ __forceinline__ void BwdTransPrismKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -1103,11 +1103,11 @@ __device__ __forceinline__ void BwdTransPrismKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1231,7 +1231,7 @@ __device__ __forceinline__ void BwdTransPyrKernel(
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1239,7 +1239,7 @@ __device__ __forceinline__ void BwdTransPyrKernel(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -1357,13 +1357,13 @@ __device__ __forceinline__ void BwdTransPyrKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1650,29 +1650,27 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) * BwdTransSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHMEM, true>(nq0, nm0);
         const unsigned int blocksize =
             std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         BwdTrans1DKernel_QP<SHMEM>
-            <<<gridsize, NektarSpaces::vector_width<TData>::value, nshared>>>(
+            <<<gridsize, NektarSpaces::vector_width<TData>::value, shmemsize>>>(
                 nm0, nq0, nelmt, basis0, in, out);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHMEM, false>(nq0, nm0);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        BwdTrans1DKernel<SHMEM><<<gridsize, blocksize, nshared>>>(
+        BwdTrans1DKernel<SHMEM><<<gridsize, blocksize, shmemsize>>>(
             nm0, nq0, nelmt, basis0, in, out);
     }
 }
@@ -1685,30 +1683,29 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
     TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
-                            nq0, nq1, nm0, nm1);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(
+                                nq0, nq1, nm0, nm1);
         const unsigned int blocksize =
             std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
+            <<<gridsize, blocksize, shmemsize>>>(
                 nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(
+                                nq0, nq1, nm0, nm1);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        BwdTrans2DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, nshared>>>(
+        BwdTrans2DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in,
             out);
     }
@@ -1725,31 +1722,30 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, TData *wsp, const TData *in,
     TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
-                            nq0, nq1, nq2, nm0, nm1, nm2);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(
+                                nq0, nq1, nq2, nm0, nm1, nm2);
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
+            <<<gridsize, blocksize, shmemsize>>>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
                 basis0, basis1, basis2, in, out);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) * BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(
+                                nq0, nq1, nq2, nm0, nm1, nm2);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
-        BwdTrans3DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, nshared>>>(
+        BwdTrans3DKernel<SHAPE_TYPE, SHMEM><<<gridsize, blocksize, shmemsize>>>(
             nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
             basis2, wsp, in, out);
     }

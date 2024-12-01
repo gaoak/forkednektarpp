@@ -48,12 +48,12 @@ template <bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTransSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -93,10 +93,10 @@ template <bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTransSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_basis0 = SHMEM ? s_wsp0 + nm0 : (TData *)basis0;
 
     // Copy to shared memory.
@@ -148,13 +148,13 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict basis1,
     TData *__restrict wsp, const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shared, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -220,12 +220,12 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_basis0 = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -308,14 +308,14 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict basis0,
     const TData *__restrict basis1, TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
 
     // Copy to shared memory.
@@ -388,12 +388,12 @@ NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict basis0,
     const TData *__restrict basis1, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -483,14 +483,14 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
     const unsigned int nq2, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -588,12 +588,12 @@ NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     const unsigned int nq2, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
@@ -706,8 +706,8 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -716,7 +716,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
 
@@ -850,15 +850,15 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
     const unsigned int *__restrict pindex,
     const unsigned int *__restrict qindex, const TData *__restrict basis0,
     const TData *__restrict basis1, const TData *__restrict basis2,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1003,21 +1003,21 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
+    const unsigned int nm12  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
     {
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
         for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
              idx += item_ct1.get_local_range(2))
@@ -1124,12 +1124,12 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1255,8 +1255,8 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out, TData *__restrict shared,
-    const sycl::nd_item<3> &item_ct1)
+    const TData *__restrict in, TData *__restrict out,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1264,7 +1264,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_basis0 = SHMEM ? shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
 
@@ -1301,10 +1301,10 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
         TData *fpq         = wsp;
         TData *fp          = fpq + nm0 * nm1 * nelmt;
 
-        for (int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
         {
             // direction 2
-            for (unsigned int p = 0u, mode2 = 0u, mode_pqr = 0u, mode_pq = 0u;
+            for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
                  p < nm0; ++p)
             {
                 for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
@@ -1382,14 +1382,14 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_wsp0   = shared;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
     TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
@@ -1533,10 +1533,10 @@ template <bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
-    BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shared,
+    BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
                              item_ct1);
 }
 
@@ -1544,10 +1544,10 @@ template <bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
-    BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shared,
+    BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
                                 item_ct1);
 }
 
@@ -1558,17 +1558,17 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shared, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                  basis1, wsp, in, out, shared, item_ct1);
+                                  basis1, wsp, in, out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         BwdTransTriKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                                 basis0, basis1, wsp, in, out, shared,
+                                 basis0, basis1, wsp, in, out, shmemptr,
                                  item_ct1);
     }
 }
@@ -1579,19 +1579,19 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shared,
+    TData *__restrict out, TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                     basis1, in, out, shared, item_ct1);
+                                     basis1, in, out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         BwdTransTriKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                    isModified, basis0, basis1, in, out, shared,
-                                    item_ct1);
+                                    isModified, basis0, basis1, in, out,
+                                    shmemptr, item_ct1);
     }
 }
 
@@ -1603,31 +1603,31 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shared, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         BwdTransHexKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 basis0, basis1, basis2, wsp, in, out, shared,
+                                 basis0, basis1, basis2, wsp, in, out, shmemptr,
                                  item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         BwdTransTetKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                  isModified, basis0, basis1, basis2, wsp, in,
-                                 out, shared, item_ct1);
+                                 out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         BwdTransPrismKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                    isModified, basis0, basis1, basis2, wsp, in,
-                                   out, shared, item_ct1);
+                                   out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         BwdTransPyrKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                  isModified, basis0, basis1, basis2, wsp, in,
-                                 out, shared, item_ct1);
+                                 out, shmemptr, item_ct1);
     }
 }
 
@@ -1640,31 +1640,31 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel_QP(
     const unsigned int *__restrict index1, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shared, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         BwdTransHexKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    basis0, basis1, basis2, in, out, shared,
+                                    basis0, basis1, basis2, in, out, shmemptr,
                                     item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                     isModified, index0, index1, basis0, basis1,
-                                    basis2, in, out, shared, item_ct1);
+                                    basis2, in, out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         BwdTransPrismKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
                                       nelmt, isModified, basis0, basis1, basis2,
-                                      in, out, shared, item_ct1);
+                                      in, out, shmemptr, item_ct1);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
                                     isModified, basis0, basis1, basis2, in, out,
-                                    shared, item_ct1);
+                                    shmemptr, item_ct1);
     }
 }
 
@@ -1677,56 +1677,55 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        BwdTransSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHMEM, true>(nq0, nm0);
         const unsigned int SYCLBlockSize =
             std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
         const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
 
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in,
-                                                 out, shmptr, item);
+                                                 out, shmemptr, item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHMEM, false>(nq0, nm0);
         const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
         const unsigned int SYCLGridSize =
             std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out,
-                                              shmptr, item);
+                                              shmemptr, item);
                  });
          }).wait();
     }
@@ -1740,63 +1739,62 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
     TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-    const unsigned int nshared =
-        BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nm0,
-                                                                nm1);
-
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1, nm0,
+                                                              nm1);
         const unsigned int SYCLBlockSize =
             std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
         const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
 
         Q.submit([&](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                         basis1, in, out, shmptr, item);
+                         basis1, in, out, shmemptr, item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1, nm0,
+                                                               nm1);
         const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
         const unsigned int SYCLGridSize =
             std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTrans2DKernel<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                         basis1, wsp, in, out, shmptr, item);
+                         basis1, wsp, in, out, shmemptr, item);
                  });
          }).wait();
     }
@@ -1813,64 +1811,63 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
-    const unsigned int nshared =
-        BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(nq0, nq1, nq2,
-                                                                nm0, nm1, nm2);
-
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1, nq2,
+                                                              nm0, nm1, nm2);
         const unsigned int SYCLBlockSize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
         const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
 
         Q.submit([&](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                          index0, index1, basis0, basis1, basis2, in, out,
-                         shmptr, item);
+                         shmemptr, item);
                  });
          }).wait();
     }
     else
     {
+        const unsigned int shmemsize =
+            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1, nq2,
+                                                               nm0, nm1, nm2);
         const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
         const unsigned int SYCLGridSize =
             std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
         Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(nshared),
-                                                   cgh);
+             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
+                                                  cgh);
              const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
              const sycl::range<3> gridsize(1, 1, SYCLGridSize);
              cgh.parallel_for(
                  sycl::nd_range<3>(gridsize * blocksize, blocksize),
                  [=](sycl::nd_item<3> item) {
-                     TData *shmptr = shared
-                                         .template get_multi_ptr<
-                                             sycl::access::decorated::no>()
-                                         .get();
+                     TData *shmemptr = shmem
+                                           .template get_multi_ptr<
+                                               sycl::access::decorated::no>()
+                                           .get();
                      BwdTrans3DKernel<SHAPE_TYPE, SHMEM>(
                          nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                         basis0, basis1, basis2, wsp, in, out, shmptr, item);
+                         basis0, basis1, basis2, wsp, in, out, shmemptr, item);
                  });
          }).wait();
     }

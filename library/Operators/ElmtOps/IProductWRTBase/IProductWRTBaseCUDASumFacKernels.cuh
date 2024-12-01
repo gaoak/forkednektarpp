@@ -46,11 +46,11 @@ __device__ __forceinline__ void IProductWRTBaseSegKernel(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
 
     // Copy to shared memory.
@@ -118,9 +118,9 @@ __device__ __forceinline__ void IProductWRTBaseSegKernel_QP(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_basis0 = SHMEM ? s_wsp0 + nq0 : (TData *)basis0;
     TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
 
@@ -197,13 +197,13 @@ __device__ __forceinline__ void IProductWRTBaseQuadKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_w0     = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
@@ -299,11 +299,11 @@ __device__ __forceinline__ void IProductWRTBaseQuadKernel_QP(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
@@ -411,13 +411,13 @@ __device__ __forceinline__ void IProductWRTBaseTriKernel(
     TData *__restrict__ wsp, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_w0     = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
     TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
@@ -559,11 +559,11 @@ __device__ __forceinline__ void IProductWRTBaseTriKernel_QP(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0     = (TData *)shared;
+    TData *s_wsp0     = (TData *)shmemptr;
     TData *s_wsp1     = s_wsp0 + nqTot;
     TData *s_iprod_01 = s_wsp1 + nm0 * nq1;
     TData *s_basis0   = SHMEM ? s_iprod_01 + 1u : (TData *)basis0;
@@ -713,13 +713,13 @@ __device__ __forceinline__ void IProductWRTBaseHexKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
     TData *s_w0     = SHMEM ? s_basis2 + nm2 * nq2 : (TData *)w0;
@@ -853,11 +853,11 @@ __device__ __forceinline__ void IProductWRTBaseHexKernel_QP(
     const TData *__restrict__ jac, const TData *__restrict__ in,
     TData *__restrict__ out, const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
@@ -1002,7 +1002,7 @@ __device__ __forceinline__ void IProductWRTBaseTetKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1011,7 +1011,7 @@ __device__ __forceinline__ void IProductWRTBaseTetKernel(
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
     TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
@@ -1245,14 +1245,14 @@ __device__ __forceinline__ void IProductWRTBaseTetKernel_QP(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    TData *s_prod   = (TData *)shared;
+    TData *s_prod   = (TData *)shmemptr;
     TData *s_wsp0   = s_prod + nm2;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
@@ -1478,14 +1478,14 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
     TData *s_w0     = SHMEM ? s_basis2 + nm02 * nq2 : (TData *)w0;
@@ -1681,12 +1681,12 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel_QP(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
 
-    TData *s_wsp0   = (TData *)shared;
+    TData *s_wsp0   = (TData *)shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
@@ -1878,7 +1878,7 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1886,7 +1886,7 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_basis0 = SHMEM ? (TData *)shared : (TData *)basis0;
+    TData *s_basis0 = SHMEM ? (TData *)shmemptr : (TData *)basis0;
     TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
     TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
     TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
@@ -2119,13 +2119,13 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel_QP(
     const TData *__restrict__ in, TData *__restrict__ out,
     const TData scale = 1.0)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_prod   = (TData *)shared;
+    TData *s_prod   = (TData *)shmemptr;
     TData *s_wsp0   = s_prod + 1u;
     TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
@@ -2482,32 +2482,31 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const TData *basis0, const TData *w0, const TData *jac, const TData *in,
     TData *out, const TData scale = 1.0)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) *
-        IProductWRTBaseSharedMemorySize<SHMEM, MULTILEVEL>(nq0, nm0);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHMEM, true>(nq0, nm0);
         const unsigned int blocksize =
             std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         IProductWRTBase1DKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmt, basis0, w0, jac,
-                                               in, out, scale);
+            <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, w0,
+                                                 jac, in, out, scale);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHMEM, false>(nq0, nm0);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
         IProductWRTBase1DKernel<SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nq0, nelmt, basis0, w0, jac,
-                                               in, out, scale);
+            <<<gridsize, blocksize, shmemsize>>>(nm0, nq0, nelmt, basis0, w0,
+                                                 jac, in, out, scale);
     }
 }
 
@@ -2521,35 +2520,35 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData *basis1, const TData *w0, const TData *w1, const TData *jac,
     TData *wsp, const TData *in, TData *out, const TData scale = 1.0)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) *
-        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
-            nq0, nq1, nm0, nm1);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1,
+                                                                     nm0, nm1);
         const unsigned int blocksize =
             std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         IProductWRTBase2DKernel_QP<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
+            <<<gridsize, blocksize, shmemsize>>>(
                 nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1,
                 w0, w1, jac, in, out, scale);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1,
+                                                                      nm0, nm1);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
         IProductWRTBase2DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(nm0, nm1, nq0, nq1, nelmt,
-                                               isModified, basis0, basis1, w0,
-                                               w1, jac, wsp, in, out, scale);
+            <<<gridsize, blocksize, shmemsize>>>(nm0, nm1, nq0, nq1, nelmt,
+                                                 isModified, basis0, basis1, w0,
+                                                 w1, jac, wsp, in, out, scale);
     }
 }
 
@@ -2567,34 +2566,34 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *jac, TData *wsp, const TData *in, TData *out,
     const TData scale = 1.0)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    const unsigned int nshared =
-        sizeof(TData) *
-        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, MULTILEVEL>(
-            nq0, nq1, nq2, nm0, nm1, nm2);
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, true>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
         const unsigned int gridsize = std::min(nelmt, 2147483647u);
 
         IProductWRTBase3DKernel_QP<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
+            <<<gridsize, blocksize, shmemsize>>>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
                 index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
                 scale);
     }
     else
     {
+        const unsigned int shmemsize =
+            sizeof(TData) *
+            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, false>(
+                nq0, nq1, nq2, nm0, nm1, nm2);
         const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
         const unsigned int gridsize =
             std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
 
         IProductWRTBase3DKernel<SHAPE_TYPE, SCALE, APPEND, DEFORMED, SHMEM>
-            <<<gridsize, blocksize, nshared>>>(
+            <<<gridsize, blocksize, shmemsize>>>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0, basis1,
                 basis2, w0, w1, w2, jac, wsp, in, out, scale);
     }
