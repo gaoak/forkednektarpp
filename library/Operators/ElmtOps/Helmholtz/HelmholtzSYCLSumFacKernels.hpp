@@ -47,14 +47,13 @@ template <typename TData>
 void DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                             TData *deriv0, const sycl::nd_item<3> &item_ct1)
 {
-    unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
+    unsigned int idx = item_ct1.get_global_id(2);
 
-    while (i < nsize)
+    while (idx < nsize)
     {
-        deriv0[i] *= diffCoeff[0];
+        deriv0[idx] *= diffCoeff[0];
 
-        i += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        idx += item_ct1.get_global_range(2);
     }
 }
 
@@ -75,17 +74,14 @@ void DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
-    unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
-
-    while (i < nsize)
+    while (idx < nsize)
     {
-        TData deriv[2] = {deriv0[i], deriv1[i]};
+        TData deriv[2] = {deriv0[idx], deriv1[idx]};
 
-        deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1];
-        deriv1[i] = s_diffCoeff[2] * deriv[0] + s_diffCoeff[3] * deriv[1];
+        deriv0[idx] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1];
+        deriv1[idx] = s_diffCoeff[2] * deriv[0] + s_diffCoeff[3] * deriv[1];
 
-        i += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        idx += item_ct1.get_global_range(2);
     }
 }
 
@@ -106,21 +102,18 @@ void DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
 
     item_ct1.barrier(sycl::access::fence_space::local_space);
 
-    unsigned int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                     item_ct1.get_local_id(2);
-
-    while (i < nsize)
+    while (idx < nsize)
     {
-        TData deriv[3] = {deriv0[i], deriv1[i], deriv2[i]};
+        TData deriv[3] = {deriv0[idx], deriv1[idx], deriv2[idx]};
 
-        deriv0[i] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1] +
-                    s_diffCoeff[2] * deriv[2];
-        deriv1[i] = s_diffCoeff[3] * deriv[0] + s_diffCoeff[4] * deriv[1] +
-                    s_diffCoeff[5] * deriv[2];
-        deriv2[i] = s_diffCoeff[6] * deriv[0] + s_diffCoeff[7] * deriv[1] +
-                    s_diffCoeff[8] * deriv[2];
+        deriv0[idx] = s_diffCoeff[0] * deriv[0] + s_diffCoeff[1] * deriv[1] +
+                      s_diffCoeff[2] * deriv[2];
+        deriv1[idx] = s_diffCoeff[3] * deriv[0] + s_diffCoeff[4] * deriv[1] +
+                      s_diffCoeff[5] * deriv[2];
+        deriv2[idx] = s_diffCoeff[6] * deriv[0] + s_diffCoeff[7] * deriv[1] +
+                      s_diffCoeff[8] * deriv[2];
 
-        i += item_ct1.get_local_range(2) * item_ct1.get_group_range(2);
+        idx += item_ct1.get_global_range(2);
     }
 }
 
@@ -130,17 +123,19 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 DiffusionCoeff1DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int SYCLGridSize =
+        std::min((nsize + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
-         cgh.parallel_for(
-             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                               sycl::range<3>(1, 1, blockSize)),
-             [=](sycl::nd_item<3> item) {
-                 DiffusionCoeff1DKernel(nsize, diffCoeff, deriv0, item);
-             });
+         const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+         const sycl::range<3> gridsize(1, 1, SYCLGridSize);
+         cgh.parallel_for(sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                          [=](sycl::nd_item<3> item) {
+                              DiffusionCoeff1DKernel(nsize, diffCoeff, deriv0,
+                                                     item);
+                          });
      }).wait();
 }
 
@@ -150,23 +145,25 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 DiffusionCoeff2DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int SYCLGridSize =
+        std::min((nsize + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
          // Create local shared memory
          sycl::local_accessor<TData, 1> shared(sycl::range<1>(4), cgh);
+         const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+         const sycl::range<3> gridsize(1, 1, SYCLGridSize);
          cgh.parallel_for(
-             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                               sycl::range<3>(1, 1, blockSize)),
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
              [=](sycl::nd_item<3> item) {
-                 TData *shmptr =
+                 TData *shmemptr =
                      shared
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  DiffusionCoeff2DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                        shmptr, item);
+                                        shmemptr, item);
              });
      }).wait();
 }
@@ -177,23 +174,25 @@ inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
 DiffusionCoeff3DKernel(const unsigned int nsize, const TData *diffCoeff,
                        TData *deriv0, TData *deriv1, TData *deriv2)
 {
-    const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
-    const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
+    const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
+    const unsigned int SYCLGridSize =
+        std::min((nsize + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
 
     sycl::queue &Q = SYCLQueue::GetInstance();
     Q.submit([=](sycl::handler &cgh) {
          // Create local shared memory
          sycl::local_accessor<TData, 1> shared(sycl::range<1>(9), cgh);
+         const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
+         const sycl::range<3> gridsize(1, 1, SYCLGridSize);
          cgh.parallel_for(
-             sycl::nd_range<3>(sycl::range<3>(1, 1, gridSize * blockSize),
-                               sycl::range<3>(1, 1, blockSize)),
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
              [=](sycl::nd_item<3> item) {
-                 TData *shmptr =
+                 TData *shmemptr =
                      shared
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  DiffusionCoeff3DKernel(nsize, diffCoeff, deriv0, deriv1,
-                                        deriv2, shmptr, item);
+                                        deriv2, shmemptr, item);
              });
      }).wait();
 }

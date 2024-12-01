@@ -110,14 +110,14 @@ __global__ void IProductWRTDerivBase1DKernel_QP(const unsigned int nq0,
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -129,9 +129,9 @@ __global__ void IProductWRTDerivBase2DKernel(
     // Pre-compute factor.
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
-    if constexpr (SHAPETYPE == LibUtilities::Tri)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        s_f0 = (TData *)shared;
+        s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq1;
 
         for (unsigned int idx = idx0; idx < nq1; idx += stride)
@@ -173,12 +173,12 @@ __global__ void IProductWRTDerivBase2DKernel(
                     sum2 += df[(2u * d + 1u) * warpsize + dfindex] * tmp;
                 }
 
-                if constexpr (SHAPETYPE == LibUtilities::Quad)
+                if constexpr (SHAPE_TYPE == LibUtilities::Quad)
                 {
                     out[index]                 = sum1;
                     out[nelmt * nqTot + index] = sum2;
                 }
-                else if constexpr (SHAPETYPE == LibUtilities::Tri)
+                else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
                 {
                     out[index] = (sum1 + sum2 * s_f1[i]) * s_f0[j];
                     out[nelmt * nqTot + index] = sum2;
@@ -190,7 +190,7 @@ __global__ void IProductWRTDerivBase2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -217,7 +217,7 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
             const unsigned int index   = offset + idx;
             const unsigned int dfindex = DEFORMED ? dfoffset + idx : dfoffset;
 
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 f0 = 2.0 / (1.0 - Z1[j]);
             }
@@ -231,17 +231,17 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
             }
 
             // Moving from standard to collapsed coordinates.
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 f1 = 0.5 * (1.0 + Z0[i]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Quad)
+            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
                 out[index]                 = sum1;
                 out[nelmt * nqTot + index] = sum2;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Tri)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 out[index]                 = (sum1 + sum2 * f1) * f0;
                 out[nelmt * nqTot + index] = sum2;
@@ -252,7 +252,7 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -260,7 +260,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -274,9 +274,9 @@ __global__ void IProductWRTDerivBase3DKernel(
     // Pre-compute factor.
     const unsigned int idx0   = threadIdx.x;
     const unsigned int stride = blockDim.x;
-    if constexpr (SHAPETYPE == LibUtilities::Tet)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        s_f0 = (TData *)shared;
+        s_f0 = (TData *)shmemptr;
         s_f1 = s_f0 + nq1;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
@@ -303,9 +303,9 @@ __global__ void IProductWRTDerivBase3DKernel(
 
         __syncthreads();
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        s_f1 = (TData *)shared;
+        s_f1 = (TData *)shmemptr;
         s_f2 = s_f1 + nq0;
 
         for (unsigned int idx = idx0; idx < nq0; idx += stride)
@@ -320,9 +320,9 @@ __global__ void IProductWRTDerivBase3DKernel(
 
         __syncthreads();
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        s_f1 = (TData *)shared;
+        s_f1 = (TData *)shmemptr;
         s_f2 = s_f1 + nq0;
         s_f3 = s_f2 + nq2;
 
@@ -373,13 +373,13 @@ __global__ void IProductWRTDerivBase3DKernel(
                         sum3 += df[(3u * d + 2u) * warpsize + dfindex] * tmp;
                     }
 
-                    if constexpr (SHAPETYPE == LibUtilities::Hex)
+                    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
                     {
                         out[index]                      = sum1;
                         out[nelmt * nqTot + index]      = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Tet)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
                     {
                         out[index] = (sum1 + (sum2 + sum3) * s_f1[i]) *
                                      s_f0[j] * s_f2[k];
@@ -387,13 +387,13 @@ __global__ void IProductWRTDerivBase3DKernel(
                             (sum2 + sum3 * s_f3[j]) * s_f2[k];
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                     {
                         out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                         out[nelmt * nqTot + index]      = sum2;
                         out[2u * nelmt * nqTot + index] = sum3;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         out[index] = (sum1 + sum3 * s_f1[i]) * s_f2[k];
                         out[nelmt * nqTot + index] =
@@ -408,7 +408,7 @@ __global__ void IProductWRTDerivBase3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void IProductWRTDerivBase3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -438,27 +438,27 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
             const unsigned int j = (idx / nq0) % nq1;
             const unsigned int k = idx / (nq0 * nq1);
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::Prism ||
+                          SHAPE_TYPE == LibUtilities::Pyr)
             {
                 f2 = 2.0 / (1.0 - Z2[k]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::Pyr)
             {
                 f3 = 0.5 * (1.0 + Z1[j]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 f0 = 2.0 / (1.0 - Z1[j]);
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Tet ||
-                          SHAPETYPE == LibUtilities::Prism ||
-                          SHAPETYPE == LibUtilities::Pyr)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet ||
+                          SHAPE_TYPE == LibUtilities::Prism ||
+                          SHAPE_TYPE == LibUtilities::Pyr)
             {
                 f1 = 0.5 * (1.0 + Z0[i]);
             }
@@ -475,25 +475,25 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
                 sum3 += df[(3u * d + 2u) * dfsize + dfindex] * tmp;
             }
 
-            if constexpr (SHAPETYPE == LibUtilities::Hex)
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
                 out[index]                      = sum1;
                 out[nelmt * nqTot + index]      = sum2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Tet)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 out[index] = (sum1 + (sum2 + sum3) * f1) * f0 * f2;
                 out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Prism)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 out[index]                      = (sum1 + sum3 * f1) * f2;
                 out[nelmt * nqTot + index]      = sum2;
                 out[2u * nelmt * nqTot + index] = sum3;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 out[index]                      = (sum1 + sum3 * f1) * f2;
                 out[nelmt * nqTot + index]      = (sum2 + sum3 * f3) * f2;
@@ -512,10 +512,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
     const TData *df, const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
@@ -542,10 +539,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
     const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
@@ -577,10 +571,7 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
     const TData *df, const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);

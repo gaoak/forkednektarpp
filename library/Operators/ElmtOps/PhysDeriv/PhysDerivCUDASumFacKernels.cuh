@@ -119,7 +119,7 @@ __global__ void PhysDeriv1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv2DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -127,7 +127,7 @@ __global__ void PhysDeriv2DKernel(
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -137,9 +137,9 @@ __global__ void PhysDeriv2DKernel(
     TData *s_xfrm0, *s_xfrm1;
 
     // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tri)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        s_xfrm0 = (TData *)shared;
+        s_xfrm0 = (TData *)shmemptr;
         s_xfrm1 = s_xfrm0 + nq1;
 
         for (unsigned int idx = threadIdx.x; idx < nq1; idx += blockDim.x)
@@ -193,7 +193,7 @@ __global__ void PhysDeriv2DKernel(
                 }
 
                 // Moving from standard to collapsed coordinates.
-                if constexpr (SHAPETYPE == LibUtilities::Tri)
+                if constexpr (SHAPE_TYPE == LibUtilities::Tri)
                 {
                     d0 *= s_xfrm0[j];
                     d1 += d0 * s_xfrm1[i];
@@ -213,7 +213,7 @@ __global__ void PhysDeriv2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv2DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -255,7 +255,7 @@ __global__ void PhysDeriv2DKernel_QP(
             }
 
             // Moving from standard to collapsed coordinates.
-            if constexpr (SHAPETYPE == LibUtilities::Tri)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
                 TData xfrm0 = 2.0 / (1.0 - Z1[j]);
                 TData xfrm1 = 0.5 * (1.0 + Z0[i]);
@@ -278,7 +278,7 @@ __global__ void PhysDeriv2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -287,7 +287,7 @@ __global__ void PhysDeriv3DKernel(
     const TData *__restrict__ Z2, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
-    extern __shared__ __align__(sizeof(TData)) unsigned char shared[];
+    extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -299,9 +299,9 @@ __global__ void PhysDeriv3DKernel(
     TData *s_xfrm_eta0, *s_xfrm_eta1, *s_xfrm_eta1m, *s_xfrm_eta2;
 
     // Precompute geometric factors.
-    if constexpr (SHAPETYPE == LibUtilities::Tet)
+    if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        s_xfrm_eta0  = (TData *)shared;
+        s_xfrm_eta0  = (TData *)shmemptr;
         s_xfrm_eta1  = s_xfrm_eta0 + nq0;
         s_xfrm_eta1m = s_xfrm_eta1 + nq1;
         s_xfrm_eta2  = s_xfrm_eta1m + nq1;
@@ -328,9 +328,9 @@ __global__ void PhysDeriv3DKernel(
 
         __syncthreads();
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        s_xfrm_eta0 = (TData *)shared;
+        s_xfrm_eta0 = (TData *)shmemptr;
         s_xfrm_eta2 = s_xfrm_eta0 + nq0;
 
         for (unsigned int idx = threadIdx.x; idx < nq0; idx += blockDim.x)
@@ -345,9 +345,9 @@ __global__ void PhysDeriv3DKernel(
 
         __syncthreads();
     }
-    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        s_xfrm_eta0 = (TData *)shared;
+        s_xfrm_eta0 = (TData *)shmemptr;
         s_xfrm_eta1 = s_xfrm_eta0 + nq0;
         s_xfrm_eta2 = s_xfrm_eta1 + nq1;
 
@@ -421,7 +421,7 @@ __global__ void PhysDeriv3DKernel(
                     }
 
                     // Moving from standard to collapsed coordinates.
-                    if constexpr (SHAPETYPE == LibUtilities::Tet)
+                    if constexpr (SHAPE_TYPE == LibUtilities::Tet)
                     {
                         TData xfrm = s_xfrm_eta1m[j] * s_xfrm_eta2[k];
                         TData tmp0 = xfrm * d0;
@@ -431,12 +431,12 @@ __global__ void PhysDeriv3DKernel(
                         d1         = tmp1 + tmp2;
                         d2 += tmp1 + s_xfrm_eta1[j] * tmp2;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Prism)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
                     {
                         d0 *= s_xfrm_eta2[k];
                         d2 += s_xfrm_eta0[i] * d0;
                     }
-                    else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+                    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
                     {
                         d0 *= s_xfrm_eta2[k];
                         d1 *= s_xfrm_eta2[k];
@@ -459,7 +459,7 @@ __global__ void PhysDeriv3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPETYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
 __global__ void PhysDeriv3DKernel_QP(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
@@ -515,7 +515,7 @@ __global__ void PhysDeriv3DKernel_QP(
             }
 
             // Moving from standard to collapsed coordinates.
-            if constexpr (SHAPETYPE == LibUtilities::Tet)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
                 TData xfrm_eta0  = 0.5 * (1.0 + Z0[i]);
                 TData xfrm_eta1  = 0.5 * (1.0 + Z1[j]);
@@ -530,14 +530,14 @@ __global__ void PhysDeriv3DKernel_QP(
                 d1         = tmp1 + tmp2;
                 d2 += tmp1 + xfrm_eta1 * tmp2;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Prism)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
                 TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
                 TData xfrm_eta2 = 2.0 / (1.0 - Z2[k]);
                 d0 *= xfrm_eta2;
                 d2 += xfrm_eta0 * d0;
             }
-            else if constexpr (SHAPETYPE == LibUtilities::Pyr)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
                 TData xfrm_eta0 = 0.5 * (1.0 + Z0[i]);
                 TData xfrm_eta1 = 0.5 * (1.0 + Z1[j]);
@@ -572,10 +572,7 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
@@ -602,10 +599,7 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
     const TData *Z1, const TData *df, const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
@@ -636,10 +630,7 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
     const TData *in, TData *out)
 {
-    constexpr bool MULTILEVEL =
-        std::is_same_v<Implementation, Operators::SumFacQP>;
-
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         const unsigned int blocksize =
             std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
