@@ -34,29 +34,6 @@
 
 #pragma once
 
-// Memory access qualifier
-struct ReadOnly
-{
-};
-struct WriteOnly
-{
-};
-struct ReadWrite
-{
-};
-
-// const_if metafunction return "const T" type if B = true and "T" type
-// otherwise.
-template <bool B, typename TData = void> struct const_if
-{
-    typedef TData type;
-};
-
-template <class TData> struct const_if<true, TData>
-{
-    typedef const TData type;
-};
-
 template <typename TData> class MemoryRegion;
 
 /**
@@ -235,44 +212,128 @@ protected:
     }
 
     /**
-     * @brief Get the pointer to the host memory
+     * @brief Get ReadOnly pointer to the host memory
      *
      * @return - TData*
      *
      */
-    template <typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
-    GetHostPtr()
+    virtual const TData *GetReadOnlyHostPtr()
     {
         if (m_host == nullptr)
         {
             // Throw an error.
             NEKERROR(Nektar::ErrorUtil::efatal,
-                     "MemoryRegionHost::GetHostPtr - "
+                     "MemoryRegionHost::GetReadOnlyHostPtr - "
+                     "attempt to access host memory (" +
+                         m_name + ") without it being allocated.");
+        }
+
+        if (m_initialize)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetReadOnlyHostPtr - "
+                     "attempt to get a host pointer (" +
+                         m_name + ") before the data is initialized.");
+        }
+
+        return m_host;
+    }
+
+    /**
+     * @brief Get WriteOnly pointer to the host memory
+     *
+     * @return - TData*
+     *
+     */
+    virtual TData *GetWriteOnlyHostPtr()
+    {
+        if (m_host == nullptr)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetWriteOnlyHostPtr - "
                      "attempt to access host data (" +
                          m_name + ") without it being allocated.");
         }
 
-        if constexpr (std::is_same_v<MemAccess, ReadOnly> ||
-                      std::is_same_v<MemAccess, ReadWrite>)
-        {
-            if (m_initialize)
-            {
-                NEKERROR(Nektar::ErrorUtil::efatal,
-                         "MemoryRegionHost::GetHostPtr - "
-                         "attempt to get a const host pointer (" +
-                             m_name + ") before the data is initialized.");
-            }
-        }
-
-        if constexpr (std::is_same_v<MemAccess, WriteOnly> ||
-                      std::is_same_v<MemAccess, ReadWrite>)
-        {
-            m_host_valid = true;
-            m_initialize = false;
-        }
+        m_host_valid = true;
+        m_initialize = false;
 
         return m_host;
+    }
+
+    /**
+     * @brief Get ReadWrite pointer to the host memory
+     *
+     * @return - TData*
+     *
+     */
+    virtual TData *GetReadWriteHostPtr()
+    {
+        if (m_host == nullptr)
+        {
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetReadWriteHostPtr - "
+                     "attempt to access host data (" +
+                         m_name + ") without it being allocated.");
+        }
+
+        m_host_valid = true;
+        m_initialize = false;
+
+        return m_host;
+    }
+
+    /**
+     * @brief Get ReadOnly pointer to the Device memory
+     *
+     * @return - TData*
+     *
+     */
+    virtual const TData *GetReadOnlyDevicePtr()
+    {
+        // Throw an error.
+        NEKERROR(Nektar::ErrorUtil::efatal,
+                 "MemoryRegionHost::GetReadOnlyDevicePtr - "
+                 "attempt to access device data (" +
+                     m_name + ") from host only MemoryRegion.");
+
+        return nullptr;
+    }
+
+    /**
+     * @brief Get WriteOnly pointer to the device memory
+     *
+     * @return - TData*
+     *
+     */
+    virtual TData *GetWriteOnlyDevicePtr()
+    {
+        // Throw an error.
+        NEKERROR(Nektar::ErrorUtil::efatal,
+                 "MemoryRegionHost::GetWriteOnlyDevicePtr - "
+                 "attempt to access device data (" +
+                     m_name + ") from host only MemoryRegion.");
+
+        return nullptr;
+    }
+
+    /**
+     * @brief Get ReadWrite pointer to the device memory
+     *
+     * @return - TData*
+     *
+     */
+    virtual TData *GetReadWriteDevicePtr()
+    {
+        // Throw an error.
+        NEKERROR(Nektar::ErrorUtil::efatal,
+                 "MemoryRegionHost::GetReadWriteDevicePtr - "
+                 "attempt to access device data (" +
+                     m_name + ") from host only MemoryRegion.");
+
+        return nullptr;
     }
 
     /**
@@ -283,8 +344,8 @@ protected:
      * @param offset - offset to m_host pointer
      *
      */
-    void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0)
+    virtual void Initialize(const TData val, const size_t count = 0,
+                            const size_t offset = 0)
     {
         if (m_host)
         {
@@ -292,16 +353,7 @@ protected:
 
             TData *dst = m_host + offset;
 
-            // If the value is zero, memset is the most efficent.
-            if (val == TData(0))
-            {
-                std::memset(dst, 0, size * sizeof(TData));
-            }
-            // Otherwise use the fill function.
-            else
-            {
-                std::fill(dst, dst + size, val);
-            }
+            std::fill(dst, dst + size, val);
 
             m_host_valid = true;
             m_initialize = false;
