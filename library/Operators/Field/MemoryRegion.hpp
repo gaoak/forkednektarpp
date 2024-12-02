@@ -54,6 +54,29 @@ enum class FieldState
     Coeff
 };
 
+// Memory access qualifier
+struct ReadOnly
+{
+};
+struct WriteOnly
+{
+};
+struct ReadWrite
+{
+};
+
+// const_if metafunction return "const T" type if B = true and "T" type
+// otherwise.
+template <bool B, typename TData = void> struct const_if
+{
+    typedef TData type;
+};
+
+template <class TData> struct const_if<true, TData>
+{
+    typedef const TData type;
+};
+
 /**
  * @brief A MemoryRegion represents a memory region
  * @tparam TData  The floating-point representation used by the MemoryRegion.
@@ -146,17 +169,17 @@ public:
 
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            try
+            if constexpr (std::is_same_v<MemAccess, ReadOnly>)
             {
-                // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage.
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                return ret.template GetHostPtr<MemAccess>();
+                return m_storage->GetReadOnlyHostPtr();
             }
-            catch (const std::bad_cast &e)
+            else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
             {
-                return m_storage->template GetHostPtr<MemAccess>();
+                return m_storage->GetWriteOnlyHostPtr();
+            }
+            else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+            {
+                return m_storage->GetReadWriteHostPtr();
             }
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
@@ -165,18 +188,25 @@ public:
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage.
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                return ret.template GetDevicePtr<MemAccess>();
+                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
             }
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
+                GetDeviceStorage();
+            }
 
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                return ret.template GetDevicePtr<MemAccess>();
+            if constexpr (std::is_same_v<MemAccess, ReadOnly>)
+            {
+                return m_storage->GetReadOnlyDevicePtr();
+            }
+            else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+            {
+                return m_storage->GetWriteOnlyDevicePtr();
+            }
+            else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
+            {
+                return m_storage->GetReadWriteDevicePtr();
             }
         }
 
@@ -359,19 +389,15 @@ public:
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage.
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                ret.Initialize(val, count, offset);
+                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
             }
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
-
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                ret.Initialize(val, count, offset);
+                GetDeviceStorage();
             }
+
+            m_storage->Initialize(val, count, offset);
         }
     }
 
@@ -664,46 +690,23 @@ private:
      * A runtime warning is provided if a transfer of data from device
      * to host is required to achieve the conversion.
      */
-    template <template <typename> class TMemoryRegion = MemoryRegionHost>
-    void GetStorage()
+    void GetDeviceStorage()
     {
-        using T = TMemoryRegion<TData>;
-
-        static_assert(std::is_base_of<MemoryRegionHost<TData>, T>::value,
-                      "MemoryRegion::GetStorage - TMemoryRegion must derive "
-                      "MemoryRegionHost<TData>");
+        using T = MemoryRegionDevice<TData>;
 
         std::string name  = Nektar::demangleTypeName(typeid(T));
         std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
-        try
-        {
-            // This cast fails if a MemoryRegionDevice is requested from a
-            // MemoryRegionHost object.
-            [[maybe_unused]] auto &ret = dynamic_cast<T &>(*m_storage);
 
-            // Debug warning, a (possibly) undesired conversion occured.
-            std::string msg("MemoryRegion::GetStorage - "
-                            "Requested backing storage (");
-            msg += m_storage->m_name + ") of type " + name +
-                   " != actual storage type " + sname;
+        // Create new TMemoryRegion from the MemoryRegionHost base
+        // class.
+        m_storage = std::make_unique<T>(T(std::move(*m_storage)));
 
-            WARNINGL0(typeid(*m_storage) == typeid(T), msg);
-        }
-        // Dynamic cast threw an exception, attempt to allocate the
-        // requested TMemoryRegion from old data.
-        catch (const std::bad_cast &e)
-        {
-            // Create new TMemoryRegion from the MemoryRegionHost base
-            // class.
-            m_storage = std::make_unique<T>(T(std::move(*m_storage)));
+        // Debug warning, a (possibly) undesired conversion occured.
+        std::string msg("MemoryRegion::GetDeviceStorage - "
+                        "Converting backing storage (");
+        msg += m_storage->m_name + ") from " + sname + " to " + name;
 
-            // Debug warning, a (possibly) undesired conversion occured.
-            std::string msg("MemoryRegion::GetStorage - "
-                            "Converting backing storage (");
-            msg += m_storage->m_name + ") from " + sname + " to " + name;
-
-            WARNINGL0(false, msg);
-        }
+        WARNINGL0(false, msg);
     }
 
     /**
@@ -742,7 +745,7 @@ private:
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
-                GetStorage<MemoryRegionDevice>();
+                GetDeviceStorage();
 
                 auto &ret =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);

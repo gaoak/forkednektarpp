@@ -188,57 +188,98 @@ protected:
     }
 
     /**
-     * @brief Get the const pointer to the host memory
+     * @brief Get ReadOnly pointer to the host memory
      *
      * @return - TData*
      */
-    template <typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
-    GetHostPtr()
+    const TData *GetReadOnlyHostPtr() override
     {
-        if constexpr (std::is_same_v<MemAccess, ReadOnly>)
-        {
-            DeviceToHostCopy(); // Move to host if necessary
-        }
-        else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
-        {
-            this->m_host_valid   = true;
-            this->m_initialize   = false;
-            this->m_device_valid = false;
-        }
-        else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
-        {
-            DeviceToHostCopy(); // Move to host if necessary
-            this->m_device_valid = false;
-        }
+        DeviceToHostCopy(); // Move to host if necessary
 
         return this->m_host;
     }
 
     /**
-     * @brief Get the pointer to the Device memory
+     * @brief Get WriteOnly pointer to the host memory
      *
      * @return - TData*
      */
-    template <typename MemAccess>
-    typename const_if<std::is_same_v<MemAccess, ReadOnly>, TData>::type *
-    GetDevicePtr()
+    TData *GetWriteOnlyHostPtr() override
     {
-        if constexpr (std::is_same_v<MemAccess, ReadOnly>)
+        if (this->m_host == nullptr)
         {
-            HostToDeviceCopy(); // Move to device if necessary
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionDevice::GetWriteOnlyHostPtr - "
+                     "attempt to access host data (" +
+                         this->m_name + ") without it being allocated.");
         }
-        else if constexpr (std::is_same_v<MemAccess, WriteOnly>)
+
+        this->m_host_valid   = true;
+        this->m_initialize   = false;
+        this->m_device_valid = false;
+
+        return this->m_host;
+    }
+
+    /**
+     * @brief Get ReadWrite pointer to the host memory
+     *
+     * @return - TData*
+     *
+     */
+    TData *GetReadWriteHostPtr() override
+    {
+        DeviceToHostCopy(); // Move to host if necessary
+        this->m_device_valid = false;
+
+        return this->m_host;
+    }
+
+    /**
+     * @brief Get ReadOnly pointer to the Device memory
+     *
+     * @return - TData*
+     */
+    const TData *GetReadOnlyDevicePtr()
+    {
+        HostToDeviceCopy(); // Move to device if necessary
+
+        return this->m_device;
+    }
+
+    /**
+     * @brief Get WriteOnly pointer to the device memory
+     *
+     * @return - TData*
+     */
+    TData *GetWriteOnlyDevicePtr()
+    {
+        if (m_device == nullptr)
         {
-            this->m_device_valid = true;
-            this->m_initialize   = false;
-            this->m_host_valid   = false;
+            // Throw an error.
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionDevice::GetWriteOnlyDevicePtr - "
+                     "attempt to access device memory (" +
+                         this->m_name + ") without it being allocated.");
         }
-        else if constexpr (std::is_same_v<MemAccess, ReadWrite>)
-        {
-            HostToDeviceCopy(); // Move to device if necessary
-            this->m_host_valid = false;
-        }
+
+        this->m_device_valid = true;
+        this->m_initialize   = false;
+        this->m_host_valid   = false;
+
+        return this->m_device;
+    }
+
+    /**
+     * @brief Get ReadWrite pointer to the device memory
+     *
+     * @return - TData*
+     */
+    TData *GetReadWriteDevicePtr()
+    {
+        HostToDeviceCopy(); // Move to device if necessary
+        this->m_host_valid = false;
 
         return this->m_device;
     }
@@ -251,7 +292,7 @@ protected:
      * @param offset - offset to m_device pointer
      */
     void Initialize(const TData val, const size_t count = 0,
-                    const size_t offset = 0)
+                    const size_t offset = 0) override
     {
         MemoryRegionHost<TData>::Initialize(val, count, offset);
 
