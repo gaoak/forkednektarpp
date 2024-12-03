@@ -473,10 +473,12 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -564,12 +566,19 @@ private:
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
                 deriv1);
             // Step 5: Apply Laplacian metrics & inner product.
+#if defined(NEKTAR_USE_DERIV_BASE)
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, DB0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, DB1, W0, W1,
                 jacPtr, wsp0, tmpOut);
+#else
+            SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd);
+            IProduct2DKernel<SHAPE_TYPE, false, true, simd_t>(
+                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0, tmpOut);
+#endif
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -615,10 +624,12 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto D1 =
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -699,13 +710,20 @@ private:
                 nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, deriv0,
                 deriv1);
-            // Step 4: Apply Laplacian metrics & inner product.
+            // Step 5: Apply Laplacian metrics & inner product.
+#if defined(NEKTAR_USE_DERIV_BASE)
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv0vec, DB0, B1, W0, W1,
                 jacPtr, wsp0, tmpOut);
             IProduct2DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nq0, nq1, isModified, deriv1vec, B0, DB1, W0, W1,
                 jacPtr, wsp0, tmpOut);
+#else
+            SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd);
+            IProduct2DKernel<SHAPE_TYPE, false, true, simd_t>(
+                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0, tmpOut);
+#endif
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -757,12 +775,14 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto DB2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -870,6 +890,7 @@ private:
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
                 deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product.
+#if defined(NEKTAR_USE_DERIV_BASE)
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, DB0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
@@ -879,6 +900,14 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 DB2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+#else
+            SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
+                jacPtr, D0, D1, D2, bwd);
+            IProduct3DKernel<SHAPE_TYPE, false, true, simd_t>(
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
+                wsp0, wsp1, wsp2, tmpOut);
+#endif
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;
@@ -929,12 +958,14 @@ private:
             m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D2 =
             m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto DB2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -1034,6 +1065,7 @@ private:
                 NullTDataVector, NullTDataVector, dfPtr, m_h0, m_h1, m_h2, m_h3,
                 deriv0, deriv1, deriv2);
             // Step 5: Apply Laplacian metrics & inner product.
+#if defined(NEKTAR_USE_DERIV_BASE)
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv0vec, DB0, B1,
                 B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
@@ -1043,6 +1075,14 @@ private:
             IProduct3DKernel<SHAPE_TYPE, false, true, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, isModified, deriv2vec, B0, B1,
                 DB2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+#else
+            SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
+                jacPtr, D0, D1, D2, bwd);
+            IProduct3DKernel<SHAPE_TYPE, false, true, simd_t>(
+                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
+                wsp0, wsp1, wsp2, tmpOut);
+#endif
             // Increment pointers.
             dfPtr += dfSize * ndf;
             jacPtr += dfSize;

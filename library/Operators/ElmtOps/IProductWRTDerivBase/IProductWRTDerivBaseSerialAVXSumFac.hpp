@@ -41,6 +41,9 @@
 #include "Operators/Utils/UtilsKernels.hpp"
 
 #include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
+#if !defined(NEKTAR_USE_DERIV_BASE)
+#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+#endif
 
 namespace Nektar::Operators::detail
 {
@@ -216,6 +219,7 @@ private:
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
 
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -303,6 +307,7 @@ private:
         }
     }
 
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nq0>
     void Operator1D(BlockAccessor<TData> &inblock,
@@ -388,6 +393,7 @@ private:
         }
     }
 
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -423,10 +429,17 @@ private:
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto basis1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto dbasis0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#else
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -459,6 +472,13 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp0.data());
         tmpPtr[1] =
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
+#if !defined(NEKTAR_USE_DERIV_BASE)
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
+        auto tmp2Ptr =
+            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
+        auto tmp2vec =
+            reinterpret_cast<typename simd_t::vectorType *>(tmp2.data());
+#endif
 
         // Initialize pointers.
         auto input  = (in_interleave_width == simd_t::width)
@@ -492,6 +512,7 @@ private:
                     nq0, nq1, ncoord, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr,
                     (simd_t *)nullptr, (simd_t *)nullptr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductQuadKernel<false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -500,6 +521,15 @@ private:
                     nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[1], basis0,
                     dbasis1, W0, W1, jacPtr, wsp, tmpOut, 1.0, colldir0, false);
+#else
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                    jacPtr, D0, D1, tmp2Ptr);
+                IProductQuadKernel<false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp, tmpOut,
+                    1.0, colldir0, colldir1);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -535,6 +565,7 @@ private:
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, ncoord, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr, F0, F1);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductTriKernel<false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -543,6 +574,15 @@ private:
                     nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[1], basis0,
                     dbasis1, W0, W1, jacPtr, wsp, tmpOut);
+#else
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                    jacPtr, D0, D1, tmp2Ptr);
+                IProductTriKernel<false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
+                    wsp, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -553,6 +593,7 @@ private:
         }
     }
 
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nq0, int nq1>
     void Operator2D(BlockAccessor<TData> &inblock,
@@ -583,10 +624,17 @@ private:
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto basis1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto dbasis0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#else
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -620,6 +668,14 @@ private:
         tmpPtr[1] =
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
 
+#if !defined(NEKTAR_USE_DERIV_BASE)
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp2(nqTot);
+        auto tmp2Ptr =
+            reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
+        auto tmp2vec =
+            reinterpret_cast<typename simd_t::vectorType *>(tmp2.data());
+#endif
+
         // Initialize pointers.
         auto input  = (in_interleave_width == simd_t::width)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
@@ -652,6 +708,7 @@ private:
                     nq0, nq1, ncoord, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr,
                     (simd_t *)nullptr, (simd_t *)nullptr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductQuadKernel<false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -660,6 +717,15 @@ private:
                     nm0, nm1, nq0, nq1,
                     (const typename simd_t::vectorType *)tmpPtr[1], basis0,
                     dbasis1, W0, W1, jacPtr, wsp, tmpOut, 1.0, colldir0, false);
+#else
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                    jacPtr, D0, D1, tmp2Ptr);
+                IProductQuadKernel<false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp, tmpOut,
+                    1.0, colldir0, colldir1);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -695,6 +761,7 @@ private:
                 StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                     nq0, nq1, ncoord, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr, F0, F1);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductTriKernel<false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -703,6 +770,15 @@ private:
                     nm0, nm1, nq0, nq1, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[1], basis0,
                     dbasis1, W0, W1, jacPtr, wsp, tmpOut);
+#else
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                    jacPtr, D0, D1, tmp2Ptr);
+                IProductTriKernel<false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
+                    wsp, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -713,6 +789,7 @@ private:
         }
     }
 
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -751,12 +828,21 @@ private:
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto basis2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto dbasis0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#else
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -793,6 +879,13 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
         tmpPtr[2] =
             reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
+#if !defined(NEKTAR_USE_DERIV_BASE)
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp3(nqTot);
+        auto tmp3Ptr =
+            reinterpret_cast<typename simd_t::scalarType *>(tmp3.data());
+        auto tmp3vec =
+            reinterpret_cast<typename simd_t::vectorType *>(tmp3.data());
+#endif
 
         // Initialize pointers.
         auto input  = (in_interleave_width == simd_t::width)
@@ -826,6 +919,7 @@ private:
                 StdAlignDerivBaseHex<DEFORMED>(
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductHexKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -841,6 +935,18 @@ private:
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0,
                     colldir0, colldir1, false);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductHexKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
+                    basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
+                    colldir2);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -881,6 +987,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, F1, F1a, F2, tmpIn,
                     tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductTetKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -893,6 +1000,17 @@ private:
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductTetKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -931,6 +1049,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, F1,
                     (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductPyrKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -943,6 +1062,17 @@ private:
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductPyrKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -981,6 +1111,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, (simd_t *)nullptr,
                     (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductPrismKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -996,6 +1127,17 @@ private:
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1,
                     tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductPrismKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -1006,6 +1148,7 @@ private:
         }
     }
 
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
               int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
@@ -1037,12 +1180,21 @@ private:
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto basis2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#if defined(NEKTAR_USE_DERIV_BASE)
         auto dbasis0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto dbasis2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#else
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+#endif
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W1 =
@@ -1079,6 +1231,13 @@ private:
             reinterpret_cast<typename simd_t::scalarType *>(tmp1.data());
         tmpPtr[2] =
             reinterpret_cast<typename simd_t::scalarType *>(tmp2.data());
+#if !defined(NEKTAR_USE_DERIV_BASE)
+        std::vector<simd_t, tinysimd::allocator<simd_t>> tmp3(nqTot);
+        auto tmp3Ptr =
+            reinterpret_cast<typename simd_t::scalarType *>(tmp3.data());
+        auto tmp3vec =
+            reinterpret_cast<typename simd_t::vectorType *>(tmp3.data());
+#endif
 
         // Initialize pointers.
         auto input  = (in_interleave_width == simd_t::width)
@@ -1112,6 +1271,7 @@ private:
                 StdAlignDerivBaseHex<DEFORMED>(
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductHexKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -1127,6 +1287,18 @@ private:
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut, 1.0,
                     colldir0, colldir1, false);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductHexKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
+                    basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
+                    colldir2);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -1167,6 +1339,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, F1, F1a, F2, tmpIn,
                     tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductTetKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -1179,6 +1352,17 @@ private:
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductTetKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -1217,6 +1401,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, F1,
                     (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductPyrKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -1229,6 +1414,17 @@ private:
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductPyrKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
@@ -1267,6 +1463,7 @@ private:
                     nq0, nq1, nq2, dfPtr, df_tmp,
                     inblock.GetNumElmtGroups() * nqTot, F0, (simd_t *)nullptr,
                     (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+#if defined(NEKTAR_USE_DERIV_BASE)
                 IProductPrismKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified,
                     (const typename simd_t::vectorType *)tmpPtr[0], dbasis0,
@@ -1282,6 +1479,17 @@ private:
                     (const typename simd_t::vectorType *)tmpPtr[2], basis0,
                     basis1, dbasis2, W0, W1, W2, jacPtr, wsp, wsp0, wsp1,
                     tmpOut);
+#else
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2,
+                    (const typename simd_t::vectorType *)tmpPtr[0],
+                    (const typename simd_t::vectorType *)tmpPtr[1],
+                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
+                    jacPtr, D0, D1, D2, tmp3Ptr);
+                IProductPrismKernel<false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
+                    basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+#endif
 
                 // Increment pointers for the next elmt group.
                 tmpIn += nqTot;
