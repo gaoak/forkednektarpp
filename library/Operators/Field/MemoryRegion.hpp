@@ -126,34 +126,6 @@ public:
     }
 
     /**
-     * @brief osstream operator.
-     *
-     * @param rhs - MemoryRegion to stream
-     *
-     * @return    - stream
-     */
-    friend auto operator<<(std::ostream &os, const MemoryRegion &mr)
-        -> std::ostream &
-    {
-        try
-        {
-            // This cast fails if e.g. a MemoryRegionDevice is requested
-            // from a MemoryRegionHost storage.
-            auto &ret =
-                dynamic_cast<MemoryRegionDevice<TData> &>(*(mr.m_storage));
-
-            return os << ret;
-        }
-        catch (const std::bad_cast &e)
-        {
-            auto &ret =
-                dynamic_cast<MemoryRegionHost<TData> &>(*(mr.m_storage));
-
-            return os << ret;
-        }
-    }
-
-    /**
      * @brief Get the pointer to the host/device memory.
      *
      * @return    - TData*
@@ -184,17 +156,21 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
+    defined(OPERATOR_ENABLE_DEFAULTING)
             try
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage.
-                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+                [[maybe_unused]] auto &discard =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
             }
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
                 GetDeviceStorage();
             }
+#endif
 
             if constexpr (std::is_same_v<MemAccess, ReadOnly>)
             {
@@ -385,17 +361,21 @@ public:
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
+    defined(OPERATOR_ENABLE_DEFAULTING)
             try
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
                 // from a MemoryRegionHost storage.
-                dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
+                [[maybe_unused]] auto &discard =
+                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
             }
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
                 GetDeviceStorage();
             }
+#endif
 
             m_storage->Initialize(val, count, offset);
         }
@@ -730,26 +710,44 @@ private:
 
         if constexpr (std::is_same_v<MemSpace, NektarSpaces::HostSpace>)
         {
-            m_storage->CopyFromHostPtr(src, size, offset);
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                m_storage->CopyFromHostPtr(src, size, offset);
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                std::copy(src, src + size, tmp.data());
+                m_storage->CopyFromHostPtr(tmp.data(), size, offset);
+            }
         }
         else if constexpr (std::is_same_v<MemSpace, NektarSpaces::DeviceSpace>)
         {
+#if defined(NEKTAR_DEBUG) || defined(NEKTAR_FULLDEBUG) ||                      \
+    defined(OPERATOR_ENABLE_DEFAULTING)
             try
             {
                 // This cast fails if e.g. a MemoryRegionDevice is requested
-                // from a MemoryRegionHost storage
-                auto &ret =
+                // from a MemoryRegionHost storage.
+                [[maybe_unused]] auto &discard =
                     dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                ret.CopyFromHostPtr(src, size, offset);
             }
             catch (const std::bad_cast &e)
             {
                 // Convert the storage to device
                 GetDeviceStorage();
+            }
+#endif
 
-                auto &ret =
-                    dynamic_cast<MemoryRegionDevice<TData> &>(*m_storage);
-                ret.CopyFromHostPtr(src, size, offset);
+            if constexpr (std::is_same_v<TDataIn, TData>)
+            {
+                m_storage->CopyFromHostPtr(src, size, offset);
+            }
+            else
+            {
+                std::vector<TData> tmp(size);
+                std::copy(src, src + size, tmp.data());
+                m_storage->CopyFromHostPtr(tmp.data(), size, offset);
             }
         }
     }

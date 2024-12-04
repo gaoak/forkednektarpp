@@ -186,32 +186,6 @@ protected:
     }
 
     /**
-     * @brief osstream operator.
-     *
-     * @param rhs - MemoryRegion to stream
-     *
-     * @return    - stream
-     */
-    friend auto operator<<(std::ostream &os, const MemoryRegionHost &mr)
-        -> std::ostream &
-    {
-        std::stringstream msg;
-        msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
-            << " initialize: " << mr.m_initialize << " ";
-
-        if (mr.m_device_only)
-        {
-            msg << "MemoryRegion is only allocated on device! ";
-        }
-        else
-        {
-            msg << " host_valid: " << mr.m_host_valid << " ";
-        }
-
-        return os << msg.str();
-    }
-
-    /**
      * @brief Get ReadOnly pointer to the host memory
      *
      * @return - TData*
@@ -367,22 +341,14 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_host pointer
      */
-    template <typename TDataIn>
-    void CopyFromHostPtr(const TDataIn *src, const size_t size,
-                         const size_t offset = 0)
+    virtual void CopyFromHostPtr(const TData *src, const size_t size,
+                                 const size_t offset = 0)
     {
         if (!m_device_only)
         {
             TData *dst = m_host + offset;
 
-            if constexpr (std::is_same_v<TDataIn, TData>)
-            {
-                std::memcpy(dst, src, size * sizeof(TData));
-            }
-            else
-            {
-                std::copy(src, src + size, dst);
-            }
+            std::memcpy(dst, src, size * sizeof(TData));
 
             m_host_valid = true;
             m_initialize = false;

@@ -160,34 +160,6 @@ protected:
     }
 
     /**
-     * @brief osstream operator.
-     *
-     * @param rhs - MemoryRegion to stream
-     *
-     * @return    - stream
-     */
-    friend auto operator<<(std::ostream &os, const MemoryRegionDevice &mr)
-        -> std::ostream &
-    {
-        std::stringstream msg;
-        msg << "Name: '" << mr.m_name << "' size: " << mr.m_size << " "
-            << " initialize: " << mr.m_initialize << " ";
-
-        if (mr.m_device_only)
-        {
-            msg << "MemoryRegion is only allocated on device! ";
-        }
-        else
-        {
-            msg << " host_valid: " << mr.m_host_valid << " ";
-        }
-
-        msg << " device_valid: " << mr.m_device_valid << " ";
-
-        return os << msg.str();
-    }
-
-    /**
      * @brief Get ReadOnly pointer to the host memory
      *
      * @return - TData*
@@ -241,7 +213,7 @@ protected:
      *
      * @return - TData*
      */
-    const TData *GetReadOnlyDevicePtr()
+    const TData *GetReadOnlyDevicePtr() override
     {
         HostToDeviceCopy(); // Move to device if necessary
 
@@ -253,7 +225,7 @@ protected:
      *
      * @return - TData*
      */
-    TData *GetWriteOnlyDevicePtr()
+    TData *GetWriteOnlyDevicePtr() override
     {
         if (m_device == nullptr)
         {
@@ -276,7 +248,7 @@ protected:
      *
      * @return - TData*
      */
-    TData *GetReadWriteDevicePtr()
+    TData *GetReadWriteDevicePtr() override
     {
         HostToDeviceCopy(); // Move to device if necessary
         this->m_host_valid = false;
@@ -321,24 +293,12 @@ protected:
      * @param size   - number of element of type TDataIn to copy
      * @param offset - offset to m_device pointer
      */
-    template <typename TDataIn>
-    void CopyFromHostPtr(const TDataIn *src, const size_t size,
-                         const size_t offset = 0)
+    void CopyFromHostPtr(const TData *src, const size_t size,
+                         const size_t offset = 0) override
     {
-        MemoryRegionHost<TData>::template CopyFromHostPtr<TDataIn>(src, size,
-                                                                   offset);
+        MemoryRegionHost<TData>::CopyFromHostPtr(src, size, offset);
         TData *dst = this->m_device + offset;
-        if constexpr (std::is_same_v<TDataIn, TData>)
-        {
-            deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
-        }
-        else
-        {
-            std::vector<TData> tmp(size);
-            std::copy(src, src + size, tmp.data());
-            deviceMemcpy<HostToDevice>(dst, tmp.data(), size,
-                                       this->m_device_rank);
-        }
+        deviceMemcpy<HostToDevice>(dst, src, size, this->m_device_rank);
         this->m_device_valid = true;
         this->m_initialize   = false;
     }
