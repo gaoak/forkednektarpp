@@ -64,8 +64,10 @@ public:
     /**
      * @brief Constructor methods - create a new memory region.
      *
+     * @param name        - name
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
      * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionDevice(const std::string name, const size_t size,
@@ -83,9 +85,11 @@ public:
      * Field.hpp to allocate a contiguous host memory coupled with
      * distributed device memory.
      *
+     * @param name        - name
      * @param h_src       - host src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionDevice(const std::string name, TData *h_src, const size_t size,
                        const size_t alignment, const size_t device_rank)

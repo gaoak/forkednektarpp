@@ -44,8 +44,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -115,8 +115,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     TData *s_wsp0   = shmemptr;
     TData *s_basis0 = SHMEM ? s_wsp0 + nq0 : (TData *)basis0;
@@ -194,9 +194,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -296,8 +295,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -414,8 +413,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     TData *__restrict__ wsp, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -559,9 +558,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
     const unsigned int *__restrict__ pindex, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1;
 
@@ -718,9 +716,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -858,8 +855,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, TData *__restrict__ shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
 
@@ -1012,9 +1009,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1254,9 +1250,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
@@ -1499,9 +1494,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -1701,9 +1695,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
@@ -1907,9 +1900,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -2147,9 +2139,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
     const TData *__restrict__ basis1, const TData *__restrict__ basis2,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ w2, const TData *__restrict__ jac,
-    const TData *__restrict__ in, TData *__restrict__ out,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
+    const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
+    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nmode2 =
@@ -2345,128 +2336,76 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    TData *__restrict out, const TData scale, TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
-    IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, shmemptr, item_ct1, scale);
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
+            item_ct1);
+    }
+    else
+    {
+        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
+            item_ct1);
+    }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void IProductWRTBase1DKernel_QP(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *__restrict__ basis0, const TData *__restrict__ w0,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
-{
-    IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-        nm0, nq0, nelmt, basis0, w0, jac, in, out, shmemptr, item_ct1, scale);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *__restrict__ basis0,
-    const TData *__restrict__ basis1, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ jac,
-    TData *__restrict__ wsp, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, wsp,
-            in, out, shmemptr, item_ct1, scale);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1, w0,
-            w1, jac, wsp, in, out, shmemptr, item_ct1, scale);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void IProductWRTBase2DKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, [[maybe_unused]] const unsigned int *index0,
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ w0, const TData *__restrict__ w1,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    const TData *__restrict__ jac, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict out, const TData scale,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac, in,
-            out, shmemptr, item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac,
+                wsp, in, out, scale, shmemptr, item_ct1);
+        }
+        else
+        {
+            IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac,
+                in, out, scale, shmemptr, item_ct1);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
-            basis1, w0, w1, jac, in, out, shmemptr, item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
+                w0, w1, jac, wsp, in, out, scale, shmemptr, item_ct1);
+        }
+        else
+        {
+            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
+                basis1, w0, w1, jac, in, out, scale, shmemptr, item_ct1);
+        }
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
-    const TData *__restrict__ basis0, const TData *__restrict__ basis1,
-    const TData *__restrict__ basis2, const TData *__restrict__ w0,
-    const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, TData *__restrict__ wsp,
-    const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1,
-    const TData scale = 1.0)
-{
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
-            w0, w1, w2, jac, wsp, in, out, shmemptr, item_ct1, scale);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shmemptr, item_ct1,
-            scale);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shmemptr, item_ct1,
-            scale);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-            basis1, basis2, w0, w1, w2, jac, wsp, in, out, shmemptr, item_ct1,
-            scale);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
-NEK_FORCE_INLINE static void IProductWRTBase3DKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nq2, const unsigned int nelmt, const bool isModified,
@@ -2476,40 +2415,81 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel_QP(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ w2,
-    const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1, const TData scale = 1.0)
+    const TData *__restrict__ jac, [[maybe_unused]] TData *__restrict__ wsp,
+    const TData *__restrict__ in, TData *__restrict out, const TData scale,
+    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1, basis2,
-            w0, w1, w2, jac, in, out, shmemptr, item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
+                basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
+                item_ct1);
+        }
+        else
+        {
+            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
+                basis2, w0, w1, w2, jac, in, out, scale, shmemptr, item_ct1);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-            shmemptr, item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
+                item_ct1);
+        }
+        else
+        {
+            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
+                index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in,
+                out, scale, shmemptr, item_ct1);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in, out,
-            shmemptr, item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
+                item_ct1);
+        }
+        else
+        {
+            IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
+                index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in,
+                out, scale, shmemptr, item_ct1);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-            index1, basis0, basis1, basis2, w0, w1, w2, jac, in, out, shmemptr,
-            item_ct1, scale);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
+                item_ct1);
+        }
+        else
+        {
+            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
+                index1, basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale,
+                shmemptr, item_ct1);
+        }
     }
 }
 
 // Kernel launchers
+// Non-size based version.
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
           bool DEFORMED, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
@@ -2519,60 +2499,42 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHMEM, true>(nq0, nm0);
-        const unsigned int SYCLBlockSize =
-            std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<Implementation, SHMEM>(nq0, nm0);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase1DKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
-                         nm0, nq0, nelmt, basis0, w0, jac, in, out, shmemptr,
-                         item_ct1, scale);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHMEM, false>(nq0, nm0);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase1DKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-                         nm0, nq0, nelmt, basis0, w0, jac, in, out, shmemptr,
-                         item_ct1, scale);
-                 });
-         }).wait();
-    }
+    Q.submit([=](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item_ct1) {
+                 TData *shmemptr =
+                     shared
+                         .template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+                 IProductWRTBase1DKernel<Implementation, SCALE, APPEND,
+                                         DEFORMED, SHMEM>(
+                     nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
+                     item_ct1);
+             });
+     }).wait();
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
+          bool DEFORMED, bool SHMEM, unsigned int nm0, unsigned int nq0,
+          typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
+    const unsigned int nelmt, const TData *basis0, const TData *w0,
+    const TData *jac, const TData *in, TData *out, const TData scale = 1.0)
+{
+    IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED,
+                            SHMEM>(nm0, nq0, nelmt, basis0, w0, jac, in, out,
+                                   scale);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM, typename TData>
@@ -2589,66 +2551,49 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1,
-                                                                     nm0, nm1);
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
+            nq0, nq1, nm0, nm1);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([&](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase2DKernel_QP<SHAPE_TYPE, SCALE, APPEND,
-                                                DEFORMED, SHMEM>(
-                         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
-                         basis0, basis1, w0, w1, jac, in, out, shmemptr,
-                         item_ct1, scale);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1,
-                                                                      nm0, nm1);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase2DKernel<SHAPE_TYPE, SCALE, APPEND,
-                                             DEFORMED, SHMEM>(
-                         nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                         basis1, w0, w1, jac, wsp, in, out, shmemptr, item_ct1,
-                         scale);
-                 });
-         }).wait();
-    }
+    Q.submit([&](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item_ct1) {
+                 TData *shmemptr =
+                     shared
+                         .template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+                 IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE,
+                                         APPEND, DEFORMED, SHMEM>(
+                     nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
+                     basis0, basis1, w0, w1, jac, wsp, in, out, scale, shmemptr,
+                     item_ct1);
+             });
+     }).wait();
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, unsigned int nm0, unsigned int nm1, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0, const TData *basis0,
+    const TData *basis1, const TData *w0, const TData *w1, const TData *jac,
+    [[maybe_unused]] TData *wsp, const TData *in, TData *out,
+    const TData scale = 1.0)
+{
+    IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
+                            APPEND, DEFORMED, SHMEM>(
+        nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
+        jac, wsp, in, out, scale);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
           bool SHMEM, typename TData>
@@ -2668,64 +2613,48 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
 
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, true>(
-                nq0, nq1, nq2, nm0, nm1, nm2);
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([&](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase3DKernel_QP<SHAPE_TYPE, SCALE, APPEND,
-                                                DEFORMED, SHMEM>(
-                         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                         index0, index1, index2, basis0, basis1, basis2, w0, w1,
-                         w2, jac, in, out, shmemptr, item_ct1, scale);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            IProductWRTBaseSharedMemorySize<SHAPE_TYPE, SHMEM, false>(
-                nq0, nq1, nq2, nm0, nm1, nm2);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+    Q.submit([&](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item_ct1) {
+                 TData *shmemptr =
+                     shared
+                         .template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+                 IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
+                                         APPEND, DEFORMED, SHMEM>(
+                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
+                     index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
+                     jac, wsp, in, out, scale, shmemptr, item_ct1);
+             });
+     }).wait();
+}
 
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shared(sycl::range<1>(shmemsize),
-                                                   cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shared
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTBase3DKernel<SHAPE_TYPE, SCALE, APPEND,
-                                             DEFORMED, SHMEM>(
-                         nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                         basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out,
-                         shmemptr, item_ct1, scale);
-                 });
-         }).wait();
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
+          bool SHMEM, unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nq0, unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1,
+    [[maybe_unused]] const unsigned int *index2, const TData *basis0,
+    const TData *basis1, const TData *basis2, const TData *w0, const TData *w1,
+    const TData *w2, const TData *jac, [[maybe_unused]] TData *wsp,
+    const TData *in, TData *out, const TData scale = 1.0)
+{
+    IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
+                            APPEND, DEFORMED, SHMEM>(
+        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
+        basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
 }
 
 } // namespace Nektar::Operators::detail

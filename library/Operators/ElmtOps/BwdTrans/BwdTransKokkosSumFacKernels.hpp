@@ -66,6 +66,8 @@ KOKKOS_INLINE_FUNCTION static void BwdTransSegKernel(
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(team, nm0 * nq0),
             [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+        team.team_barrier();
     }
 
     unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
@@ -1388,56 +1390,32 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel_QP(
     team.team_barrier();
 }
 
-template <bool SHMEM, typename TData>
+template <typename Implementation, bool SHMEM, typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
     const team_handle &team)
 {
-    BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr, team);
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+                                 team);
+    }
+    else
+    {
+        BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
+                                    team);
+    }
 }
 
-template <bool SHMEM, typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel_QP(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
-    const team_handle &team)
-{
-    BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
-                                team);
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SHMEM, typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
-    const team_handle &team)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-    {
-        BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                  basis1, wsp, in, out, shmemptr, team);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        BwdTransTriKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                                 basis0, basis1, wsp, in, out, shmemptr, team);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel_QP(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
@@ -1446,98 +1424,116 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel_QP(
 
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
-        BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                     basis1, in, out, shmemptr, team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
+                                      basis1, wsp, in, out, shmemptr, team);
+        }
+        else
+        {
+            BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                         basis0, basis1, in, out, shmemptr,
+                                         team);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
-        BwdTransTriKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                    isModified, basis0, basis1, in, out,
-                                    shmemptr, team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransTriKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                     isModified, basis0, basis1, wsp, in, out,
+                                     shmemptr, team);
+        }
+        else
+        {
+            BwdTransTriKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
+                                        isModified, basis0, basis1, in, out,
+                                        shmemptr, team);
+        }
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SHMEM, typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
-{
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
-
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-    {
-        BwdTransHexKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 basis0, basis1, basis2, wsp, in, out, shmemptr,
-                                 team);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        BwdTransTetKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 isModified, basis0, basis1, basis2, wsp, in,
-                                 out, shmemptr, team);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        BwdTransPrismKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                   isModified, basis0, basis1, basis2, wsp, in,
-                                   out, shmemptr, team);
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        BwdTransPyrKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 isModified, basis0, basis1, basis2, wsp, in,
-                                 out, shmemptr, team);
-    }
-}
-
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
-    const team_handle &team)
+    const TData *KOKKOS_RESTRICT basis2,
+    [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
-        BwdTransHexKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    basis0, basis1, basis2, in, out, shmemptr,
-                                    team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransHexKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                     basis0, basis1, basis2, wsp, in, out,
+                                     shmemptr, team);
+        }
+        else
+        {
+            BwdTransHexKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                        nelmt, basis0, basis1, basis2, in, out,
+                                        shmemptr, team);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
-        BwdTransTetKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    isModified, index0, index1, basis0, basis1,
-                                    basis2, in, out, shmemptr, team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransTetKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                     isModified, basis0, basis1, basis2, wsp,
+                                     in, out, shmemptr, team);
+        }
+        else
+        {
+            BwdTransTetKernel_QP<SHMEM>(
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
+                index1, basis0, basis1, basis2, in, out, shmemptr, team);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
-        BwdTransPrismKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                      nelmt, isModified, basis0, basis1, basis2,
-                                      in, out, shmemptr, team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransPrismKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                       nelmt, isModified, basis0, basis1,
+                                       basis2, wsp, in, out, shmemptr, team);
+        }
+        else
+        {
+            BwdTransPrismKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                          nelmt, isModified, basis0, basis1,
+                                          basis2, in, out, shmemptr, team);
+        }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
-        BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                    isModified, basis0, basis1, basis2, in, out,
-                                    shmemptr, team);
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            BwdTransPyrKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                     isModified, basis0, basis1, basis2, wsp,
+                                     in, out, shmemptr, team);
+        }
+        else
+        {
+            BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
+                                        nelmt, isModified, basis0, basis1,
+                                        basis2, in, out, shmemptr, team);
+        }
     }
 }
 
 // Kernel launchers
+// Non-size based version.
 template <typename ExecSpace, typename Implementation, bool SHMEM,
           typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
@@ -1546,49 +1542,36 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHMEM, true>(nq0, nm0);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<Implementation, SHMEM>(nq0, nm0);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize = GetKokkosBlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetKokkosGridSize<Implementation>(nelmt);
 
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans1DKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out,
-                                           &shmem[0], team);
-            });
-    }
-    else
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHMEM, false>(nq0, nm0);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
-        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(gridsize, blocksize)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans1DKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out,
-                                        &shmem[0], team);
-            });
-    }
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans1DKernel<Implementation, SHMEM>(nm0, nq0, nelmt, basis0, in,
+                                                    out, shmem.data(), team);
+        });
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool SHMEM,
+          unsigned int nm0, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
+                                              const TData *basis0,
+                                              const TData *in, TData *out)
+{
+    BwdTrans1DKernel<ExecSpace, Implementation, SHMEM>(nm0, nq0, nelmt, basis0,
+                                                       in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
@@ -1597,53 +1580,43 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis0, const TData *basis1, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1, nm0,
-                                                              nm1);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(nq0, nq1,
+                                                                    nm0, nm1);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize =
+        GetKokkosBlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
 
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans2DKernel_QP<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in,
-                    out, &shmem[0], team);
-            });
-    }
-    else
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1, nm0,
-                                                               nm1);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
-        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(gridsize, blocksize)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans2DKernel<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp,
-                    in, out, &shmem[0], team);
-            });
-    }
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans2DKernel<SHAPE_TYPE, Implementation, SHMEM>(
+                nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in,
+                out, shmem.data(), team);
+        });
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, unsigned int nm0,
+          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
+                                              const bool isModified,
+                                              const TData *basis0,
+                                              const TData *basis1,
+                                              [[maybe_unused]] TData *wsp,
+                                              const TData *in, TData *out)
+{
+    BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SHMEM>(
+        nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SHMEM, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
@@ -1655,51 +1628,42 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, true>(nq0, nq1, nq2,
-                                                              nm0, nm1, nm2);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
+    constexpr unsigned int slevel = 0u;
+    const unsigned int nshared =
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
+            nq0, nq1, nq2, nm0, nm1, nm2);
+    const unsigned int shmemsize =
+        ScratchMemoryView<TData>::shmem_size(nshared);
+    const unsigned int blocksize =
+        GetKokkosBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
 
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(nelmt, Kokkos::AUTO)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans3DKernel_QP<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0,
-                    index1, basis0, basis1, basis2, in, out, &shmem[0], team);
-            });
-    }
-    else
-    {
-        constexpr unsigned int slevel = 0u;
-        const unsigned int nshared =
-            BwdTransSharedMemorySize<SHAPE_TYPE, SHMEM, false>(nq0, nq1, nq2,
-                                                               nm0, nm1, nm2);
-        const unsigned int shmemsize =
-            ScratchMemoryView<TData>::shmem_size(nshared);
-        const unsigned int blocksize = NektarSpaces::KOKKOS::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    Kokkos::parallel_for(
+        Kokkos::TeamPolicy<>(gridsize, blocksize)
+            .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
+        KOKKOS_LAMBDA(const team_handle &team) {
+            ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
+            BwdTrans3DKernel<SHAPE_TYPE, Implementation, SHMEM>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
+                basis0, basis1, basis2, wsp, in, out, shmem.data(), team);
+        });
+}
 
-        Kokkos::parallel_for(
-            Kokkos::TeamPolicy<>(gridsize, blocksize)
-                .set_scratch_size(slevel, Kokkos::PerTeam(shmemsize)),
-            KOKKOS_LAMBDA(const team_handle &team) {
-                // Set shared memory.
-                ScratchMemoryView<TData> shmem(team.team_scratch(slevel),
-                                               nshared);
-                BwdTrans3DKernel<SHAPE_TYPE, SHMEM>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, basis0,
-                    basis1, basis2, wsp, in, out, &shmem[0], team);
-            });
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool SHMEM, unsigned int nm0,
+          unsigned int nm1, unsigned int nm2, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void BwdTrans3DKernel(
+    const unsigned int nelmt, const bool isModified,
+    [[maybe_unused]] const unsigned int *index0,
+    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
+    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
+    const TData *in, TData *out)
+{
+    BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SHMEM>(
+        nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,
+        basis1, basis2, wsp, in, out);
 }
 
 } // namespace Nektar::Operators::detail

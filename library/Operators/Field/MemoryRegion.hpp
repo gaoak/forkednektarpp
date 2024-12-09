@@ -171,7 +171,6 @@ public:
                 GetDeviceStorage();
             }
 #endif
-
             if constexpr (std::is_same_v<MemAccess, ReadOnly>)
             {
                 return m_storage->GetReadOnlyDevicePtr();
@@ -528,6 +527,11 @@ public:
         }
     }
 
+    /**
+     * @brief Get the storage memory alignment.
+     *
+     * @return - size_t
+     */
     size_t GetAlignment() const
     {
         if (m_storage == nullptr)
@@ -597,6 +601,7 @@ private:
      * @param h_src       - host src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
      *
      * @return MemoryRegion<TData>
      */
@@ -643,6 +648,7 @@ private:
      * @param h_src       - host src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
      *
      * @return MemoryRegion<TData>
      */
@@ -657,29 +663,23 @@ private:
     }
 
     /**
-     * @brief Get the underlying storage of the memory region as the
-     *        requested type.
+     * @brief This routine performs a MemoryRegion conversion from a host
+     * memory region to a device memory region.
      *
-     * @return MemoryRegion<TData> storage converted to the requested type
+     * @return MemoryRegionDevice<TData> storage
      *
-     * This routine performs MemoryRegion conversions if necessary to
-     * enable casting of, for example a host memory region to a device
-     * memory region to support the use of a device operator if
-     * necessary.
-     *
-     * A runtime warning is provided if a transfer of data from device
-     * to host is required to achieve the conversion.
      */
     void GetDeviceStorage()
     {
-        using T = MemoryRegionDevice<TData>;
+        using TMemoryRegion = MemoryRegionDevice<TData>;
 
-        std::string name  = Nektar::demangleTypeName(typeid(T));
+        std::string name  = Nektar::demangleTypeName(typeid(TMemoryRegion));
         std::string sname = Nektar::demangleTypeName(typeid(*m_storage));
 
         // Create new TMemoryRegion from the MemoryRegionHost base
         // class.
-        m_storage = std::make_unique<T>(T(std::move(*m_storage)));
+        m_storage = std::make_unique<TMemoryRegion>(
+            TMemoryRegion(std::move(*m_storage)));
 
         // Debug warning, a (possibly) undesired conversion occured.
         std::string msg("MemoryRegion::GetDeviceStorage - "
@@ -693,8 +693,9 @@ private:
      * @brief Templated copy method. This method copies data from a
      *        src pointer
      *
-     * @param src - pointer to copy from
-     * @param size- size of memory
+     * @param src    - pointer to copy from
+     * @param size   - size of memory
+     * @param offset - offset to host pointer
      *
      */
     template <typename MemSpace, typename TDataIn>
@@ -738,7 +739,6 @@ private:
                 GetDeviceStorage();
             }
 #endif
-
             if constexpr (std::is_same_v<TDataIn, TData>)
             {
                 m_storage->CopyFromHostPtr(src, size, offset);

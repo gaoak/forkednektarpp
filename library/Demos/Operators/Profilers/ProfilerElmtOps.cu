@@ -71,6 +71,19 @@ int main(int argc, char *argv[])
 
     auto nDim = contfield->GetGraph()->GetSpaceDimension();
 
+    // Print GPU properties
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+    std::cout << "--------------------------------" << std::endl;
+    std::cout << "Device Properties " << std::endl;
+    std::cout << "--------------------------------" << std::endl;
+    printf("  Device name: %s\n", prop.name);
+    printf("  Memory Clock Rate (KHz): %d\n", prop.memoryClockRate);
+    printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+    printf("  Peak Memory Bandwidth (GB/s): %f\n",
+           2.0 * prop.memoryClockRate * (prop.memoryBusWidth / 8) / 1.0e6);
+    printf("  Number of multiprocessors: %d\n", prop.multiProcessorCount);
+
     // Benchmark
     LaunchProfiler<BwdTrans<FP_t>, FieldState::Coeff, FieldState::Phys, FP_t>(
         contfield, Ntest, 1, 1);

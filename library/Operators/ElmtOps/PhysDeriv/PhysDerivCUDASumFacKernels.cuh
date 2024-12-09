@@ -39,9 +39,11 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool DEFORMED, typename TData>
-__global__ void PhysDeriv1DKernel(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void PhysDeriv1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ D0, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
@@ -82,9 +84,11 @@ __global__ void PhysDeriv1DKernel(
     }
 }
 
-template <bool DEFORMED, typename TData>
-__global__ void PhysDeriv1DKernel_QP(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void PhysDeriv1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ D0, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
 {
@@ -119,9 +123,12 @@ __global__ void PhysDeriv1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void PhysDeriv2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
@@ -213,9 +220,12 @@ __global__ void PhysDeriv2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void PhysDeriv2DKernel_QP(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void PhysDeriv2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
@@ -278,8 +288,11 @@ __global__ void PhysDeriv2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void PhysDeriv3DKernel(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -459,8 +472,11 @@ __global__ void PhysDeriv3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void PhysDeriv3DKernel_QP(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ D0,
     const TData *__restrict__ D1, const TData *__restrict__ D2,
@@ -563,65 +579,160 @@ __global__ void PhysDeriv3DKernel_QP(
     }
 }
 
+// Non-size based version.
+template <typename Implementation, bool DEFORMED, typename TData>
+__global__ void PhysDeriv1DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ D0, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
+                                                out);
+}
+
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, typename TData>
+__global__ void PhysDeriv1DKernelLauncher(const unsigned int nelmt,
+                                          const TData *__restrict__ D0,
+                                          const TData *__restrict__ df,
+                                          const TData *__restrict__ in,
+                                          TData *__restrict__ out)
+{
+    PhysDeriv1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt, D0, df, in,
+                                                out);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData>
+__global__ void PhysDeriv2DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int ncoord, unsigned int nq0,
+          unsigned int nq1, typename TData>
+__global__ void PhysDeriv2DKernelLauncher(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out);
+}
+
+// Non-size based version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData>
+__global__ void PhysDeriv3DKernelLauncher(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+__global__ void PhysDeriv3DKernelLauncher(
+    const unsigned int nelmt, const TData *__restrict__ D0,
+    const TData *__restrict__ D1, const TData *__restrict__ D2,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ Z2, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
+}
+
 // Launchers
+// Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
-                                               const unsigned int ncoord,
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
+                                               const unsigned int nq0,
                                                const unsigned int nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
-        PhysDeriv1DKernel_QP<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, D0, df, in, out);
-    }
-    else
-    {
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        PhysDeriv1DKernel<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, D0, df, in, out);
-    }
+    PhysDeriv1DKernelLauncher<Implementation, DEFORMED>
+        <<<gridsize, blocksize>>>(ncoord, nq0, nelmt, D0, df, in, out);
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int ncoord, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
+{
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
+
+    PhysDeriv1DKernelLauncher<Implementation, DEFORMED, ncoord, nq0>
+        <<<gridsize, blocksize>>>(nelmt, D0, df, in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
     const TData *Z1, const TData *df, const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
-        PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED><<<gridsize, blocksize>>>(
-            nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out);
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            sizeof(TData) * PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, ncoord, nelmt, D0,
-                                                 D1, Z0, Z1, df, in, out);
-    }
+    PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, D0, D1,
+                                             Z0, Z1, df, in, out);
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *D1,
+                                               const TData *Z0, const TData *Z1,
+                                               const TData *df, const TData *in,
+                                               TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
+
+    PhysDeriv2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, ncoord, nq0,
+                              nq1><<<gridsize, blocksize, shmemsize>>>(
+        nelmt, D0, D1, Z0, Z1, df, in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
@@ -630,28 +741,39 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const TData *Z0, const TData *Z1, const TData *Z2, const TData *df,
     const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
 
-        PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED><<<gridsize, blocksize>>>(
-            nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
+        <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1, D2,
+                                             Z0, Z1, Z2, df, in, out);
+}
 
-        PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, D0, D1,
-                                                 D2, Z0, Z1, Z2, df, in, out);
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *D1,
+                                               const TData *D2, const TData *Z0,
+                                               const TData *Z1, const TData *Z2,
+                                               const TData *df, const TData *in,
+                                               TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+
+    PhysDeriv3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED, nq0, nq1,
+                              nq2><<<gridsize, blocksize, shmemsize>>>(
+        nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 }
 
 } // namespace Nektar::Operators::detail

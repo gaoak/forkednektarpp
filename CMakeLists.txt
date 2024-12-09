@@ -293,6 +293,8 @@ IF (NEKTAR_BUILD_REDESIGN)
         ELSE()
             INCLUDE(NektarCUDA)
         ENDIF()
+
+        SET(BOOST_MIN_VERSION "1.76.0")
     ENDIF ()
 
     IF (NEKTAR_ENABLE_HIP)
@@ -326,6 +328,10 @@ IF (NEKTAR_BUILD_REDESIGN)
             MESSAGE(FATAL_ERROR "Cannot use both Kokkos and AVX")
         ELSE()
             INCLUDE(NektarKokkos)
+        ENDIF()
+
+        IF(Kokkos_ENABLE_CUDA)
+            SET(BOOST_MIN_VERSION "1.76.0")
         ENDIF()
     ENDIF ()
 ENDIF ()
@@ -385,12 +391,6 @@ IF (NEKTAR_USE_ALIGNED_MEM)
 ENDIF()
 
 INCLUDE (ThirdPartyPETSc)
-
-# When building with Kokkos-CUDA nvcc is used for compiling everything
-# and is incompatible with certain versions of Boost.
-IF(Kokkos_ENABLE_CUDA AND Boost_VERSION VERSION_GREATER 106900 AND Boost_VERSION VERSION_LESS 107500)
-    MESSAGE(FATAL_ERROR "Boost versions 1.69 to 1.74 cannot be compiled with NVCC")
-endif()
 
 SET(Boost_USE_STATIC_LIBS OFF)
 IF( WIN32 )

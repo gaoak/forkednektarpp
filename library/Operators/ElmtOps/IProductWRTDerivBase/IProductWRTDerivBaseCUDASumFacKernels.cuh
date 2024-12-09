@@ -39,13 +39,13 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase1DKernel(const unsigned int nq0,
-                                             const unsigned int ncoord,
-                                             const unsigned int nelmt,
-                                             const TData *__restrict__ df,
-                                             const TData *__restrict__ in,
-                                             TData *__restrict__ out)
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
@@ -77,13 +77,13 @@ __global__ void IProductWRTDerivBase1DKernel(const unsigned int nq0,
     }
 }
 
-template <bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase1DKernel_QP(const unsigned int nq0,
-                                                const unsigned int ncoord,
-                                                const unsigned int nelmt,
-                                                const TData *__restrict__ df,
-                                                const TData *__restrict__ in,
-                                                TData *__restrict__ out)
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
 {
     unsigned int e = blockIdx.x;
 
@@ -110,9 +110,12 @@ __global__ void IProductWRTDerivBase1DKernel_QP(const unsigned int nq0,
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
@@ -190,9 +193,12 @@ __global__ void IProductWRTDerivBase2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase2DKernel_QP(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out)
@@ -252,8 +258,11 @@ __global__ void IProductWRTDerivBase2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase3DKernel(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ Z2,
@@ -408,8 +417,11 @@ __global__ void IProductWRTDerivBase3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-__global__ void IProductWRTDerivBase3DKernel_QP(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+__device__ __forceinline__ void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ Z2,
@@ -505,65 +517,154 @@ __global__ void IProductWRTDerivBase3DKernel_QP(
     }
 }
 
+// Non-size based operator.
+template <typename Implementation, bool DEFORMED, typename TData>
+__global__ void IProductWRTDerivBase1DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt,
+                                                           df, in, out);
+}
+
+// Size based template version.
+template <typename Implementation, bool DEFORMED, unsigned int nq0,
+          typename TData>
+__global__ void IProductWRTDerivBase1DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(ncoord, nq0, nelmt,
+                                                           df, in, out);
+}
+
+// Non-size based operator.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData>
+__global__ void IProductWRTDerivBase2DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ df,
+    const TData *__restrict__ in, TData *__restrict__ out)
+{
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, Z0, Z1, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, typename TData>
+__global__ void IProductWRTDerivBase2DKernelLauncher(
+    const unsigned int ncoord, const unsigned int nelmt,
+    const TData *__restrict__ Z0, const TData *__restrict__ Z1,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, Z0, Z1, df, in, out);
+}
+
+// Non-size based operator.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData>
+__global__ void IProductWRTDerivBase3DKernelLauncher(
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out);
+}
+
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, unsigned int nq0, unsigned int nq1, unsigned int nq2,
+          typename TData>
+__global__ void IProductWRTDerivBase3DKernelLauncher(
+    const unsigned int nelmt, const TData *__restrict__ Z0,
+    const TData *__restrict__ Z1, const TData *__restrict__ Z2,
+    const TData *__restrict__ df, const TData *__restrict__ in,
+    TData *__restrict__ out)
+{
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out);
+}
+
 // Launchers
+// Non-size based operator.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *df, const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
-        IProductWRTDerivBase1DKernel_QP<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, df, in, out);
-    }
-    else
-    {
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        IProductWRTDerivBase1DKernel<DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, ncoord, nelmt, df, in, out);
-    }
+    IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED>
+        <<<gridsize, blocksize>>>(ncoord, nq0, nelmt, df, in, out);
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const TData *df,
+    const TData *in, TData *out)
+{
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
+
+    IProductWRTDerivBase1DKernelLauncher<Implementation, DEFORMED, nq0>
+        <<<gridsize, blocksize>>>(ncoord, nelmt, df, in, out);
+}
+
+// Non-size based operator.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
     const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0 * nq1, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0,
+                                                                         nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
-        IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, nq1, ncoord, nelmt, Z0, Z1, df, in,
-                                      out);
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
-
-        IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, ncoord, nelmt, Z0,
-                                                 Z1, df, in, out);
-    }
+    IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nq0, nq1, nelmt, Z0, Z1,
+                                             df, in, out);
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
+    const TData *Z1, const TData *df, const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0,
+                                                                         nq1);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nq0 * nq1);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
+
+    IProductWRTDerivBase2DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
+                                         nq0, nq1>
+        <<<gridsize, blocksize, shmemsize>>>(ncoord, nelmt, Z0, Z1, df, in,
+                                             out);
+}
+
+// Non-size based operator.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
@@ -571,29 +672,38 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
     const TData *df, const TData *in, TData *out)
 {
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int blocksize =
-            std::min(nq0 * nq1 * nq2, NektarSpaces::CUDA::defaultBlockSize);
-        const unsigned int gridsize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
 
-        IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize>>>(nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in,
-                                      out);
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            sizeof(TData) *
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
-        const unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
-        const unsigned int gridsize =
-            std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED>
+        <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, Z0, Z1, Z2,
+                                             df, in, out);
+}
 
-        IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>
-            <<<gridsize, blocksize, shmemsize>>>(nq0, nq1, nq2, nelmt, Z0, Z1,
-                                                 Z2, df, in, out);
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
+    const TData *df, const TData *in, TData *out)
+{
+    const unsigned int shmemsize =
+        sizeof(TData) *
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2);
+    const unsigned int blocksize =
+        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
+    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+
+    IProductWRTDerivBase3DKernelLauncher<SHAPE_TYPE, Implementation, DEFORMED,
+                                         nq0, nq1, nq2>
+        <<<gridsize, blocksize, shmemsize>>>(nelmt, Z0, Z1, Z2, df, in, out);
 }
 
 } // namespace Nektar::Operators::detail

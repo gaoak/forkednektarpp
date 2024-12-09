@@ -170,106 +170,22 @@ private:
             ? NektarSpaces::vector_width<TData>::value
             : 1u;
 
-    void SegBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator1D<LibUtilities::Seg, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator1D<LibUtilities::Seg, false>(inblock, outblock);
-        }
-    }
-
-    void TriBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator2D<LibUtilities::Tri, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator2D<LibUtilities::Tri, false>(inblock, outblock);
-        }
-    }
-
+    void SegBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void TriBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
     void QuadBlock(BlockAccessor<TData> &inblock,
-                   BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator2D<LibUtilities::Quad, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator2D<LibUtilities::Quad, false>(inblock, outblock);
-        }
-    }
-
-    void HexBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator3D<LibUtilities::Hex, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator3D<LibUtilities::Hex, false>(inblock, outblock);
-        }
-    }
-
+                   BlockAccessor<TData> &outblock);
+    void HexBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
     void PrismBlock(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator3D<LibUtilities::Prism, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator3D<LibUtilities::Prism, false>(inblock, outblock);
-        }
-    }
+                    BlockAccessor<TData> &outblock);
+    void PyrBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void TetBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
 
-    void PyrBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator3D<LibUtilities::Pyr, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator3D<LibUtilities::Pyr, false>(inblock, outblock);
-        }
-    }
-
-    void TetBlock(BlockAccessor<TData> &inblock, BlockAccessor<TData> &outblock)
-    {
-        const auto deformed =
-            m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        if (deformed)
-        {
-            Operator3D<LibUtilities::Tet, true>(inblock, outblock);
-        }
-        else
-        {
-            Operator3D<LibUtilities::Tet, false>(inblock, outblock);
-        }
-    }
-
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -303,10 +219,47 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
+        // Calculate derivative.
         PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-            nq0, nCoord, nElmtsPad, D0, dfPtr, inptr, outptr);
+            nCoord, nq0, nElmtsPad, D0, dfPtr, inptr, outptr);
     }
 
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nCoord, unsigned int nq0>
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Calculate derivative.
+        PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, nCoord, nq0>(
+            nElmtsPad, D0, dfPtr, inptr, outptr);
+    }
+
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -346,10 +299,53 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
+        // Calculate derivative.
         PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-            nq0, nq1, nCoord, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr, outptr);
+            nCoord, nq0, nq1, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr, outptr);
     }
 
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nCoord, unsigned int nq0, unsigned int nq1>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Calculate derivative.
+        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
+                          nCoord, nq0, nq1>(nElmtsPad, D0, D1, Z0, Z1, dfPtr,
+                                            inptr, outptr);
+    }
+
+    // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
@@ -392,9 +388,55 @@ private:
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
+        // Calculate derivative.
         PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
             nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr, inptr,
             outptr);
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto D0 =
+            m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto D1 =
+            m_derivativeMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto D2 =
+            m_derivativeMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z0 = m_zeroMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch deriv factors data.
+        auto dfPtr = m_df[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Reshape, if necessary.
+        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+            (TData *)inptr);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+
+        // Calculate derivative.
+        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nq0,
+                          nq1, nq2>(nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr,
+                                    inptr, outptr);
     }
 };
 

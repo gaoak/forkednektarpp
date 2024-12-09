@@ -42,40 +42,54 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
                                                         const unsigned int nq1)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+        {
+            return 0;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        {
+            return nq0 * nq1;
+        }
+    }
+    else
     {
         return 0;
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-    {
-        return nq0 * nq1;
-    }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline constexpr unsigned int PhysDerivSharedMemorySize(const unsigned int nq0,
                                                         const unsigned int nq1,
                                                         const unsigned int nq2)
 {
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+        {
+            return 0;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        {
+            return nq0 + 2u * nq1 + nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        {
+            return nq0 + nq2;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        {
+            return nq0 + nq1 + nq2;
+        }
+    }
+    else
     {
         return 0;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-    {
-        return nq0 + 2u * nq1 + nq2;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        return nq0 + nq2;
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        return nq0 + nq1 + nq2;
     }
 }
 

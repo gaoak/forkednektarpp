@@ -41,9 +41,11 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool DEFORMED, typename TData>
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void PhysDeriv1DKernel(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict D0, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
@@ -85,9 +87,11 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel(
     }
 }
 
-template <bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict D0, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
     const sycl::nd_item<3> &item_ct1)
@@ -124,9 +128,12 @@ NEK_FORCE_INLINE static void PhysDeriv1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
     const TData *__restrict Z1, const TData *__restrict df,
@@ -219,13 +226,17 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict Z0,
     const TData *__restrict Z1, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
+    [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf   = 2 * ncoord;
@@ -286,7 +297,10 @@ NEK_FORCE_INLINE static void PhysDeriv2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
@@ -475,14 +489,18 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict D0,
     const TData *__restrict D1, const TData *__restrict D2,
     const TData *__restrict Z0, const TData *__restrict Z1,
     const TData *__restrict Z2, const TData *__restrict df,
     const TData *__restrict in, TData *__restrict out,
+    [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord = 3u;
@@ -582,107 +600,87 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel_QP(
 }
 
 // Launchers
+// Non-size based version.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
-NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nq0,
-                                               const unsigned int ncoord,
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int ncoord,
+                                               const unsigned int nq0,
                                                const unsigned int nelmt,
                                                const TData *D0, const TData *df,
                                                const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     PhysDeriv1DKernel_QP<DEFORMED>(nq0, ncoord, nelmt, D0, df,
-                                                    in, out, item);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     PhysDeriv1DKernel<DEFORMED>(nq0, ncoord, nelmt, D0, df, in,
-                                                 out, item);
-                 });
-         }).wait();
-    }
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(sycl::nd_range<3>(gridsize * blocksize, blocksize),
+                          [=](sycl::nd_item<3> item) {
+#pragma forceinline
+                              PhysDeriv1DKernel<Implementation, DEFORMED>(
+                                  ncoord, nq0, nelmt, D0, df, in, out, item);
+                          });
+     }).wait();
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int ncoord, unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv1DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *df,
+                                               const TData *in, TData *out)
+{
+    PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(ncoord, nq0, nelmt,
+                                                           D0, df, in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *D0, const TData *D1, const TData *Z0,
     const TData *Z1, const TData *df, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     PhysDeriv2DKernel_QP<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
-                         item);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
-                                                  cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     TData *shmemptr = shmem
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, ncoord, nelmt, D0, D1, Z0, Z1, df, in, out,
-                         shmemptr, item);
-                 });
-         }).wait();
-    }
+    Q.submit([=](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item) {
+                 TData *shmemptr =
+                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+#pragma forceinline
+                 PhysDeriv2DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                     ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out,
+                     shmemptr, item);
+             });
+     }).wait();
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int ncoord,
+          unsigned int nq0, unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv2DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *D1,
+                                               const TData *Z0, const TData *Z1,
+                                               const TData *df, const TData *in,
+                                               TData *out)
+{
+    PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+        ncoord, nq0, nq1, nelmt, D0, D1, Z0, Z1, df, in, out);
+}
+
+// Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void PhysDeriv3DKernel(
@@ -693,50 +691,40 @@ NEK_FORCE_INLINE static void PhysDeriv3DKernel(
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        PhysDerivSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     PhysDeriv3DKernel_QP<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
-                         out, item);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            PhysDerivSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+    Q.submit([=](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item) {
+                 TData *shmemptr =
+                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+#pragma forceinline
+                 PhysDeriv3DKernel<SHAPE_TYPE, Implementation, DEFORMED>(
+                     nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out,
+                     shmemptr, item);
+             });
+     }).wait();
+}
 
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
-                                                  cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     TData *shmemptr = shmem
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in,
-                         out, shmemptr, item);
-                 });
-         }).wait();
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void PhysDeriv3DKernel(const unsigned int nelmt,
+                                               const TData *D0, const TData *D1,
+                                               const TData *D2, const TData *Z0,
+                                               const TData *Z1, const TData *Z2,
+                                               const TData *df, const TData *in,
+                                               TData *out)
+{
+    PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+        nq0, nq1, nq2, nelmt, D0, D1, D2, Z0, Z1, Z2, df, in, out);
 }
 
 } // namespace Nektar::Operators::detail

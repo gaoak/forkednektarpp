@@ -50,8 +50,10 @@ public:
     /**
      * @brief Constructor methods - create a new memory region.
      *
+     * @param name        - name
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
      * @param device_only - flag to only allocated memory on device
      */
     MemoryRegionHost(const std::string name, const size_t size,
@@ -81,9 +83,11 @@ public:
      * Field.hpp to allocate a contiguous host memory coupled with
      * distributed device memory.
      *
+     * @param name        - name
      * @param h_src       - host src pointer
      * @param size        - size of memory
      * @param alignment   - memory alignment
+     * @param device_rank - device (GPU) rank id
      */
     MemoryRegionHost(const std::string name, TData *h_src, const size_t size,
                      const size_t alignment, const size_t device_rank)
@@ -251,6 +255,14 @@ protected:
                      "MemoryRegionHost::GetReadWriteHostPtr - "
                      "attempt to access host data (" +
                          m_name + ") without it being allocated.");
+        }
+
+        if (m_initialize)
+        {
+            NEKERROR(Nektar::ErrorUtil::efatal,
+                     "MemoryRegionHost::GetReadWriteHostPtr - "
+                     "attempt to get a host pointer (" +
+                         m_name + ") before the data is initialized.");
         }
 
         m_host_valid = true;

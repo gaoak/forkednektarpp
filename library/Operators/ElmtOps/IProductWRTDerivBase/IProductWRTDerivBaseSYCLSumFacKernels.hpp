@@ -41,9 +41,11 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool DEFORMED, typename TData>
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
@@ -77,9 +79,11 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
     }
 }
 
-template <bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+template <typename Implementation, bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ df, const TData *__restrict__ in,
     TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
 {
@@ -109,9 +113,12 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
@@ -188,12 +195,16 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ df,
     const TData *__restrict__ in, TData *__restrict__ out,
+    [[maybe_unused]] TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     const unsigned int ndf   = 2 * ncoord;
@@ -247,7 +258,10 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel_QP(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFac>, bool> = true>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
@@ -402,13 +416,17 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename TData>
-NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool DEFORMED, typename TData,
+          typename std::enable_if_t<
+              std::is_same_v<Implementation, Operators::SumFacQP>, bool> = true>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const TData *__restrict__ Z0,
     const TData *__restrict__ Z1, const TData *__restrict__ Z2,
     const TData *__restrict__ df, const TData *__restrict__ in,
-    TData *__restrict__ out, const sycl::nd_item<3> &item_ct1)
+    TData *__restrict__ out, [[maybe_unused]] TData *__restrict__ shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int ncoord = 3u;
     constexpr unsigned int ndf    = 9u;
@@ -493,105 +511,87 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel_QP(
 }
 
 // Launchers
+// Non-size based operator.
 template <typename ExecSpace, typename Implementation, bool DEFORMED,
           typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
-    const unsigned int nq0, const unsigned int ncoord, const unsigned int nelmt,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nelmt,
     const TData *df, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     IProductWRTDerivBase1DKernel_QP<DEFORMED>(
-                         nq0, ncoord, nelmt, df, in, out, item);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item) {
-                     IProductWRTDerivBase1DKernel<DEFORMED>(nq0, ncoord, nelmt,
-                                                            df, in, out, item);
-                 });
-         }).wait();
-    }
+    Q.submit([=](sycl::handler &cgh) {
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item) {
+#pragma forceinline
+                 IProductWRTDerivBase1DKernel<Implementation, DEFORMED>(
+                     ncoord, nq0, nelmt, df, in, out, item);
+             });
+     }).wait();
 }
 
+// Size based template version.
+template <typename ExecSpace, typename Implementation, bool DEFORMED,
+          unsigned int nq0, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase1DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const TData *df,
+    const TData *in, TData *out)
+{
+    IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
+        ncoord, nq0, nelmt, df, in, out);
+}
+
+// Non-size based operator.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
-    const unsigned int nq0, const unsigned int nq1, const unsigned int ncoord,
+    const unsigned int ncoord, const unsigned int nq0, const unsigned int nq1,
     const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *df,
     const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0,
+                                                                         nq1);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     IProductWRTDerivBase2DKernel_QP<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out,
-                         item_ct1);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
-
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
-                                                  cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shmem
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTDerivBase2DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, ncoord, nelmt, Z0, Z1, df, in, out, shmemptr,
-                         item_ct1);
-                 });
-         }).wait();
-    }
+    Q.submit([=](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item_ct1) {
+                 TData *shmemptr =
+                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+#pragma forceinline
+                 IProductWRTDerivBase2DKernel<SHAPE_TYPE, Implementation,
+                                              DEFORMED>(ncoord, nq0, nq1, nelmt,
+                                                        Z0, Z1, df, in, out,
+                                                        shmemptr, item_ct1);
+             });
+     }).wait();
 }
 
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase2DKernel(
+    const unsigned int ncoord, const unsigned int nelmt, const TData *Z0,
+    const TData *Z1, const TData *df, const TData *in, TData *out)
+{
+    IProductWRTDerivBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                 DEFORMED>(ncoord, nq0, nq1, nelmt, Z0, Z1, df,
+                                           in, out);
+}
+
+// Non-size based operator.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
@@ -601,50 +601,40 @@ NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
-    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
-    {
-        const unsigned int SYCLBlockSize =
-            std::min(nq0 * nq1 * nq2, NektarSpaces::SYCL::defaultBlockSize);
-        const unsigned int SYCLGridSize = std::min(nelmt, 2147483647u);
+    const unsigned int shmemsize =
+        IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
+            nq0, nq1, nq2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
-        Q.submit([=](sycl::handler &cgh) {
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     IProductWRTDerivBase3DKernel_QP<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out,
-                         item_ct1);
-                 });
-         }).wait();
-    }
-    else
-    {
-        const unsigned int shmemsize =
-            IProductWRTDerivBaseSharedMemorySize<SHAPE_TYPE>(nq0, nq1, nq2);
-        const unsigned int SYCLBlockSize = NektarSpaces::SYCL::defaultBlockSize;
-        const unsigned int SYCLGridSize =
-            std::min((nelmt + SYCLBlockSize - 1u) / SYCLBlockSize, 2147483647u);
+    Q.submit([=](sycl::handler &cgh) {
+         sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize), cgh);
+         cgh.parallel_for(
+             sycl::nd_range<3>(gridsize * blocksize, blocksize),
+             [=](sycl::nd_item<3> item_ct1) {
+                 TData *shmemptr =
+                     shmem.template get_multi_ptr<sycl::access::decorated::no>()
+                         .get();
+#pragma forceinline
+                 IProductWRTDerivBase3DKernel<SHAPE_TYPE, Implementation,
+                                              DEFORMED>(nq0, nq1, nq2, nelmt,
+                                                        Z0, Z1, Z2, df, in, out,
+                                                        shmemptr, item_ct1);
+             });
+     }).wait();
+}
 
-        Q.submit([=](sycl::handler &cgh) {
-             sycl::local_accessor<TData, 1> shmem(sycl::range<1>(shmemsize),
-                                                  cgh);
-             const sycl::range<3> blocksize(1, 1, SYCLBlockSize);
-             const sycl::range<3> gridsize(1, 1, SYCLGridSize);
-             cgh.parallel_for(
-                 sycl::nd_range<3>(gridsize * blocksize, blocksize),
-                 [=](sycl::nd_item<3> item_ct1) {
-                     TData *shmemptr = shmem
-                                           .template get_multi_ptr<
-                                               sycl::access::decorated::no>()
-                                           .get();
-                     IProductWRTDerivBase3DKernel<SHAPE_TYPE, DEFORMED>(
-                         nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df, in, out,
-                         shmemptr, item_ct1);
-                 });
-         }).wait();
-    }
+// Size based template version.
+template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
+          typename Implementation, bool DEFORMED, unsigned int nq0,
+          unsigned int nq1, unsigned int nq2, typename TData>
+NEK_FORCE_INLINE static void IProductWRTDerivBase3DKernel(
+    const unsigned int nelmt, const TData *Z0, const TData *Z1, const TData *Z2,
+    const TData *df, const TData *in, TData *out)
+{
+    IProductWRTDerivBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                 DEFORMED>(nq0, nq1, nq2, nelmt, Z0, Z1, Z2, df,
+                                           in, out);
 }
 
 } // namespace Nektar::Operators::detail
