@@ -34,8 +34,6 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
 #include "Common/OperatorHelper.hpp"
 #include "ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
@@ -45,7 +43,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Matrix-free implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorBwdTransImpl : public OperatorBwdTrans<TData>
 {
@@ -166,81 +163,18 @@ private:
 
     void SegBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
-
     void TriBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
-
     void QuadBlock(BlockAccessor<TData> &inblock,
                    BlockAccessor<TData> &outblock);
-
     void HexBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
-
     void PrismBlock(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock);
-
     void PyrBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
-
     void TetBlock(BlockAccessor<TData> &inblock,
                   BlockAccessor<TData> &outblock);
-
-    // templated operator(), which is instantiated by SwitchNodesPoints.h
-    // and used in apply().
-    // size based template version
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nq0>
-    void Operator1D(BlockAccessor<TData> &inblock,
-                    BlockAccessor<TData> &outblock)
-    {
-        // Shape size.
-        constexpr auto nqTot = nq0;
-        constexpr auto nmTot = nm0;
-
-        // Fetch basis data.
-        std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
-            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-
-        // Get interleave parameter.
-        unsigned int interleave_width = inblock.GetInterleaveWidth();
-        auto width_ratio =
-            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, interleave_width);
-
-        // Set to new interleave width.
-        inblock.template SetInterleaveWidth<TData>(simd_t::width);
-        outblock.template SetInterleaveWidth<TData>(simd_t::width);
-
-        // Workspace for kernels - also checks preconditions.
-        BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
-
-        // Initialize pointers.
-        auto input  = (interleave_width == simd_t::width)
-                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
-                          : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
-            reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
-        {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
-            {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
-            }
-
-            // BwdTrans kernel.
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
-        }
-    }
 
     // Non-size based operator.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
@@ -299,29 +233,21 @@ private:
         }
     }
 
-    // size based template version
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nq0, int nq1>
-    void Operator2D(BlockAccessor<TData> &inblock,
+              int nq0>
+    void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot = nq0 * nq1;
-        constexpr auto nmTot =
-            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
-
-        // Flag for collapsed coordinate correction.
-        const bool isModified =
-            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+        constexpr auto nqTot = nq0;
+        constexpr auto nmTot = nm0;
 
         // Fetch basis data.
         std::vector<LibUtilities::BasisKey> basisKeys{
-            m_expPtr->GetBasis(0)->GetBasisKey(),
-            m_expPtr->GetBasis(1)->GetBasisKey()};
+            m_expPtr->GetBasis(0)->GetBasisKey()};
         auto basis0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
-            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -334,9 +260,7 @@ private:
         outblock.template SetInterleaveWidth<TData>(simd_t::width);
 
         // Workspace for kernels - also checks preconditions.
-        size_t wsp0Size = 0;
-        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
-        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+        BwdTrans1DWorkspace<SHAPE_TYPE>(nm0, nq0);
 
         // Initialize pointers.
         auto input  = (interleave_width == simd_t::width)
@@ -356,8 +280,7 @@ private:
             }
 
             // BwdTrans kernel.
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
-                                         basis1, wsp0, tmpIn, tmpOut);
+            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
 
             // Increment pointers for the next elmt group.
             tmpIn += nmTot;
@@ -436,15 +359,88 @@ private:
         }
     }
 
-    // size based template version
+    // Size based template version.
     template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
-              int nm1, int nm2, int nq0, int nq1, int nq2>
+              int nm1, int nq0, int nq1>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Shape size.
+        constexpr auto nqTot = nq0 * nq1;
+        constexpr auto nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            (m_expPtr->GetBasisType(0) == LibUtilities::eModified_A);
+
+        // Fetch basis data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto basis0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto basis1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Get interleave parameter.
+        unsigned int interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio =
+            (interleave_width == 1) ? 1 : interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, interleave_width);
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(simd_t::width);
+        outblock.template SetInterleaveWidth<TData>(simd_t::width);
+
+        // Workspace for kernels - also checks preconditions.
+        size_t wsp0Size = 0;
+        BwdTrans2DWorkspace<SHAPE_TYPE>(nm0, nm1, nq0, nq1, wsp0Size);
+        std::vector<simd_t, tinysimd::allocator<simd_t>> wsp0(wsp0Size);
+
+        // Initialize pointers.
+        auto input  = (interleave_width == simd_t::width)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
+        auto tmpIn =
+            reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        {
+            // Reshape, if necessary.
+            if (e % width_ratio == 0)
+            {
+                ReshapeStorage<ExecSpace, simd_t::width>(
+                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+            }
+
+            // BwdTrans kernel.
+            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
+                                         basis1, wsp0, tmpIn, tmpOut);
+
+            // Increment pointers for the next elmt group.
+            tmpIn += nmTot;
+            tmpOut += nqTot * simd_t::width;
+        }
+    }
+
+    // Non-size based operator.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        constexpr auto nqTot = nq0 * nq1 * nq2;
-        constexpr auto nmTot =
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
+
+        const auto nqTot = nq0 * nq1 * nq2;
+        const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         // Flag for collapsed coordinate correction.
@@ -508,22 +504,15 @@ private:
         }
     }
 
-    // Non-size based operator.
-    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, int nm0,
+              int nm1, int nm2, int nq0, int nq1, int nq2>
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
         // Shape size.
-        const auto nm0 = m_expPtr->GetBasisNumModes(0);
-        const auto nm1 = m_expPtr->GetBasisNumModes(1);
-        const auto nm2 = m_expPtr->GetBasisNumModes(2);
-
-        const auto nq0 = m_expPtr->GetNumPoints(0);
-        const auto nq1 = m_expPtr->GetNumPoints(1);
-        const auto nq2 = m_expPtr->GetNumPoints(2);
-
-        const auto nqTot = nq0 * nq1 * nq2;
-        const auto nmTot =
+        constexpr auto nqTot = nq0 * nq1 * nq2;
+        constexpr auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
 
         // Flag for collapsed coordinate correction.

@@ -42,11 +42,11 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
-template <bool SHMEM, bool MULTILEVEL>
+template <typename Implementation, bool SHMEM>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nm0)
 {
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         return nm0 + SHMEM * nm0 * nq0;
     }
@@ -56,7 +56,8 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, bool MULTILEVEL>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SHMEM>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nq1,
                                              const unsigned int nm0,
@@ -79,7 +80,7 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
         }
     }
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
@@ -94,7 +95,8 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     return nshared;
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, bool SHMEM, bool MULTILEVEL>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
+          bool SHMEM>
 inline unsigned int BwdTransSharedMemorySize(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
@@ -128,7 +130,7 @@ inline unsigned int BwdTransSharedMemorySize(
         }
     }
 
-    if constexpr (MULTILEVEL)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {

@@ -72,7 +72,7 @@ elif [[ $BUILD_TYPE == "full" ]]; then
         CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=Serial")
     elif [[ $BUILD_KOKKOS == "CUDA" ]]; then
         # Load Boost and CUDA on Linux
-        [[ $OS_VERSION != "macos" ]] && module load boost cuda/12.2.2
+        [[ $OS_VERSION != "macos" ]] && module load cuda/12.2.2
 
         # Enable CUDA in CMake configuration
         CMAKEARGS+=("-DNEKTAR_ENABLE_KOKKOS:STRING=CUDA")

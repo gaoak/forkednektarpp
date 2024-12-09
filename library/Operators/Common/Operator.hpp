@@ -302,4 +302,96 @@ protected:
     MultiRegions::ExpListSharedPtr m_expansionList;
 };
 
+#if defined(NEKTAR_ENABLE_CUDA)
+template <typename Implementation>
+NEK_FORCE_INLINE static unsigned int GetCUDABlockSize(
+    [[maybe_unused]] const unsigned int maxBlockSize)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return NektarSpaces::CUDA::defaultBlockSize;
+    }
+    else
+    {
+        return std::min(maxBlockSize, NektarSpaces::CUDA::defaultBlockSize);
+    }
+}
+
+template <typename Implementation>
+NEK_FORCE_INLINE static unsigned int GetCUDAGridSize(const unsigned int nelmt)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    }
+    else
+    {
+        return std::min(nelmt, 2147483647u);
+    }
+}
+#endif
+
+#if defined(NEKTAR_ENABLE_SYCL)
+template <typename Implementation>
+NEK_FORCE_INLINE static sycl::range<3> GetSYCLBlockSize(
+    [[maybe_unused]] const unsigned int maxBlockSize)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return sycl::range<3>(1, 1, NektarSpaces::SYCL::defaultBlockSize);
+    }
+    else
+    {
+        return sycl::range<3>(
+            1, 1, std::min(maxBlockSize, NektarSpaces::SYCL::defaultBlockSize));
+    }
+}
+
+template <typename Implementation>
+NEK_FORCE_INLINE static sycl::range<3> GetSYCLGridSize(const unsigned int nelmt)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr unsigned int blocksize = NektarSpaces::SYCL::defaultBlockSize;
+        return sycl::range<3>(
+            1, 1, std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u));
+    }
+    else
+    {
+        return sycl::range<3>(1, 1, std::min(nelmt, 2147483647u));
+    }
+}
+#endif
+
+#if defined(NEKTAR_ENABLE_KOKKOS)
+template <typename Implementation>
+NEK_FORCE_INLINE static unsigned int GetKokkosBlockSize(
+    [[maybe_unused]] const unsigned int maxBlockSize)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        return NektarSpaces::KOKKOS::defaultBlockSize;
+    }
+    else
+    {
+        return std::min(maxBlockSize, NektarSpaces::KOKKOS::defaultBlockSize);
+    }
+}
+
+template <typename Implementation>
+NEK_FORCE_INLINE static unsigned int GetKokkosGridSize(const unsigned int nelmt)
+{
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+    {
+        constexpr unsigned int blocksize = NektarSpaces::CUDA::defaultBlockSize;
+        return std::min((nelmt + blocksize - 1u) / blocksize, 2147483647u);
+    }
+    else
+    {
+        return nelmt;
+    }
+}
+#endif
+
 } // namespace Nektar::Operators

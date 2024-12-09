@@ -86,6 +86,15 @@ MACRO(ADD_OPERATOR dir)
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
     
+        # Set file extension.
+        IF("${ExecSpace}" STREQUAL "CUDA")
+            SET(SOURCE_EXT cu)
+            SET(HEADER_EXT cuh)
+        ELSE()
+            SET(SOURCE_EXT cpp)
+            SET(HEADER_EXT hpp)
+        ENDIF()
+
         # Look for file ${name}${ExexSpace}SumFacBlockOp.cpp.in file
         # when using Serial or AVX This loop will then generate a
         # shape specific cpp file containing the shape block method in
@@ -106,13 +115,39 @@ MACRO(ADD_OPERATOR dir)
             ENDIF()
         ENDIF()
 
-        # Set file extension.
-        IF("${ExecSpace}" STREQUAL "CUDA")
-            SET(SOURCE_EXT cu)
-            SET(HEADER_EXT cuh)
-        ELSE()
-            SET(SOURCE_EXT cpp)
-            SET(HEADER_EXT hpp)
+        IF("${ExecSpace}" STREQUAL "CUDA" OR "${ExecSpace}" STREQUAL "SYCL" OR 
+           "${ExecSpace}" STREQUAL "Kokkos")
+            SET(ExecSpaceName ${ExecSpace})
+            IF("${ExecSpace}" STREQUAL "Kokkos")
+               SET(ExecSpace "KOKKOS")
+            ENDIF()
+            IF(EXISTS "${dir}/${name}DeviceSumFacBlockOp.cpp.in")
+                FOREACH (TData IN LISTS DataTypes)
+                    SET(ShapeConfigName "${dir}/${name}DeviceSumFacBlockOp.cpp.in")
+                    FOREACH (Shape IN LISTS Shapes)
+                        SET(ShapeName ${name}${ExecSpaceName}SumFac${TData}${Shape}.${SOURCE_EXT})
+                        MESSAGE("Generating shape cpp file: " "${ShapeName}")
+                        CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
+                        SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                        SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
+                    ENDFOREACH()
+                ENDFOREACH()
+            ENDIF()
+            IF(EXISTS "${dir}/${name}DeviceSumFacQPBlockOp.cpp.in")
+                FOREACH (TData IN LISTS DataTypes)
+                    SET(ShapeConfigName "${dir}/${name}DeviceSumFacQPBlockOp.cpp.in")
+                    FOREACH (Shape IN LISTS Shapes)
+                        SET(ShapeName ${name}${ExecSpaceName}SumFacQP${TData}${Shape}.${SOURCE_EXT})
+                        MESSAGE("Generating shape cpp file: " "${ShapeName}")
+                        CONFIGURE_FILE(${ShapeConfigName} ${ShapeName})
+                        SET(CPP_SHAPE_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/${ShapeName}")
+                        SET(${NAME_SOURCES} ${${NAME_SOURCES}} ${CPP_SHAPE_SOURCE})
+                    ENDFOREACH()
+                ENDFOREACH()
+            ENDIF()
+            IF("${ExecSpace}" STREQUAL "KOKKOS")
+               SET(ExecSpace "Kokkos")
+            ENDIF()
         ENDIF()
 
         # Set execuation space - see Spaces.hpp
