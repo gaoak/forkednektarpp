@@ -124,7 +124,8 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
     const typename simd_type::vectorType *in1, const simd_type *w0,
     const simd_type *w1, const simd_type *jac, const simd_type *D0,
     const simd_type *D1, typename simd_type::scalarType *out,
-    bool Deriv0 = true, bool Deriv1 = true)
+    typename simd_type::scalarType scale = 0.0, bool Deriv0 = true,
+    bool Deriv1 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -159,8 +160,20 @@ NEK_FORCE_INLINE static void SumDerivTensor2DKernel(
 
                 prod_sum *= w1[j]; // Load 1x
 
-                prod_sum.store(out +
-                               (j * nq0 + i) * simd_type::width); // Store 1x
+                simd_type jac_val;
+                if constexpr (DEFORMED)
+                {
+                    jac_val = jac[j * nq0 + i];
+                }
+                else
+                {
+                    jac_val = jac[0];
+                }
+                simd_type temp;
+                temp.load(out + (j * nq0 + i) * simd_type::width); // Load 1x
+                temp *= simd_type(scale) * w1[j] * w0[i] * jac_val;
+                temp += prod_sum;
+                temp.store(out + (j * nq0 + i) * simd_type::width); // Store 1x
             }
         }
     }
@@ -300,8 +313,9 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
     const typename simd_type::vectorType *in2, const simd_type *w0,
     const simd_type *w1, const simd_type *w2, const simd_type *jac,
     const simd_type *D0, const simd_type *D1, const simd_type *D2,
-    typename simd_type::scalarType *out, bool Deriv0 = true, bool Deriv1 = true,
-    bool Deriv2 = true)
+    typename simd_type::scalarType *out,
+    typename simd_type::scalarType scale = 0.0, bool Deriv0 = true,
+    bool Deriv1 = true, bool Deriv2 = true)
 {
     // All matricies are column major ordered since operators used to
     // be computed via BLAS.
@@ -341,8 +355,21 @@ NEK_FORCE_INLINE static void SumDerivTensor3DKernel(
 
                     prod_sum *= w1[j] * w2[k]; // Load 2x
 
-                    // out[cnt_hj * nq0 + i] = prod_sum; // Store 1x
-                    prod_sum.store(out + (cnt_kj * nq0 + p) * simd_type::width);
+                    // out[cnt_hj * nq0 + i] += prod_sum; // Store 1x
+                    simd_type jac_val;
+                    if constexpr (DEFORMED)
+                    {
+                        jac_val = jac[cnt_kj * nq0 + p];
+                    }
+                    else
+                    {
+                        jac_val = jac[0];
+                    }
+                    simd_type temp;
+                    temp.load(out + (cnt_kj * nq0 + p) * simd_type::width);
+                    temp *= simd_type(scale) * w1[j] * w2[k] * w0[p] * jac_val;
+                    temp += prod_sum;
+                    temp.store(out + (cnt_kj * nq0 + p) * simd_type::width);
                 }
             }
         }
