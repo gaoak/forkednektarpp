@@ -563,13 +563,13 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
 {
     const unsigned int nqTot = nq0 * nq1;
 
-    TData *s_wsp0     = shmemptr;
-    TData *s_wsp1     = s_wsp0 + nqTot;
-    TData *s_iprod_01 = s_wsp1 + nm0 * nq1;
-    TData *s_basis0   = SHMEM ? s_iprod_01 + 1u : (TData *)basis0;
-    TData *s_basis1   = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_w0       = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
-    TData *s_w1       = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_wsp0   = shmemptr;
+    TData *s_wsp1   = s_wsp0 + nqTot;
+    TData *s_prod   = s_wsp1 + nm0 * nq1;
+    TData *s_basis0 = SHMEM ? s_prod + 1u : (TData *)basis0;
+    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_w0     = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
+    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
 
     // Copy to shared memory.
     if constexpr (SHMEM)
@@ -667,22 +667,33 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
         // With contributions from every quadrature point
         if (isModified)
         {
+            TData prod = 0.0;
+
             if (item_ct1.get_local_id(2) == 0)
             {
-                *s_iprod_01 = 0.0;
+                *s_prod = 0.0;
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0 * nq1;
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                  idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = idx / nq0;
-                TData tmp            = s_w1[j] * s_basis1[nq1 + j];
-                TData prod           = s_wsp0[idx] * tmp * s_w0[i];
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                    s_iprod_01, prod * s_basis0[nq0 + i]);
+                TData tmp            = s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp *= s_wsp0[idx] * s_w0[i] * s_w1[j];
+
+                prod += tmp;
+            }
+
+            prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
+                                           sycl::plus<>());
+
+            if (item_ct1.get_sub_group().get_local_id() == 0)
+            {
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
+                                                                         prod);
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -692,11 +703,11 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
                 const unsigned int index = outoffset + 1u;
                 if constexpr (SCALE)
                 {
-                    out[index] += (*s_iprod_01) * scale;
+                    out[index] += (*s_prod) * scale;
                 }
                 else
                 {
-                    out[index] += (*s_iprod_01);
+                    out[index] += (*s_prod);
                 }
             }
         }
@@ -1408,8 +1419,11 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = item_ct1.get_local_id(2);
-                 idx < nq0 * nq1 * nq2; idx += item_ct1.get_local_range(2))
+            TData prod0 = 0.0;
+            TData prod1 = 0.0;
+
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                 idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -1426,22 +1440,59 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                    s_prod + nm2 - 1, tmp);
+
+                prod0 += tmp;
 
                 // bottom vertex
                 tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
                       s_wsp0[idx] * tmpQ;
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
-                                                                         tmp);
 
-                // singular edge
-                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                prod1 += tmp;
+            }
+
+            prod0 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod0,
+                                            sycl::plus<>());
+            prod1 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod1,
+                                            sycl::plus<>());
+
+            if (item_ct1.get_sub_group().get_local_id() == 0)
+            {
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
+                    s_prod + nm2 - 1, prod0);
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
+                                                                         prod1);
+            }
+
+            // singular edge
+            for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+            {
+                TData prod = 0.0;
+
+                for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                     idx += item_ct1.get_local_range(2))
                 {
-                    tmp = s_basis2[(r + 1) * nq2 + k] * s_basis1[nq1 + j] *
-                          s_basis0[nq0 + i] * s_wsp0[idx] * tmpQ;
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+                    TData tmpQ2          = s_w2[k];
+                    TData tmpQ1          = tmpQ2 * s_w1[j];
+
+                    // Store jac * quadrature weight
+                    TData tmpQ = tmpQ1 * s_w0[i];
+                    TData tmp  = s_basis2[(r + 1) * nq2 + k] *
+                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
+                                s_wsp0[idx] * tmpQ;
+
+                    prod += tmp;
+                }
+
+                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
+                                               sycl::plus<>());
+
+                if (item_ct1.get_sub_group().get_local_id() == 0)
+                {
                     atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                        s_prod + r, tmp);
+                        s_prod + r, prod);
                 }
             }
 
@@ -1850,21 +1901,32 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-                 idx += item_ct1.get_local_range(2))
+            for (unsigned int q = 0u; q < nm1; ++q)
             {
-                const unsigned int i = idx % nq0;
-                const unsigned int j = (idx / nq0) % nq1;
-                const unsigned int k = idx / (nq0 * nq1);
-                TData k_weight       = s_w2[k];
-                TData kj_weight      = k_weight * s_w1[j];
-                TData prod           = kj_weight * s_w0[i] * s_wsp0[idx];
-                for (unsigned int q = 0u; q < nm1; ++q)
+                TData prod = 0.0;
+
+                for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                     idx += item_ct1.get_local_range(2))
+                {
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+                    TData k_weight       = s_w2[k];
+                    TData kj_weight      = k_weight * s_w1[j];
+                    TData tmp1           = kj_weight * s_w0[i] * s_wsp0[idx];
+                    TData tmp            = tmp1 * s_basis2[nq2 + k] *
+                                s_basis1[q * nq1 + j] * s_basis0[nq0 + i];
+
+                    prod += tmp;
+                }
+
+                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
+                                               sycl::plus<>());
+
+                if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
                     atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                        s_wsp2 + q, prod * s_basis2[nq2 + k] *
-                                        s_basis1[q * nq1 + j] *
-                                        s_basis0[nq0 + i]);
+                        s_wsp2 + q, prod);
                 }
             }
 
@@ -2285,6 +2347,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
         // Add correction for collapsed coordinate.
         if (isModified)
         {
+            TData prod = 0.0;
+
             if (item_ct1.get_local_id(2) == 0)
             {
                 (*s_prod) = 0.0;
@@ -2292,8 +2356,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int idx = item_ct1.get_local_id(2);
-                 idx < nq0 * nq1 * nq2; idx += item_ct1.get_local_range(2))
+            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                 idx += item_ct1.get_local_range(2))
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
@@ -2310,8 +2374,17 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
+
+                prod += tmp;
+            }
+
+            prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
+                                           sycl::plus<>());
+
+            if (item_ct1.get_sub_group().get_local_id() == 0)
+            {
                 atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
-                                                                         tmp);
+                                                                         prod);
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
