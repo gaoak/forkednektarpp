@@ -2809,13 +2809,14 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *jac, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out, const TData scale = 1.0)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
         sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const unsigned int blocksize =
-        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
-    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND, DEFORMED,
                             SHMEM><<<gridsize, blocksize, shmemsize>>>(
@@ -2837,13 +2838,14 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *w2, const TData *jac, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out, const TData scale = 1.0)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
         sizeof(TData) *
         IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const unsigned int blocksize =
-        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
-    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE, APPEND, DEFORMED,
                             SHMEM, nm0, nm1, nm2, nq0, nq1, nq2>

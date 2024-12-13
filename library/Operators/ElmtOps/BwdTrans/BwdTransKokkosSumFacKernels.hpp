@@ -1635,7 +1635,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int shmemsize =
         ScratchMemoryView<TData>::shmem_size(nshared);
     const unsigned int blocksize =
-        GetKokkosBlockSize<Implementation>(nq0 * nq1 * nq2);
+        GetKokkosBlockSize<Implementation>(nm0 * nm1 * nm2);
     const unsigned int gridsize = GetKokkosGridSize<Implementation>(nelmt);
 
     Kokkos::parallel_for(

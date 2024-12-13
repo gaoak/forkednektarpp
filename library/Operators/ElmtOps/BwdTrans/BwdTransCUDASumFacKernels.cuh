@@ -1865,13 +1865,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
         sizeof(TData) *
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const unsigned int blocksize =
-        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
-    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     BwdTrans3DKernel<SHAPE_TYPE, Implementation, SHMEM>
         <<<gridsize, blocksize, shmemsize>>>(
@@ -1891,13 +1892,14 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
     const unsigned int shmemsize =
         sizeof(TData) *
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const unsigned int blocksize =
-        GetCUDABlockSize<Implementation>(nq0 * nq1 * nq2);
-    const unsigned int gridsize = GetCUDAGridSize<Implementation>(nelmt);
+    const unsigned int blocksize = GetCUDABlockSize<Implementation>(nmTot);
+    const unsigned int gridsize  = GetCUDAGridSize<Implementation>(nelmt);
 
     BwdTrans3DKernel<SHAPE_TYPE, Implementation, SHMEM, nm0, nm1, nm2, nq0, nq1,
                      nq2><<<gridsize, blocksize, shmemsize>>>(
