@@ -1776,7 +1776,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int shmemsize =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
             nq0, nq1, nq2, nm0, nm1, nm2);
-    const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1 * nq2);
+    const auto blocksize = GetSYCLBlockSize<Implementation>(nm0 * nm1 * nm2);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
     Q.submit([&](sycl::handler &cgh) {

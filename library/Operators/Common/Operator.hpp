@@ -305,7 +305,7 @@ protected:
 #if defined(NEKTAR_ENABLE_CUDA)
 template <typename Implementation>
 NEK_FORCE_INLINE static unsigned int GetCUDABlockSize(
-    [[maybe_unused]] const unsigned int maxBlockSize)
+    [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -313,7 +313,9 @@ NEK_FORCE_INLINE static unsigned int GetCUDABlockSize(
     }
     else
     {
-        return std::min(maxBlockSize, NektarSpaces::CUDA::defaultBlockSize);
+        auto warpsize = NektarSpaces::vector_width<double>::value;
+        return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
+                        NektarSpaces::CUDA::defaultBlockSize);
     }
 }
 
@@ -335,7 +337,7 @@ NEK_FORCE_INLINE static unsigned int GetCUDAGridSize(const unsigned int nelmt)
 #if defined(NEKTAR_ENABLE_SYCL)
 template <typename Implementation>
 NEK_FORCE_INLINE static sycl::range<3> GetSYCLBlockSize(
-    [[maybe_unused]] const unsigned int maxBlockSize)
+    [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -343,8 +345,11 @@ NEK_FORCE_INLINE static sycl::range<3> GetSYCLBlockSize(
     }
     else
     {
+        auto warpsize = NektarSpaces::vector_width<double>::value;
         return sycl::range<3>(
-            1, 1, std::min(maxBlockSize, NektarSpaces::SYCL::defaultBlockSize));
+            1, 1,
+            std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
+                     NektarSpaces::SYCL::defaultBlockSize));
     }
 }
 
@@ -367,7 +372,7 @@ NEK_FORCE_INLINE static sycl::range<3> GetSYCLGridSize(const unsigned int nelmt)
 #if defined(NEKTAR_ENABLE_KOKKOS)
 template <typename Implementation>
 NEK_FORCE_INLINE static unsigned int GetKokkosBlockSize(
-    [[maybe_unused]] const unsigned int maxBlockSize)
+    [[maybe_unused]] const unsigned int blockSize)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
@@ -375,7 +380,9 @@ NEK_FORCE_INLINE static unsigned int GetKokkosBlockSize(
     }
     else
     {
-        return std::min(maxBlockSize, NektarSpaces::KOKKOS::defaultBlockSize);
+        auto warpsize = NektarSpaces::vector_width<double>::value;
+        return std::min(((blockSize + warpsize - 1u) / warpsize) * warpsize,
+                        NektarSpaces::KOKKOS::defaultBlockSize);
     }
 }
 

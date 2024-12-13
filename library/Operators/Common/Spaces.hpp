@@ -72,42 +72,42 @@ template <typename TData>
 #if defined(NEKTAR_ENABLE_SIMD_AVX2) || defined(NEKTAR_ENABLE_SIMD_AVX512)
 struct vector_width
 {
-    static constexpr size_t value = tinysimd::simd<TData>::width;
+    static constexpr unsigned int value = tinysimd::simd<TData>::width;
 };
 #elif defined(NEKTAR_ENABLE_CUDA)
 struct vector_width
 {
-    static constexpr size_t value = 32u;
+    static constexpr unsigned int value = 32u;
 };
 #elif defined(NEKTAR_ENABLE_HIP)
 struct vector_width
 {
-    static constexpr size_t value = 64u;
+    static constexpr unsigned int value = 64u;
 };
 #elif defined(SYCL_ENABLE_CUDA)
 struct vector_width
 {
-    static constexpr size_t value = 32u;
+    static constexpr unsigned int value = 32u;
 };
 #elif defined(KOKKOS_ENABLE_CUDA)
 struct vector_width
 {
-    static constexpr size_t value = Kokkos::Impl::CudaTraits::WarpSize;
+    static constexpr unsigned int value = Kokkos::Impl::CudaTraits::WarpSize;
 };
 #elif defined(KOKKOS_ENABLE_HIP)
 struct vector_width
 {
-    static constexpr size_t value = Kokkos::Impl::HIPTraits::WarpSize;
+    static constexpr unsigned int value = Kokkos::Impl::HIPTraits::WarpSize;
 };
 #elif defined(KOKKOS_ENABLE_SYCL)
 struct vector_width
 {
-    static constexpr size_t value = 64u;
+    static constexpr unsigned int value = 64u;
 };
 #else
 struct vector_width
 {
-    static constexpr size_t value = 1u;
+    static constexpr unsigned int value = 1u;
 };
 #endif
 
