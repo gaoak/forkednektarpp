@@ -44,28 +44,13 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -80,7 +65,7 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(
             for (unsigned int p = 0u; p < nm0; ++p)
             {
                 tmp += in[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                       s_basis0[p * nq0 + i];
+                       basis0[p * nq0 + i];
             }
             out[nq0 * warpsize * iwarp + warpsize * i + ilane] = tmp;
         }
@@ -89,39 +74,18 @@ NEK_FORCE_INLINE static void BwdTransSegKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict in,
-    TData *__restrict out, TData *__restrict shmemptr,
-    const sycl::nd_item<3> &item_ct1)
+    TData *__restrict out, const sycl::nd_item<3> &item_ct1)
 {
-    TData *s_wsp0   = shmemptr;
-    TData *s_basis0 = SHMEM ? s_wsp0 + nm0 : (TData *)basis0;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-    }
-
     unsigned int e = item_ct1.get_group(2);
 
     while (e < nelmt)
     {
         const TData *inptr = in + nm0 * e;
         TData *outptr      = out + nq0 * e;
-
-        // Copy to shared memory.
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_wsp0[idx] = inptr[idx];
-        }
 
         item_ct1.barrier(sycl::access::fence_space::local_space);
 
@@ -131,7 +95,7 @@ NEK_FORCE_INLINE static void BwdTransSegKernel_QP(
             TData tmp = 0.0;
             for (unsigned int p = 0u; p < nm0; p++)
             {
-                tmp += s_wsp0[p] * s_basis0[p * nq0 + i];
+                tmp += inptr[p] * basis0[p * nq0 + i];
             }
             outptr[i] = tmp;
         }
@@ -142,38 +106,17 @@ NEK_FORCE_INLINE static void BwdTransSegKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const TData *__restrict basis0, const TData *__restrict basis1,
     TData *__restrict wsp, const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -192,7 +135,7 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
                 {
                     tmp += in[nmTot * warpsize * iwarp + warpsize * cnt_qp +
                               ilane] *
-                           s_basis0[p * nq0 + i];
+                           basis0[p * nq0 + i];
                 }
                 wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] = tmp;
             }
@@ -204,7 +147,7 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
                     tmp += wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] *
-                           s_basis1[q * nq1 + j];
+                           basis1[q * nq1 + j];
                 }
                 out[nqTot * warpsize * iwarp + warpsize * (nq0 * j + i) +
                     ilane] = tmp;
@@ -215,7 +158,7 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -227,23 +170,20 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
 
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = SHMEM ? s_wsp1 + nm1 * nq0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis0 = s_wsp1 + nm1 * nq0;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -302,39 +242,18 @@ NEK_FORCE_INLINE static void BwdTransQuadKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict basis0,
     const TData *__restrict basis1, TData *__restrict wsp,
     const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -353,7 +272,7 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
                 {
                     tmp += in[nmTot * warpsize * iwarp + warpsize * mode_pq +
                               ilane] *
-                           s_basis1[mode_pq * nq1 + j];
+                           basis1[mode_pq * nq1 + j];
                 }
                 wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
             }
@@ -365,13 +284,13 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
                 for (unsigned int p = 0u; p < nm0; ++p)
                 {
                     tmp += wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                           s_basis0[p * nq0 + i];
+                           basis0[p * nq0 + i];
                 }
 
                 if (isModified)
                 {
                     tmp += in[nmTot * warpsize * iwarp + warpsize + ilane] *
-                           s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                           basis0[nq0 + i] * basis1[nq1 + j];
                 }
 
                 out[nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane] = tmp;
@@ -382,7 +301,7 @@ NEK_FORCE_INLINE static void BwdTransTriKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -395,23 +314,20 @@ NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
 
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
+    TData *s_basis0 = s_wsp1 + nm0 * nq1;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -476,7 +392,7 @@ NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -484,39 +400,11 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
     const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -539,7 +427,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * cnt_rqp + ilane] *
-                               s_basis0[p * nq0 + i];
+                               basis0[p * nq0 + i];
                     }
                     wsp1[nm1 * nm2 * warpsize * iwarp + warpsize * cnt_rq +
                          ilane] = tmp;
@@ -556,7 +444,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
                     {
                         tmp += wsp1[nm1 * nm2 * warpsize * iwarp +
                                     warpsize * cnt_rq + ilane] *
-                               s_basis1[q * nq1 + j];
+                               basis1[q * nq1 + j];
                     }
                     wsp2[nm2 * warpsize * iwarp + warpsize * r + ilane] = tmp;
                 }
@@ -569,7 +457,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
                     {
                         tmp += wsp2[nm2 * warpsize * iwarp + warpsize * r +
                                     ilane] *
-                               s_basis2[r * nq2 + k];
+                               basis2[r * nq2 + k];
                     }
                     out[nqTot * warpsize * iwarp +
                         warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
@@ -581,7 +469,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -596,30 +484,27 @@ NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq1 * nq0 * nm2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    TData *s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -699,7 +584,7 @@ NEK_FORCE_INLINE static void BwdTransHexKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -707,42 +592,12 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
     const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
     const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -767,7 +622,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * mode_pqr + ilane] *
-                               s_basis2[nq2 * mode2 + k];
+                               basis2[nq2 * mode2 + k];
                     }
                     fpq[nm01 * warpsize * iwarp + warpsize * mode_pq + ilane] =
                         tmp;
@@ -790,7 +645,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
                     {
                         tmp += fpq[nm01 * warpsize * iwarp +
                                    warpsize * mode_pq + ilane] *
-                               s_basis1[mode_pq * nq1 + j];
+                               basis1[mode_pq * nq1 + j];
                     }
                     fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
@@ -803,30 +658,30 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
                     {
                         tmp +=
                             fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            s_basis0[p * nq0 + i];
+                            basis0[p * nq0 + i];
                     }
 
                     if (isModified)
                     {
                         // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
+                        TData tmp1 = basis0[i] * basis1[nq1 + j];
+                        tmp1 += basis0[nq0 + i] * basis1[j];
+                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
+                        tmp1 *= basis2[nq2 + k];
                         tmp += tmp1 *
                                in[nmTot * warpsize * iwarp + warpsize + ilane];
 
                         // bottom vertex
-                        tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[k];
+                        tmp1 = basis0[nq0 + i] * basis1[nq1 + j];
+                        tmp1 *= basis2[k];
                         tmp += tmp1 * in[nmTot * warpsize * iwarp +
                                          warpsize * nm2 + ilane];
 
                         // singular edge
                         for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                         {
-                            tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
-                            tmp1 *= s_basis2[(r + 1u) * nq2 + k];
+                            tmp1 = basis1[nq1 + j] * basis0[nq0 + i];
+                            tmp1 *= basis2[(r + 1u) * nq2 + k];
                             tmp += tmp1 * in[nmTot * warpsize * iwarp +
                                              warpsize * (nm2 + r) + ilane];
                         }
@@ -842,7 +697,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -861,30 +716,27 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + nm01 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
+    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm01 * nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -996,7 +848,7 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1004,41 +856,11 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
     const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm12  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm12 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -1062,7 +884,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * mode_pqr + ilane] *
-                               s_basis2[(mode_pr + r) * nq2 + k];
+                               basis2[(mode_pr + r) * nq2 + k];
                     }
                     fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
                         ilane] = tmp;
@@ -1080,7 +902,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
                     {
                         tmp += fpq[nm0 * nm1 * warpsize * iwarp +
                                    warpsize * mode_pq + ilane] *
-                               s_basis1[q * nq1 + j];
+                               basis1[q * nq1 + j];
                     }
                     fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
@@ -1093,15 +915,15 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
                     {
                         tmp +=
                             fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            s_basis0[p * nq0 + i];
+                            basis0[p * nq0 + i];
                     }
 
                     if (isModified)
                     {
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
-                            tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
-                                   s_basis0[nq0 + i] *
+                            tmp += basis2[nq2 + k] * basis1[q * nq1 + j] *
+                                   basis0[nq0 + i] *
                                    in[nmTot * warpsize * iwarp +
                                       warpsize * (nm2 * q + 1u) + ilane];
                         }
@@ -1117,7 +939,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1132,32 +954,29 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm12 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm12 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -1248,7 +1067,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1256,41 +1075,11 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     const TData *__restrict basis0, const TData *__restrict basis1,
     const TData *__restrict basis2, TData *__restrict wsp,
     const TData *__restrict in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -1315,7 +1104,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
                     {
                         tmp += in[nmTot * warpsize * iwarp +
                                   warpsize * mode_pqr + ilane] *
-                               s_basis2[mode2 * nq2 + k];
+                               basis2[mode2 * nq2 + k];
                     }
                     fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
                         ilane] = tmp;
@@ -1338,7 +1127,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
                     {
                         tmp += fpq[nm0 * nm1 * warpsize * iwarp +
                                    warpsize * mode_pq + ilane] *
-                               s_basis1[q * nq1 + j];
+                               basis1[q * nq1 + j];
                     }
                     fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
                 }
@@ -1351,16 +1140,16 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
                     {
                         tmp +=
                             fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            s_basis0[p * nq0 + i];
+                            basis0[p * nq0 + i];
                     }
 
                     if (isModified)
                     {
                         // top vertex
-                        TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp1 *= s_basis2[nq2 + k];
+                        TData tmp1 = basis0[i] * basis1[nq1 + j];
+                        tmp1 += basis0[nq0 + i] * basis1[j];
+                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
+                        tmp1 *= basis2[nq2 + k];
                         tmp += tmp1 *
                                in[nmTot * warpsize * iwarp + warpsize + ilane];
                     }
@@ -1375,7 +1164,7 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel(
     }
 }
 
-template <bool SHMEM, typename TData>
+template <typename TData>
 NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1392,30 +1181,27 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
     TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = SHMEM ? s_wsp2 + nq2 * nq1 * nm0 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
+    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -1529,68 +1315,64 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
     }
 }
 
-template <typename Implementation, bool SHMEM, typename TData>
+template <typename Implementation, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ in,
-    TData *__restrict out, TData *__restrict shmemptr,
+    TData *__restrict out, [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        BwdTransSegKernel<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
-                                 item_ct1);
+        BwdTransSegKernel(nm0, nq0, nelmt, basis0, in, out, item_ct1);
     }
     else
     {
-        BwdTransSegKernel_QP<SHMEM>(nm0, nq0, nelmt, basis0, in, out, shmemptr,
-                                    item_ct1);
+        BwdTransSegKernel_QP(nm0, nq0, nelmt, basis0, in, out, item_ct1);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SHMEM, typename TData>
+          typename TData>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict__ basis0,
     const TData *__restrict__ basis1, [[maybe_unused]] TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    [[maybe_unused]] TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransQuadKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                      basis1, wsp, in, out, shmemptr, item_ct1);
+            BwdTransQuadKernel(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
+                               wsp, in, out, item_ct1);
         }
         else
         {
-            BwdTransQuadKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                         basis0, basis1, in, out, shmemptr,
-                                         item_ct1);
+            BwdTransQuadKernel_QP(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
+                                  basis1, in, out, shmemptr, item_ct1);
         }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransTriKernel<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                     isModified, basis0, basis1, wsp, in, out,
-                                     shmemptr, item_ct1);
+            BwdTransTriKernel(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+                              basis0, basis1, wsp, in, out, item_ct1);
         }
         else
         {
-            BwdTransTriKernel_QP<SHMEM>(nm0, nm1, nmTot, nq0, nq1, nelmt,
-                                        isModified, basis0, basis1, in, out,
-                                        shmemptr, item_ct1);
+            BwdTransTriKernel_QP(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
+                                 basis0, basis1, in, out, shmemptr, item_ct1);
         }
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SHMEM, typename TData>
+          typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1600,74 +1382,73 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *__restrict__ basis0, const TData *__restrict__ basis1,
     const TData *__restrict__ basis2, [[maybe_unused]] TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    [[maybe_unused]] TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransHexKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                     basis0, basis1, basis2, wsp, in, out,
-                                     shmemptr, item_ct1);
+            BwdTransHexKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                              basis0, basis1, basis2, wsp, in, out, item_ct1);
         }
         else
         {
-            BwdTransHexKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                        nelmt, basis0, basis1, basis2, in, out,
-                                        shmemptr, item_ct1);
+            BwdTransHexKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 basis0, basis1, basis2, in, out, shmemptr,
+                                 item_ct1);
         }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransTetKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                     isModified, basis0, basis1, basis2, wsp,
-                                     in, out, shmemptr, item_ct1);
+            BwdTransTetKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                              isModified, basis0, basis1, basis2, wsp, in, out,
+                              item_ct1);
         }
         else
         {
-            BwdTransTetKernel_QP<SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-                index1, basis0, basis1, basis2, in, out, shmemptr, item_ct1);
+            BwdTransTetKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 isModified, index0, index1, basis0, basis1,
+                                 basis2, in, out, shmemptr, item_ct1);
         }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransPrismKernel<SHMEM>(
-                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-                basis1, basis2, wsp, in, out, shmemptr, item_ct1);
+            BwdTransPrismKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                isModified, basis0, basis1, basis2, wsp, in,
+                                out, item_ct1);
         }
         else
         {
-            BwdTransPrismKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                          nelmt, isModified, basis0, basis1,
-                                          basis2, in, out, shmemptr, item_ct1);
+            BwdTransPrismKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                   isModified, basis0, basis1, basis2, in, out,
+                                   shmemptr, item_ct1);
         }
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            BwdTransPyrKernel<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                     isModified, basis0, basis1, basis2, wsp,
-                                     in, out, shmemptr, item_ct1);
+            BwdTransPyrKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                              isModified, basis0, basis1, basis2, wsp, in, out,
+                              item_ct1);
         }
         else
         {
-            BwdTransPyrKernel_QP<SHMEM>(nm0, nm1, nm2, nmTot, nq0, nq1, nq2,
-                                        nelmt, isModified, basis0, basis1,
-                                        basis2, in, out, shmemptr, item_ct1);
+            BwdTransPyrKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
+                                 isModified, basis0, basis1, basis2, in, out,
+                                 shmemptr, item_ct1);
         }
     }
 }
 
 // Kernel launchers
 // Non-size based version.
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          typename TData>
+template <typename ExecSpace, typename Implementation, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                                               const unsigned int nq0,
                                               const unsigned int nelmt,
@@ -1677,7 +1458,7 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        BwdTransSharedMemorySize<Implementation, SHMEM>(nq0, nm0);
+        BwdTransSharedMemorySize<Implementation>(nq0, nm0);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
@@ -1689,26 +1470,26 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
-                 BwdTrans1DKernel<Implementation, SHMEM>(
-                     nm0, nq0, nelmt, basis0, in, out, shmemptr, item);
+                 BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in,
+                                                  out, shmemptr, item);
              });
      }).wait();
 }
 
 // Size based template version.
-template <typename ExecSpace, typename Implementation, bool SHMEM,
-          unsigned int nm0, unsigned int nq0, typename TData>
+template <typename ExecSpace, typename Implementation, unsigned int nm0,
+          unsigned int nq0, typename TData>
 NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nelmt,
                                               const TData *basis0,
                                               const TData *in, TData *out)
 {
-    BwdTrans1DKernel<ExecSpace, Implementation, SHMEM>(nm0, nq0, nelmt, basis0,
-                                                       in, out);
+    BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nelmt, basis0, in,
+                                                out);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool SHMEM, typename TData>
+          typename Implementation, typename TData>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
@@ -1721,8 +1502,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(nq0, nq1,
-                                                                    nm0, nm1);
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
+                                                             nm1);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
@@ -1734,7 +1515,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
-                 BwdTrans2DKernel<SHAPE_TYPE, Implementation, SHMEM>(
+                 BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
                      basis1, wsp, in, out, shmemptr, item);
              });
@@ -1743,8 +1524,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool SHMEM, unsigned int nm0,
-          unsigned int nm1, unsigned int nq0, unsigned int nq1, typename TData>
+          typename Implementation, unsigned int nm0, unsigned int nm1,
+          unsigned int nq0, unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
                                               const bool isModified,
                                               const TData *basis0,
@@ -1752,13 +1533,13 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
                                               [[maybe_unused]] TData *wsp,
                                               const TData *in, TData *out)
 {
-    BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SHMEM>(
+    BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
         nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in, out);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool SHMEM, typename TData>
+          typename Implementation, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -1774,8 +1555,8 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
-            nq0, nq1, nq2, nm0, nm1, nm2);
+        BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
+                                                             nm1, nm2);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nm0 * nm1 * nm2);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
@@ -1787,7 +1568,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
-                 BwdTrans3DKernel<SHAPE_TYPE, Implementation, SHMEM>(
+                 BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                      index0, index1, basis0, basis1, basis2, wsp, in, out,
                      shmemptr, item);
@@ -1797,9 +1578,9 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
 
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
-          typename Implementation, bool SHMEM, unsigned int nm0,
-          unsigned int nm1, unsigned int nm2, unsigned int nq0,
-          unsigned int nq1, unsigned int nq2, typename TData>
+          typename Implementation, unsigned int nm0, unsigned int nm1,
+          unsigned int nm2, unsigned int nq0, unsigned int nq1,
+          unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *index0,
@@ -1807,7 +1588,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
-    BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SHMEM>(
+    BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,
         basis1, basis2, wsp, in, out);
 }

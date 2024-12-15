@@ -270,10 +270,9 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -329,8 +328,8 @@ private:
         IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
             nCoord, nq0, nElmtsPad, dfptr, inptr, tmpptr);
         IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                DEFORMED, SharedMemory>(
-            nm0, nq0, nElmtsPad, dbasis0, W0, jacptr, tmpptr, outptr);
+                                DEFORMED>(nm0, nq0, nElmtsPad, dbasis0, W0,
+                                          jacptr, tmpptr, outptr);
     }
 
     // Size based template version.
@@ -339,10 +338,9 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         const auto nCoord = m_expPtr->GetCoordim();
 
@@ -394,8 +392,8 @@ private:
         IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED, nq0>(
             nCoord, nElmtsPad, dfptr, inptr, tmpptr);
         IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                DEFORMED, SharedMemory, nm0, nq0>(
-            nElmtsPad, dbasis0, W0, jacptr, tmpptr, outptr);
+                                DEFORMED, nm0, nq0>(nElmtsPad, dbasis0, W0,
+                                                    jacptr, tmpptr, outptr);
     }
 
     // Non-size based operator.
@@ -403,10 +401,9 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -525,11 +522,11 @@ private:
                                      DEFORMED>(nCoord, nq0, nq1, nElmtsPad, Z0,
                                                Z1, dfptr, inptr, tmpptr);
         IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory>(
+                                Append, DEFORMED>(
             nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, dbasis0, basis1,
             W0, W1, jacptr, wspptr, tmpptr, outptr);
         IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory>(
+                                Append, DEFORMED>(
             nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0, dbasis1,
             W0, W1, jacptr, wspptr, tmpptr + nElmtsPad * nqTot, outptr);
     }
@@ -541,10 +538,9 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         // Shape size.
         const auto nqTot  = nq0 * nq1;
@@ -656,15 +652,13 @@ private:
                                      DEFORMED, nq0, nq1>(
             nCoord, nElmtsPad, Z0, Z1, dfptr, inptr, tmpptr);
         IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory, nm0, nm1, nq0,
-                                nq1>(nElmtsPad, isModified, index0, dbasis0,
-                                     basis1, W0, W1, jacptr, wspptr, tmpptr,
-                                     outptr);
+                                Append, DEFORMED, nm0, nm1, nq0, nq1>(
+            nElmtsPad, isModified, index0, dbasis0, basis1, W0, W1, jacptr,
+            wspptr, tmpptr, outptr);
         IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory, nm0, nm1, nq0,
-                                nq1>(nElmtsPad, isModified, index0, basis0,
-                                     dbasis1, W0, W1, jacptr, wspptr,
-                                     tmpptr + nElmtsPad * nqTot, outptr);
+                                Append, DEFORMED, nm0, nm1, nq0, nq1>(
+            nElmtsPad, isModified, index0, basis0, dbasis1, W0, W1, jacptr,
+            wspptr, tmpptr + nElmtsPad * nqTot, outptr);
     }
 
     // Non-size based operator.
@@ -672,10 +666,9 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -906,17 +899,17 @@ private:
                                      DEFORMED>(nq0, nq1, nq2, nElmtsPad, Z0, Z1,
                                                Z2, dfptr, inptr, tmpptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory>(
+                                Append, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,
             index2, dbasis0, basis1, basis2, W0, W1, W2, jacptr, wspptr, tmpptr,
             outptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory>(
+                                Append, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,
             index2, basis0, dbasis1, basis2, W0, W1, W2, jacptr, wspptr,
             tmpptr + nElmtsPad * nqTot, outptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory>(
+                                Append, DEFORMED>(
             nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,
             index2, basis0, basis1, dbasis2, W0, W1, W2, jacptr, wspptr,
             tmpptr + 2 * nElmtsPad * nqTot, outptr);
@@ -929,10 +922,9 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Scale        = false;
-        constexpr bool Append       = true;
+        constexpr bool device_only = true;
+        constexpr bool Scale       = false;
+        constexpr bool Append      = true;
 
         // Shape size.
         const auto nqTot = nq0 * nq1 * nq2;
@@ -1155,19 +1147,16 @@ private:
                                      DEFORMED, nq0, nq1, nq2>(
             nElmtsPad, Z0, Z1, Z2, dfptr, inptr, tmpptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory, nm0, nm1, nm2,
-                                nq0, nq1, nq2>(
+                                Append, DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
             nElmtsPad, isModified, index0, index1, index2, dbasis0, basis1,
             basis2, W0, W1, W2, jacptr, wspptr, tmpptr, outptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory, nm0, nm1, nm2,
-                                nq0, nq1, nq2>(
+                                Append, DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
             nElmtsPad, isModified, index0, index1, index2, basis0, dbasis1,
             basis2, W0, W1, W2, jacptr, wspptr, tmpptr + nElmtsPad * nqTot,
             outptr);
         IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, Scale,
-                                Append, DEFORMED, SharedMemory, nm0, nm1, nm2,
-                                nq0, nq1, nq2>(
+                                Append, DEFORMED, nm0, nm1, nm2, nq0, nq1, nq2>(
             nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
             dbasis2, W0, W1, W2, jacptr, wspptr, tmpptr + 2 * nElmtsPad * nqTot,
             outptr);

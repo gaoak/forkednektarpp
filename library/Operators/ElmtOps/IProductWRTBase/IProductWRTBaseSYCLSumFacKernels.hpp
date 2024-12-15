@@ -39,36 +39,15 @@
 namespace Nektar::Operators::detail
 {
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseSegKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    TData *__restrict__ out, const TData scale,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -85,8 +64,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel(
                 const unsigned int index =
                     nq0 * warpsize * iwarp + warpsize * i + ilane;
                 const unsigned int jacindex = DEFORMED ? index : e;
-                sum +=
-                    in[index] * s_basis0[p * nq0 + i] * jac[jacindex] * s_w0[i];
+                sum += in[index] * basis0[p * nq0 + i] * jac[jacindex] * w0[i];
             }
 
             if constexpr (SCALE)
@@ -110,7 +88,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
@@ -118,25 +96,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
     TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
-    TData *s_wsp0   = shmemptr;
-    TData *s_basis0 = SHMEM ? s_wsp0 + nq0 : (TData *)basis0;
-    TData *s_w0     = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)w0;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-    }
+    TData *s_wsp0 = shmemptr;
 
     unsigned int e = item_ct1.get_group(2);
 
@@ -162,7 +122,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
             TData sum = 0.0;
             for (unsigned int i = 0u; i < nq0; ++i)
             {
-                sum += s_wsp0[i] * s_basis0[p * nq0 + i] * s_w0[i];
+                sum += s_wsp0[i] * basis0[p * nq0 + i] * w0[i];
             }
 
             if constexpr (SCALE)
@@ -187,7 +147,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseSegKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -195,44 +155,11 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_w0     = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -251,8 +178,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
                     const unsigned int jacindex = DEFORMED ? index : e;
-                    sum += in[index] * s_basis0[p * nq0 + i] * jac[jacindex] *
-                           s_w0[i];
+                    sum +=
+                        in[index] * basis0[p * nq0 + i] * jac[jacindex] * w0[i];
                 }
                 wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
             }
@@ -263,7 +190,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
                 for (unsigned int j = 0u; j < nq1; ++j)
                 {
                     sum += wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                           s_basis1[q * nq1 + j] * s_w1[j];
+                           basis1[q * nq1 + j] * w1[j];
                 }
 
                 if constexpr (SCALE)
@@ -288,7 +215,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -302,37 +229,34 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP(
 
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
-    TData *s_basis0 = SHMEM ? s_wsp1 + nm0 * nq1 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_w0     = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_basis0 = s_wsp1 + nm0 * nq1;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_w0     = s_basis1 + nm1 * nq1;
+    TData *s_w1     = s_w0 + nq0;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -405,7 +329,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseQuadKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -413,44 +337,12 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
     const TData *__restrict__ basis1, const TData *__restrict__ w0,
     const TData *__restrict__ w1, const TData *__restrict__ jac,
     TData *__restrict__ wsp, const TData *__restrict__ in,
-    TData *__restrict__ out, const TData scale, TData *__restrict__ shmemptr,
+    TData *__restrict__ out, const TData scale,
     const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_w0     = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmTot * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -469,8 +361,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
                     const unsigned int index =
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
                     const unsigned int jacindex = DEFORMED ? index : e;
-                    sum += in[index] * s_basis0[p * nq0 + i] * jac[jacindex] *
-                           s_w0[i];
+                    sum +=
+                        in[index] * basis0[p * nq0 + i] * jac[jacindex] * w0[i];
                 }
                 wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] = sum;
             }
@@ -481,7 +373,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
                 for (unsigned int j = 0u; j < nq1; ++j)
                 {
                     sum += wsp[nq1 * warpsize * iwarp + warpsize * j + ilane] *
-                           s_basis1[mode_pq * nq1 + j] * s_w1[j];
+                           basis1[mode_pq * nq1 + j] * w1[j];
                 }
 
                 if constexpr (SCALE)
@@ -513,7 +405,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
                 const unsigned int index    = nqTot * warpsize * iwarp + ilane;
                 const unsigned int jacindex = DEFORMED ? index : e;
 
-                TData tmp = s_w1[j] * s_basis1[nq1 + j];
+                TData tmp = w1[j] * basis1[nq1 + j];
                 if constexpr (!DEFORMED)
                 {
                     tmp *= jac[jacindex];
@@ -525,12 +417,12 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
                         nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane;
                     const unsigned int jacindex = DEFORMED ? index : e;
 
-                    TData prod = in[index] * tmp * s_w0[i];
+                    TData prod = in[index] * tmp * w0[i];
                     if constexpr (DEFORMED)
                     {
                         prod *= jac[jacindex];
                     }
-                    iprod_01 += prod * s_basis0[nq0 + i];
+                    iprod_01 += prod * basis0[nq0 + i];
                 }
             }
 
@@ -550,7 +442,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
     const unsigned int nm0, [[maybe_unused]] const unsigned int nm1,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -566,37 +458,34 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_prod   = s_wsp1 + nm0 * nq1;
-    TData *s_basis0 = SHMEM ? s_prod + 1u : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_w0     = SHMEM ? s_basis1 + nmTot * nq1 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
+    TData *s_basis0 = s_prod + 1u;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_w0     = s_basis1 + nmTot * nq1;
+    TData *s_w1     = s_w0 + nq0;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmTot * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -718,7 +607,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -728,56 +617,11 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nm2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_w2[idx] = w2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -800,8 +644,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum_kj += in[index] * s_basis0[i + nq0 * p] *
-                                  jac[jacindex] * s_w0[i];
+                        sum_kj += in[index] * basis0[i + nq0 * p] *
+                                  jac[jacindex] * w0[i];
                     }
                     wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                          ilane] = sum_kj;
@@ -817,7 +661,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
                     {
                         sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                       warpsize * cnt_kj + ilane] *
-                                 s_basis1[q * nq1 + j] * s_w1[j];
+                                 basis1[q * nq1 + j] * w1[j];
                     }
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
@@ -833,7 +677,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
                     {
                         sum += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                     ilane] *
-                               s_basis2[r * nq2 + k] * s_w2[k];
+                               basis2[r * nq2 + k] * w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -857,7 +701,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -874,51 +718,48 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nm2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    TData *s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
+    TData *s_w0     = s_basis2 + nm2 * nq2;
+    TData *s_w1     = s_w0 + nq0;
+    TData *s_w2     = s_w1 + nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w2[idx] = w2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w2[idx] = w2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -1011,7 +852,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseHexKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1021,59 +862,11 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm01 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_w2[idx] = w2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -1098,8 +891,8 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum_kj += in[index] * s_basis0[i + nq0 * p] *
-                                  jac[jacindex] * s_w0[i];
+                        sum_kj += in[index] * basis0[i + nq0 * p] *
+                                  jac[jacindex] * w0[i];
                     }
                     wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                          ilane] = sum_kj;
@@ -1115,7 +908,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
                     {
                         sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                       warpsize * cnt_kj + ilane] *
-                                 s_basis1[mode_pq * nq1 + j] * s_w1[j];
+                                 basis1[mode_pq * nq1 + j] * w1[j];
                     }
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
@@ -1128,7 +921,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
                     {
                         tmp += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                     ilane] *
-                               s_basis2[mode2 * nq2 + k] * s_w2[k];
+                               basis2[mode2 * nq2 + k] * w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -1166,7 +959,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
 
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
-                TData tmpQ2 = s_w2[k];
+                TData tmpQ2 = w2[k];
                 if constexpr (!DEFORMED)
                 {
                     tmpQ2 *= jac[e];
@@ -1174,39 +967,38 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
 
                 for (unsigned int j = 0u; j < nq1; ++j)
                 {
-                    TData tmpQ1 = tmpQ2 * s_w1[j];
+                    TData tmpQ1 = tmpQ2 * w1[j];
                     for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
 
                         // Store jac * quadrature weight
-                        TData tmpQ = tmpQ1 * s_w0[i];
+                        TData tmpQ = tmpQ1 * w0[i];
                         if constexpr (DEFORMED)
                         {
                             tmpQ *= jac[index];
                         }
 
                         // top vertex
-                        TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp *= s_basis2[nq2 + k];
+                        TData tmp = basis0[i] * basis1[nq1 + j];
+                        tmp += basis0[nq0 + i] * basis1[j];
+                        tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                        tmp *= basis2[nq2 + k];
                         tmp *= in[index] * tmpQ;
                         prod[nm2 * warpsize * iwarp + warpsize * (nm2 - 1) +
                              ilane] += tmp;
 
                         // bottom vertex
-                        tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] *
-                              s_basis2[k] * in[index] * tmpQ;
+                        tmp = basis0[nq0 + i] * basis1[nq1 + j] * basis2[k] *
+                              in[index] * tmpQ;
                         prod[nm2 * warpsize * iwarp + ilane] += tmp;
 
                         // singular edge
                         for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                         {
-                            tmp = s_basis2[(r + 1) * nq2 + k] *
-                                  s_basis1[nq1 + j] * s_basis0[nq0 + i] *
-                                  in[index] * tmpQ;
+                            tmp = basis2[(r + 1) * nq2 + k] * basis1[nq1 + j] *
+                                  basis0[nq0 + i] * in[index] * tmpQ;
                             prod[nm2 * warpsize * iwarp + warpsize * r +
                                  ilane] += tmp;
                         }
@@ -1250,7 +1042,7 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1273,51 +1065,48 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
     TData *s_wsp0   = s_prod + nm2;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nm01 * nq2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm01 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    TData *s_basis0 = s_wsp2 + nm01 * nq2;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm01 * nq1;
+    TData *s_w0     = s_basis2 + nmode2 * nq2;
+    TData *s_w1     = s_w0 + nq0;
+    TData *s_w2     = s_w1 + nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm01 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w2[idx] = w2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w2[idx] = w2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -1536,7 +1325,7 @@ high register pressure with a sub-group size of 32 depending on hardware.
 Leaving it for now but will have to profile later and make appropriate changes
 if necessary.
 */
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1546,57 +1335,11 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm02  = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nm02 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm02 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_w2[idx] = w2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -1620,8 +1363,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum_kj += in[index] * s_basis0[nq0 * p + i] *
-                                  jac[jacindex] * s_w0[i];
+                        sum_kj += in[index] * basis0[nq0 * p + i] *
+                                  jac[jacindex] * w0[i];
                     }
                     wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                          ilane] = sum_kj;
@@ -1637,7 +1380,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                     {
                         sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                       warpsize * cnt_kj + ilane] *
-                                 s_basis1[q * nq1 + j] * s_w1[j];
+                                 basis1[q * nq1 + j] * w1[j];
                     }
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
@@ -1653,7 +1396,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                     {
                         sum_k += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                       ilane] *
-                                 s_basis2[(mode_pr + r) * nq2 + k] * s_w2[k];
+                                 basis2[(mode_pr + r) * nq2 + k] * w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -1683,7 +1426,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
 
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
-                TData k_weight = s_w2[k];
+                TData k_weight = w2[k];
                 if constexpr (!DEFORMED)
                 {
                     k_weight *= jac[e];
@@ -1691,12 +1434,12 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
 
                 for (unsigned int j = 0u; j < nq1; ++j)
                 {
-                    TData kj_weight = k_weight * s_w1[j];
+                    TData kj_weight = k_weight * w1[j];
                     for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
-                        TData prod = kj_weight * s_w0[i] * in[index];
+                        TData prod = kj_weight * w0[i] * in[index];
                         if constexpr (DEFORMED)
                         {
                             prod *= jac[index];
@@ -1705,9 +1448,9 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
                             wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                 ilane] += prod * s_basis2[nq2 + k] *
-                                           s_basis1[q * nq1 + j] *
-                                           s_basis0[nq0 + i];
+                                 ilane] += prod * basis2[nq2 + k] *
+                                           basis1[q * nq1 + j] *
+                                           basis0[nq0 + i];
                         }
                     }
                 }
@@ -1735,7 +1478,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1755,51 +1498,48 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nm02 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    TData *s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
+    TData *s_w0     = s_basis2 + nm02 * nq2;
+    TData *s_w1     = s_w0 + nq0;
+    TData *s_w2     = s_w1 + nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm02 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm02 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w2[idx] = w2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w2[idx] = w2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -1953,7 +1693,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -1963,58 +1703,11 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict__ out, const TData scale,
-    TData *__restrict__ shmemptr, const sycl::nd_item<3> &item_ct1)
+    const sycl::nd_item<3> &item_ct1)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
     const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-    TData *s_basis0 = SHMEM ? shmemptr : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
-
-    // Copy to shared memory.
-    if constexpr (SHMEM)
-    {
-        const unsigned int idx0   = item_ct1.get_local_id(2);
-        const unsigned int stride = item_ct1.get_local_range(2);
-        for (unsigned int idx = idx0; idx < nm0 * nq0; idx += stride)
-        {
-            s_basis0[idx] = basis0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nm1 * nq1; idx += stride)
-        {
-            s_basis1[idx] = basis1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nmode2 * nq2; idx += stride)
-        {
-            s_basis2[idx] = basis2[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq0; idx += stride)
-        {
-            s_w0[idx] = w0[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq1; idx += stride)
-        {
-            s_w1[idx] = w1[idx];
-        }
-
-        for (unsigned int idx = idx0; idx < nq2; idx += stride)
-        {
-            s_w2[idx] = w2[idx];
-        }
-
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-    }
 
     unsigned int e = item_ct1.get_global_id(2);
 
@@ -2037,8 +1730,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
                         const unsigned int jacindex = DEFORMED ? index : e;
-                        sum_kj += in[index] * s_basis0[nq0 * p + i] *
-                                  jac[jacindex] * s_w0[i];
+                        sum_kj += in[index] * basis0[nq0 * p + i] *
+                                  jac[jacindex] * w0[i];
                     }
                     wsp0[nq1 * nq2 * warpsize * iwarp + warpsize * cnt_kj +
                          ilane] = sum_kj;
@@ -2054,7 +1747,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
                     {
                         sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                       warpsize * cnt_kj + ilane] *
-                                 s_basis1[q * nq1 + j] * s_w1[j];
+                                 basis1[q * nq1 + j] * w1[j];
                     }
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
@@ -2066,7 +1759,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
                     {
                         sum_k += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                       ilane] *
-                                 s_basis2[mode2 * nq2 + k] * s_w2[k];
+                                 basis2[mode2 * nq2 + k] * w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -2096,7 +1789,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
                     {
                         sum_k += wsp0[nq1 * nq2 * warpsize * iwarp +
                                       warpsize * cnt_kj + ilane] *
-                                 s_basis1[q * nq1 + j] * s_w1[j];
+                                 basis1[q * nq1 + j] * w1[j];
                     }
                     wsp1[nq2 * warpsize * iwarp + warpsize * k + ilane] = sum_k;
                 }
@@ -2108,7 +1801,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
                     {
                         sum_k += wsp1[nq2 * warpsize * iwarp + warpsize * k +
                                       ilane] *
-                                 s_basis2[mode2 * nq2 + k] * s_w2[k];
+                                 basis2[mode2 * nq2 + k] * w2[k];
                     }
 
                     if constexpr (SCALE)
@@ -2142,7 +1835,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
             TData prod = 0.0;
             for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
             {
-                TData tmpQ2 = s_w2[k];
+                TData tmpQ2 = w2[k];
                 if constexpr (!DEFORMED)
                 {
                     tmpQ2 *= jac[e];
@@ -2150,24 +1843,24 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
 
                 for (unsigned int j = 0u; j < nq1; ++j)
                 {
-                    TData tmpQ1 = tmpQ2 * s_w1[j];
+                    TData tmpQ1 = tmpQ2 * w1[j];
                     for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
 
                         // Store jac * quadrature weight
-                        TData tmpQ = tmpQ1 * s_w0[i];
+                        TData tmpQ = tmpQ1 * w0[i];
                         if constexpr (DEFORMED)
                         {
                             tmpQ *= jac[index];
                         }
 
                         // top vertex
-                        TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                        tmp += s_basis0[nq0 + i] * s_basis1[j];
-                        tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                        tmp *= s_basis2[nq2 + k];
+                        TData tmp = basis0[i] * basis1[nq1 + j];
+                        tmp += basis0[nq0 + i] * basis1[j];
+                        tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                        tmp *= basis2[nq2 + k];
                         tmp *= in[index] * tmpQ;
                         prod += tmp;
                     }
@@ -2191,7 +1884,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel(
     }
 }
 
-template <bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+template <bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2212,51 +1905,48 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
     TData *s_wsp0   = s_prod + 1u;
     TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
-    TData *s_basis0 = SHMEM ? s_wsp2 + nm0 * nm1 * nq2 : (TData *)basis0;
-    TData *s_basis1 = SHMEM ? s_basis0 + nm0 * nq0 : (TData *)basis1;
-    TData *s_basis2 = SHMEM ? s_basis1 + nm1 * nq1 : (TData *)basis2;
-    TData *s_w0     = SHMEM ? s_basis2 + nmode2 * nq2 : (TData *)w0;
-    TData *s_w1     = SHMEM ? s_w0 + nq0 : (TData *)w1;
-    TData *s_w2     = SHMEM ? s_w1 + nq1 : (TData *)w2;
+    TData *s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
+    TData *s_basis1 = s_basis0 + nm0 * nq0;
+    TData *s_basis2 = s_basis1 + nm1 * nq1;
+    TData *s_w0     = s_basis2 + nmode2 * nq2;
+    TData *s_w1     = s_w0 + nq0;
+    TData *s_w2     = s_w1 + nq1;
 
     // Copy to shared memory.
-    if constexpr (SHMEM)
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
+         idx += item_ct1.get_local_range(2))
     {
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm0 * nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis0[idx] = basis0[idx];
-        }
+        s_basis0[idx] = basis0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis1[idx] = basis1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1 * nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis1[idx] = basis1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_basis2[idx] = basis2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nmode2 * nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_basis2[idx] = basis2[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w0[idx] = w0[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq0;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w0[idx] = w0[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w1[idx] = w1[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq1;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w1[idx] = w1[idx];
+    }
 
-        for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
-             idx += item_ct1.get_local_range(2))
-        {
-            s_w2[idx] = w2[idx];
-        }
+    for (unsigned int idx = item_ct1.get_local_id(2); idx < nq2;
+         idx += item_ct1.get_local_range(2))
+    {
+        s_w2[idx] = w2[idx];
     }
 
     unsigned int e = item_ct1.get_group(2);
@@ -2410,30 +2100,30 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
 }
 
 template <typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM, typename TData>
+          typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *__restrict__ basis0, const TData *__restrict__ w0,
     const TData *__restrict__ jac, const TData *__restrict__ in,
-    TData *__restrict out, const TData scale, TData *__restrict shmemptr,
+    TData *__restrict out, const TData scale,
+    [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED, SHMEM>(
-            nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
-            item_ct1);
+        IProductWRTBaseSegKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, item_ct1);
     }
     else
     {
-        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+        IProductWRTBaseSegKernel_QP<SCALE, APPEND, DEFORMED>(
             nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
             item_ct1);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+          bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
@@ -2442,19 +2132,20 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData *__restrict__ w0, const TData *__restrict__ w1,
     const TData *__restrict__ jac, [[maybe_unused]] TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out, const TData scale,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    [[maybe_unused]] TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Quad)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseQuadKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac,
-                wsp, in, out, scale, shmemptr, item_ct1);
+                wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseQuadKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1, w0, w1, jac,
                 in, out, scale, shmemptr, item_ct1);
         }
@@ -2463,13 +2154,13 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTriKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
-                w0, w1, jac, wsp, in, out, scale, shmemptr, item_ct1);
+                w0, w1, jac, wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTriKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0, basis0,
                 basis1, w0, w1, jac, in, out, scale, shmemptr, item_ct1);
         }
@@ -2477,7 +2168,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SCALE, bool APPEND, bool DEFORMED, bool SHMEM, typename TData>
+          bool SCALE, bool APPEND, bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
@@ -2490,20 +2181,20 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *__restrict__ w1, const TData *__restrict__ w2,
     const TData *__restrict__ jac, [[maybe_unused]] TData *__restrict__ wsp,
     const TData *__restrict__ in, TData *__restrict out, const TData scale,
-    TData *__restrict shmemptr, const sycl::nd_item<3> &item_ct1)
+    [[maybe_unused]] TData *__restrict shmemptr,
+    const sycl::nd_item<3> &item_ct1)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::Hex)
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseHexKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
-                basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
-                item_ct1);
+                basis2, w0, w1, w2, jac, wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseHexKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, basis0, basis1,
                 basis2, w0, w1, w2, jac, in, out, scale, shmemptr, item_ct1);
         }
@@ -2512,14 +2203,13 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTetKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
-                item_ct1);
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBaseTetKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
                 index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in,
                 out, scale, shmemptr, item_ct1);
@@ -2529,14 +2219,13 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePrismKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
-                item_ct1);
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePrismKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
                 index1, index2, basis0, basis1, basis2, w0, w1, w2, jac, in,
                 out, scale, shmemptr, item_ct1);
@@ -2546,14 +2235,13 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     {
         if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
         {
-            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePyrKernel<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, basis0,
-                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, shmemptr,
-                item_ct1);
+                basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale, item_ct1);
         }
         else
         {
-            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED, SHMEM>(
+            IProductWRTBasePyrKernel_QP<SCALE, APPEND, DEFORMED>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
                 index1, basis0, basis1, basis2, w0, w1, w2, jac, in, out, scale,
                 shmemptr, item_ct1);
@@ -2564,7 +2252,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
 // Kernel launchers
 // Non-size based version.
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, typename TData>
+          bool DEFORMED, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
     const TData *basis0, const TData *w0, const TData *jac, const TData *in,
@@ -2573,7 +2261,7 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        IProductWRTBaseSharedMemorySize<Implementation, SHMEM>(nq0, nm0);
+        IProductWRTBaseSharedMemorySize<Implementation>(nq0, nm0);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nq0);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
@@ -2587,30 +2275,28 @@ NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  IProductWRTBase1DKernel<Implementation, SCALE, APPEND,
-                                         DEFORMED, SHMEM>(
-                     nm0, nq0, nelmt, basis0, w0, jac, in, out, scale, shmemptr,
-                     item_ct1);
+                                         DEFORMED>(nm0, nq0, nelmt, basis0, w0,
+                                                   jac, in, out, scale,
+                                                   shmemptr, item_ct1);
              });
      }).wait();
 }
 
 // Size based template version.
 template <typename ExecSpace, typename Implementation, bool SCALE, bool APPEND,
-          bool DEFORMED, bool SHMEM, unsigned int nm0, unsigned int nq0,
-          typename TData>
+          bool DEFORMED, unsigned int nm0, unsigned int nq0, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase1DKernel(
     const unsigned int nelmt, const TData *basis0, const TData *w0,
     const TData *jac, const TData *in, TData *out, const TData scale = 1.0)
 {
-    IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED,
-                            SHMEM>(nm0, nq0, nelmt, basis0, w0, jac, in, out,
-                                   scale);
+    IProductWRTBase1DKernel<ExecSpace, Implementation, SCALE, APPEND, DEFORMED>(
+        nm0, nq0, nelmt, basis0, w0, jac, in, out, scale);
 }
 
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM, typename TData>
+          typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
@@ -2625,8 +2311,8 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
-            nq0, nq1, nm0, nm1);
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1,
+                                                                    nm0, nm1);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nq0 * nq1);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
 
@@ -2640,7 +2326,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  IProductWRTBase2DKernel<SHAPE_TYPE, Implementation, SCALE,
-                                         APPEND, DEFORMED, SHMEM>(
+                                         APPEND, DEFORMED>(
                      nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, index0,
                      basis0, basis1, w0, w1, jac, wsp, in, out, scale, shmemptr,
                      item_ct1);
@@ -2651,7 +2337,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM, unsigned int nm0, unsigned int nm1, unsigned int nq0,
+          unsigned int nm0, unsigned int nm1, unsigned int nq0,
           unsigned int nq1, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const unsigned int nelmt, const bool isModified,
@@ -2661,7 +2347,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
     const TData scale = 1.0)
 {
     IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED, SHMEM>(
+                            APPEND, DEFORMED>(
         nm0, nm1, nq0, nq1, nelmt, isModified, index0, basis0, basis1, w0, w1,
         jac, wsp, in, out, scale);
 }
@@ -2669,7 +2355,7 @@ NEK_FORCE_INLINE static void IProductWRTBase2DKernel(
 // Non-size based version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM, typename TData>
+          typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
@@ -2687,7 +2373,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     sycl::queue &Q = SYCLQueue::GetInstance();
 
     const unsigned int shmemsize =
-        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation, SHMEM>(
+        IProductWRTBaseSharedMemorySize<SHAPE_TYPE, Implementation>(
             nq0, nq1, nq2, nm0, nm1, nm2);
     const auto blocksize = GetSYCLBlockSize<Implementation>(nm0 * nm1 * nm2);
     const auto gridsize  = GetSYCLGridSize<Implementation>(nelmt);
@@ -2702,7 +2388,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
                          .template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
                  IProductWRTBase3DKernel<SHAPE_TYPE, Implementation, SCALE,
-                                         APPEND, DEFORMED, SHMEM>(
+                                         APPEND, DEFORMED>(
                      nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
                      index0, index1, index2, basis0, basis1, basis2, w0, w1, w2,
                      jac, wsp, in, out, scale, shmemptr, item_ct1);
@@ -2713,7 +2399,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
 // Size based template version.
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, bool SCALE, bool APPEND, bool DEFORMED,
-          bool SHMEM, unsigned int nm0, unsigned int nm1, unsigned int nm2,
+          unsigned int nm0, unsigned int nm1, unsigned int nm2,
           unsigned int nq0, unsigned int nq1, unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const unsigned int nelmt, const bool isModified,
@@ -2725,7 +2411,7 @@ NEK_FORCE_INLINE static void IProductWRTBase3DKernel(
     const TData *in, TData *out, const TData scale = 1.0)
 {
     IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SCALE,
-                            APPEND, DEFORMED, SHMEM>(
+                            APPEND, DEFORMED>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, index2,
         basis0, basis1, basis2, w0, w1, w2, jac, wsp, in, out, scale);
 }

@@ -251,8 +251,7 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool Append = false;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -298,17 +297,17 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, SharedMemory>(
-                nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+                                    DEFORMED>(nm0, nq0, nElmtsPad, basis0, w0,
+                                              jacptr, inptr, outptr);
         }
         else
         {
             constexpr bool Scale = true;
 
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, SharedMemory>(
-                nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr,
-                this->m_lambda);
+                                    DEFORMED>(nm0, nq0, nElmtsPad, basis0, w0,
+                                              jacptr, inptr, outptr,
+                                              this->m_lambda);
         }
     }
 
@@ -318,8 +317,7 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool Append = false;
 
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
@@ -361,15 +359,15 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, SharedMemory, nm0, nq0>(
-                nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+                                    DEFORMED, nm0, nq0>(nElmtsPad, basis0, w0,
+                                                        jacptr, inptr, outptr);
         }
         else
         {
             constexpr bool Scale = true;
 
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, SharedMemory, nm0, nq0>(
+                                    DEFORMED, nm0, nq0>(
                 nElmtsPad, basis0, w0, jacptr, inptr, outptr, this->m_lambda);
         }
     }
@@ -379,9 +377,8 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool device_only = true;
+        constexpr bool Append      = false;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -482,7 +479,7 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory>(
+                                    Scale, Append, DEFORMED>(
                 nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
                 basis1, w0, w1, jacptr, wspptr, inptr, outptr);
         }
@@ -491,7 +488,7 @@ private:
             constexpr bool Scale = true;
 
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory>(
+                                    Scale, Append, DEFORMED>(
                 nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
                 basis1, w0, w1, jacptr, wspptr, inptr, outptr, this->m_lambda);
         }
@@ -504,9 +501,8 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool device_only = true;
+        constexpr bool Append      = false;
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
@@ -600,20 +596,20 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory, nm0,
-                                    nm1, nq0, nq1>(
-                nElmtsPad, isModified, index0, basis0, basis1, w0, w1, jacptr,
-                wspptr, inptr, outptr);
+                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
+                                    nq1>(nElmtsPad, isModified, index0, basis0,
+                                         basis1, w0, w1, jacptr, wspptr, inptr,
+                                         outptr);
         }
         else
         {
             constexpr bool Scale = true;
 
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory, nm0,
-                                    nm1, nq0, nq1>(
-                nElmtsPad, isModified, index0, basis0, basis1, w0, w1, jacptr,
-                wspptr, inptr, outptr, this->m_lambda);
+                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
+                                    nq1>(nElmtsPad, isModified, index0, basis0,
+                                         basis1, w0, w1, jacptr, wspptr, inptr,
+                                         outptr, this->m_lambda);
         }
     }
 
@@ -622,9 +618,8 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool device_only = true;
+        constexpr bool Append      = false;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -833,7 +828,7 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory>(
+                                    Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
                 index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
                 wspptr, inptr, outptr);
@@ -843,7 +838,7 @@ private:
             constexpr bool Scale = true;
 
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory>(
+                                    Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
                 index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
                 wspptr, inptr, outptr, this->m_lambda);
@@ -857,9 +852,8 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
-        constexpr bool Append       = false;
+        constexpr bool device_only = true;
+        constexpr bool Append      = false;
 
         const auto nmTot =
             LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -1059,8 +1053,8 @@ private:
             constexpr bool Scale = false;
 
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory, nm0,
-                                    nm1, nm2, nq0, nq1, nq2>(
+                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
+                                    nq1, nq2>(
                 nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr);
         }
@@ -1069,8 +1063,8 @@ private:
             constexpr bool Scale = true;
 
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, SharedMemory, nm0,
-                                    nm1, nm2, nq0, nq1, nq2>(
+                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
+                                    nq1, nq2>(
                 nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
                 basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr,
                 this->m_lambda);

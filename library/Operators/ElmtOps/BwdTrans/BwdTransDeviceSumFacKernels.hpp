@@ -42,22 +42,21 @@ namespace Nektar::Operators::detail
 {
 
 // Helper function
-template <typename Implementation, bool SHMEM>
+template <typename Implementation>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nm0)
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        return nm0 + SHMEM * nm0 * nq0;
+        return nm0 + nm0 * nq0;
     }
     else
     {
-        return SHMEM * nm0 * nq0;
+        return 0;
     }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SHMEM>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
                                              const unsigned int nq1,
                                              const unsigned int nm0,
@@ -66,37 +65,24 @@ inline unsigned int BwdTransSharedMemorySize(const unsigned int nq0,
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
 
-    unsigned int nshared = 0;
-
-    if constexpr (SHMEM)
-    {
-        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
-        {
-            nshared += nq0 * nm0 + nq1 * nm1;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
-        {
-            nshared += nm0 * nq0 + nmTot * nq1;
-        }
-    }
-
     if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            nshared += nmTot + nq0 * nm1;
+            return nq0 * nm0 + nq1 * nm1 + nmTot + nq0 * nm1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            nshared += nmTot + nm0 * nq1;
+            return nm0 * nq0 + nmTot * nq1 + nmTot + nm0 * nq1;
         }
     }
-
-    return nshared;
+    else
+    {
+        return 0;
+    }
 }
 
-template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
-          bool SHMEM>
+template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation>
 inline unsigned int BwdTransSharedMemorySize(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2)
@@ -108,50 +94,33 @@ inline unsigned int BwdTransSharedMemorySize(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    unsigned int nshared = 0;
-
-    if constexpr (SHMEM)
-    {
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
-        {
-            nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            nshared += nm0 * nq0 + nm01 * nq1 + nmode2 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            nshared += nm0 * nq0 + nm1 * nq1 + nm12 * nq2;
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            nshared += nm0 * nq0 + nm1 * nq1 + nmode2 * nq2;
-        }
-    }
-
     if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            nshared += nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nmTot +
-                       (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
+            return nq0 * nm0 + nq1 * nm1 + nq2 * nm2 + nq0 * nm0 + nq1 * nm1 +
+                   nq2 * nm2 + nmTot + (nq0 * nm1 * nm2) + (nq0 * nq1 * nm2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            nshared += nmTot + (nm01 * nq2) + (nm0 * nq1 * nq2);
+            return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nmTot +
+                   (nm01 * nq2) + (nm0 * nq1 * nq2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
+            return nm0 * nq0 + nm1 * nq1 + nm12 * nq2 + nmTot +
+                   (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            nshared += nmTot + (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
+            return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nmTot +
+                   (nm0 * nm1 * nq2) + (nm0 * nq1 * nq2);
         }
     }
-
-    return nshared;
+    else
+    {
+        return 0;
+    }
 }
 
 } // namespace Nektar::Operators::detail
