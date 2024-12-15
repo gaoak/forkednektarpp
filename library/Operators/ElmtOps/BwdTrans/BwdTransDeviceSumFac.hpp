@@ -229,8 +229,6 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nq0 = m_expPtr->GetNumPoints(0);
@@ -257,8 +255,8 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // BwdTrans kernel.
-        BwdTrans1DKernel<ExecSpace, Implementation, SharedMemory>(
-            nm0, nq0, nElmtsPad, basis0, inptr, outptr);
+        BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, basis0,
+                                                    inptr, outptr);
     }
 
     // Size based template version.
@@ -267,8 +265,6 @@ private:
     void Operator1D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Fetch basis data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
@@ -291,8 +287,8 @@ private:
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // BwdTrans kernel.
-        BwdTrans1DKernel<ExecSpace, Implementation, SharedMemory, nm0, nq0>(
-            nElmtsPad, basis0, inptr, outptr);
+        BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(nElmtsPad, basis0,
+                                                              inptr, outptr);
     }
 
     // Non-size based operator.
@@ -300,8 +296,6 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
         const auto nm1 = m_expPtr->GetBasisNumModes(1);
@@ -353,7 +347,7 @@ private:
                           : nullptr;
 
         // BwdTrans kernel.
-        BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory>(
+        BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
             nm0, nm1, nq0, nq1, nElmtsPad, isModified, basis0, basis1, wspptr,
             inptr, outptr);
     }
@@ -365,8 +359,6 @@ private:
     void Operator2D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool SharedMemory = true;
-
         // Flag for collapsed coordinate correction.
         const bool isModified =
             m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
@@ -411,9 +403,9 @@ private:
                           : nullptr;
 
         // BwdTrans kernel.
-        BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory,
-                         nm0, nm1, nq0, nq1>(nElmtsPad, isModified, basis0,
-                                             basis1, wspptr, inptr, outptr);
+        BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1, nq0,
+                         nq1>(nElmtsPad, isModified, basis0, basis1, wspptr,
+                              inptr, outptr);
     }
 
     // Non-size based operator.
@@ -421,8 +413,7 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
+        constexpr bool device_only = true;
 
         // Shape size.
         const auto nm0 = m_expPtr->GetBasisNumModes(0);
@@ -516,7 +507,7 @@ private:
                           : nullptr;
 
         // BwdTrans kernel.
-        BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory>(
+        BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
             nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0, index1,
             basis0, basis1, basis2, wspptr, inptr, outptr);
     }
@@ -528,8 +519,7 @@ private:
     void Operator3D(BlockAccessor<TData> &inblock,
                     BlockAccessor<TData> &outblock)
     {
-        constexpr bool device_only  = true;
-        constexpr bool SharedMemory = true;
+        constexpr bool device_only = true;
 
         // Flag for collapsed coordinate correction.
         const bool isModified =
@@ -614,10 +604,10 @@ private:
                           : nullptr;
 
         // BwdTrans kernel.
-        BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, SharedMemory,
-                         nm0, nm1, nm2, nq0, nq1, nq2>(
-            nElmtsPad, isModified, index0, index1, basis0, basis1, basis2,
-            wspptr, inptr, outptr);
+        BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1, nm2,
+                         nq0, nq1, nq2>(nElmtsPad, isModified, index0, index1,
+                                        basis0, basis1, basis2, wspptr, inptr,
+                                        outptr);
     }
 };
 
