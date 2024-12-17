@@ -1,6 +1,5 @@
 blas-devel
 boost-devel
-boost-python3-devel
 ccache
 cmake
 gcc-c++

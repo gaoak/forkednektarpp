@@ -32,26 +32,12 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
-
 #include <LibUtilities/TimeIntegration/TimeIntegrationSchemeOperators.h>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
-
-// Converts a OneD array of ExpLists to a Python list.
-inline py::list ArrayOneDToPyList(
-    const Array<OneD, const Array<OneD, NekDouble>> &in)
-{
-    py::list ret;
-
-    for (int i = 0; i < in.size(); ++i)
-    {
-        ret.append(py::object(in[i]));
-    }
-
-    return ret;
-}
 
 /**
  * @brief Helper class for holding a reference to a Python function to act as a
@@ -60,6 +46,7 @@ inline py::list ArrayOneDToPyList(
  * This wrapper is used for TimeIntegrationSchemeOperators::DefineOdeRhs and
  * TimeIntegrationSchemeOperators::DefineProjection.
  */
+#pragma GCC visibility push(hidden)
 struct CallbackHolderT1
 {
     /// Default constructor
@@ -76,11 +63,11 @@ struct CallbackHolderT1
     {
         py::object ret = m_cb(in, time);
 
-        py::list outList = py::extract<py::list>(ret);
+        py::list outList = py::cast<py::list>(ret);
 
         for (std::size_t i = 0; i < py::len(outList); ++i)
         {
-            out[i] = py::extract<Array<OneD, NekDouble>>(outList[i]);
+            out[i] = py::cast<Array<OneD, NekDouble>>(outList[i]);
         }
     }
 
@@ -88,6 +75,7 @@ private:
     /// Callback defined in Python code.
     py::object m_cb;
 };
+#pragma GCC visibility pop
 
 /**
  * @brief Helper class for holding a reference to a Python function to act as a
@@ -95,6 +83,7 @@ private:
  *
  * This wrapper is used for TimeIntegrationSchemeOperators::DefineImplicitSolve.
  */
+#pragma GCC visibility push(hidden)
 struct CallbackHolderT2
 {
     /// Default constructor
@@ -111,11 +100,11 @@ struct CallbackHolderT2
     {
         py::object ret = m_cb(in, time, lambda);
 
-        py::list outList = py::extract<py::list>(ret);
+        py::list outList = py::cast<py::list>(ret);
 
         for (std::size_t i = 0; i < py::len(outList); ++i)
         {
-            out[i] = py::extract<Array<OneD, NekDouble>>(outList[i]);
+            out[i] = py::cast<Array<OneD, NekDouble>>(outList[i]);
         }
     }
 
@@ -123,6 +112,7 @@ private:
     /// Callback defined in Python code.
     py::object m_cb;
 };
+#pragma GCC visibility pop
 
 void TimeIntegrationSchemeOperators_DefineOdeRhs(
     TimeIntegrationSchemeOperatorsSharedPtr op, py::object callback)
@@ -148,12 +138,11 @@ void TimeIntegrationSchemeOperators_DefineImplicitSolve(
     op->DefineImplicitSolve(&CallbackHolderT2::call, cb);
 }
 
-void export_TimeIntegrationSchemeOperators()
+void export_TimeIntegrationSchemeOperators(py::module &m)
 {
     py::class_<TimeIntegrationSchemeOperators,
-               std::shared_ptr<TimeIntegrationSchemeOperators>,
-               boost::noncopyable>("TimeIntegrationSchemeOperators",
-                                   py::init<>())
+               std::shared_ptr<TimeIntegrationSchemeOperators>>(
+        m, "TimeIntegrationSchemeOperators")
         .def("DefineOdeRhs", &TimeIntegrationSchemeOperators_DefineOdeRhs)
         .def("DefineProjection",
              &TimeIntegrationSchemeOperators_DefineProjection)

@@ -35,9 +35,9 @@
 import math, sys, io, os, unittest, argparse
 import numpy as np
 
-from NekPy.LibUtilities import SessionReader, NekError
+from NekPy.LibUtilities import SessionReader
 from NekPy.SpatialDomains import MeshGraphIO
-from NekPy.SolverUtils import EquationSystem, Filter
+from NekPy.SolverUtils import EquationSystem
 from UnitTestUtils import SuppressStream
 
 # Create an EquationSystem class to test registration of classes from Python.

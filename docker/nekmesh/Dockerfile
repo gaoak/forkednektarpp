@@ -27,8 +27,7 @@ RUN DEBIAN_RELEASE=bookworm && \
     apt-get update && \
     apt-get install -y \
     openssh-client nano vim binutils \
-    libboost-iostreams1.74 libboost-system1.74 \
-    libboost-program-options1.74 libboost-python1.74 libboost-numpy1.74 \
+    libboost-iostreams1.74 libboost-system1.74 libboost-program-options1.74 \
     libfftw3-double3 libhdf5-103 libhdf5-openmpi-103 liblapack3 liboce-foundation11 \
     liboce-modeling11 liboce-ocaf11 libtet1.5 libtriangle-1.6 python3-numpy libvtk9.1 \
     openmpi-bin libpetsc-real3.18 libptscotch-7.0 libarpack2 libtinyxml2.6.2v5 && \

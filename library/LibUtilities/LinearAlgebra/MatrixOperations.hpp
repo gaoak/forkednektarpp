@@ -187,7 +187,7 @@ void MultiplyEqual(
                                                   RhsMatrixType>::NumberType>,
                      RhsInnerType>::value &&
         CanGetRawPtr<NekMatrix<RhsInnerType, RhsMatrixType>>::value>::type *t =
-        0)
+        nullptr)
 {
     ASSERTL0(result.GetType() == eFULL && rhs.GetType() == eFULL,
              "Only full matrices supported.");

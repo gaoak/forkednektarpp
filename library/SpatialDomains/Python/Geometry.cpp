@@ -32,10 +32,13 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/Geometry.h>
 #include <SpatialDomains/Geometry1D.h>
 #include <SpatialDomains/Geometry2D.h>
+
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Python/NekPyConfig.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
@@ -58,10 +61,9 @@ bool Geometry_IsValid(GeometrySharedPtr geom)
     return geomFactors->IsValid();
 }
 
-void export_Geometry()
+void export_Geometry(py::module &m)
 {
-    py::class_<Geometry, std::shared_ptr<Geometry>, boost::noncopyable>(
-        "Geometry", py::no_init)
+    py::class_<Geometry, std::shared_ptr<Geometry>>(m, "Geometry")
 
         .def("GetCoordim", &Geometry::GetCoordim)
         .def("GetGlobalID", &Geometry::GetGlobalID)
@@ -91,6 +93,5 @@ void export_Geometry()
         .def("GetForient", &Geometry::GetForient)
 
         .def("GetXmap", &Geometry::GetXmap)
-        .def("GetCoeffs", &Geometry::GetCoeffs,
-             py::return_value_policy<py::copy_const_reference>());
+        .def("GetCoeffs", &Geometry::GetCoeffs);
 }

@@ -5,7 +5,6 @@ mesh          = Mesh()
 mesh.expDim   = 3
 mesh.spaceDim = 3
 mesh.nummode  = 5
-mesh.verbose  = True
 
 if len(sys.argv) != 3:
     print('Usage: LoadCAD.py input.stp output.xml')

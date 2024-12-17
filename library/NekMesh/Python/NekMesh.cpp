@@ -34,48 +34,25 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <NekMesh/Module/Log.hpp>
+#include <NekMesh/Python/NekMesh.h>
 
-void export_Element();
-void export_Mesh();
-void export_Module();
-void export_Node();
+using namespace Nektar;
+using namespace Nektar::NekMesh;
 
-PyObject *NekMeshErrorType = nullptr;
+void export_Element(py::module &m);
+void export_Mesh(py::module &m);
+void export_Module(py::module &m);
+void export_Node(py::module &m);
 
 using NekMeshError = Nektar::NekMesh::NekMeshError;
 
-PyObject *CreateExceptionClass(const char *name,
-                               PyObject *baseTypeObj = PyExc_Exception)
+PYBIND11_MODULE(_NekMesh, m)
 {
-    std::string qualifiedName0 = std::string("NekPy.NekMesh.") + name;
-
-    PyObject *typeObj = PyErr_NewException(
-        const_cast<char *>(qualifiedName0.c_str()), baseTypeObj, nullptr);
-
-    if (!typeObj)
-    {
-        py::throw_error_already_set();
-    }
-
-    py::scope().attr(name) = py::handle<>(py::borrowed(typeObj));
-    return typeObj;
-}
-
-void TranslateNekMeshError(NekMeshError const &e)
-{
-    PyErr_SetString(NekMeshErrorType, e.what());
-}
-
-BOOST_PYTHON_MODULE(_NekMesh)
-{
-    np::initialize();
-
     // Register the NekMeshError exception.
-    NekMeshErrorType = CreateExceptionClass("NekMeshError");
-    py::register_exception_translator<NekMeshError>(&TranslateNekMeshError);
+    py::register_exception<NekMeshError>(m, "NekMeshError");
 
-    export_Element();
-    export_Mesh();
-    export_Module();
-    export_Node();
+    export_Element(m);
+    export_Mesh(m);
+    export_Module(m);
+    export_Node(m);
 }

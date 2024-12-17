@@ -33,7 +33,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Python/BasicUtils/NekFactory.hpp>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
+#include <MultiRegions/ContField.h>
 
 #include <SolverUtils/Filters/Filter.h>
 
@@ -44,7 +46,8 @@ using namespace Nektar::SolverUtils;
  * @brief Filter wrapper to handle virtual function calls in @c Filter and its
  * subclasses.
  */
-struct FilterWrap : public Filter, public py::wrapper<Filter>
+#pragma GCC visibility push(hidden)
+struct FilterWrap : public Filter, public py::trampoline_self_life_support
 {
     /**
      * @brief Constructor, which is identical to Filter.
@@ -53,54 +56,54 @@ struct FilterWrap : public Filter, public py::wrapper<Filter>
      */
     FilterWrap(LibUtilities::SessionReaderSharedPtr session,
                std::shared_ptr<EquationSystem> eqn)
-        : Filter(session, eqn), py::wrapper<Filter>()
+        : Filter(session, eqn)
     {
-    }
-
-    py::list ArrayOneDToPyList(
-        const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields)
-    {
-        py::list expLists;
-
-        for (int i = 0; i < pFields.size(); ++i)
-        {
-            expLists.append(py::object(pFields[i]));
-        }
-
-        return expLists;
     }
 
     void v_Initialise(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override
     {
-        this->get_override("Initialise")(ArrayOneDToPyList(pFields), time);
+        PYBIND11_OVERRIDE_PURE_NAME(void, Filter, "Initialise", v_Initialise,
+                                    pFields, time);
     }
 
     void v_Update(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override
     {
-        this->get_override("Update")(ArrayOneDToPyList(pFields), time);
+        PYBIND11_OVERRIDE_PURE_NAME(void, Filter, "Update", v_Update, pFields,
+                                    time);
     }
 
     void v_Finalise(
         const Array<OneD, const MultiRegions::ExpListSharedPtr> &pFields,
         const NekDouble &time) override
     {
-        this->get_override("Finalise")(ArrayOneDToPyList(pFields), time);
+        PYBIND11_OVERRIDE_PURE_NAME(void, Filter, "Finalise", v_Finalise,
+                                    pFields, time);
     }
 
     bool v_IsTimeDependent() override
     {
-        return this->get_override("IsTimeDependent")();
+        PYBIND11_OVERRIDE_PURE_NAME(bool, Filter, "IsTimeDependent",
+                                    v_IsTimeDependent, );
     }
+};
+#pragma GCC visibility pop
+
+struct FilterPublic : public Filter
+{
+    using Filter::v_Finalise;
+    using Filter::v_Initialise;
+    using Filter::v_IsTimeDependent;
+    using Filter::v_Update;
 };
 
 /**
  * @brief Lightweight wrapper for Filter factory creation function.
  */
-FilterSharedPtr Filter_Create(py::tuple args, py::dict kwargs)
+FilterSharedPtr Filter_Create(py::args args, const py::kwargs &kwargs)
 {
     using NekError = ErrorUtil::NekError;
 
@@ -111,97 +114,69 @@ FilterSharedPtr Filter_Create(py::tuple args, py::dict kwargs)
                        "EquationSystem object.");
     }
 
-    std::string filterName = py::extract<std::string>(args[0]);
+    std::string filterName = py::cast<std::string>(args[0]);
 
-    if (!py::extract<LibUtilities::SessionReaderSharedPtr>(args[1]).check())
+    LibUtilities::SessionReaderSharedPtr session;
+    EquationSystemSharedPtr eqsys;
+
+    try
+    {
+        session = py::cast<LibUtilities::SessionReaderSharedPtr>(args[1]);
+    }
+    catch (...)
     {
         throw NekError("Second argument to Create() should be a SessionReader "
                        "object.");
     }
 
-    if (!py::extract<EquationSystemSharedPtr>(args[2]).check())
+    try
+    {
+        eqsys = py::cast<EquationSystemSharedPtr>(args[2]);
+    }
+    catch (...)
     {
         throw NekError("Second argument to Create() should be a EquationSystem "
                        "object.");
     }
 
-    LibUtilities::SessionReaderSharedPtr session =
-        py::extract<LibUtilities::SessionReaderSharedPtr>(args[1]);
-    EquationSystemSharedPtr eqn = py::extract<EquationSystemSharedPtr>(args[2]);
-
     // Process keyword arguments.
-    py::list items = kwargs.items();
     Filter::ParamMap params;
 
-    for (int i = 0; i < py::len(items); ++i)
+    for (auto &kwarg : kwargs)
     {
-        std::string arg = py::extract<std::string>(items[i][0]);
-        std::string val =
-            py::extract<std::string>(items[i][1].attr("__str__")());
-        params[arg] = val;
+        std::string arg = py::cast<std::string>(kwarg.first);
+        std::string val = py::cast<std::string>(py::str(kwarg.second));
+        params[arg]     = val;
     }
 
     std::shared_ptr<Filter> filter =
-        GetFilterFactory().CreateInstance(filterName, session, eqn, params);
+        GetFilterFactory().CreateInstance(filterName, session, eqsys, params);
 
     return filter;
 }
 
-void Filter_Initialise(std::shared_ptr<Filter> filter,
-                       Array<OneD, MultiRegions::ExpListSharedPtr> expLists,
-                       NekDouble time)
-{
-    filter->Initialise(expLists, time);
-}
-
-void Filter_Update(std::shared_ptr<Filter> filter,
-                   Array<OneD, MultiRegions::ExpListSharedPtr> expLists,
-                   NekDouble time)
-{
-    filter->Update(expLists, time);
-}
-
-void Filter_Finalise(std::shared_ptr<Filter> filter,
-                     Array<OneD, MultiRegions::ExpListSharedPtr> expLists,
-                     NekDouble time)
-{
-    filter->Finalise(expLists, time);
-}
-
-bool Filter_IsTimeDependent(std::shared_ptr<Filter> filter)
-{
-    return filter->IsTimeDependent();
-}
-
-void export_Filter()
+void export_Filter(py::module &m)
 {
     static NekFactory_Register<FilterFactory> fac(GetFilterFactory());
-
-    // Define FilterWrap to be implicitly convertible to a Filter, since it
-    // seems that doesn't sometimes get picked up.
-    py::implicitly_convertible<std::shared_ptr<FilterWrap>,
-                               std::shared_ptr<Filter>>();
 
     // Wrapper for the Filter class. Note that since Filter contains a pure
     // virtual function, we need the FilterWrap helper class to handle this for
     // us. In the lightweight wrappers above, we therefore need to ensure we're
     // passing std::shared_ptr<Filter> as the first argument, otherwise they
     // won't accept objects constructed from Python.
-    py::class_<FilterWrap, std::shared_ptr<FilterWrap>, boost::noncopyable>(
-        "Filter", py::init<LibUtilities::SessionReaderSharedPtr,
-                           EquationSystemSharedPtr>())
+    py::classh<Filter, FilterWrap>(m, "Filter")
+        .def(py::init<LibUtilities::SessionReaderSharedPtr,
+                      EquationSystemSharedPtr>())
 
-        .def("Initialise", &Filter_Initialise)
-        .def("Update", &Filter_Update)
-        .def("Finalise", &Filter_Finalise)
-        .def("IsTimeDependent", &Filter_IsTimeDependent)
+        .def("Initialise", &FilterPublic::v_Initialise)
+        .def("Update", &FilterPublic::v_Update)
+        .def("Finalise", &FilterPublic::v_Finalise)
+        .def("IsTimeDependent", &FilterPublic::v_IsTimeDependent)
 
         // Factory functions.
-        .def("Create", py::raw_function(Filter_Create))
-        .staticmethod("Create")
-        .def("Register", [](std::string const &filterName,
-                            py::object &obj) { fac(filterName, obj); })
-        .staticmethod("Register");
+        .def_static("Create", &Filter_Create)
 
-    WrapConverter<Filter>();
+        .def_static("Register", [](std::string &filterName, py::object &obj) {
+            fac(filterName, obj, filterName);
+        });
 }

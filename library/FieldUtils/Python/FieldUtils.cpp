@@ -34,12 +34,11 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-void export_Field();
-void export_Module();
+void export_Field(py::module &m);
+void export_Module(py::module &m);
 
-BOOST_PYTHON_MODULE(_FieldUtils)
+PYBIND11_MODULE(_FieldUtils, m)
 {
-    np::initialize();
-    export_Field();
-    export_Module();
+    export_Field(m);
+    export_Module(m);
 }

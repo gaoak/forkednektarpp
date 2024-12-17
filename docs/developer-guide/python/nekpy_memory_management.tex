@@ -84,8 +84,12 @@ memory resources -- however it is sometimes necessary, as is the case with this
 project. In particular, the Python C API exposes several macros to handle
 reference counting, and developers can increase or decrease the reference
 counter of the object using \texttt{Py\_INCREF} and \texttt{Py\_DECREF}
-respectively~\cite{PythonManualMemory}. In \texttt{Boost.Python}, these calls
-are wrapped in the \texttt{py::incref} and \texttt{py::decref} functions.
+respectively~\cite{PythonManualMemory}. In \texttt{pybind11}, these calls are
+wrapped in the use of either \texttt{incref} and \texttt{decref} functions
+inside either a \texttt{py::handle} or \texttt{py::object}. The difference
+between these classes is that \texttt{handle} makes no adjustment to the
+underlying \texttt{PyObject} reference count, whereas \texttt{py::object}
+increments/decrements the counter as the object goes in and out of C++ scope.
 
 \section{Passing C++ memory to Python}
 
@@ -109,91 +113,151 @@ must be used.
 
 \subsubsection{Converter method}
 
-Boost.Python provides the methods to convert a C++ type element to one recognised by 
-Python as well as to maintain appropriate reference counting. Listing \ref{lst:c_to_python} 
-shows an abridged version of the converter method (for Python 2 only) with comments on 
-individual parameters. The object requiring conversion is a \texttt{shared\_ptr} of 
-\texttt{NekMatrix<D, StandardMatrixTag>} type (named \texttt{mat}).
+\texttt{pybind11} provides the methods to convert a C++ type element to one
+recognised by Python as well as to maintain appropriate reference
+counting. Listing \ref{lst:c_to_python} shows an abridged version of the
+converter method with comments on individual parameters. The object requiring
+conversion is a \texttt{shared\_ptr} of \texttt{NekMatrix<D, StandardMatrixTag>}
+type (named \texttt{mat}).
 
 \begin{lstlisting}[caption={Converter method for converting the C++ arrays into Python NumPy arrays.}, label={lst:c_to_python}, language=C++]
-#include <LibUtilities/LinearAlgebra/NekMatrix.hpp>
-#include <LibUtilities/LinearAlgebra/MatrixStorageType.h>
-#include <NekPyConfig.hpp>
-
-using namespace Nektar;
-using namespace Nektar::LibUtilities;
-
-template<typename T, typename F>
-void NekMatrixCapsuleDestructor(void *ptr)
+namespace pybind11::detail
 {
-    // Destructor for shared_ptr when the capsule is deallocated.
-    std::shared_ptr<NekMatrix<T, F>> *mat =
-        (std::shared_ptr<NekMatrix<T, F>> *)ptr;
-    delete mat;
-}
 
-template<typename T>
-struct NekMatrixToPython
+template <typename Type, typename T> struct standard_nekmatrix_caster
 {
-    static PyObject *convert(
-        std::shared_ptr<NekMatrix<T, StandardMatrixTag>> const &mat)
+public:
+    PYBIND11_TYPE_CASTER(Type, const_name("NekMatrix<T>"));
+
+    bool load(handle src, bool)
     {
-        // Create a PyCObject, which will hold a shared_ptr to the matrix.
-        // When capsule is deallocated on the Python side, it will call the
-        // destructor function above and release the shared_ptr reference.
-        py::object capsule(py::handle<>(PyCObject_FromVoidPtr(
-            new std::shared_ptr<NekMatrix<T, StandardMatrixTag>>(mat),
-            NekMatrixCapsuleDestructor<T, StandardMatrixTag>)));
-
-        int nRows = mat->GetRows(), nCols = mat->GetColumns();
-
-        // increments Python reference counter to avoid immediate deallocation
-        return py::incref( 
-            np::from_data(
-                mat->GetRawPtr(), // pointer to data
-                np::dtype::get_builtin<T>(), // data type
-                py::make_tuple(nRows, nCols), // shape of the array
-                py::make_tuple(sizeof(T), nRows * sizeof(T)), // stride of the array
-                capsule).ptr()); // capsule - contains the object owning the data (preventing it from being prematurely deallocated)
+        // Perform Python to C++ conversion: returns true if successful, false
+        // otherwise.
     }
-}
 
-template<typename T>
-void export_NekMatrix()
+    // Conversion part 2 (C++ -> Python)
+    static handle cast(
+        const Nektar::NekMatrix<T, Nektar::StandardMatrixTag> &src,
+        return_value_policy, handle)
+    {
+        // Perform C++ to Python conversion.         
+    }
+};
+
+template <typename Type>
+struct type_caster<Nektar::NekMatrix<Type, Nektar::StandardMatrixTag>>
+    : standard_nekmatrix_caster<
+          Nektar::NekMatrix<Type, Nektar::StandardMatrixTag>, Type>
 {
-    py::to_python_converter<std::shared_ptr<NekMatrix<T, StandardMatrixTag>>,
-                            NekMatrixToPython<T>>();
-}  
+};
+
+} // namespace pybind11::detail
 \end{lstlisting}
 
 Firstly we give a brief overview of the general process undertaken during type
-conversion. Boost.Python maintains a registry of known C++ to Python conversion
-types, which by default allows for fundamental data type conversions such as
-\texttt{double} and \texttt{float}. In this manner, many C++ functions can be
-automatically converted, for example when they are used in \inltt{.def} calls
-when registering a Python class. Clearly the \inltt{convert} function here
+conversion. \texttt{pybind11} maintains a registry of known C++ to Python
+conversion types, which by default allows for fundamental data type conversions
+such as \texttt{double} and \texttt{float}. In this manner, many C++ functions
+can be automatically converted, for example when they are used in \inltt{.def}
+calls when registering a Python class. Clearly the \inltt{convert} function here
 contains much of the functionality. In order to perform automatic conversion
 between the \texttt{NekMatrix} and a 2D \texttt{ndarray}, we register the
-conversion function inside Boost.Python's registry so that it is aware of the
-datatypes. We also note that throughout the conversion code (and elsewhere in
-NekPy), we make use of the Boost.NumPy bindings. These are a lightweight wrapper
-around the NumPy C API, which simplifies the syntax somewhat and avoids direct
-use of the API.
+conversion function inside the \texttt{pybind11} namespace via a template
+specialisation of \texttt{type\_caster}. We also note that throughout the
+conversion code (and elsewhere in NekPy), we make use of the \texttt{pybind11}
+NumPy bindings. These are a lightweight wrapper around the NumPy C API, which
+simplifies the syntax somewhat and avoids direct use of the API.
 
-In terms of the conversion function itself, we first create a new Python capsule
-object. The capsule is designed to hold a C pointer and a callback function that
-is called when the Python object is deallocated. Since there is no Boost.Python
-wrapper around this, we use a \texttt{handle<>} to wrap it in a generic
-Boost.Python object. The strategy we therefore employ is to create a
-\texttt{shared\_ptr}, which increases the reference counter of the
-\texttt{NekMatrix}. This will prevent it being destroyed if it is in use in
-Python, even if on the C++ side the memory is deallocated. The callback function
-simply deletes the \texttt{shared\_ptr} when it is no longer required, cleaning
-up the memory appropriately. This process is shown in
-Figure~\ref{fig:c_to_python}. It is worth noting that the steps (c) and (d) can
-be reversed and the \texttt{shared\_ptr} created by the Python binding can be
-removed first.  In this case the memory will be deallocated only when the
-\texttt{shared\_ptr} created by C++ is also removed.
+The custom caster has two methods, \texttt{load} and \texttt{cast} that perform
+conversion from Python to C++, and C++ to Python respectively. We now go through
+each listing.
+
+\begin{lstlisting}[caption={Python to C++ converter for \texttt{NekMatrix}}, label={lst:c_to_python_load}, language=C++]
+bool load(handle src, bool)
+{
+    // Perform some checks: the source should be an ndarray.
+    if (!array_t<T>::check_(src))
+    {
+        return false;
+    }
+
+    // The array should be a c-style, contiguous array of type T.
+    auto buf = array_t<T, array::c_style | array::forcecast>::ensure(src);
+    if (!buf)
+    {
+        return false;
+    }
+
+    // There should be two dimensions.
+    auto dims = buf.ndim();
+    if (dims != 2)
+    {
+        return false;
+    }
+
+    // Copy data across from the Python array to C++.
+    std::vector<size_t> shape = {buf.shape()[0], buf.shape()[1]};
+    value = Nektar::NekMatrix<T, Nektar::StandardMatrixTag>(
+        shape[0], shape[1], buf.data(), Nektar::eFULL, buf.data());
+
+    return true;
+}
+\end{lstlisting}
+
+For \texttt{NekMatrix} we do not yet have custom C++-side code to handle Python as
+a data source. The \texttt{cast} routine therefore simply copies the data from the
+Python handle. The thing to note in this instance is that the class member
+variable \texttt{value} stores the resulting C++ value as a type \texttt{Type}.
+
+In terms of conversion from Python to C++, we use the following \texttt{cast}
+function.
+
+\begin{lstlisting}[caption={C++ to Python converter for \texttt{NekMatrix}}, label={lst:c_to_python_load}, language=C++]
+static handle cast(
+    const Nektar::NekMatrix<T, Nektar::StandardMatrixTag> &src,
+    return_value_policy, handle)
+{
+    using NMat = Nektar::NekMatrix<T, Nektar::StandardMatrixTag>;
+
+    // Construct a new wrapper matrix to hold onto the data. Assign a
+    // destructor so that the wrapper is cleaned up when the Python object
+    // is deallocated.
+    capsule c(new NMat(src.GetRows(), src.GetColumns(), src.GetPtr(),
+                       Nektar::eWrapper),
+              [](void *ptr) {
+                  NMat *mat = (NMat *)ptr;
+                  delete mat;
+              });
+
+    // Create the NumPy array, passing the capsule. When we go out of scope,
+    // c's reference count will have been reduced by 1, but array increases
+    // the reference count when it assigns the base to the array.
+    array a({src.GetRows(), src.GetColumns()},
+            {sizeof(T), src.GetRows() * sizeof(T)}, src.GetRawPtr(), c);
+
+    // This causes the array to be released without decreasing its reference
+    // count, which we do since if we just returned a, then the array would
+    // be deallocated immediately when this function returns.
+    return a.release();
+}
+\end{lstlisting}
+
+This conversion can be done more efficiently, since we may construct a
+\texttt{NekMatrix} using a reference count of the original matrix, by accessing
+its \texttt{Array<OneD, T>} object via the \texttt{GetPtr} method. To ensure
+this array lives for the entire time of the NumPy array, we wrap this into a
+Python capsule object. The capsule is designed to hold a C pointer and a
+callback function that is called when the Python object is deallocated.
+
+A new matrix is therefore constructed and passed to the capsule. This will
+prevent it being destroyed if it is in use in Python, even if on the C++ side
+the memory is deallocated. The callback function simply deletes the allocated
+pointer when it is no longer required, cleaning up the memory
+appropriately. This process is shown in Figure~\ref{fig:c_to_python}. It is
+worth noting that the steps (c) and (d) can be reversed and the pointer created
+by the Python binding can be removed first.  In this case the memory will be
+deallocated only when the underlying \texttt{Array<OneD, T>} created by C++ is
+deallocated.
 
 \begin{figure}[h!]
     \centering
@@ -225,50 +289,52 @@ removed first.  In this case the memory will be deallocated only when the
     \label{fig:c_to_python}
 \end{figure}
 
-Finally, the converter method returns a NumPy array using the
-\texttt{np::from\_data} method. Note that the \texttt{capsule} object is passed
-as the \texttt{ndarray} base argument -- i.e. the object that owns the data. In
-this case, when all \texttt{ndarray} objects that refer to the data become
+Next, the converter method returns a NumPy array using the \texttt{array} object
+from \texttt{pybind11}. Note that the \texttt{capsule} object is passed as the
+\texttt{ndarray} base argument -- i.e. the object that owns the data. In this
+case, when all \texttt{ndarray} objects that refer to the data become
 deallocated, NumPy will not directly deallocate the data but instead release its
 reference to the capsule. The capsule will then be deallocated, which will
-decrement the counter in the \texttt{shared\_ptr}. We also note that data
-ordering is important for matrix storage; \nek{} stores data in column-major
-order, whereas NumPy arrays are traditionally row-major.  The stride of the
-array has to be passed into the \texttt{np::from\_data} in a form of a tuple
-\texttt{(a, b)}, where \texttt{a} is the number of bytes needed to skip to get
-to the same position in the next row and \texttt{b} is the number of bytes
-needed to skip to get to the same position in the next column. In order to stop
-Python from immediately destroying the resulting NumPy array, its reference
-counter is manually increased before the array is passed on to Boost.Python and
-eventually returned to the user's code.
+deallocate the \texttt{NekMatrix} and thus decrement the counter in the
+\texttt{Array<OneD, >}. We also note that data ordering is important for matrix
+storage; \nek{} stores data in column-major order, whereas NumPy arrays are
+traditionally row-major.  The stride of the array has to be passed into the
+\texttt{np::from\_data} in a form of a tuple \texttt{(a, b)}, where \texttt{a}
+is the number of bytes needed to skip to get to the same position in the next
+row and \texttt{b} is the number of bytes needed to skip to get to the same
+position in the next column.
+
+Finally, in order to stop Python from immediately destroying the resulting
+\texttt{ndarray}, we call the \texttt{release} function on the array, which
+prevents the reference counter from being decremented when the array is
+returned.
 
 \subsubsection{Testing}
 
 The process outlined above requires little manual intervention from the
-programmer. There are no almost no explicit calls to Python C API (aside from
-creating a \texttt{PyObject} -- \texttt{PyCObject\_FromVoidPtr}) as all
-operations are carried out by Boost.Python. Therefore, the testing focused
-mostly on correctness of returned data, in particular the order of the array. To
-this end, the \emph{Differentiation} tutorials were used as tests. In order to
-correctly run the tutorials the Python wrapper needs to retrieve the
-differentiation matrix which, as mentioned before, has to be converted to a
-datatype Python recognises. The test runs the differentiation tutorials and
-compares the final result to the fixed expected value. The test is automatically
-run as a part of \texttt{ctest} command if both the Python wrapper and the
-tutorials have been built.
+programmer. There are no explicit calls to Python C API as all operations are
+carried out by \texttt{pybind11}. Therefore, the testing focused mostly on
+correctness of returned data, in particular the order of the array. To this end,
+the \emph{Differentiation} tutorials were used as tests. In order to correctly
+run the tutorials the Python wrapper needs to retrieve the differentiation
+matrix which, as mentioned before, has to be converted to a datatype Python
+recognises. The test runs the differentiation tutorials and compares the final
+result to the fixed expected value. The test is automatically run as a part of
+\texttt{ctest} command if both the Python wrapper and the tutorials have been
+built.
 
 \subsection{Passing Python data to C++} 
 
 Conversely, a similar problem exists when data is created in Python and has to
 be passed to the C++ program. In this case, as the data is managed by Python,
 the main reference counter should be maintained by the Python object and
-incremented or decremented as appropriate using \texttt{py::incref} and
-\texttt{py::decref} methods respectively. Although we do not support this
-process for the \texttt{NekMatrix} as described above, we do use this process
-for the \texttt{Array<OneD, >} structure. When the array is no longer needed by
-the C++ program the reference counter on the Python side should be decremented
-in order for Python garbage collection to work appropriately -- however this
-should only happen when the array was created by Python in the first place.
+incremented or decremented as appropriate using \texttt{incref} and
+\texttt{decref} methods respectively. Although we do not support this process
+for the \texttt{NekMatrix} as described above, we do use this process for the
+\texttt{Array<OneD, T>} structure. When the array is no longer needed by the C++
+program the reference counter on the Python side should be decremented in order
+for Python garbage collection to work appropriately -- however this should only
+happen when the array was created by Python in the first place.
 
 The files implementing the below procedure are:
 
@@ -300,7 +366,7 @@ where:
   which will decrement the reference counter of the \texttt{PyObject}.
 \end{itemize}
 
-Inside \texttt{Array<OneD, >}, this struct is held as a double pointer, i.e.:
+Inside \texttt{Array<OneD, T>}, this struct is held as a double pointer, i.e.:
 \begin{lstlisting}[language=C++]
 PythonInfo **m_pythonInfo;
 \end{lstlisting}
@@ -319,15 +385,17 @@ converter.
 Adding new attributes to the arrays might cause a significantly increased memory
 usage or additional unforeseen overheads, although this was not seen in
 benchmarking. However to avoid all possibility of this, a preprocessor directive
-has been added to only include the additional arguments if \texttt{NekPy} had
+has been added to only include the additional arguments if \texttt{NekPy} has
 been built (using the option \texttt{NEKTAR\_BUILD\_PYTHON}).
 
-A new constructor has been added to the class template, as seen in Listing \ref{lst:new_const}. 
-\texttt{m\_memory\_pointer} and \texttt{m\_python\_decrement} have been set to 
-\texttt{nullptr} in the pre-existing constructors. A similar constructor was added for 
-\texttt{const} arrays to ensure that these can also be passed between the languages. Note that 
-no calls to Nektar++ array initialisation policies are made in this constructor, unlike in 
-the pre-existing ones, as there is no need for the new array to copy the data.
+A new constructor has been added to the class template, as seen in Listing
+\ref{lst:new_const}.  \texttt{m\_memory\_pointer} and
+\texttt{m\_python\_decrement} have been set to \texttt{nullptr} in the
+pre-existing constructors. A similar constructor was added for \texttt{const}
+arrays to ensure that these can also be passed between the languages. Note that
+no calls to Nektar++ array initialisation policies are made in this constructor,
+unlike in the pre-existing ones, as there is no need for the new array to copy
+the data.
 
 \begin{lstlisting}[caption={New constructor for initialising arrays created through the Python to C++ converter method.}, label={lst:new_const}, language=C++]
 Array(unsigned int dim1Size, DataType* data, void* memory_pointer, void (*python_decrement)(void *)) :
@@ -347,10 +415,11 @@ Array(unsigned int dim1Size, DataType* data, void* memory_pointer, void (*python
 }
 \end{lstlisting}
 
-Changes have also been made to the destructor, as shown in Listing~\ref{lst:destructor}, 
-in order to ensure that if the data was initially created in Python the callback function 
-would decrement the reference counter of the NekPy array object. The detailed procedure 
-for deleting arrays is described further in this section.
+Changes have also been made to the destructor, as shown in
+Listing~\ref{lst:destructor}, in order to ensure that if the data was initially
+created in Python the callback function would decrement the reference counter of
+the NekPy array object. The detailed procedure for deleting arrays is described
+further in this section.
 
 \begin{lstlisting}[caption={The modified destructor for C++ arrays.}, label={lst:destructor}, language=C++]
 ~Array()
@@ -382,8 +451,8 @@ for deleting arrays is described further in this section.
 
 \subsubsection{Creation of new arrays}
 
-The following algorithm has been proposed to create new arrays in Python and allow the 
-C++ code to access their contents:
+The following algorithm has been proposed to create new arrays in Python and
+allow the C++ code to access their contents:
 
 \begin{enumerate}
   \item The NumPy array object to be converted is passed as an argument to a C++
@@ -442,26 +511,8 @@ the Python object will still exist as the reference counter will be non-zero
 \subsubsection{Converter method}
 
 As with conversion from C++ to Python, a converter method was registered to make
-Python NumPy arrays available in C++ with Boost.Python, which can be found in
-the \texttt{SharedArray.cpp} bindings file.  In essence, Boost.Python provides
-the used with a memory segment (all expressions containing
-\texttt{rvalue\_from\_python} are to do with doing that). The data has to be
-extracted from PyObject in order to be presented in a format C++ knows how to
-read -- the \texttt{get\_data} method allows the programmer to do it for NumPy
-arrays. Finally, care must be taken to manage memory correctly, thus the use of
-borrowed references when creating Boost.Python object and the incrementation of
-PyObject reference counter at the end of the method.
-
-The callback decrement method is shown below in Listing \ref{lst:callback}. 
-When provided with a pointer to PyObject it decrements it reference counter.
-
-\begin{lstlisting}[caption={The decrement method called when the \texttt{m\_count} of C++ array reaches 0.}, label={lst:callback}, language=C++]
-static void decrement(void *objPtr) 
-    {
-        PyObject *pyObjPtr = (PyObject *)objPtr;
-        Py_XDECREF(pyObjPtr);
-    }
-\end{lstlisting}
+Python NumPy arrays available in C++ with \texttt{pybind11}, which can be found in
+the \texttt{SharedArray.hpp} bindings file.
 
 \begin{figure}[h!]
     \centering

@@ -43,7 +43,7 @@ import sys
 
 class InheritFromInputModuleTest(InputModule):
     def __init__(self, mesh):
-        super(InputModule, self).__init__(mesh)
+        InputModule.__init__(self, mesh)
 
     def Process(self):
         # Call the Module functions to create all of the edges, faces and
@@ -56,7 +56,7 @@ class InheritFromInputModuleTest(InputModule):
 
 class InheritFromProcessModuleTest(ProcessModule):
     def __init__(self, mesh):
-        super(ProcessModule, self).__init__(mesh)
+        ProcessModule.__init__(self, mesh)
 
     def Process(self):
         # Call the Module functions to create all of the edges, faces and
@@ -69,7 +69,7 @@ class InheritFromProcessModuleTest(ProcessModule):
 
 class InheritFromOutputModuleTest(OutputModule):
     def __init__(self, mesh):
-        super(OutputModule, self).__init__(mesh)
+        OutputModule.__init__(self, mesh)
 
     def Process(self):
         # Call the Module functions to create all of the edges, faces and
@@ -96,14 +96,12 @@ class TestModule(unittest.TestCase):
         self.expDim     = 2
         self.spaceDim   = 2
         self.nummode    = 5
-        self.verbose    = True
 
     def _create_mesh(self):
         self.mesh = Mesh()
         self.mesh.expDim   = self.expDim
         self.mesh.spaceDim = self.spaceDim
         self.mesh.nummode  = self.nummode
-        self.mesh.verbose  = self.verbose
 
     def _initialize_nodes(self):
         self.nodes = []

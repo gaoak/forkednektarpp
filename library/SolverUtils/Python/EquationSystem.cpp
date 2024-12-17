@@ -146,34 +146,30 @@ void EquationSystem_Checkpoint_Output(EquationSystemSharedPtr eqSys, int n)
     eqSys->Checkpoint_Output(n);
 }
 
-void export_EquationSystem()
+void export_EquationSystem(py::module &m)
 {
     using EqSysWrap = EquationSystemWrap<EquationSystem>;
+    using EqSysPub  = EquationSystemPublic<EquationSystem>;
 
     static NekFactory_Register<EquationSystemFactory> fac(
         GetEquationSystemFactory());
 
-    py::class_<EqSysWrap, std::shared_ptr<EqSysWrap>, boost::noncopyable>(
-        "EquationSystem", py::init<LibUtilities::SessionReaderSharedPtr,
-                                   SpatialDomains::MeshGraphSharedPtr>())
+    py::classh<EquationSystem, EqSysWrap>(m, "EquationSystem")
+        .def(py::init<LibUtilities::SessionReaderSharedPtr,
+                      SpatialDomains::MeshGraphSharedPtr>())
 
         // Virtual functions that can be optionally overridden
-        .def("InitObject", &EquationSystem::InitObject,
-             &EqSysWrap::Default_v_InitObject)
-        .def("DoInitialise", &EquationSystem::DoInitialise,
-             &EqSysWrap::Default_v_DoInitialise)
-        .def("DoSolve", &EquationSystem::DoSolve, &EqSysWrap::Default_v_DoSolve)
-        .def("SetInitialConditions", &EquationSystem::SetInitialConditions,
-             &EqSysWrap::Default_v_SetInitialConditions)
-        .def("EvaluateExactSolution", &EqSysWrap::v_EvaluateExactSolution,
-             &EqSysWrap::Default_v_EvaluateExactSolution)
-        .def("LinfError", &EqSysWrap::v_LinfError,
-             &EqSysWrap::Default_v_LinfError)
-        .def("L2Error", &EqSysWrap::v_L2Error, &EqSysWrap::Default_v_L2Error)
+        .def("InitObject", &EqSysPub::v_InitObject)
+        .def("DoInitialise", &EqSysPub::v_DoInitialise)
+        .def("DoSolve", &EqSysPub::v_DoSolve)
+        .def("SetInitialConditions", &EqSysPub::v_SetInitialConditions)
+        .def("EvaluateExactSolution", &EqSysWrap::EvaluateExactSolution)
+        .def("LinfError", &EqSysWrap::LinfError)
+        .def("L2Error", &EqSysWrap::L2Error)
 
         // Fields accessors (read-only)
         .def("GetFields", &EquationSystem_GetFields)
-        .add_property("fields", &EquationSystem_GetFields)
+        .def_property_readonly("fields", &EquationSystem_GetFields)
 
         // Various utility functions
         .def("GetNvariables", &EquationSystem::GetNvariables)
@@ -185,19 +181,19 @@ void export_EquationSystem()
         // Time accessors/properties
         .def("GetTime", &EquationSystem::GetTime)
         .def("SetTime", &EquationSystem::SetTime)
-        .add_property("time", &EquationSystem::GetTime,
+        .def_property("time", &EquationSystem::GetTime,
                       &EquationSystem::SetTime)
 
         // Timestep accessors/properties
         .def("GetTimeStep", &EquationSystem::GetTimeStep)
         .def("SetTimeStep", &EquationSystem::SetTimeStep)
-        .add_property("timestep", &EquationSystem::GetTimeStep,
+        .def_property("timestep", &EquationSystem::GetTimeStep,
                       &EquationSystem::SetTimeStep)
 
         // Steps accessors/properties
         .def("GetSteps", &EquationSystem::GetSteps)
         .def("SetSteps", &EquationSystem::SetSteps)
-        .add_property("steps", &EquationSystem::GetSteps,
+        .def_property("steps", &EquationSystem::GetSteps,
                       &EquationSystem::SetSteps)
 
         // Print a summary
@@ -212,11 +208,8 @@ void export_EquationSystem()
         .def("Checkpoint_Output", &EquationSystem_Checkpoint_Output)
 
         // Factory functions.
-        .def("Create", &EquationSystem_Create)
-        .staticmethod("Create")
-        .def("Register", [](std::string const &filterName,
-                            py::object &obj) { fac(filterName, obj); })
-        .staticmethod("Register");
-
-    WrapConverter<EquationSystem>();
+        .def_static("Create", &EquationSystem_Create)
+        .def_static("Register", [](std::string &filterName, py::object &obj) {
+            fac(filterName, obj, filterName);
+        });
 }

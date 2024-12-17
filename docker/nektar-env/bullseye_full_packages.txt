@@ -1,7 +1,5 @@
-git
+git-core
 libarpack2-dev
-libboost-numpy-dev
-libboost-python-dev
 libfftw3-dev
 libhdf5-dev
 libhdf5-mpi-dev

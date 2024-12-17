@@ -42,39 +42,24 @@
 using namespace Nektar;
 using namespace Nektar::SolverUtils;
 
-void export_UnsteadySystem()
+struct PublicUS : public UnsteadySystem
+{
+    using UnsteadySystem::m_ode;
+};
+
+void export_UnsteadySystem(py::module &m)
 {
     using USWrap = EquationSystemWrap<UnsteadySystem>;
 
-    py::class_<USWrap, std::shared_ptr<USWrap>, py::bases<EquationSystem>,
-               boost::noncopyable>(
-        "UnsteadySystem", py::init<LibUtilities::SessionReaderSharedPtr,
-                                   SpatialDomains::MeshGraphSharedPtr>())
+    py::classh<UnsteadySystem, EquationSystem, USWrap>(m, "UnsteadySystem")
 
-        // Add overrides for this class
-        .def("InitObject", &EquationSystem::InitObject,
-             &USWrap::Default_v_InitObject)
-        .def("DoInitialise", &EquationSystem::DoInitialise,
-             &USWrap::Default_v_DoInitialise)
-        .def("DoSolve", &EquationSystem::DoSolve, &USWrap::Default_v_DoSolve)
-        .def("SetInitialConditions", &EquationSystem::SetInitialConditions,
-             &USWrap::Default_v_SetInitialConditions)
-        .def("EvaluateExactSolution", &USWrap::v_EvaluateExactSolution,
-             &USWrap::Default_v_EvaluateExactSolution)
-        .def("LinfError", &USWrap::v_LinfError, &USWrap::Default_v_LinfError)
-        .def("L2Error", &USWrap::v_L2Error, &USWrap::Default_v_L2Error)
+        .def(py::init<LibUtilities::SessionReaderSharedPtr,
+                      SpatialDomains::MeshGraphSharedPtr>())
 
         // Add properties for time integration
-        .add_property(
-            "ode",
-            py::make_function(
-                &UnsteadySystem::GetTimeIntegrationSchemeOperators,
-                py::return_value_policy<py::reference_existing_object>()))
-        .add_property(
-            "int_scheme",
-            py::make_function(
-                &UnsteadySystem::GetTimeIntegrationScheme,
-                py::return_value_policy<py::reference_existing_object>()));
-
-    WrapConverter<UnsteadySystem>();
+        .def_readonly("ode", &PublicUS::m_ode,
+                      py::return_value_policy::reference)
+        .def_property_readonly("int_scheme",
+                               &UnsteadySystem::GetTimeIntegrationScheme,
+                               py::return_value_policy::reference_internal);
 }

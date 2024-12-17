@@ -321,14 +321,11 @@ MACRO(ADD_NEKPY_LIBRARY name)
     SET_TARGET_PROPERTIES(_${name} PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${NEKPY_BASE_DIR}/NekPy/${name})
 
-    ADD_DEPENDENCIES(_${name} boost-numpy)
-
     # Add target link libraries.
-    TARGET_LINK_LIBRARIES(_${name}
-        ${Boost_SYSTEM_LIBRARY}
-        ${BOOST_PYTHON_LIB}
-        ${BOOST_NUMPY_LIB}
-        ${PYTHON_LIBRARIES})
+    TARGET_LINK_LIBRARIES(_${name} ${PYTHON_LIBRARIES})
+
+    # Make sure we build/install pybind11
+    ADD_DEPENDENCIES(_${name} pybind11)
 
     IF (NEKPY_LIBDEPENDS)
         TARGET_LINK_LIBRARIES(_${name} ${NEKPY_LIBDEPENDS})

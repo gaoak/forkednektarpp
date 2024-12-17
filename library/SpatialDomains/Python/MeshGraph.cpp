@@ -36,8 +36,7 @@
 #include <SpatialDomains/MeshGraph.h>
 #include <SpatialDomains/MeshGraphIO.h>
 #include <SpatialDomains/Movement/Movement.h>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
@@ -53,7 +52,7 @@ CompositeSharedPtr Composite_Init(py::list geometries)
     for (int i = 0; i < py::len(geometries); i++)
     {
         composite->m_geomVec.emplace_back(
-            py::extract<GeometrySharedPtr>(geometries[i]));
+            py::cast<GeometrySharedPtr>(geometries[i]));
     }
     return composite;
 }
@@ -61,42 +60,30 @@ CompositeSharedPtr Composite_Init(py::list geometries)
 /**
  * @brief MeshGraph exports.
  */
-void export_MeshGraph()
+void export_MeshGraph(py::module &m)
 {
-    py::class_<LibUtilities::FieldMetaDataMap>("FieldMetaDataMap")
-        .def(py::map_indexing_suite<LibUtilities::FieldMetaDataMap, true>());
+    py::bind_map<LibUtilities::FieldMetaDataMap>(m, "FieldMetaDataMap");
+    py::bind_vector<std::vector<GeometrySharedPtr>>(m, "GeometryList");
 
-    py::class_<std::vector<GeometrySharedPtr>>("GeometryList")
-        .def(py::vector_indexing_suite<std::vector<GeometrySharedPtr>, true>());
-    py::class_<Composite, std::shared_ptr<Composite>>("Composite", py::init<>())
-        .def("__init__", py::make_constructor(&Composite_Init))
+    py::class_<Composite, std::shared_ptr<Composite>>(m, "Composite")
+        .def(py::init<>())
+        .def(py::init<>(&Composite_Init))
         .def_readwrite("geometries", &Composite::m_geomVec);
 
-    py::class_<PointGeomMap>("PointGeomMap")
-        .def(py::map_indexing_suite<PointGeomMap, true>());
-    py::class_<SegGeomMap>("SegGeomMap")
-        .def(py::map_indexing_suite<SegGeomMap, true>());
-    py::class_<QuadGeomMap>("QuadGeomMap")
-        .def(py::map_indexing_suite<QuadGeomMap, true>());
-    py::class_<TriGeomMap>("TriGeomMap")
-        .def(py::map_indexing_suite<TriGeomMap, true>());
-    py::class_<TetGeomMap>("TetGeomMap")
-        .def(py::map_indexing_suite<TetGeomMap, true>());
-    py::class_<PrismGeomMap>("PrismGeomMap")
-        .def(py::map_indexing_suite<PrismGeomMap, true>());
-    py::class_<PyrGeomMap>("PyrGeomMap")
-        .def(py::map_indexing_suite<PyrGeomMap, true>());
-    py::class_<HexGeomMap>("HexGeomMap")
-        .def(py::map_indexing_suite<HexGeomMap, true>());
-    py::class_<CurveMap>("CurveMap")
-        .def(py::map_indexing_suite<CurveMap, true>());
-    py::class_<CompositeMap>("CompositeMap")
-        .def(py::map_indexing_suite<CompositeMap, true>());
-    py::class_<std::map<int, CompositeMap>>("DomainMap")
-        .def(py::map_indexing_suite<std::map<int, CompositeMap>, true>());
+    py::bind_map<PointGeomMap>(m, "PointGeomMap");
+    py::bind_map<SegGeomMap>(m, "SegGeomMap");
+    py::bind_map<QuadGeomMap>(m, "QuadGeomMap");
+    py::bind_map<TriGeomMap>(m, "TriGeomMap");
+    py::bind_map<TetGeomMap>(m, "TetGeomMap");
+    py::bind_map<PrismGeomMap>(m, "PrismGeomMap");
+    py::bind_map<PyrGeomMap>(m, "PyrGeomMap");
+    py::bind_map<HexGeomMap>(m, "HexGeomMap");
+    py::bind_map<CurveMap>(m, "CurveMap");
+    py::bind_map<CompositeMap>(m, "CompositeMap");
+    py::bind_map<std::map<int, CompositeMap>>(m, "DomainMap");
 
-    py::class_<MeshGraph, std::shared_ptr<MeshGraph>, boost::noncopyable>(
-        "MeshGraph", py::init<>())
+    py::class_<MeshGraph, std::shared_ptr<MeshGraph>>(m, "MeshGraph")
+        .def(py::init<>())
 
         .def("Empty", &MeshGraph::Empty)
 
@@ -107,33 +94,33 @@ void export_MeshGraph()
         .def("SetSpaceDimension", &MeshGraph::SetSpaceDimension)
 
         .def("GetAllPointGeoms", &MeshGraph::GetAllPointGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllSegGeoms", &MeshGraph::GetAllSegGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllQuadGeoms", &MeshGraph::GetAllQuadGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllTriGeoms", &MeshGraph::GetAllTriGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllTetGeoms", &MeshGraph::GetAllTetGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllPrismGeoms", &MeshGraph::GetAllPrismGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllPyrGeoms", &MeshGraph::GetAllPyrGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetAllHexGeoms", &MeshGraph::GetAllHexGeoms,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetCurvedEdges", &MeshGraph::GetCurvedEdges,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetCurvedFaces", &MeshGraph::GetCurvedFaces,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetComposites", &MeshGraph::GetComposites,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def<std::map<int, CompositeMap> &(MeshGraph::*)()>(
             "GetDomain", &MeshGraph::GetDomain,
-            py::return_internal_reference<>())
+            py::return_value_policy::reference_internal)
 
         .def("GetMovement", &MeshGraph::GetMovement,
-             py::return_value_policy<py::return_by_value>())
+             py::return_value_policy::reference_internal)
 
         .def("GetNumElements", &MeshGraph::GetNumElements)
 

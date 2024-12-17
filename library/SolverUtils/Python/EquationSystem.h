@@ -36,16 +36,20 @@
 #define NEKTAR_LIBRARY_SOLVERUTILS_PYTHON_EQUATIONSYSTEM_H
 
 #include <LibUtilities/BasicUtils/SessionReader.h>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/MeshGraph.h>
 
 using namespace Nektar;
+using namespace Nektar::SolverUtils;
 
 /**
  * @brief EquationSystem wrapper to handle virtual function calls in @c
  * EquationSystem and its subclasses.
  */
-template <class T> struct EquationSystemWrap : public T, public py::wrapper<T>
+#pragma GCC visibility push(hidden)
+template <typename T>
+struct EquationSystemWrap : public T, public py::trampoline_self_life_support
 {
     /**
      * @brief Constructor, which is identical to Filter.
@@ -54,140 +58,99 @@ template <class T> struct EquationSystemWrap : public T, public py::wrapper<T>
      */
     EquationSystemWrap(LibUtilities::SessionReaderSharedPtr session,
                        SpatialDomains::MeshGraphSharedPtr graph)
-        : T(session, graph), py::wrapper<T>()
+        : T(session, graph)
     {
     }
 
     void v_InitObject(bool declareField) override
     {
-        if (py::override f = this->get_override("InitObject")(declareField))
-        {
-            f();
-        }
-        else
-        {
-            T::v_InitObject();
-        }
-    }
-
-    void Default_v_InitObject(bool declareField)
-    {
-        return this->T::v_InitObject(declareField);
+        PYBIND11_OVERRIDE_NAME(void, T, "InitObject", v_InitObject,
+                               declareField);
     }
 
     void v_DoInitialise(bool dumpInitialConditions) override
     {
-        if (py::override f = this->get_override("DoInitialise"))
-        {
-            f(dumpInitialConditions);
-        }
-        else
-        {
-            T::v_DoInitialise(dumpInitialConditions);
-        }
-    }
-
-    void Default_v_DoInitialise(bool dumpInitialConditions)
-    {
-        this->T::v_DoInitialise(dumpInitialConditions);
+        PYBIND11_OVERRIDE_NAME(void, T, "DoInitialize", v_DoInitialise,
+                               dumpInitialConditions);
     }
 
     void v_DoSolve() override
     {
-        if (py::override f = this->get_override("DoSolve"))
-        {
-            f();
-        }
-        else
-        {
-            T::v_DoSolve();
-        }
-    }
-
-    void Default_v_DoSolve()
-    {
-        this->T::v_DoSolve();
+        PYBIND11_OVERRIDE_NAME(void, T, "DoSolve", v_DoSolve, );
     }
 
     void v_SetInitialConditions(NekDouble initialtime,
                                 bool dumpInitialConditions,
                                 const int domain) override
     {
-        if (py::override f = this->get_override("SetInitialConditions"))
-        {
-            f(initialtime, dumpInitialConditions, domain);
-        }
-        else
-        {
-            T::v_SetInitialConditions(initialtime, dumpInitialConditions,
-                                      domain);
-        }
+        PYBIND11_OVERRIDE_NAME(void, T, "SetInitialConditions",
+                               v_SetInitialConditions, initialtime,
+                               dumpInitialConditions, domain);
     }
 
-    void Default_v_SetInitialConditions(NekDouble initialtime,
-                                        bool dumpInitialConditions,
-                                        const int domain)
+    static Array<OneD, NekDouble> EvaluateExactSolution(
+        std::shared_ptr<EquationSystemWrap> eqsys, unsigned int field,
+        const NekDouble time)
     {
-        this->T::v_SetInitialConditions(initialtime, dumpInitialConditions,
-                                        domain);
-    }
+        py::gil_scoped_acquire gil;
+        py::function override =
+            py::get_override(eqsys.get(), "EvaluateExactSolution");
 
-    Array<OneD, NekDouble> v_EvaluateExactSolution(unsigned int field,
-                                                   const NekDouble time)
-    {
-        if (py::override f = this->get_override("EvaluateExactSolution"))
+        if (override)
         {
-            py::object tmpPy = f(field, time);
-            Array<OneD, NekDouble> tmp =
-                py::extract<Array<OneD, NekDouble>>(tmpPy);
-            return tmp;
+            auto obj = override(field, time);
+            return py::cast<Array<OneD, NekDouble>>(obj);
         }
-        else
-        {
-            Array<OneD, NekDouble> outfield(
-                this->m_fields[field]->GetNpoints());
-            T::v_EvaluateExactSolution(field, outfield, time);
-            return outfield;
-        }
-    }
 
-    Array<OneD, NekDouble> Default_v_EvaluateExactSolution(unsigned int field,
-                                                           const NekDouble time)
-    {
-        Array<OneD, NekDouble> outfield(this->m_fields[field]->GetNpoints());
-        this->T::v_EvaluateExactSolution(field, outfield, time);
+        Array<OneD, NekDouble> outfield(
+            eqsys->UpdateFields()[field]->GetNpoints());
+        eqsys->EquationSystemWrap<T>::v_EvaluateExactSolution(field, outfield,
+                                                              time);
         return outfield;
     }
 
-    NekDouble v_LinfError(unsigned int field)
+    static NekDouble LinfError(std::shared_ptr<EquationSystemWrap> eqsys,
+                               unsigned int field)
     {
-        if (py::override f = this->get_override("LinfError"))
+        py::gil_scoped_acquire gil;
+        py::function override = py::get_override(eqsys.get(), "LinfError");
+
+        if (override)
         {
-            return f(field);
+            return py::cast<NekDouble>(override(field));
         }
 
-        return T::v_LinfError(field);
+        return eqsys->EquationSystemWrap<T>::v_LinfError(field);
     }
 
-    NekDouble Default_v_LinfError(unsigned int field)
+    static NekDouble L2Error(std::shared_ptr<EquationSystemWrap> eqsys,
+                             unsigned int field)
     {
-        return this->T::v_LinfError(field);
-    }
+        py::gil_scoped_acquire gil;
+        py::function override = py::get_override(eqsys.get(), "L2Error");
 
-    NekDouble v_L2Error(unsigned int field)
-    {
-        if (py::override f = this->get_override("L2Error"))
+        if (override)
         {
-            return f(field);
+            return py::cast<NekDouble>(override(field));
         }
 
-        return T::v_L2Error(field);
+        return eqsys->EquationSystemWrap<T>::v_L2Error(field);
     }
 
-    NekDouble Default_v_L2Error(unsigned int field)
-    {
-        return this->T::v_L2Error(field);
-    }
+    using T::v_EvaluateExactSolution;
+    using T::v_L2Error;
+    using T::v_LinfError;
+};
+#pragma GCC visibility pop
+
+template <class T> struct EquationSystemPublic : public T
+{
+public:
+    using T::v_DoInitialise;
+    using T::v_DoSolve;
+    using T::v_EvaluateExactSolution;
+    using T::v_InitObject;
+    using T::v_SetInitialConditions;
 };
 
 #endif

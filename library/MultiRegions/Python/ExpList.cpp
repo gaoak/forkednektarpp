@@ -48,6 +48,9 @@ using namespace Nektar::LocalRegions;
 using namespace Nektar::SpatialDomains;
 using namespace Nektar::MultiRegions;
 
+PYBIND11_MAKE_OPAQUE(StdRegions::ConstFactorMap)
+PYBIND11_MAKE_OPAQUE(StdRegions::VarCoeffMap)
+
 ExpansionSharedPtr ExpList_GetExp(ExpListSharedPtr exp, int i)
 {
     return exp->GetExp(i);
@@ -98,26 +101,13 @@ Array<OneD, NekDouble> ExpList_MultiplyByInvMassMatrix(
     return out;
 }
 
-Array<OneD, NekDouble> ExpList_HelmSolve(ExpListSharedPtr exp,
-                                         const Array<OneD, const NekDouble> &in,
-                                         const py::object constFactorMap,
-                                         const py::object varCoeffMap)
+Array<OneD, NekDouble> ExpList_HelmSolve(
+    ExpListSharedPtr exp, const Array<OneD, const NekDouble> &in,
+    const StdRegions::ConstFactorMap &constFactorMap,
+    const StdRegions::VarCoeffMap &varCoeffMap)
 {
     Array<OneD, NekDouble> out(exp->GetNcoeffs(), 0.0);
-
-    StdRegions::ConstFactorMap facMap = StdRegions::NullConstFactorMap;
-    StdRegions::VarCoeffMap coeffMap  = StdRegions::NullVarCoeffMap;
-
-    if (!constFactorMap.is_none())
-    {
-        facMap = py::extract<StdRegions::ConstFactorMap>(constFactorMap);
-    }
-    if (!varCoeffMap.is_none())
-    {
-        coeffMap = py::extract<StdRegions::VarCoeffMap>(varCoeffMap);
-    }
-
-    exp->HelmSolve(in, out, facMap, coeffMap);
+    exp->HelmSolve(in, out, constFactorMap, varCoeffMap);
     return out;
 }
 
@@ -274,13 +264,13 @@ void ExpList_LoadField(ExpListSharedPtr exp, std::string filename,
     exp->BwdTrans(exp->GetCoeffs(), exp->UpdatePhys());
 }
 
-void export_ExpList()
+void export_ExpList(py::module &m)
 {
     int (ExpList::*GetNcoeffs)() const = &ExpList::GetNcoeffs;
 
-    py::class_<ExpList, std::shared_ptr<ExpList>, boost::noncopyable>(
-        "ExpList", py::init<const LibUtilities::SessionReaderSharedPtr &,
-                            const SpatialDomains::MeshGraphSharedPtr &>())
+    py::class_<ExpList, std::shared_ptr<ExpList>>(m, "ExpList")
+        .def(py::init<const LibUtilities::SessionReaderSharedPtr &,
+                      const SpatialDomains::MeshGraphSharedPtr &>())
 
         // Query points and offset information
         .def("GetExp", &ExpList_GetExp)
@@ -300,9 +290,9 @@ void export_ExpList()
         .def("BwdTrans", &ExpList_BwdTrans)
         .def("IProductWRTBase", &ExpList_IProductWRTBase)
         .def("MultiplyByInvMassMatrix", &ExpList_MultiplyByInvMassMatrix)
-        .def("HelmSolve", &ExpList_HelmSolve,
-             (py::arg("in"), py::arg("constFactorMap") = py::object(),
-              py::arg("varCoeffMap") = py::object()))
+        .def("HelmSolve", &ExpList_HelmSolve, py::arg("in"),
+             py::arg("constFactorMap") = StdRegions::NullConstFactorMap,
+             py::arg("varCoeffMap")    = StdRegions::NullVarCoeffMap)
 
         // Error norms
         .def("L2", &ExpList_L2)
@@ -321,13 +311,10 @@ void export_ExpList()
         .def("Integral", &ExpList_Integral)
         .def("GetPhysAddress", &ExpList_GetPhysAddress)
 
-        .add_property("phys", &ExpList_GetPhys, &ExpList_SetPhys)
-        .add_property("coeffs", &ExpList_GetCoeffs, &ExpList_SetCoeffsArray)
+        .def_property("phys", &ExpList_GetPhys, &ExpList_SetPhys)
+        .def_property("coeffs", &ExpList_GetCoeffs, &ExpList_SetCoeffsArray)
 
         // Misc functions
         .def("WriteVTK", &ExpList_WriteVTK)
         .def("ResetManagers", &ExpList_ResetManagers);
-
-    // Export Array<OneD, ExpListSharedPtr>
-    export_SharedArray<std::shared_ptr<ExpList>>();
 }

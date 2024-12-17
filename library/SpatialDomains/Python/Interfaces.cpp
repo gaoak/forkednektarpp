@@ -34,7 +34,7 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/Movement/InterfaceInterpolation.h>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
@@ -51,28 +51,27 @@ std::shared_ptr<InterfacePair> InterfacePair_Init(
     return std::make_shared<InterfacePair>(leftInterface, rightInterface);
 }
 
-void export_Interfaces()
+void export_Interfaces(py::module &m)
 {
-    py::class_<std::vector<unsigned int>>("UIntList")
-        .def(py::vector_indexing_suite<std::vector<unsigned int>, true>());
+    py::bind_vector<std::vector<unsigned int>>(m, "UIntList");
 
-    py::class_<Interface, std::shared_ptr<Interface>>("Interface", py::no_init)
-        .def("__init__", py::make_constructor(&Interface_Init))
+    py::class_<Interface, std::shared_ptr<Interface>>(m, "Interface")
+        .def(py::init<>(&Interface_Init))
         .def<const std::map<int, GeometrySharedPtr> &(Interface::*)() const>(
-            "GetEdge", &Interface::GetEdge, py::return_internal_reference<>())
+            "GetEdge", &Interface::GetEdge,
+            py::return_value_policy::reference_internal)
         .def("IsEmpty", &Interface::IsEmpty)
-        .def("GetId", &Interface::GetId,
-             py::return_value_policy<py::copy_non_const_reference>())
+        .def("GetId", &Interface::GetId, py::return_value_policy::copy)
         .def("GetOppInterace", &Interface::GetOppInterface,
-             py::return_internal_reference<>())
+             py::return_value_policy::reference_internal)
         .def("GetCompositeIDs", &Interface::GetCompositeIDs,
-             py::return_value_policy<py::copy_const_reference>());
+             py::return_value_policy::copy);
 
-    py::class_<InterfacePair, std::shared_ptr<InterfacePair>>("InterfacePair",
-                                                              py::no_init)
-        .def("__init__", py::make_constructor(&InterfacePair_Init))
+    py::class_<InterfacePair, std::shared_ptr<InterfacePair>>(m,
+                                                              "InterfacePair")
+        .def(py::init<>(&InterfacePair_Init))
         .def("GetLeftInterface", &InterfacePair::GetLeftInterface,
-             py::return_value_policy<py::copy_const_reference>())
+             py::return_value_policy::copy)
         .def("GetRightInterface", &InterfacePair::GetRightInterface,
-             py::return_value_policy<py::copy_const_reference>());
+             py::return_value_policy::copy);
 }

@@ -9,12 +9,18 @@ v5.8.0
 - Remove get() accessor from Array data structure (!1937)
 - Fix issue with `StdTetExp::v_LocCollapsedToLocCoord` (!1946)
 - Fix issue with `NodalTriExp::v_GetTracePhysVals` (!1951)
+- Fix issue with Dirichlet BCs when using variable P (!1972)
+- Patch for implicit-function error in scotch-6.0.4 (!1938)
 
 **CI**
--- fix CubeAllElements performance test tolerance (!1943)
+- Fix CubeAllElements performance test tolerance (!1943)
+- Remove `allow_failure` from compiler warnings and formatting (!1958, !1966)
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)
+
+**Python**
+- Transition bindings to use pybind11 (!1950)
 
 v5.7.0
 -----

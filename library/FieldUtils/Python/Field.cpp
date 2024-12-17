@@ -34,6 +34,7 @@
 
 #include <FieldUtils/Field.hpp>
 #include <FieldUtils/FieldConvertComm.hpp>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
 using namespace Nektar;
@@ -192,48 +193,18 @@ void Field_SetPts(FieldSharedPtr f, const int i,
     f->m_fieldPts->SetPts(i, inarray);
 }
 
-inline Array<OneD, MultiRegions::ExpListSharedPtr> PyListToOneDArray(
-    py::list &pyExpList)
+void export_Field(py::module &m)
 {
-    using NekError = ErrorUtil::NekError;
-    Array<OneD, MultiRegions::ExpListSharedPtr> expLists(py::len(pyExpList));
-
-    for (int i = 0; i < expLists.size(); ++i)
-    {
-        if (!py::extract<MultiRegions::ExpListSharedPtr>(pyExpList[i]).check())
-        {
-            throw NekError("List should contain only ExpList objects.");
-        }
-
-        expLists[i] = py::extract<MultiRegions::ExpListSharedPtr>(pyExpList[i]);
-    }
-
-    return expLists;
-}
-
-void Field_SetupFromExpList(FieldSharedPtr f, py::list &explists)
-{
-    Array<OneD, MultiRegions::ExpListSharedPtr> exp =
-        PyListToOneDArray(explists);
-    f->SetupFromExpList(exp);
-}
-
-void export_Field()
-{
-    py::class_<Field, std::shared_ptr<Field>>("Field", py::no_init)
-        .def("__init__",
-             py::make_constructor(
-                 &Field_Init, py::default_call_policies(),
-                 (py::arg("argv") = py::list(), py::arg("nparts") = 0,
-                  py::arg("output_points")       = 0,
-                  py::arg("output_points_hom_z") = 0, py::arg("error") = false,
-                  py::arg("force_output")  = false,
-                  py::arg("no_equispaced") = false, py::arg("npz") = 0,
-                  py::arg("onlyshape") = "", py::arg("part_only") = 0,
-                  py::arg("part_only_overlapping") = 0,
-                  py::arg("use_session_variables") = false,
-                  py::arg("use_session_expansion") = false,
-                  py::arg("verbose") = false, py::arg("domain") = "")))
+    py::class_<Field, std::shared_ptr<Field>>(m, "Field")
+        .def(py::init<>(&Field_Init), py::arg("argv") = py::list(),
+             py::arg("nparts") = 0, py::arg("output_points") = 0,
+             py::arg("output_points_hom_z") = 0, py::arg("error") = false,
+             py::arg("force_output") = false, py::arg("no_equispaced") = false,
+             py::arg("npz") = 0, py::arg("onlyshape") = "",
+             py::arg("part_only") = 0, py::arg("part_only_overlapping") = 0,
+             py::arg("use_session_variables") = false,
+             py::arg("use_session_expansion") = false,
+             py::arg("verbose") = false, py::arg("domain") = "")
 
         .def("GetPts", &Field_GetPts)
         .def("SetPts", &Field_SetPts)
@@ -241,7 +212,7 @@ void export_Field()
         .def("NewPartition", &NewPartition)
         .def("ReadFieldDefs", &Field::ReadFieldDefs)
 
-        .def("SetupFromExpList", Field_SetupFromExpList)
+        .def("SetupFromExpList", &Field::SetupFromExpList)
 
         .def_readwrite("graph", &Field::m_graph)
         .def_readwrite("session", &Field::m_session)

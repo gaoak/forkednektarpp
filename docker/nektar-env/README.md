@@ -10,7 +10,7 @@ we install the following development libraries:
 - LAPACK/BLAS
 - OpenMPI (enables `NEKTAR_USE_MPI`)
 - FFTW (enables `NEKTAR_USE_FFT`)
-- Python and Boost.Python (enables `NEKTAR_BUILD_PYTHON`)
+- Python (enables `NEKTAR_BUILD_PYTHON`)
 - HDF5 (enables `NEKTAR_USE_HDF5`)
 - OCE, Triangle and TetGen (enables `NEKTAR_USE_MESHGEN`)
 - PETSc (enables `NEKTAR_USE_PETSC`)

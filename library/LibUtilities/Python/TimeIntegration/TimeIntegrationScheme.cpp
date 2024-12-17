@@ -39,13 +39,21 @@
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
 
-void export_TimeIntegrationScheme()
+/// This is required since TimeIntegrationScheme has a protected destructror:
+/// actually not quite sure why this is the case!
+class TIS_Deletable : public TimeIntegrationScheme
+{
+public:
+    ~TIS_Deletable() override = default;
+};
+
+void export_TimeIntegrationScheme(py::module &m)
 {
     // Very lightweight class around the time-integration scheme. Mostly this is
     // here for debugging purposes rather than to provide a full wrapper around
     // this class.
-    py::class_<TimeIntegrationScheme, std::shared_ptr<TimeIntegrationScheme>,
-               boost::noncopyable>("TimeIntegrationScheme", py::no_init)
+    py::class_<TIS_Deletable, std::shared_ptr<TIS_Deletable>>(
+        m, "TimeIntegrationScheme")
         .def("GetFullName", &TimeIntegrationScheme::GetFullName)
         .def("GetName", &TimeIntegrationScheme::GetName)
         .def("GetVariant", &TimeIntegrationScheme::GetVariant)

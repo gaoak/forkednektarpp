@@ -38,7 +38,7 @@
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
-#include <boost/python/raw_function.hpp>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
@@ -55,28 +55,21 @@ using namespace Nektar::LibUtilities;
  *
  * @return None (null py::object).
  */
-py::object Interpreter_AddConstants(py::tuple args, py::dict kwargs)
+void Interpreter_AddConstants(std::shared_ptr<Interpreter> interpreter,
+                              py::args args, const py::kwargs &kwargs)
 {
-    // To extract the 'self' object
-    Interpreter &interpreter = py::extract<Interpreter &>(args[0]);
-
     // Map that will be passed to C++
     std::map<std::string, NekDouble> constants;
 
     // Loop over the keys inside the kwargs dictionary
-    py::list keys = kwargs.keys();
-    for (int i = 0; i < py::len(keys); ++i)
+    for (auto &it : kwargs)
     {
-        py::object arg = kwargs[keys[i]];
-        if (arg)
-        {
-            constants[py::extract<std::string>(keys[i])] =
-                py::extract<NekDouble>(arg);
-        }
+        const std::string &key = py::cast<const std::string>(it.first);
+        const NekDouble &val   = py::cast<const NekDouble>(it.second);
+        constants[key]         = val;
     }
 
-    interpreter.AddConstants(constants);
-    return py::object();
+    interpreter->AddConstants(constants);
 }
 
 /**
@@ -91,28 +84,21 @@ py::object Interpreter_AddConstants(py::tuple args, py::dict kwargs)
  *
  * @return None (null py::object).
  */
-py::object Interpreter_SetParameters(py::tuple args, py::dict kwargs)
+void Interpreter_SetParameters(std::shared_ptr<Interpreter> interpreter,
+                               py::args args, const py::kwargs &kwargs)
 {
-
-    // To extract the 'self' object
-    Interpreter &interpreter = py::extract<Interpreter &>(args[0]);
-
     // Map that will be passed to C++
     std::map<std::string, NekDouble> parameters;
 
     // Loop over the keys inside the kwargs dictionary
-    py::list keys = kwargs.keys();
-    for (int i = 0; i < py::len(keys); ++i)
+    for (auto &it : kwargs)
     {
-        py::object arg = kwargs[keys[i]];
-        if (arg)
-        {
-            parameters[py::extract<std::string>(keys[i])] =
-                py::extract<NekDouble>(arg);
-        }
+        const std::string &key = py::cast<const std::string>(it.first);
+        const NekDouble &val   = py::cast<const NekDouble>(it.second);
+        parameters[key]        = val;
     }
-    interpreter.SetParameters(parameters);
-    return py::object();
+
+    interpreter->SetParameters(parameters);
 }
 
 /**
@@ -223,18 +209,19 @@ Array<OneD, NekDouble> Interpreter_Evaluate4(
     return tmp;
 }
 
-void export_Interpreter()
+void export_Interpreter(py::module &m)
 {
-    py::class_<Interpreter, std::shared_ptr<Interpreter>, boost::noncopyable>(
-        "Interpreter", py::init<>())
+    py::class_<Interpreter, std::shared_ptr<Interpreter>>(m, "Interpreter")
+
+        .def(py::init<>())
 
         .def("SetRandomSeed", &Interpreter::SetRandomSeed)
 
-        .def("AddConstants", py::raw_function(Interpreter_AddConstants))
+        .def("AddConstants", &Interpreter_AddConstants)
         .def("AddConstant", &Interpreter::AddConstant)
         .def("GetConstant", Interpreter_GetConstant)
 
-        .def("SetParameters", py::raw_function(Interpreter_SetParameters))
+        .def("SetParameters", &Interpreter_SetParameters)
         .def("SetParameter", &Interpreter::SetParameter)
         .def("GetParameter", Interpreter_GetParameter)
 

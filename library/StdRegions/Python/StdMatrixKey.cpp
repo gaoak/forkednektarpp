@@ -32,62 +32,49 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/Python/NekPyConfig.hpp>
 #include <StdRegions/StdExpansion.h>
 #include <StdRegions/StdMatrixKey.h>
+
 #include <vector>
 
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
+#include <LibUtilities/Python/NekPyConfig.hpp>
+#include <StdRegions/Python/VarCoeffEntry.hpp>
 
 using namespace Nektar;
 using namespace Nektar::StdRegions;
 
-StdMatrixKey *StdMatrixKey_Init(const MatrixType matType,
-                                const LibUtilities::ShapeType shapeType,
-                                const StdExpansionSharedPtr exp,
-                                const py::object &constFactorMap,
-                                const py::object &varCoeffMap)
+PYBIND11_MAKE_OPAQUE(ConstFactorMap)
+PYBIND11_MAKE_OPAQUE(VarCoeffMap)
+
+std::unique_ptr<StdMatrixKey> StdMatrixKey_Init(
+    const MatrixType matType, const LibUtilities::ShapeType shapeType,
+    const StdExpansionSharedPtr exp, const ConstFactorMap &constFactorMap,
+    const VarCoeffMap &varCoeffMap)
 {
-    ConstFactorMap tmp = NullConstFactorMap;
-    VarCoeffMap tmp2   = NullVarCoeffMap;
-
-    if (!constFactorMap.is_none())
-    {
-        tmp = py::extract<ConstFactorMap>(constFactorMap);
-    }
-
-    if (!varCoeffMap.is_none())
-    {
-        tmp2 = py::extract<VarCoeffMap>(varCoeffMap);
-    }
-
-    return new StdMatrixKey(matType, shapeType, *exp, tmp, tmp2);
+    return std::make_unique<StdMatrixKey>(matType, shapeType, *exp,
+                                          constFactorMap, varCoeffMap);
 }
 
 /**
  * @brief Export for StdMatrixKey enumeration.
  */
-void export_StdMatrixKey()
+void export_StdMatrixKey(py::module &m)
 {
-    NEKPY_WRAP_ENUM(MatrixType, MatrixTypeMap);
-    NEKPY_WRAP_ENUM(ConstFactorType, ConstFactorTypeMap);
-    NEKPY_WRAP_ENUM(VarCoeffType, VarCoeffTypeMap);
+    NEKPY_WRAP_ENUM(m, MatrixType, MatrixTypeMap);
+    NEKPY_WRAP_ENUM(m, ConstFactorType, ConstFactorTypeMap);
+    NEKPY_WRAP_ENUM(m, VarCoeffType, VarCoeffTypeMap);
 
     // Wrapper for constant factor map.
-    py::class_<ConstFactorMap>("ConstFactorMap")
-        .def(py::map_indexing_suite<ConstFactorMap>());
+    py::bind_map<ConstFactorMap>(m, "ConstFactorMap");
 
     // Wrapper for variable coefficients map.
-    py::class_<VarCoeffMap>("VarCoeffMap")
-        .def(py::map_indexing_suite<VarCoeffMap, true>());
+    py::bind_map<VarCoeffMap>(m, "VarCoeffMap");
 
-    py::class_<StdMatrixKey>("StdMatrixKey", py::no_init)
-        .def("__init__",
-             py::make_constructor(
-                 &StdMatrixKey_Init, py::default_call_policies(),
-                 (py::arg("matType"), py::arg("shapeType"), py::arg("exp"),
-                  py::arg("constFactorMap") = py::object(),
-                  py::arg("varCoeffMap")    = py::object())))
+    py::class_<StdMatrixKey>(m, "StdMatrixKey")
+        .def(py::init(&StdMatrixKey_Init), py::arg("matType"),
+             py::arg("shapeType"), py::arg("exp"),
+             py::arg("constFactorMap") = NullConstFactorMap,
+             py::arg("varCoeffMap")    = NullVarCoeffMap)
 
         .def("GetMatrixType", &StdMatrixKey::GetMatrixType)
         .def("GetShapeType", &StdMatrixKey::GetShapeType)

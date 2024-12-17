@@ -11,7 +11,7 @@ in order to show the proof-of-concept.
 
 # Features and functionality
 
-`NekPy` uses the `Boost.Python` library to provide a set of high-quality,
+`NekPy` uses the `pybind11` library to provide a set of high-quality,
 hand-written Python bindings for selected functions and classes in Nektar++. A
 typical snippet could look something like:
 
@@ -32,14 +32,14 @@ proj     = quadExp.FwdTrans(fx)
 This example shows how to create a `StdQuadExp` and perform a rudimentary
 forwards transform using the `NekPy` wrappers.
 
-`NekPy` additionally uses the `Boost.NumPy` library, contained in Boost 1.63+,
-to automatically convert C++ `Array<OneD, T>` objects to and from the
-commonly-used `numpy.ndarray` object, which makes the integration more seamless
-between Python and C++.
+`NekPy` additionally uses the `numpy` capabilities of `pybind11` to
+automatically convert C++ `Array<OneD, T>` objects to and from the commonly-used
+`numpy.ndarray` object, which makes the integration more seamless between Python
+and C++.
 
 # How do I wrap things?
 
-`Boost.Python` is a pretty comprehensive package and an extended discussion is
+`pybind11` is a pretty comprehensive package and an extended discussion is
 really beyond the scope of this project. See [the wrapping
 guide](wrapping-guide.md) for some basic concepts and frequently-encountered
 issues.
@@ -48,14 +48,14 @@ issues.
 
 NekPy has the following list of requirements:
 
-- Boost with Python support
-- Python 2.7+
+- Python 3.5+
 - NumPy, installed either from your package manager or through `pip`.
 
 Most of these can be installed using package managers on various operating
-systems, as we describe below. We also have a requirement on the `Boost.NumPy`
-package, which is available in boost 1.63 or later. If this isn't found on your
-system, it will be automatically downloaded and compiled.
+systems, as we describe below.
+
+We manually package the `smart-holder` branch of `pybind11` to enable use of
+factory patterns and inheritance.
 
 ## Compiling and installing Nektar++ with NekPy support
 
@@ -67,13 +67,7 @@ enabled.
 
 #### Homebrew 
 Users of Homebrew should make sure their installation is up-to-date with `brew
-upgrade`. Then run
-
-```
-brew install python boost-python
-```
-
-To install the NumPy package, use the `pip` package manager:
+upgrade`. To install the NumPy package, use the `pip` package manager:
 
 ```
 pip install numpy
@@ -85,8 +79,8 @@ Users of MacPorts should sure their installation is up-to-date with `sudo port
 selfupdate && sudo port upgrade outdated`. Then run
 
 ```
-sudo port install python27 py27-numpy
-sudo port select --set python python27
+sudo port install python310 py310-numpy
+sudo port select --set python python310
 ```
 
 
@@ -96,7 +90,7 @@ Users of Debian and Ubuntu Linux systems should sure their installation is
 up-to-date with `sudo apt-get update && sudo apt-get upgrade`
 
 ```
-sudo apt-get install libboost-python-dev python-numpy
+sudo apt-get install libpython-dev python-numpy
 ```
 
 ## Installing the wrappers

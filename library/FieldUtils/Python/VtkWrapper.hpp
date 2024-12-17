@@ -32,8 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <vtkPoints.h>
-#include <vtkUnstructuredGrid.h>
+#ifndef NEKTAR_FIELDUTILS_PYTHON_VTKWRAPPER_HPP
+#define NEKTAR_FIELDUTILS_PYTHON_VTKWRAPPER_HPP
+
+#include <vtkObjectBase.h>
+#include <vtkSmartPointer.h>
 #include <vtkVersion.h>
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
@@ -41,38 +44,101 @@
 /*
  * Adapted from the code at:
  * https://www.paraview.org/Wiki/Example_from_and_to_python_converters
+ *
+ * and: https://github.com/EricCousineau-TRI/repro/tree/master/python/vtk_pybind
  */
 
-template <class T> struct vtkObjectPointer_to_python
+namespace pybind11::detail
 {
-    static PyObject *convert(const T &p)
+
+template <typename T>
+struct type_caster<T, enable_if_t<std::is_base_of<vtkObjectBase, T>::value>>
+{
+private:
+    // Store value as a pointer
+    T *value;
+
+public:
+    static constexpr auto name = _<T>();
+
+    bool load(handle src, bool)
     {
-        if (p == NULL)
+        std::string thisStr = "__this__";
+
+        PyObject *obj = src.ptr();
+
+        // first we need to get the __this__ attribute from the Python Object
+        if (!PyObject_HasAttrString(obj, thisStr.c_str()))
         {
-            return py::incref(Py_None);
+            return false;
         }
+
+        PyObject *thisAttr = PyObject_GetAttrString(obj, thisStr.c_str());
+        if (thisAttr == nullptr)
+        {
+            return false;
+        }
+
+        std::string str = PyUnicode_AsUTF8(thisAttr);
+
+        if (str.size() < 21)
+        {
+            return false;
+        }
+
+        auto iter = str.find("_p_vtk");
+        if (iter == std::string::npos)
+        {
+            return false;
+        }
+
+        auto className = str.substr(iter).find("vtk");
+        if (className == std::string::npos)
+        {
+            return false;
+        }
+
+        long address             = stol(str.substr(1, 17));
+        vtkObjectBase *vtkObject = (vtkObjectBase *)((void *)address);
+
+        if (vtkObject->IsA(str.substr(className).c_str()))
+        {
+            value = vtkObject;
+            return true;
+        }
+
+        return false;
+    }
+
+    static handle cast(const T *src, return_value_policy policy, handle parent)
+    {
+        if (src == nullptr)
+        {
+            return none().release();
+        }
+
         std::ostringstream oss;
-        oss << (vtkObjectBase *)p; // here don't get address
+        oss << (vtkObjectBase *)src; // here don't get address
         std::string address_str = oss.str();
 
         try
         {
-            py::object obj = py::import("vtkmodules.vtkCommonCore")
+            py::object obj = py::module_::import("vtkmodules.vtkCommonCore")
                                  .attr("vtkObjectBase")(address_str);
-            return py::incref(obj.ptr());
+            return obj.release();
         }
         catch (py::error_already_set &)
         {
-            // Clear error to avoid potential failure to catch error in
-            // next try-catch block.
+            // Clear error to avoid potential failure to catch error in next
+            // try-catch block.
             PyErr_Clear();
         }
 
         try
         {
             py::object obj =
-                py::import("vtk").attr("vtkObjectBase")(address_str);
-            return py::incref(obj.ptr());
+                py::module_::import("vtk").attr("vtkObjectBase")(address_str);
+            return obj.release();
         }
         catch (py::error_already_set &)
         {
@@ -80,71 +146,75 @@ template <class T> struct vtkObjectPointer_to_python
             throw NekError("Unable to import VTK.");
         }
 
-        return py::incref(py::object().ptr());
+        // Should never get here!
+        return none().release();
     }
 };
 
-//
-// This python to C++ converter uses the fact that VTK Python objects have an
-// attribute called __this__, which is a string containing the memory address
-// of the VTK C++ object and its class name.
-// E.g. for a vtkPoints object __this__ might be "_0000000105a64420_p_vtkPoints"
-//
-void *extract_vtk_wrapped_pointer(PyObject *obj)
+/// VTK Pointer-like object - may be non-copyable.
+template <typename Ptr> struct vtk_ptr_cast_only
 {
-    std::string thisStr = "__this__";
+protected:
+    using Class             = intrinsic_t<decltype(*std::declval<Ptr>())>;
+    using value_caster_type = type_caster<Class>;
 
-    // first we need to get the __this__ attribute from the Python Object
-    if (!PyObject_HasAttrString(obj, thisStr.c_str()))
+public:
+    static constexpr auto name = _<Class>();
+    static handle cast(const Ptr &ptr, return_value_policy policy,
+                       handle parent)
     {
-        return nullptr;
+        return value_caster_type::cast(*ptr, policy, parent);
+        ;
+    }
+};
+
+/// VTK Pointer-like object - copyable / movable.
+template <typename Ptr>
+struct vtk_ptr_cast_and_load : public vtk_ptr_cast_only<Ptr>
+{
+private:
+    Ptr value;
+    // N.B. Can't easily access base versions...
+    using Class             = intrinsic_t<decltype(*std::declval<Ptr>())>;
+    using value_caster_type = type_caster<Class>;
+
+public:
+    operator Ptr &()
+    {
+        return value;
+    }
+    // Does this even make sense in VTK?
+    operator Ptr &&() &&
+    {
+        return std::move(value);
     }
 
-    PyObject *thisAttr = PyObject_GetAttrString(obj, thisStr.c_str());
-    if (thisAttr == nullptr)
-    {
-        return nullptr;
-    }
+    template <typename T_>
+    using cast_op_type = pybind11::detail::movable_cast_op_type<T_>;
 
-#if PY_MAJOR_VERSION == 2
-    std::string str = PyString_AsString(thisAttr);
-#else
-    std::string str = PyUnicode_AsUTF8(thisAttr);
+    bool load(handle src, bool convert)
+    {
+        value_caster_type value_caster;
+        if (!value_caster.load(src, convert))
+        {
+            return false;
+        }
+        value = Ptr(value_caster.operator Class *());
+        return true;
+    }
+};
+
+template <typename Class>
+struct type_caster<vtkSmartPointer<Class>>
+    : public vtk_ptr_cast_and_load<vtkSmartPointer<Class>>
+{
+};
+
+template <typename Class>
+struct type_caster<vtkNew<Class>> : public vtk_ptr_cast_only<vtkNew<Class>>
+{
+};
+
+} // namespace pybind11::detail
+
 #endif
-
-    if (str.size() < 21)
-    {
-        return nullptr;
-    }
-
-    char hex_address[32], *pEnd;
-    auto iter = str.find("_p_vtk");
-
-    if (iter == std::string::npos)
-    {
-        return nullptr;
-    }
-
-    auto className = str.substr(iter).find("vtk");
-    if (className == std::string::npos)
-    {
-        return nullptr;
-    }
-
-    long address             = stol(str.substr(1, 17));
-    vtkObjectBase *vtkObject = (vtkObjectBase *)((void *)address);
-
-    if (vtkObject->IsA(str.substr(className).c_str()))
-    {
-        return vtkObject;
-    }
-
-    return nullptr;
-}
-
-#define VTK_PYTHON_CONVERSION(type)                                            \
-    /* register the to-python converter */                                     \
-    py::to_python_converter<type *, vtkObjectPointer_to_python<type *>>();     \
-    /* register the from-python converter */                                   \
-    py::converter::registry::insert(&extract_vtk_wrapped_pointer,              \
-                                    py::type_id<type>());

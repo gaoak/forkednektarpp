@@ -35,6 +35,7 @@
 #include <LibUtilities/Foundations/Basis.h>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
 using namespace Nektar::LibUtilities;
@@ -52,13 +53,14 @@ py::tuple Basis_GetZW(BasisSharedPtr pts)
 /**
  * @brief Basis exports.
  */
-void export_Basis()
+void export_Basis(py::module &m)
 {
     // Enumerator for basis type
-    NEKPY_WRAP_ENUM(BasisType, BasisTypeMap);
+    NEKPY_WRAP_ENUM(m, BasisType, BasisTypeMap);
 
-    py::class_<BasisKey>(
-        "BasisKey", py::init<const BasisType &, const int, const PointsKey &>())
+    py::class_<BasisKey>(m, "BasisKey")
+
+        .def(py::init<const BasisType &, const int, const PointsKey &>())
 
         .def("GetNumModes", &BasisKey::GetNumModes)
         .def("GetTotNumModes", &BasisKey::GetTotNumModes)
@@ -69,10 +71,9 @@ void export_Basis()
         .def("GetPointsType", &BasisKey::GetPointsType)
         .def("Collocation", &BasisKey::Collocation);
 
-    py::class_<Basis, std::shared_ptr<Basis>>("Basis", py::no_init)
+    py::class_<Basis, std::shared_ptr<Basis>>(m, "Basis")
 
-        .def("Create", &Basis_Create)
-        .staticmethod("Create")
+        .def_static("Create", &Basis_Create)
 
         .def("GetNumModes", &Basis::GetNumModes)
         .def("GetTotNumModes", &Basis::GetTotNumModes)
@@ -84,14 +85,10 @@ void export_Basis()
         .def("GetPointsType", &Basis::GetBasisType)
         .def("Initialize", &Basis::Initialize)
 
-        .def("GetZ", &Basis::GetZ,
-             py::return_value_policy<py::copy_const_reference>())
-        .def("GetW", &Basis::GetW,
-             py::return_value_policy<py::copy_const_reference>())
+        .def("GetZ", &Basis::GetZ)
+        .def("GetW", &Basis::GetW)
         .def("GetZW", &Basis_GetZW)
 
-        .def("GetBdata", &Basis::GetBdata,
-             py::return_value_policy<py::copy_const_reference>())
-        .def("GetDbdata", &Basis::GetDbdata,
-             py::return_value_policy<py::copy_const_reference>());
+        .def("GetBdata", &Basis::GetBdata)
+        .def("GetDbdata", &Basis::GetDbdata);
 }

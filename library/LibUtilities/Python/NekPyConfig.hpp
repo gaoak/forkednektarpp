@@ -36,73 +36,41 @@
 #ifndef NEKTAR_LIBRARY_LIBUTILITIES_PYTHON_NEKPYCONFIG_HPP
 #define NEKTAR_LIBRARY_LIBUTILITIES_PYTHON_NEKPYCONFIG_HPP
 
-#include <boost/version.hpp>
+#define PYBIND11_DETAILED_ERROR_MESSAGES
+
 #include <memory>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 
-// Boost 1.62 and earlier don't have native support for std::shared_ptr. This
-// includes various patches that are pulled from the git changeset 97e4b34a15
-// from the main boost.python github repository, which is where fixes were
-// added to include std::shared_ptr support.
-#if BOOST_VERSION < 106300
-#include "ShPtrFixes.hpp"
-#endif
+namespace py = pybind11;
 
-#include "FunctorSignature.hpp"
-
-#ifdef BOOST_HAS_NUMPY
-
-#include <boost/python.hpp>
-#include <boost/python/numpy.hpp>
-
-namespace py = boost::python;
-namespace np = boost::python::numpy;
-
-#else
-
-#include <boost/numpy.hpp>
-#include <boost/python.hpp>
-
-namespace py = boost::python;
-namespace np = boost::numpy;
-
-#endif
+// Define some common STL opaque types
+PYBIND11_MAKE_OPAQUE(std::vector<unsigned int>)
 
 #define SIZENAME(s) SIZE_##s
-#define NEKPY_WRAP_ENUM(ENUMNAME, MAPNAME)                                     \
+#define NEKPY_WRAP_ENUM(MOD, ENUMNAME, MAPNAME)                                \
     {                                                                          \
-        py::enum_<ENUMNAME> tmp(#ENUMNAME);                                    \
+        py::enum_<ENUMNAME> tmp(MOD, #ENUMNAME);                               \
         for (int a = 0; a < (int)SIZENAME(ENUMNAME); ++a)                      \
         {                                                                      \
             tmp.value(MAPNAME[a], (ENUMNAME)a);                                \
         }                                                                      \
         tmp.export_values();                                                   \
     }
-#define NEKPY_WRAP_ENUM_STRING(ENUMNAME, MAPNAME)                              \
+#define NEKPY_WRAP_ENUM_STRING(MOD, ENUMNAME, MAPNAME)                         \
     {                                                                          \
-        py::enum_<ENUMNAME> tmp(#ENUMNAME);                                    \
+        py::enum_<ENUMNAME> tmp(MOD, #ENUMNAME);                               \
         for (int a = 0; a < (int)SIZENAME(ENUMNAME); ++a)                      \
         {                                                                      \
             tmp.value(MAPNAME[a].c_str(), (ENUMNAME)a);                        \
         }                                                                      \
         tmp.export_values();                                                   \
     }
-#if PY_MAJOR_VERSION == 2
-#define NEKPY_WRAP_ENUM_STRING_DOCS(ENUMNAME, MAPNAME, DOCSTRING)              \
+#define NEKPY_WRAP_ENUM_STRING_DOCS(MOD, ENUMNAME, MAPNAME, DOCSTRING)         \
     {                                                                          \
-        py::enum_<ENUMNAME> tmp(#ENUMNAME);                                    \
-        for (int a = 0; a < (int)SIZENAME(ENUMNAME); ++a)                      \
-        {                                                                      \
-            tmp.value(MAPNAME[a].c_str(), (ENUMNAME)a);                        \
-        }                                                                      \
-        tmp.export_values();                                                   \
-        PyTypeObject *pto = reinterpret_cast<PyTypeObject *>(tmp.ptr());       \
-        PyDict_SetItemString(pto->tp_dict, "__doc__",                          \
-                             PyString_FromString(DOCSTRING));                  \
-    }
-#else
-#define NEKPY_WRAP_ENUM_STRING_DOCS(ENUMNAME, MAPNAME, DOCSTRING)              \
-    {                                                                          \
-        py::enum_<ENUMNAME> tmp(#ENUMNAME);                                    \
+        py::enum_<ENUMNAME> tmp(MOD, #ENUMNAME);                               \
         for (int a = 0; a < (int)SIZENAME(ENUMNAME); ++a)                      \
         {                                                                      \
             tmp.value(MAPNAME[a].c_str(), (ENUMNAME)a);                        \
@@ -112,90 +80,6 @@ namespace np = boost::numpy;
         PyDict_SetItemString(pto->tp_dict, "__doc__",                          \
                              PyUnicode_FromString(DOCSTRING));                 \
     }
-#endif
-
-#if BOOST_VERSION >= 106300
-
-namespace boost::python::converter
-{
-
-/** @brief shared_ptr_from_python specialization for std:shared_ptr
- *
- * @details
- * The standard boost::python::shared_ptr_from_python have some special trick
- * trying to preserve the python id(obj) for some simple use-patterns.
- *
- * This is done using a shared_ptr<void> with customer deleter with reference to
- * the python object, allowing the same python object to be revealed to the
- * python user.
- *
- * Unfortunately, that implementation breaks the weak-pointer mechanism of
- * shared-ptr, invalidating any reasonable use inside the the c++ library.
- *
- * Thus, we choose to undo this approach, using standard robust c++ mechanisms,
- * and sacrifice the 'id(obj)' requirement.
- *
- * Notice that the implementation is a copy of the original, with the exception
- * of the construct method.
- */
-template <class T> struct shared_ptr_from_python<T, std::shared_ptr>
-{
-
-    shared_ptr_from_python()
-    {
-        converter::registry::insert(
-            &convertible, &construct, type_id<std::shared_ptr<T>>()
-#ifndef BOOST_PYTHON_NO_PY_SIGNATURES
-                                          ,
-            &converter::expected_from_python_type_direct<T>::get_pytype
-#endif
-        );
-    }
-
-private:
-    static void *convertible(PyObject *p)
-    {
-        if (p == Py_None)
-        {
-            return p;
-        }
-        return converter::get_lvalue_from_python(p, registered<T>::converters);
-    }
-
-    static void construct(PyObject *source,
-                          rvalue_from_python_stage1_data *data)
-    {
-        void *const storage =
-            ((converter::rvalue_from_python_storage<std::shared_ptr<T>> *)data)
-                ->storage.bytes;
-        if (data->convertible == source)
-        {
-            new (storage) std::shared_ptr<T>();
-        }
-        else
-        {
-            reference_arg_from_python<std::shared_ptr<T> &> sp(source);
-            if (sp.convertible())
-            {
-                new (storage) std::shared_ptr<T>(sp());
-            }
-            else
-            {
-                std::shared_ptr<void> hold_convertible_ref_count(
-                    (void *)nullptr,
-                    shared_ptr_deleter(handle<>(borrowed(source))));
-                new (storage)
-                    std::shared_ptr<T>(hold_convertible_ref_count,
-                                       static_cast<T *>(data->convertible));
-            }
-        }
-        data->convertible = storage;
-    }
-};
-
-} // namespace boost::python::converter
-
-#endif
 
 /**
  * @brief Helper structure to construct C++ command line `argc` and `argv`
@@ -221,14 +105,14 @@ struct CppCommandLine
         // OpenMPI) will likely segfault.
         for (i = 0; i < m_argc; ++i)
         {
-            std::string tmp = py::extract<std::string>(py_argv[i]);
+            std::string tmp = py::cast<std::string>(py_argv[i]);
             bufSize += tmp.size() + 1;
         }
 
         m_buf.resize(bufSize);
         for (i = 0, p = &m_buf[0]; i < m_argc; ++i)
         {
-            std::string tmp = py::extract<std::string>(py_argv[i]);
+            std::string tmp = py::cast<std::string>(py_argv[i]);
             std::copy(tmp.begin(), tmp.end(), p);
             p[tmp.size()] = '\0';
             m_argv[i]     = p;
@@ -274,22 +158,6 @@ private:
     int m_argc = 0;
     /// Buffer for storage of the argument strings.
     std::vector<char> m_buf;
-};
-
-/**
- * @brief A helper class that for factory-based classes allows
- * std::shared_ptr<T> as something that boost::python recognises, otherwise
- * modules constructed from the factory will not work from Python.
- */
-template <typename T> struct WrapConverter
-{
-    WrapConverter()
-    {
-        py::objects::class_value_wrapper<
-            std::shared_ptr<T>,
-            py::objects::make_ptr_instance<
-                T, py::objects::pointer_holder<std::shared_ptr<T>, T>>>();
-    }
 };
 
 #endif

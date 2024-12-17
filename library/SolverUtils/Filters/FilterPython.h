@@ -38,8 +38,12 @@
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SolverUtils/Filters/Filter.h>
 
+#include <pybind11/embed.h>
+
 namespace Nektar::SolverUtils
 {
+
+#pragma GCC visibility push(hidden)
 class FilterPython : public Filter
 {
 public:
@@ -78,10 +82,12 @@ protected:
     bool v_IsTimeDependent() override;
 
 private:
-    LibUtilities::FieldIOSharedPtr m_fld;
+    /// Container for Python global variables.
     py::object m_global;
+    /// Python filter class to run (optionally)
     std::shared_ptr<Filter> m_pyFilter = nullptr;
 };
+#pragma GCC visibility pop
 
 } // namespace Nektar::SolverUtils
 

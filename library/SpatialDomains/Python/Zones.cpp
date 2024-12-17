@@ -32,9 +32,11 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/Movement/Zones.h>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
+
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Python/NekPyConfig.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
@@ -64,44 +66,40 @@ ZoneFixedShPtr ZoneFixed_Init(int id, int domainID, const CompositeMap &domain,
     return std::make_shared<ZoneFixed>(id, domainID, domain, coordDim);
 }
 
-void export_Zones()
+void export_Zones(py::module &m)
 {
-    NEKPY_WRAP_ENUM_STRING(MovementType, MovementTypeStr);
+    NEKPY_WRAP_ENUM_STRING(m, MovementType, MovementTypeStr);
 
-    py::class_<ZoneBase, std::shared_ptr<ZoneBase>, boost::noncopyable>(
-        "ZoneBase", py::no_init)
-        .def("GetMovementType", &ZoneBase::GetMovementType)
-        .def("GetDomain", &ZoneBase::GetDomain)
-        .def("GetId", &ZoneBase::GetId,
-             py::return_value_policy<py::copy_non_const_reference>())
+    py::class_<ZoneBase, std::shared_ptr<ZoneBase>>(m, "ZoneBase")
+        .def("GetMovementType", &ZoneBase::GetMovementType,
+             py::return_value_policy::reference_internal)
+        .def("GetDomain", &ZoneBase::GetDomain,
+             py::return_value_policy::reference_internal)
+        .def("GetId", &ZoneBase::GetId, py::return_value_policy::copy)
         .def("GetDomainID", &ZoneBase::GetDomainID,
-             py::return_value_policy<py::copy_non_const_reference>())
+             py::return_value_policy::copy)
         .def("Move", &ZoneBase::Move)
         .def("GetElements", &ZoneBase::GetElements,
-             py::return_internal_reference<>())
-        .def("GetMoved", &ZoneBase::GetMoved,
-             py::return_value_policy<py::copy_non_const_reference>())
+             py::return_value_policy::reference_internal)
+        .def("GetMoved", &ZoneBase::GetMoved, py::return_value_policy::copy)
         .def("ClearBoundingBoxes", &ZoneBase::ClearBoundingBoxes);
 
-    py::class_<ZoneRotate, py::bases<ZoneBase>, std::shared_ptr<ZoneRotate>>(
-        "ZoneRotate", py::no_init)
-        .def("__init__", py::make_constructor(&ZoneRotate_Init))
+    py::class_<ZoneRotate, ZoneBase, std::shared_ptr<ZoneRotate>>(m,
+                                                                  "ZoneRotate")
+        .def(py::init<>(&ZoneRotate_Init))
         .def("GetAngualrVel", &ZoneRotate::GetAngularVel)
-        .def("GetOrigin", &ZoneRotate::GetOrigin,
-             py::return_value_policy<py::copy_const_reference>())
-        .def("GetAxis", &ZoneRotate::GetAxis,
-             py::return_value_policy<py::copy_const_reference>())
+        .def("GetOrigin", &ZoneRotate::GetOrigin, py::return_value_policy::copy)
+        .def("GetAxis", &ZoneRotate::GetAxis, py::return_value_policy::copy)
         .def("GetAngularVelEqn", &ZoneRotate::GetAngularVelEqn);
 
-    py::class_<ZoneTranslate, py::bases<ZoneBase>,
-               std::shared_ptr<ZoneTranslate>>("ZoneTranslate", py::no_init)
-        .def("__init__", py::make_constructor(&ZoneTranslate_Init))
+    py::class_<ZoneTranslate, ZoneBase, std::shared_ptr<ZoneTranslate>>(
+        m, "ZoneTranslate")
+        .def(py::init<>(&ZoneTranslate_Init))
         .def("GetVelocityEquation", &ZoneTranslate::GetVelocityEquation)
         .def("GetDisplacementEqn", &ZoneTranslate::GetDisplacementEquation);
 
-    py::class_<ZoneFixed, py::bases<ZoneBase>, std::shared_ptr<ZoneFixed>>(
-        "ZoneFixed", py::no_init)
-        .def("__init__", py::make_constructor(&ZoneFixed_Init));
+    py::class_<ZoneFixed, ZoneBase, std::shared_ptr<ZoneFixed>>(m, "ZoneFixed")
+        .def(py::init<>(&ZoneFixed_Init));
 }
 
 //

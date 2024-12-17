@@ -33,6 +33,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 #include <SpatialDomains/MeshGraphIO.h>
 
@@ -54,20 +55,16 @@ MeshGraphIOSharedPtr MeshGraphIO_Create(std::string ioType)
     return GetMeshGraphIOFactory().CreateInstance(ioType);
 }
 
-void export_MeshGraphIO()
+void export_MeshGraphIO(py::module &m)
 {
-    py::class_<MeshGraphIO, std::shared_ptr<MeshGraphIO>, boost::noncopyable>(
-        "MeshGraphIO", py::no_init)
+    py::class_<MeshGraphIO, std::shared_ptr<MeshGraphIO>>(m, "MeshGraphIO")
 
-        .def("Write", &MeshGraphIO::WriteGeometry, py::default_call_policies(),
-             (py::arg("outfile"), py::arg("defaultExp") = false,
-              py::arg("metadata") = LibUtilities::NullFieldMetaDataMap))
+        .def("Write", &MeshGraphIO::WriteGeometry, py::arg("outfile"),
+             py::arg("defaultExp") = false,
+             py::arg("metadata")   = LibUtilities::NullFieldMetaDataMap)
 
         .def("SetMeshGraph", &MeshGraphIO::SetMeshGraph)
 
-        .def("Read", MeshGraphIO_Read)
-        .staticmethod("Read")
-
-        .def("Create", MeshGraphIO_Create)
-        .staticmethod("Create");
+        .def_static("Read", MeshGraphIO_Read)
+        .def_static("Create", MeshGraphIO_Create);
 }

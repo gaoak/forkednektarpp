@@ -32,8 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <boost/core/ignore_unused.hpp>
-
 #include <SolverUtils/Filters/FilterPython.h>
 
 #include <fstream>
@@ -48,6 +46,7 @@ std::string parse_python_exception()
 {
     PyObject *type_ptr = nullptr, *value_ptr = nullptr,
              *traceback_ptr = nullptr;
+
     // Fetch the exception info from the Python C API
     PyErr_Fetch(&type_ptr, &value_ptr, &traceback_ptr);
 
@@ -57,64 +56,35 @@ std::string parse_python_exception()
     // If the fetch got a type pointer, parse the type into the exception string
     if (type_ptr != nullptr)
     {
-        py::handle<> h_type(type_ptr);
-        py::str type_pstr(h_type);
-        // Extract the string from the boost::python object
-        py::extract<std::string> e_type_pstr(type_pstr);
-        // If a valid string extraction is available, use it; otherwise use
-        // fallback.
-        if (e_type_pstr.check())
-        {
-            ret = e_type_pstr();
-        }
-        else
-        {
-            ret = "Unknown exception type";
-        }
+        py::handle h_type(type_ptr);
+        ret = py::str(h_type);
     }
 
     // Do the same for the exception value (the stringification of the
     // exception)
     if (value_ptr != nullptr)
     {
-        py::handle<> h_val(value_ptr);
-        py::str a(h_val);
-        py::extract<std::string> returned(a);
-        if (returned.check())
-        {
-            ret += ": " + returned();
-        }
-        else
-        {
-            ret += std::string(": Unparseable Python error: ");
-        }
+        py::handle h_val(value_ptr);
+        ret += ": " + std::string(py::str(h_val));
     }
 
     // Parse lines from the traceback using the Python traceback module
     if (traceback_ptr != nullptr)
     {
-        py::handle<> h_tb(traceback_ptr);
+        py::handle h_tb(traceback_ptr);
 
         // Load the traceback module and the format_tb function
-        py::object tb(py::import("traceback"));
+        py::object tb(py::module_::import("traceback"));
         py::object fmt_tb(tb.attr("format_tb"));
 
         // Call format_tb to get a list of traceback strings
         py::object tb_list(fmt_tb(h_tb));
 
         // Join the traceback strings into a single string
-        py::object tb_str(py::str("\n").join(tb_list));
+        py::object tb_str(py::str("\n").attr("join")(tb_list));
 
         // Extract the string, check the extraction, and fallback in necessary
-        py::extract<std::string> returned(tb_str);
-        if (returned.check())
-        {
-            ret += ": " + returned();
-        }
-        else
-        {
-            ret += std::string(": Unparseable Python traceback");
-        }
+        ret += ": " + std::string(py::str(tb_str));
     }
     return ret;
 }
@@ -127,7 +97,7 @@ inline py::list ArrayOneDToPyList(
 
     for (int i = 0; i < pFields.size(); ++i)
     {
-        expLists.append(py::object(pFields[i]));
+        expLists.append(py::cast(pFields[i]));
     }
 
     return expLists;
@@ -141,15 +111,17 @@ FilterPython::FilterPython(const LibUtilities::SessionReaderSharedPtr &pSession,
                            const ParamMap &pParams)
     : Filter(pSession, pEquation)
 {
+    if (!Py_IsInitialized())
+    {
+        py::initialize_interpreter();
+    }
+
     auto it = pParams.find("PythonFile");
     ASSERTL0(it != pParams.end(), "Empty parameter 'PythonFile'.");
-    std::string pythonFile = it->second;
-
-    Py_Initialize();
-    std::string pythonCode;
+    std::string pythonFile = it->second, pythonCode;
 
     // Set the global namespace.
-    m_global = py::import("__main__").attr("__dict__");
+    m_global = py::module_::import("__main__").attr("__dict__");
 
     try
     {
@@ -179,8 +151,8 @@ FilterPython::FilterPython(const LibUtilities::SessionReaderSharedPtr &pSession,
     {
         // Import NekPy libraries. This ensures we have all of our boost python
         // wrappers. I guess this could also be done by the calling script...
-        auto nekpy    = py::import("NekPy");
-        auto multireg = py::import("NekPy.MultiRegions");
+        auto nekpy    = py::module_::import("NekPy");
+        auto multireg = py::module_::import("NekPy.MultiRegions");
 
         // Eval the python code. We can then grab functions etc from the global
         // namespace.

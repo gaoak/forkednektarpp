@@ -12,10 +12,7 @@ RUN DEBIAN_RELEASE=bookworm && \
     apt-get update && \
     apt-get install -y \
         packaging-dev cmake git git-buildpackage vim \
-        libboost-thread-dev libboost-iostreams-dev libboost-filesystem-dev \
-            libboost-system-dev libboost-program-options-dev \
-            libboost-python-dev libboost-numpy-dev libboost-regex-dev \
-            libboost-timer-dev \
+        libboost-iostreams-dev libboost-system-dev libboost-program-options-dev \
         libarpack2-dev \
         libfftw3-dev \
         libhdf5-mpi-dev \

@@ -34,17 +34,15 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-void export_EquationSystem();
-void export_Filter();
-void export_SessionFunction();
-void export_UnsteadySystem();
+void export_EquationSystem(py::module &m);
+void export_Filter(py::module &m);
+void export_SessionFunction(py::module &m);
+void export_UnsteadySystem(py::module &m);
 
-BOOST_PYTHON_MODULE(_SolverUtils)
+PYBIND11_MODULE(_SolverUtils, m)
 {
-    np::initialize();
-
-    export_EquationSystem();
-    export_Filter();
-    export_SessionFunction();
-    export_UnsteadySystem();
+    export_EquationSystem(m);
+    export_Filter(m);
+    export_SessionFunction(m);
+    export_UnsteadySystem(m);
 }

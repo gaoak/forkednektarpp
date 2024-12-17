@@ -50,20 +50,21 @@ py::list Curve_GetPoints(CurveSharedPtr curve)
 
 void Curve_SetPoints(CurveSharedPtr curve, py::list &pts)
 {
-    py::ssize_t n = py::len(pts);
+    auto n = pts.size();
 
     for (py::ssize_t i = 0; i < n; ++i)
     {
-        curve->m_points.push_back(py::extract<PointGeomSharedPtr>(pts[i]));
+        curve->m_points.push_back(py::cast<PointGeomSharedPtr>(pts[i]));
     }
 }
 
-void export_Curve()
+void export_Curve(py::module &m)
 {
-    py::class_<Curve, std::shared_ptr<Curve>>(
-        "Curve", py::init<int, LibUtilities::PointsType>())
+    py::class_<Curve, std::shared_ptr<Curve>>(m, "Curve")
+
+        .def(py::init<int, LibUtilities::PointsType>())
 
         .def_readwrite("curveID", &Curve::m_curveID)
         .def_readwrite("ptype", &Curve::m_ptype)
-        .add_property("points", &Curve_GetPoints, &Curve_SetPoints);
+        .def_property("points", &Curve_GetPoints, &Curve_SetPoints);
 }

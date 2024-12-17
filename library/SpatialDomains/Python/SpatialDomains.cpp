@@ -33,26 +33,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
-void export_Geometry();
-void export_Curve();
-void export_MeshGraph();
-void export_MeshGraphIO();
-void export_GeomElements();
-void export_Zones();
-void export_Interfaces();
-void export_Movement();
+void export_Geometry(py::module &m);
+void export_Curve(py::module &m);
+void export_MeshGraph(py::module &m);
+void export_MeshGraphIO(py::module &m);
+void export_GeomElements(py::module &m);
+void export_Zones(py::module &m);
+void export_Interfaces(py::module &m);
+void export_Movement(py::module &m);
 
-BOOST_PYTHON_MODULE(_SpatialDomains)
+PYBIND11_MODULE(_SpatialDomains, m)
 {
-    np::initialize();
-
-    export_Geometry();
-    export_Curve();
-    export_MeshGraph();
-    export_MeshGraphIO();
-    export_GeomElements();
-    export_Zones();
-    export_Interfaces();
-    export_Movement();
+    export_Geometry(m);
+    export_Curve(m);
+    export_MeshGraph(m);
+    export_MeshGraphIO(m);
+    export_GeomElements(m);
+    export_Zones(m);
+    export_Interfaces(m);
+    export_Movement(m);
 }

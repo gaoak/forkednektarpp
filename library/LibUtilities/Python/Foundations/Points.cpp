@@ -36,6 +36,8 @@
 #include <LibUtilities/Foundations/Points.h>
 #include <LibUtilities/Foundations/PointsType.h>
 
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Python/LinearAlgebra/NekMatrix.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
 using namespace Nektar;
@@ -54,23 +56,23 @@ py::tuple Points_GetZW(PointsSharedPtr pts)
     return py::make_tuple(pts->GetZ(), pts->GetW());
 }
 
-MatrixSharedPtrType Points_GetD(PointsSharedPtr pts)
+NekMatrix<NekDouble> &Points_GetD(PointsSharedPtr pts)
 {
-    return pts->GetD();
+    return *pts->GetD();
 }
 
-MatrixSharedPtrType Points_GetD2(PointsSharedPtr pts, Direction dir)
+NekMatrix<NekDouble> &Points_GetD2(PointsSharedPtr pts, Direction dir)
 {
-    return pts->GetD(dir);
+    return *pts->GetD(dir);
 }
 
 /**
  * @brief Points exports.
  */
-void export_Points()
+void export_Points(py::module &m)
 {
     NEKPY_WRAP_ENUM_STRING_DOCS(
-        PointsType, kPointsTypeStr,
+        m, PointsType, kPointsTypeStr,
         "Characterise the type of points.\n"
         "\n"
         "Sample usage: PointsType.GaussLobattoLegendre\n"
@@ -131,13 +133,14 @@ void export_Points()
         "\tNodalHexElec: 3D GLL for hex");
 
     py::class_<PointsKey>(
-        "PointsKey",
+        m, "PointsKey",
         "Create a PointsKey which uniquely defines quadrature points.\n"
         "\n"
         "Args:\n"
         "\tnQuadPoints (integer): The number of quadrature points.\n"
-        "\tpointsType (PointsType object): The type of quadrature points.",
-        py::init<const int, const PointsType &>())
+        "\tpointsType (PointsType object): The type of quadrature points.")
+
+        .def(py::init<const int, const PointsType &>())
 
         .def("GetNumPoints", &PointsKey::GetNumPoints,
              "Get the number of quadrature points in PointsKey.\n"
@@ -169,24 +172,22 @@ void export_Points()
              "Returns:\n"
              "\tInteger defining the total number of points in PointsKey.");
 
-    py::class_<Points<double>, std::shared_ptr<Points<double>>,
-               boost::noncopyable>(
-        "Points",
+    py::class_<Points<double>, std::shared_ptr<Points<double>>>(
+        m, "Points",
         "Create a set of points which can be used to calculate\n"
         "quadrature zeros, weights etc."
         "\n"
         "Args:\n"
-        "\tNone",
-        py::no_init)
-        .def("Create", &Points_Create,
-             "Create a Points object using PointsKey.\n"
-             "\n"
-             "Args:\n"
-             "\tpointsKey (PointsKey object): The PointsKey to be used to\n"
-             "\tcreate points.\n"
-             "Returns:\n"
-             "\tPoints object created with the given PointsKey.")
-        .staticmethod("Create")
+        "\tNone")
+        .def_static(
+            "Create", &Points_Create,
+            "Create a Points object using PointsKey.\n"
+            "\n"
+            "Args:\n"
+            "\tpointsKey (PointsKey object): The PointsKey to be used to\n"
+            "\tcreate points.\n"
+            "Returns:\n"
+            "\tPoints object created with the given PointsKey.")
 
         .def("Initialise", &Points<double>::Initialize,
              "Initialise Points object by calculating points, weights\n"
@@ -230,7 +231,6 @@ void export_Points()
              "\tobject.")
 
         .def("GetZ", &Points<double>::GetZ,
-             py::return_value_policy<py::copy_const_reference>(),
              "Get quadrature zeros.\n"
              "\n"
              "Args:\n"
@@ -239,7 +239,6 @@ void export_Points()
              "\tNumPy ndarray of length equal to the number of quadrature\n"
              "\tpoints, containing quadrature zeros.")
         .def("GetW", &Points<double>::GetW,
-             py::return_value_policy<py::copy_const_reference>(),
              "Get quadrature weights.\n"
              "\n"
              "Args:\n"
@@ -255,7 +254,7 @@ void export_Points()
              "Returns:\n"
              "\tTuple containing the quadrature zeros and quadrature weights,\n"
              "\ti.e. (Points.GetZ(), Points.GetW()).")
-        .def("GetD", &Points_GetD,
+        .def("GetD", &Points_GetD, py::return_value_policy::reference,
              "Get the differentiation matrix.\n"
              "\n"
              "Args:\n"
@@ -264,7 +263,7 @@ void export_Points()
              "\tNumPy ndarray of n x n dimensions, where n is equal to\n"
              "\tthe number of quadrature points, containing the\n"
              "\tdifferentiation matrix.")
-        .def("GetD", &Points_GetD2,
+        .def("GetD", &Points_GetD2, py::return_value_policy::reference,
              "Get the differentiation matrix.\n"
              "\n"
              "Args:\n"

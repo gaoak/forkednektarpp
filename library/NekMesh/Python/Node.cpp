@@ -33,49 +33,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
-#include <NekMesh/MeshElements/Node.h>
 
-using namespace Nektar;
-using namespace Nektar::NekMesh;
+// For opaque types
+#include <NekMesh/Python/NekMesh.h>
 
-void KeyError()
+void export_Node(py::module &m)
 {
-    PyErr_SetString(PyExc_KeyError, "Key not found");
-}
-
-template <class T> struct unordered_set_item
-{
-    using K = typename T::key_type;
-    static bool contains(T const &x, K const &k)
-    {
-        return x.find(k) != x.end();
-    }
-    static void add(T &x, K const &k)
-    {
-        x.insert(k);
-    }
-};
-
-// Temporary function to wrap Node::GetLoc since we presently have no wrapper
-// for std::array.
-Array<OneD, NekDouble> Node_GetLoc(std::shared_ptr<Node> &n)
-{
-    Array<OneD, NekDouble> tmp(3);
-    auto loc = n->GetLoc();
-    tmp[0]   = loc[0];
-    tmp[1]   = loc[1];
-    tmp[2]   = loc[2];
-    return tmp;
-}
-
-void export_Node()
-{
-    py::class_<Node, std::shared_ptr<Node>, boost::noncopyable>(
-        "Node", py::init<int, NekDouble, NekDouble, NekDouble>())
+    py::class_<Node, std::shared_ptr<Node>>(m, "Node")
+        .def(py::init<int, NekDouble, NekDouble, NekDouble>())
         .def("GetID", &Node::GetID)
         .def("SetID", &Node::SetID)
         .def("Distance", &Node::Distance)
-        .def("GetLoc", Node_GetLoc)
+        .def("GetLoc", &Node::GetLoc)
         .def("abs2", &Node::abs2)
         .def_readwrite("x", &Node::m_x)
         .def_readwrite("y", &Node::m_y)
@@ -83,11 +52,18 @@ void export_Node()
         .def_readwrite("id", &Node::m_id);
 
     // Create converter for NodeSet
-    py::class_<NodeSet>("NodeSet")
+    py::class_<NodeSet>(m, "NodeSet")
+        .def(py::init<>())
         .def("__len__", &NodeSet::size)
-        .def("clear", &NodeSet::clear)
-        .def("__iter__", py::iterator<NodeSet>())
-        .def("__contains__", &unordered_set_item<NodeSet>::contains)
-        .def("add", &unordered_set_item<NodeSet>::add,
-             py::with_custodian_and_ward<1, 2>());
+        .def("clear", [](NodeSet &n) { n.clear(); })
+        .def(
+            "__iter__",
+            [](NodeSet &v) { return py::make_iterator(v.begin(), v.end()); },
+            py::keep_alive<0, 1>())
+        .def("__contains__",
+             [](NodeSet &ns, std::shared_ptr<Node> &n) {
+                 return ns.find(n) != ns.end();
+             })
+        .def("add",
+             [](NodeSet &ns, std::shared_ptr<Node> &n) { ns.insert(n); });
 }

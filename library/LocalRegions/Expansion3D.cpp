@@ -1009,6 +1009,8 @@ DNekMatSharedPtr Expansion3D::v_GenMatrix(const StdRegions::StdMatrixKey &mkey)
                                  GetBasisNumModes(0), GetBasisNumModes(1),
                                  GetBasisNumModes(2), i, GetTraceOrient(i));
                 IndexMapValuesSharedPtr map = GetIndexMap(ikey);
+                ASSERTL0(order_f == (*map).size(),
+                         "HDGHelmholtz needs setting up for variable P");
 
                 // @TODO: Document
                 /*

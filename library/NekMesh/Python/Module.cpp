@@ -32,11 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <LibUtilities/Python/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <NekMesh/Module/Module.h>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/python/raw_function.hpp>
+#include <NekMesh/Python/NekMesh.h>
 
 using namespace Nektar;
 using namespace Nektar::NekMesh;
@@ -70,7 +69,7 @@ public:
         // Create a Python string with the message.
         py::str pyMsg(msg);
         // Write to the Python stdout.
-        py::import("sys").attr("stdout").attr("write")(msg);
+        py::module_::import("sys").attr("stdout").attr("write")(msg);
     }
 
 private:
@@ -88,15 +87,15 @@ static bool default_verbose = false;
  * @brief Module wrapper to handle virtual function calls in @c Module and its
  * subclasses as defined by the template parameter @tparam MODTYPE.
  */
-template <class MODTYPE>
-struct ModuleWrap : public MODTYPE, public py::wrapper<MODTYPE>
+#pragma GCC visibility push(hidden)
+struct ModuleWrap : public Module, public py::trampoline_self_life_support
 {
     /**
      * @brief Constructor, which is identical to NekMesh::Module::Module.
      *
      * @param mesh  Input mesh.
      */
-    ModuleWrap(MeshSharedPtr mesh) : MODTYPE(mesh), py::wrapper<MODTYPE>()
+    ModuleWrap(MeshSharedPtr mesh) : Module(mesh)
     {
     }
 
@@ -105,7 +104,7 @@ struct ModuleWrap : public MODTYPE, public py::wrapper<MODTYPE>
      */
     void Process() override
     {
-        this->get_override("Process")();
+        PYBIND11_OVERRIDE_PURE(void, Module, Process, );
     }
 
     /**
@@ -125,8 +124,36 @@ struct ModuleWrap : public MODTYPE, public py::wrapper<MODTYPE>
 
     // We expose Module::m_mesh as a public member variable so that we can
     // adjust this using Python attributes.
-    using MODTYPE::m_mesh;
+    using Module::m_mesh;
 };
+#pragma GCC visibility pop
+
+/**
+ * @brief Module wrapper to handle virtual function calls in @c Module and its
+ * subclasses as defined by the template parameter @tparam MODTYPE.
+ */
+#pragma GCC visibility push(hidden)
+template <typename MODTYPE>
+struct SubmoduleWrap : public MODTYPE, public py::trampoline_self_life_support
+{
+    /**
+     * @brief Constructor, which is identical to NekMesh::Module::Module.
+     *
+     * @param mesh  Input mesh.
+     */
+    SubmoduleWrap(MeshSharedPtr mesh) : MODTYPE(mesh)
+    {
+    }
+
+    /**
+     * @brief Concrete implementation of the Module::Process function.
+     */
+    void Process() override
+    {
+        PYBIND11_OVERRIDE_PURE(void, MODTYPE, Process, );
+    }
+};
+#pragma GCC visibility pop
 
 template <typename T>
 T Module_GetConfig(std::shared_ptr<Module> mod, const std::string &key)
@@ -190,7 +217,7 @@ const ModuleType ModuleTypeProxy<OutputModule>::value;
  * @tparam MODTYPE  Subclass of Module (e.g #InputModule, #OutputModule)
  */
 template <typename MODTYPE>
-ModuleSharedPtr Module_Create(py::tuple args, py::dict kwargs)
+ModuleSharedPtr Module_Create(py::args args, const py::kwargs &kwargs)
 {
     ModuleType modType = ModuleTypeProxy<MODTYPE>::value;
 
@@ -207,20 +234,23 @@ ModuleSharedPtr Module_Create(py::tuple args, py::dict kwargs)
                            "filename");
     }
 
-    std::string modName = py::extract<std::string>(args[0]);
+    std::string modName = py::cast<std::string>(args[0]);
     ModuleKey modKey    = std::make_pair(modType, modName);
-
-    if (!py::extract<MeshSharedPtr>(args[1]).check())
-    {
-        throw NekMeshError("Second argument to Create() should be a mesh "
-                           "object.");
-    }
-
-    MeshSharedPtr mesh = py::extract<MeshSharedPtr>(args[1]);
 
     if (!GetModuleFactory().ModuleExists(modKey))
     {
         throw NekMeshError("Module '" + modName + "' does not exist.");
+    }
+
+    MeshSharedPtr mesh;
+    try
+    {
+        mesh = py::cast<MeshSharedPtr>(args[1]);
+    }
+    catch (...)
+    {
+        throw NekMeshError("Second argument to Create() should be a mesh "
+                           "object.");
     }
 
     ModuleSharedPtr mod = GetModuleFactory().CreateInstance(modKey, mesh);
@@ -228,30 +258,26 @@ ModuleSharedPtr Module_Create(py::tuple args, py::dict kwargs)
     // First argument for input/output module should be the filename.
     if (modKey.first == eInputModule)
     {
-        mod->RegisterConfig("infile", py::extract<std::string>(args[2]));
+        mod->RegisterConfig("infile", py::cast<std::string>(args[2]));
     }
     else if (modKey.first == eOutputModule)
     {
-        mod->RegisterConfig("outfile", py::extract<std::string>(args[2]));
+        mod->RegisterConfig("outfile", py::cast<std::string>(args[2]));
     }
-
-    // Process keyword arguments.
-    py::list items = kwargs.items();
 
     // Set default verbosity.
     bool verbose = default_verbose;
 
-    for (int i = 0; i < py::len(items); ++i)
+    for (auto &kv : kwargs)
     {
-        std::string arg = py::extract<std::string>(items[i][0]), val;
+        std::string arg = py::str(kv.first), val;
 
         // Enable or disable verbose for this module accordingly.
         if (arg == "verbose")
         {
-            verbose = py::extract<bool>(items[i][1]);
+            verbose = py::cast<bool>(kv.second);
+            break;
         }
-
-        continue;
     }
 
     // Set a logger for this module.
@@ -259,9 +285,9 @@ ModuleSharedPtr Module_Create(py::tuple args, py::dict kwargs)
     Logger log     = Logger(pythonLog, verbose ? VERBOSE : INFO);
     mod->SetLogger(log);
 
-    for (int i = 0; i < py::len(items); ++i)
+    for (auto &kv : kwargs)
     {
-        std::string arg = py::extract<std::string>(items[i][0]), val;
+        std::string arg = py::str(kv.first), val;
 
         // Enable or disable verbose for this module accordingly.
         if (arg == "verbose")
@@ -269,7 +295,7 @@ ModuleSharedPtr Module_Create(py::tuple args, py::dict kwargs)
             continue;
         }
 
-        val = py::extract<std::string>(items[i][1].attr("__str__")());
+        val = py::str(kv.second);
         mod->RegisterConfig(arg, val);
     }
 
@@ -302,126 +328,12 @@ void Module_RegisterConfig(std::shared_ptr<Module> mod, std::string const &key,
  * @param  desc      Description of the option.
  * @param  isBool    If true, denotes that the option will be bool-type.
  */
-template <typename MODTYPE>
-void ModuleWrap_AddConfigOption(std::shared_ptr<ModuleWrap<MODTYPE>> mod,
+void ModuleWrap_AddConfigOption(std::shared_ptr<ModuleWrap> mod,
                                 std::string const &key,
                                 std::string const &defValue,
                                 std::string const &desc, bool isBool)
 {
     mod->AddConfigOption(key, defValue, desc, isBool);
-}
-
-/**
- * @brief Helper class to handle module registration.
- *
- * This class is used in combination with the #Module_Register function to
- * handle module registration. In particular, given a Python object that
- * represents the user-supplied class (which inherits from Module), we use the
- * functions in here to handle reference management, as well as the creation of
- * the module that can then be passed back to Python.
- */
-class ModuleRegisterHelper
-{
-public:
-    /**
-     * @brief Constructor.
-     *
-     * @param obj  Python class object that inherits from Module.
-     */
-    ModuleRegisterHelper(py::object obj) : m_obj(obj)
-    {
-        py::incref(obj.ptr());
-    }
-
-    /**
-     * @brief Destructor.
-     */
-    ~ModuleRegisterHelper()
-    {
-        py::decref(m_obj.ptr());
-    }
-
-    /**
-     * @brief Constructs a module from a given mesh, using the Python object
-     * stored in #m_obj.
-     */
-    ModuleSharedPtr create(MeshSharedPtr mesh)
-    {
-        py::object inst = m_obj(mesh);
-        return py::extract<ModuleSharedPtr>(inst);
-    }
-
-protected:
-    /// Python object that represents a subclass of Module.
-    py::object m_obj;
-};
-
-#if PY_MAJOR_VERSION == 2
-void ModuleCapsuleDestructor(void *ptr)
-{
-    ModuleRegisterHelper *tmp = (ModuleRegisterHelper *)ptr;
-    delete tmp;
-}
-#else
-void ModuleCapsuleDestructor(PyObject *ptr)
-{
-    ModuleRegisterHelper *tmp =
-        (ModuleRegisterHelper *)PyCapsule_GetPointer(ptr, nullptr);
-    delete tmp;
-}
-#endif
-
-/**
- * @brief Lightweight wrapper for the Module factory RegisterCreatorFunction, to
- * support the ability for Python subclasses of Module to register themselves
- * with the Nektar++ Module factory.
- *
- * This function wraps the NekFactory RegisterCreatorFunction. This function
- * expects a function pointer to a C++ object that will construct a Module. In
- * this case we therefore need to construct a function call that will construct
- * our Python object (which is a subclass of Module), and then pass this back to
- * Boost.Python to give the Python object back.
- *
- * We have to do some indirection here to get this to work, but we can
- * achieve this with the following strategy:
- *
- * - Create a @c ModuleRegisterHelper object, which as an argument will store
- *   the Python class instance that will be instantiated from the Python side.
- * - Using std::bind, construct a function pointer to the helper's creation
- *   function, ModuleRegisterHelper::create.
- * - Create a Python capsule that will contain the @c ModuleRegisterHelper
- *   instance, and register this in the global namespace of the current
- *   module. This then ties the capsule to the lifetime of the module.
- */
-void Module_Register(ModuleType const &modType, std::string const &modName,
-                     py::object &obj)
-{
-    // Create a module register helper, which will call the C++ function to
-    // create the module.
-    ModuleRegisterHelper *helper = new ModuleRegisterHelper(obj);
-
-    // Register this with the module factory using std::bind to grab a function
-    // pointer to that particular object's function.
-    GetModuleFactory().RegisterCreatorFunction(
-        ModuleKey(modType, modName), std::bind(&ModuleRegisterHelper::create,
-                                               helper, std::placeholders::_1));
-
-    // Create a capsule that will be embedded in the __main__ namespace. So
-    // deallocation will occur, but only once Python ends or the Python module
-    // is deallocated.
-    std::string modkey =
-        "_" + std::string(ModuleTypeMap[modType]) + "_" + modName;
-
-#if PY_MAJOR_VERSION == 2
-    py::object capsule(
-        py::handle<>(PyCObject_FromVoidPtr(helper, ModuleCapsuleDestructor)));
-#else
-    py::object capsule(
-        py::handle<>(PyCapsule_New(helper, nullptr, ModuleCapsuleDestructor)));
-#endif
-
-    // Embed this in __main__.
-    py::import("__main__").attr(modkey.c_str()) = capsule;
 }
 
 /**
@@ -432,116 +344,80 @@ void Module_Verbose(bool verbose)
     default_verbose = verbose;
 }
 
-template <typename MODTYPE> struct ModuleWrapConverter
-{
-    ModuleWrapConverter()
-    {
-        // An important bit of code which will allow shared_ptr<MODTYPE> to be
-        // interpreted as something that boost::python recognises, otherwise
-        // modules constructed from the factory will not work from Python.
-        py::objects::class_value_wrapper<
-            std::shared_ptr<MODTYPE>,
-            py::objects::make_ptr_instance<
-                MODTYPE, py::objects::pointer_holder<std::shared_ptr<MODTYPE>,
-                                                     MODTYPE>>>();
-    }
-};
-
 /**
  * @brief Wrapper for subclasses of the Module class, e.g. #InputModule, which
  * can then be inhereted from inside Python.
  */
 template <typename MODTYPE> struct PythonModuleClass
 {
-    PythonModuleClass(std::string modName)
+    PythonModuleClass(py::module &m, std::string modName)
     {
-        py::class_<ModuleWrap<MODTYPE>, std::shared_ptr<ModuleWrap<MODTYPE>>,
-                   py::bases<Module>, boost::noncopyable>(
-            modName.c_str(), py::init<MeshSharedPtr>())
-
-            .def("AddConfigOption", ModuleWrap_AddConfigOption<MODTYPE>,
-                 (py::arg("key"), py::arg("defValue"), py::arg("desc"),
-                  py::arg("isBool") = false))
-
-            // Allow direct access to mesh object through a property.
-            .def_readwrite("mesh", &ModuleWrap<MODTYPE>::m_mesh)
-
-            .def("Process", py::pure_virtual(&MODTYPE::Process))
-            .def("Create", py::raw_function(Module_Create<MODTYPE>))
-            .staticmethod("Create");
-
-        ModuleWrapConverter<MODTYPE>();
+        py::classh<MODTYPE, Module, SubmoduleWrap<MODTYPE>>(m, modName.c_str())
+            .def(py::init<MeshSharedPtr>())
+            .def("Create", &Module_Create<MODTYPE>);
     }
 };
 
-void export_Module()
+void export_Module(py::module &m)
 {
-    // Export ModuleType enum.
-    NEKPY_WRAP_ENUM_STRING(ModuleType, ModuleTypeMap);
+    static NekFactory_Register<ModuleFactory> fac(GetModuleFactory());
 
-    // Define ModuleWrap to be implicitly convertible to a Module, since it
-    // seems that doesn't sometimes get picked up.
-    py::implicitly_convertible<std::shared_ptr<ModuleWrap<Module>>,
-                               std::shared_ptr<Module>>();
-    py::implicitly_convertible<std::shared_ptr<ModuleWrap<InputModule>>,
-                               std::shared_ptr<Module>>();
-    py::implicitly_convertible<std::shared_ptr<ModuleWrap<OutputModule>>,
-                               std::shared_ptr<Module>>();
-    py::implicitly_convertible<std::shared_ptr<ModuleWrap<ProcessModule>>,
-                               std::shared_ptr<Module>>();
+    // Export ModuleType enum.
+    NEKPY_WRAP_ENUM_STRING(m, ModuleType, ModuleTypeMap);
 
     // Wrapper for the Module class. Note that since Module contains a pure
     // virtual function, we need the ModuleWrap helper class to handle this for
     // us. In the lightweight wrappers above, we therefore need to ensure we're
     // passing std::shared_ptr<Module> as the first argument, otherwise they
     // won't accept objects constructed from Python.
-    py::class_<ModuleWrap<Module>, std::shared_ptr<ModuleWrap<Module>>,
-               boost::noncopyable>("Module", py::init<MeshSharedPtr>())
+    py::classh<Module, ModuleWrap>(m, "Module")
+        .def(py::init<MeshSharedPtr>())
 
         // Process function for this module.
-        .def("Process", py::pure_virtual(&Module::Process))
+        .def("Process", &Module::Process)
 
         // Configuration options.
-        .def("RegisterConfig", Module_RegisterConfig,
-             (py::arg("key"), py::arg("value") = ""))
+        .def("RegisterConfig", &Module_RegisterConfig, py::arg("key"),
+             py::arg("value") = "")
         .def("PrintConfig", &Module::PrintConfig)
         .def("SetDefaults", &Module::SetDefaults)
         .def("GetStringConfig", Module_GetConfig<std::string>)
         .def("GetFloatConfig", Module_GetConfig<double>)
         .def("GetIntConfig", Module_GetConfig<int>)
         .def("GetBoolConfig", Module_GetConfig<bool>)
-        .def("AddConfigOption", ModuleWrap_AddConfigOption<Module>,
-             (py::arg("key"), py::arg("defValue"), py::arg("desc"),
-              py::arg("isBool") = false))
+        .def("AddConfigOption", &ModuleWrap_AddConfigOption, py::arg("key"),
+             py::arg("defValue"), py::arg("desc"), py::arg("isBool") = false)
 
         // Mesh accessor method.
         .def("GetMesh", &Module::GetMesh)
 
         // Mesh processing functions.
         .def("ProcessVertices", &Module::ProcessVertices)
-        .def("ProcessEdges", Module_ProcessEdges,
-             (py::arg("reprocessEdges") = true))
-        .def("ProcessFaces", Module_ProcessFaces,
-             (py::arg("reprocessFaces") = true))
+        .def("ProcessEdges", &Module_ProcessEdges,
+             py::arg("reprocessEdges") = true)
+        .def("ProcessFaces", &Module_ProcessFaces,
+             py::arg("reprocessFaces") = true)
         .def("ProcessElements", &Module::ProcessElements)
         .def("ProcessComposites", &Module::ProcessComposites)
         .def("ClearElementLinks", &Module::ClearElementLinks)
 
         // Allow direct access to mesh object through a property.
-        .def_readwrite("mesh", &ModuleWrap<Module>::m_mesh)
+        .def_readwrite("mesh", &ModuleWrap::m_mesh)
 
         // Factory functions.
-        .def("Register", &Module_Register)
-        .staticmethod("Register")
+        .def_static("Register",
+                    [](ModuleType const &modType, std::string const &modName,
+                       py::object &obj) {
+                        ModuleKey key(modType, modName);
+                        fac(key, obj,
+                            std::string(ModuleTypeMap[modType]) + "_" +
+                                modName);
+                    })
 
         // Enable verbose output (or not).
-        .def("Verbose", &Module_Verbose)
-        .staticmethod("Verbose");
+        .def_static("Verbose", &Module_Verbose);
 
-    ModuleWrapConverter<Module>();
-
-    // Wrap the Module subclasses.
-    PythonModuleClass<InputModule>("InputModule");
-    PythonModuleClass<ProcessModule>("ProcessModule");
-    PythonModuleClass<OutputModule>("OutputModule");
+    PythonModuleClass<InputModule>(m, "InputModule");
+    PythonModuleClass<ProcessModule>(m, "ProcessModule");
+    PythonModuleClass<OutputModule>(m, "OutputModule");
 }

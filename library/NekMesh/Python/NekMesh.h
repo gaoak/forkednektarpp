@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: NekPyConvertors.hpp
+// File: NekMesh.h
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -28,51 +28,20 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description: Helper functions to convert STL containers to native python
-// types
+// Description: NekPy configuration for NekMesh to defined opaque types.
 //
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef NEKTAR_LIBRARY_LIBUTILITIES_PYTHON_NEKPYCONVERTORS_HPP
-#define NEKTAR_LIBRARY_LIBUTILITIES_PYTHON_NEKPYCONVERTORS_HPP
 
-#include <boost/python.hpp>
-#include <map>
-#include <vector>
+#ifndef NEKTAR_NEKMESH_PYTHON_NEKMESH_H
+#define NEKTAR_NEKMESH_PYTHON_NEKMESH_H
 
-namespace py = boost::python;
+#include <NekMesh/MeshElements/Element.h>
 
-/**
- * @brief Converts a std::map to a Python dict
- *
- * @param input a std::map
- * @returns a Python dict with the same entries as the input map
- */
-template <typename KeyT, typename ValT>
-inline py::dict MapToPyDict(const std::map<KeyT, ValT> &input)
-{
-    py::dict ret;
-    for (auto &entry : input)
-    {
-        ret[entry.first] = entry.second;
-    }
-    return ret;
-}
+using namespace Nektar;
+using namespace Nektar::NekMesh;
 
-/**
- * @brief Converts a std::vector to a Python list
- *
- * @param input a std::vector
- * @returns a Python list with the same elements as the input vector
- */
-template <typename T>
-inline py::list VectorToPyList(const std::vector<T> &input)
-{
-    py::list ret;
-    for (auto &entry : input)
-    {
-        ret.append(entry);
-    }
-    return ret;
-}
+PYBIND11_MAKE_OPAQUE(std::vector<ElementSharedPtr>);
+PYBIND11_MAKE_OPAQUE(ElementMap);
+PYBIND11_MAKE_OPAQUE(NodeSet);
 
-#endif // NEKTAR_LIBRARY_LIBUTILITIES_PYTHON_NEKPYCONVERTORS_HPP
+#endif

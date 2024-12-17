@@ -47,17 +47,15 @@ std::shared_ptr<T> CreateDisContField(
     return std::make_shared<T>(session, graph, var, setupDG);
 }
 
-template <class T, class S> void export_DisContField_Helper(const char *name)
+template <class T, class S>
+void export_DisContField_Helper(py::module &m, const char *name)
 {
-    py::class_<T, py::bases<S>, std::shared_ptr<T>>(name, py::no_init)
-        .def("__init__",
-             py::make_constructor(&CreateDisContField<T>,
-                                  py::default_call_policies(),
-                                  (py::arg("session"), py::arg("graph"),
-                                   py::arg("var"), py::arg("setupDG") = true)));
+    py::class_<T, S, std::shared_ptr<T>>(m, name).def(
+        py::init<>(&CreateDisContField<T>), py::arg("session"),
+        py::arg("graph"), py::arg("var"), py::arg("setupDG") = true);
 }
 
-void export_DisContField()
+void export_DisContField(py::module &m)
 {
-    export_DisContField_Helper<DisContField, ExpList>("DisContField");
+    export_DisContField_Helper<DisContField, ExpList>(m, "DisContField");
 }

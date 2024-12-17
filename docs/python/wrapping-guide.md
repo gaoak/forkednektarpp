@@ -1,26 +1,19 @@
 # Wrapping guide
 
 This document attempts to outline some of the basic principles of the NekPy
-wrapper, which relies entirely on the excellent `Boost.Python` library. An
+wrapper, which relies entirely on the excellent `pybind11` binding library. An
 extensive documentation is therefore beyond the scope of this document, but we
 highlight aspects that are important for the NekPy wrappers.
 
-In general, note that when things go wrong with `Boost.Python`, it'll be
-indicated either by an extensive compiler error, or a runtime error in the
-Python interpreter when you try to use your wrapper. Judicious use of Google is
+In general, note that when things go wrong with `pybind11`, it'll be indicated
+either by an extensive compiler error, or a runtime error in the Python
+interpreter when you try to use your wrapper. Judicious use of Google is
 therefore recommended to track down these issues!
 
 You may also find the following resources useful:
 
-- [The `Boost.Python` tutorial](http://www.boost.org/doc/libs/1_61_0/libs/python/doc/html/tutorial/index.html)
-- The `Boost.Python`
-  [entry on the Python wiki](https://wiki.python.org/moin/boost.python/HowTo)
-- Examples [on GitHub](https://github.com/TNG/boost-python-examples)
-- The
-  [OpenStreetGraph cookbook](https://github.com/Skylark13/osgboostpython/blob/wiki/WrappingCookbook.md)
-  and
-  [rationale for using manual-wrapping](https://github.com/Skylark13/osgboostpython/blob/wiki/ManualWrappingRationale.md)
-  which served as a starting point for this project.
+- [The `pybind11` tutorial](https://pybind11.readthedocs.io/en/stable/basics.html)
+- [The `pybind11` documentation](https://pybind11.readthedocs.io/en/stable/index.html)
 
 # Basic structure
 
@@ -32,9 +25,8 @@ in Nektar++ can be easily located inside NekPy.
 There are also some other directories and files:
 
 - `NekPyConfig.hpp` is a convenience header that all `.cpp` files should
-  import. It sets appropriate namespaces for `boost::python` and
-  `boost::python::numpy`, depending on whether the `Boost.NumPy` library was
-  compiled or is included in Boost.
+  import. It sets appropriate namespaces and macros that can be used for
+  convenience.
 - `lib` is a skeleton Python directory, which will be installed by CMake into
   the `dist` directory and automatically import the compiled binary libraries.
 - `example` contains some basic Python examples.
@@ -51,29 +43,27 @@ First consider `LibUtilities`. An abbreviated version of the base file,
 ```c++
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-void export_Basis();
-void export_SessionReader();
+void export_Basis(py::module &);
+void export_SessionReader(py::module &);
 
-BOOST_PYTHON_MODULE(_LibUtilities)
+// Define the LibUtilities module within the pybind11 module `m`.
+PYBIND11_MODULE(_LibUtilities, m)
 {
-    // Initialise Boost.NumPy.
-    np::initialize();
-
     // Export classes.
-    export_Basis();
-    export_SessionReader();
+    export_Basis(m);
+    export_SessionReader(m);
 }
 ```
 
-The `BOOST_PYTHON_MODULE(name)` macro allows us to define a Python module inside
+The `PYBIND11_MODULE(name, m)` macro allows us to define a Python module inside
 C++. Note that in this case, the leading underscore in the name
 (i.e. `_LibUtilities`) is deliberate. To define the contents of the module, we
 call a number of functions that are prefixed by `export_`, which will define one
 or more Python classes that live in this module. These Python classes correspond
 with our Nektar++ classes. We adopt this approach simply so that we can split up
 the different classes into different files, because it is not possible to call
-`BOOST_PYTHON_MODULE` more than once. These functions are defined in
-appropriately named files, for example:
+`PYBIND11_MODULE` more than once. These functions are defined in appropriately
+named files, for example:
 
 - `export_Basis()` lives in the file
   `library/LibUtilities/Python/Foundations/Basis.cpp`
@@ -82,22 +72,22 @@ appropriately named files, for example:
 
 # Basic class wrapping
 
-As a very basic example of wrapping a class, let's consider the `SessionReader`
-wrapper.
+As a very basic example of wrapping a class, let's consider a minimal wrapper
+for `SessionReader`.
 
 ```c++
-void export_SessionReader()
+void export_SessionReader(py::module &m)
 {
-    py::class_<SessionReader,
-           std::shared_ptr<SessionReader>,
-           boost::noncopyable>(
-               "SessionReader", py::no_init)
+    py::class_<SessionReader, std::shared_ptr<SessionReader>>(m,
+                                                              "SessionReader")
 
-        .def("CreateInstance", SessionReader_CreateInstance)
-        .staticmethod("CreateInstance")
+        .def_static("CreateInstance", SessionReader_CreateInstance)
 
         .def("GetSessionName", &SessionReader::GetSessionName,
-             py::return_value_policy<py::copy_const_reference>())
+             py::return_value_policy::copy)
+
+        .def("InitSession", &SessionReader::InitSession,
+             py::arg("filenames") = py::list())
 
         .def("Finalise", &SessionReader::Finalise)
         ;
@@ -106,23 +96,17 @@ void export_SessionReader()
 
 ## `py::class_<>`
 
-This `Boost.Python` object defines a Python class in C++. It is templated, and
-in this case we have the following template arguments:
+This `pybind11` object defines a Python class in C++. It is templated, and in
+this case we have the following template arguments:
 
 - `SessionReader` is the class that will be wrapped
 - `std::shared_ptr<SessionReader>` indicates that this object should be stored
   inside a shared (or smart) pointer, which we frequently use throughout the
   library, as can be seen by the frequent use of `SessionReaderSharedPtr`
-- `boost::noncopyable` indicates that `Boost.Python` shouldn't try to
-  automatically wrap the copy constructor of `SessionReader`. We add this here
-  because of compiler errors due to subclasses used inside `SessionReader`, but
-  generally, this should be used for abstract classes which can't be copied.
 
-We then have two arguments to the:
+We then have two arguments to pass through:
+- `m` is the module we are going to define the class within;
 - `"SessionReader"` is the name of the class in Python.
-- `py::no_init` indicates this object has no publically-accessible
-  initialiser. This is because for `SessionReader`, we define a factory-type
-  function called `CreateInstance` instead.
 
 ## Wrapping member functions
 
@@ -135,10 +119,9 @@ Python. `def` has two required parameters, and one optional parameter:
 - An optional return policy, which we need to define when the C++ function
   returns a reference.
 
-`Boost.Python` is very smart and can convert many Python objects to their
-equivalent C++ function arguments, and C++ return types of the function to their
-respective Python object. Many times therefore, one only needs to define the
-`.def()` call.
+`pybind11` is very smart and can convert many Python objects to their equivalent
+C++ function arguments, and C++ return types of the function to their respective
+Python object. Many times therefore, one only needs to define the `.def()` call.
 
 However, there are some instances where we need to do some additional
 conversion, mask some C++ complexity from the Python interface, or deal with
@@ -173,8 +156,6 @@ In Python, we can then simply call
 session = SessionReader.CreateInstance(sys.argv)
 ```
 
-In NekPy, you should make 
-
 ### Dealing with references
 
 When dealing with functions in C++ that return references, e.g.
@@ -185,9 +166,11 @@ const NekDouble &GetFactor()
 
 we need to supply an additional argument to `.def()`, since Python immutable
 types such as strings and integers cannot be passed by reference. For a full
-list of options, consult the `Boost.Python` guide. However a good rule of thumb
-is to use `copy_const_reference` as highlighted above, which will create a copy
-of the const reference and return this.
+list of options, consult the `pybind11` [guide on return value
+policies](https://pybind11.readthedocs.io/en/stable/advanced/functions.html#return-value-policies). In
+the case above, we do not intend to change this from the Python side, and so we
+can use `copy` as highlighted above, which will create a copy of the const
+reference and return this to Python.
 
 ### Dealing with `Array<OneD, >`
 
@@ -210,6 +193,7 @@ following caveats:
   # This is bad
   x, y, z = np.zeros(10), np.zeros(10), np.zeros(10)
   exp.GetCoords(x,y,z)
+  # Here I would assume x, y and z are updated as a result of GetCoords().
   ```
   Use thin wrappers to overcome this problem. For examples of how to do this,
   particularly in returning tuples, consult the `StdRegions/StdExpansion.cpp`
@@ -219,41 +203,40 @@ following caveats:
 ## Inheritance
 
 Nektar++ makes heavy use of inheritance, which can be translated to Python quite
-easily using `Boost.Python`. For a good example of how to do this, you can
-examine the `StdRegions` wrapper for `StdExpansion` and its elements such as
+easily using `pybind11`. For a good example of how to do this, you can examine
+the `StdRegions` wrapper for `StdExpansion` and its elements such as
 `StdQuadExp`. In a cut-down form, these look like the following:
 
 ```c++
-void export_StdExpansion()
+void export_StdExpansion(py::module &m)
 {
-    py::class_<StdExpansion,
-               std::shared_ptr<StdExpansion>,
-               boost::noncopyable>(
-                   "StdExpansion", py::no_init);
+    py::class_<StdExpansion, std::shared_ptr<StdExpansion>>(m, "StdExpansion");
 }
-void export_StdQuadExp()
+void export_StdQuadExp(py::module &m)
 {
-    py::class_<StdQuadExp, py::bases<StdExpansion>,
-               std::shared_ptr<StdQuadExp> >(
-                   "StdQuadExp", py::init<const LibUtilities::BasisKey&,
-                   const LibUtilities::BasisKey&>());
+    py::class_<StdQuadExp, StdExpansion, std::shared_ptr<StdQuadExp>>(
+        m, "StdQuadExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
 }
 ```
 
 Note the following:
-- `StdExpansion` is an abstract class, so it has no initialiser and is
-  non-copyable.
-- We use `py::bases<StdExpansion>` in the definition of `StdQuadExp` to define
-  its parent class. This does not necessarily need to include the full hierarchy
-  of C++ inheritance: in `StdRegions` the inheritance graph for `StdQuadExp`
-  looks like
+- `StdExpansion` is an abstract class, so it has no initialiser defined within
+  the body of the `.def()` calls.
+- We use some, but not all of the subclasses in the definition of `StdQuadExp`
+  to define its parent class. This does not necessarily need to include the full
+  hierarchy of C++ inheritance: in `StdRegions` the inheritance graph for
+  `StdQuadExp` looks like
   ```
   StdExpansion -> StdExpansion2D -> StdQuadExp
   ```
   In the above wrapper, we omit the StdExpansion2D call entirely.
+- However, in order to do this, we need to use the `py::multiple_inheritance()`
+  as an additional argument to `py::class_`.
 - `py::init<>` is used to show how to wrap a C++ constructor. This can accept
   any arguments for which you have either written explicit wrappers or
-  `Boost.Python` already knows how to convert.
+  `pybind11` already knows how to convert.
 
 ## Wrapping enums
 
@@ -273,6 +256,6 @@ static const char *MyEnumMap[] = {
 ```
 
 To wrap this, you can use the `NEKPY_WRAP_ENUM` macro defined in
-`NekPyConfig.hpp`, which in this case can be used as `NEKPY_WRAP_ENUM(MyEnum,
+`NekPyConfig.hpp`, which in this case can be used as `NEKPY_WRAP_ENUM(m, MyEnum,
 MyEnumMap)`. Note that if instead of `const char *` the map is defined as a
 `const std::string`, you can use the `NEKPY_WRAP_ENUM_STRING` macro.

@@ -34,17 +34,13 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-void export_StdExpansion();
-void export_StdMatrixKey();
-void export_StdElements();
-void export_VarCoeffEntry();
+void export_StdExpansion(py::module &m);
+void export_StdMatrixKey(py::module &m);
+void export_StdElements(py::module &m);
 
-BOOST_PYTHON_MODULE(_StdRegions)
+PYBIND11_MODULE(_StdRegions, m)
 {
-    np::initialize();
-
-    export_StdExpansion();
-    export_StdMatrixKey();
-    export_StdElements();
-    export_VarCoeffEntry();
+    export_StdExpansion(m);
+    export_StdMatrixKey(m);
+    export_StdElements(m);
 }

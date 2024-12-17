@@ -41,190 +41,77 @@
 
 #include <type_traits>
 
-using namespace Nektar;
-using namespace Nektar::LibUtilities;
-
-/// Template type to determine whether @tparam T is a std::shared_ptr.
-template <typename T> struct is_shared_ptr : std::false_type
+namespace pybind11::detail
 {
-};
-
-template <typename T> struct is_shared_ptr<std::shared_ptr<T>> : std::true_type
-{
-};
-
-template <typename T>
-struct is_shared_ptr<const std::shared_ptr<T>> : std::true_type
-{
-};
 
 /// Template utility to determine whether @tparam T is a Nektar::Array<OneD, .>.
 template <typename T> struct is_nekarray_oned : std::false_type
 {
 };
 
-template <typename T> struct is_nekarray_oned<Array<OneD, T>> : std::true_type
+template <typename T>
+struct is_nekarray_oned<Nektar::Array<Nektar::OneD, T>> : std::true_type
 {
 };
 
 template <typename T>
-struct is_nekarray_oned<const Array<OneD, T>> : std::true_type
+struct is_nekarray_oned<const Nektar::Array<Nektar::OneD, T>> : std::true_type
 {
 };
 
-#if PY_MAJOR_VERSION == 2
-template <typename T> void CapsuleDestructor(void *ptr)
-{
-    Array<OneD, T> *tmp = (Array<OneD, T> *)ptr;
-    delete tmp;
-}
-#else
-template <typename T> void CapsuleDestructor(PyObject *ptr)
-{
-    Array<OneD, T> *tmp = (Array<OneD, T> *)PyCapsule_GetPointer(ptr, nullptr);
-    delete tmp;
-}
-#endif
-
 /**
- * @brief Convert for Array<OneD, T> to Python list of objects for numeric types
- * T.
+ * @brief Convert for Array<OneD, T> to Python list of objects for numeric
+ * types, self-array types and shared_ptr types.
+ *
+ * @tparam Type  The overall type Array<OneD, T>
+ * @tparam T     The data type T
  */
-template <typename T> struct OneDArrayToPython
+template <typename Type, typename T> struct nekarray_caster
 {
-    static PyObject *convert(Array<OneD, T> const &arr)
+public:
+    PYBIND11_TYPE_CASTER(Type, const_name("Array<OneD, ") +
+                                   handle_type_name<T>::name + const_name(">"));
+
+    bool load(handle src, bool enable)
     {
-        return convert_impl(arr);
+        return load_impl(src, enable);
     }
 
-    template <typename U                                       = T,
-              std::enable_if_t<std::is_arithmetic<U>::value> * = nullptr>
-    static PyObject *convert_impl(Array<OneD, U> const &arr)
+    static handle cast(Nektar::Array<Nektar::OneD, T> const &arr,
+                       return_value_policy policy, handle parent)
     {
-        // Create a Python capsule to hold a pointer that contains a lightweight
-        // copy of arr. Uhat way we guarantee Python will still have access to
-        // the memory allocated inside arr even if arr is deallocated in C++.
-#if PY_MAJOR_VERSION == 2
-        py::object capsule(py::handle<>(PyCObject_FromVoidPtr(
-            new Array<OneD, U>(arr), CapsuleDestructor<U>)));
-#else
-        py::object capsule(py::handle<>(
-            PyCapsule_New(new Array<OneD, U>(arr), nullptr,
-                          (PyCapsule_Destructor)&CapsuleDestructor<U>)));
-#endif
-        PyObject *tmp =
-            py::incref(np::from_data(arr.data(), np::dtype::get_builtin<U>(),
-                                     py::make_tuple(arr.size()),
-                                     py::make_tuple(sizeof(U)), capsule)
-                           .ptr());
-
-        return tmp;
+        return cast_impl(arr, policy, parent);
     }
 
-    /**
-     * @brief Converter function. This copies entries into the Python list and
-     * relies on internal boost converter being available for the shared_ptr
-     * type.
-     */
-    template <typename U                                     = T,
-              std::enable_if_t<is_shared_ptr<U>::value ||
-                               is_nekarray_oned<U>::value> * = nullptr>
-    static PyObject *convert_impl(Array<OneD, U> const &arr)
+    template <typename U                                           = T,
+              std::enable_if_t<std::is_arithmetic<U>::value, bool> = true>
+    bool load_impl(handle src, bool)
     {
-        py::list tmp;
-        for (std::size_t i = 0; i < arr.size(); ++i)
-        {
-            tmp.append(arr[i]);
-        }
-
-        // Increment counter to avoid de-allocation of `tmp`.
-        return py::incref(tmp.ptr());
-    }
-};
-
-/**
- * @brief Converter for Python to Nektar::Array<OneD, T>.
- */
-template <typename T> struct PythonToOneDArray
-{
-    /// Default constructor.
-    PythonToOneDArray()
-    {
-        py::converter::registry::push_back(&convertible, &construct,
-                                           py::type_id<Array<OneD, T>>());
-    }
-
-    /**
-     * @brief Determine whether the given @p objPtr is convertible to
-     * convertible to an Array type or not.
-     *
-     * This is a top-level function: different data types are handled separately
-     * in the ::try_convertible functions.
-     */
-    static void *convertible(PyObject *objPtr)
-    {
-        try
-        {
-            py::object obj((py::handle<>(py::borrowed(objPtr))));
-            return try_convertible(obj) ? objPtr : nullptr;
-        }
-        catch (boost::python::error_already_set &)
-        {
-            py::handle_exception();
-            PyErr_Clear();
-            return nullptr;
-        }
-    }
-
-    template <typename U                                       = T,
-              std::enable_if_t<std::is_arithmetic<U>::value> * = nullptr>
-    static bool try_convertible(py::object &obj)
-    {
-        np::ndarray array = py::extract<np::ndarray>(obj);
-
-        // Check data types match
-        np::dtype dtype =
-            np::dtype::get_builtin<typename std::remove_const<U>::type>();
-        if (dtype != array.get_dtype())
+        if (!array_t<U>::check_(src))
         {
             return false;
         }
 
-        // Check shape is 1D
-        if (array.get_nd() != 1)
+        auto arr = array_t<U, array::c_style | array::forcecast>::ensure(src);
+        if (!arr)
         {
             return false;
         }
 
-        return true;
-    }
-
-    template <typename U                                     = T,
-              std::enable_if_t<is_shared_ptr<U>::value ||
-                               is_nekarray_oned<U>::value> * = nullptr>
-    static bool try_convertible(py::object &obj)
-    {
-        py::extract<py::list> list_conv(obj);
-
-        if (!list_conv.check())
+        if (arr.ndim() != 1)
         {
             return false;
         }
 
-        py::list l               = list_conv();
-        const std::size_t nItems = py::len(l);
+        using nonconst_t = typename std::remove_const<U>::type;
+        value            = Nektar::Array<Nektar::OneD, T>(arr.shape(0),
+                                               (nonconst_t *)arr.data(),
+                                               (void *)src.ptr(), &decrement);
 
-        // We'll need to construct a temporary vector to hold each item in the
-        // list.
-        for (std::size_t i = 0; i < nItems; ++i)
-        {
-            py::extract<T> item_conv(l[i]);
-
-            if (!py::extract<T>(l[i]).check())
-            {
-                return false;
-            }
-        }
+        // We increase the refcount on src so that even if on the Python side we
+        // go out of scope, the data will still exist in at least one reference
+        // until it is no longer used on the C++ side.
+        src.inc_ref();
 
         return true;
     }
@@ -233,102 +120,104 @@ template <typename T> struct PythonToOneDArray
     {
         if (!Py_IsInitialized())
         {
-            // In deinitialisation phase, reference counters are not terribly
-            // robust; decremementing counters here can lead to segfaults during
-            // program exit in some cases.
+            // In deinitialisation phase, reference counters appear to not be
+            // terribly robust; decremementing counters here can lead to
+            // segfaults during program exit in some cases.
             return;
         }
 
         // Otherwise decrement reference counter.
-        py::decref((PyObject *)objPtr);
+        handle obj((PyObject *)objPtr);
+        obj.dec_ref();
     }
 
-    static void construct(PyObject *objPtr,
-                          py::converter::rvalue_from_python_stage1_data *data)
+    template <typename U                                           = T,
+              std::enable_if_t<std::is_arithmetic<U>::value, bool> = true>
+    static handle cast_impl(Nektar::Array<Nektar::OneD, T> const &arr,
+                            return_value_policy, handle)
     {
-        construct_impl(objPtr, data);
+        // Create a Python capsule to hold a pointer that contains a lightweight
+        // copy of arr. Uhat way we guarantee Python will still have access to
+        // the memory allocated inside arr even if arr is deallocated in C++.
+        capsule c(new Nektar::Array<Nektar::OneD, U>(arr), [](void *ptr) {
+            Nektar::Array<Nektar::OneD, U> *tmp =
+                (Nektar::Array<Nektar::OneD, U> *)ptr;
+            delete tmp;
+        });
+
+        // Create the NumPy array, passing the capsule. When we go out of scope,
+        // c's reference count will have been reduced by 1, but array increases
+        // the reference count when it assigns the base to the array.
+        array_t<U> array({arr.size()}, {}, arr.data(), c);
+
+        // This causes the array to be released without decreasing its reference
+        // count, otherwise the array would be deallocated immediately when this
+        // function returns.
+        return array.release();
     }
 
-    template <typename U                                       = T,
-              std::enable_if_t<std::is_arithmetic<U>::value> * = nullptr>
-    static void construct_impl(
-        PyObject *objPtr, py::converter::rvalue_from_python_stage1_data *data)
+    template <typename U = T,
+              std::enable_if_t<
+                  is_shared_ptr<typename std::remove_const<U>::type>::value ||
+                      is_nekarray_oned<U>::value,
+                  bool> = true>
+    bool load_impl(handle src, bool)
     {
-        // This has to be a _borrowed_ reference, otherwise at the end of this
-        // scope it seems memory gets deallocated
-        py::object obj(py::handle<>(py::borrowed(objPtr)));
-        np::ndarray array = py::extract<np::ndarray>(obj);
-
-        // If this array came from C++, extract the C++ array from PyCObject or
-        // PyCapsule and ensure that we set up the C++ array to have a reference
-        // to that object, so that it can be decremented as appropriate.
-        py::object base     = array.get_base();
-        Array<OneD, T> *ptr = nullptr;
-
-#if PY_MAJOR_VERSION == 2
-        if (PyCObject_Check(base.ptr()))
+        if (!py::isinstance<py::list>(src))
         {
-            ptr = reinterpret_cast<Array<OneD, T> *>(
-                PyCObject_AsVoidPtr(base.ptr()));
+            return false;
         }
-#else
-        if (PyCapsule_CheckExact(base.ptr()))
+
+        py::list l               = py::cast<py::list>(src);
+        const std::size_t nItems = l.size();
+
+        using nonconst_t = typename std::remove_const<U>::type;
+        auto tmparr      = Nektar::Array<Nektar::OneD, nonconst_t>(nItems);
+
+        // We'll need to construct a temporary vector to hold each item in the
+        // list.
+        try
         {
-            ptr = reinterpret_cast<Array<OneD, T> *>(
-                PyCapsule_GetPointer(base.ptr(), nullptr));
+            for (std::size_t i = 0; i < nItems; ++i)
+            {
+                tmparr[i] = py::cast<nonconst_t>(l[i]);
+            }
         }
-#endif
+        catch (...)
+        {
+            return false;
+        }
 
-        void *storage =
-            ((py::converter::rvalue_from_python_storage<Array<OneD, T>> *)data)
-                ->storage.bytes;
-        data->convertible = storage;
+        value = tmparr;
 
-        using nonconst_t = typename std::remove_const<T>::type;
-        new (storage)
-            Array<OneD, T>(array.shape(0), (nonconst_t *)array.get_data(),
-                           (void *)objPtr, &decrement);
-        py::incref(objPtr);
+        return true;
     }
 
-    template <typename U                                     = T,
-              std::enable_if_t<is_shared_ptr<U>::value ||
-                               is_nekarray_oned<U>::value> * = nullptr>
-    static void construct_impl(
-        PyObject *objPtr, py::converter::rvalue_from_python_stage1_data *data)
+    template <typename U = T,
+              std::enable_if_t<
+                  is_shared_ptr<typename std::remove_const<U>::type>::value ||
+                      is_nekarray_oned<U>::value,
+                  bool> = true>
+    static handle cast_impl(Nektar::Array<Nektar::OneD, U> const &arr,
+                            return_value_policy, handle)
     {
-        using nonconst_t = typename std::remove_const<T>::type;
+        py::list tmp;
 
-        py::object obj(py::handle<>(py::borrowed(objPtr)));
-        py::list l = py::extract<py::list>(obj);
-
-        const std::size_t nItems = py::len(l);
-
-        // Allocate some storage for the Array.
-        void *storage =
-            ((py::converter::rvalue_from_python_storage<Array<OneD, nonconst_t>>
-                  *)data)
-                ->storage.bytes;
-        Array<OneD, nonconst_t> *tmp =
-            new (storage) Array<OneD, nonconst_t>(nItems);
-        data->convertible = storage;
-
-        // Fill the Array.
-        for (std::size_t i = 0; i < nItems; ++i)
+        for (std::size_t i = 0; i < arr.size(); ++i)
         {
-            (*tmp)[i] = py::extract<nonconst_t>(l[i]);
+            tmp.append(arr[i]);
         }
+
+        return tmp.release();
     }
 };
 
-/**
- * @brief Convenience function to export C++-to-Python and Python-to-C++
- * converters for the requested type @tparam T.
- */
-template <typename T> void export_SharedArray()
+template <typename Type>
+struct type_caster<Nektar::Array<Nektar::OneD, Type>>
+    : nekarray_caster<Nektar::Array<Nektar::OneD, Type>, Type>
 {
-    py::to_python_converter<Array<OneD, T>, OneDArrayToPython<T>>();
-    PythonToOneDArray<T>();
-}
+};
+
+} // namespace pybind11::detail
 
 #endif

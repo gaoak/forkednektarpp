@@ -52,14 +52,12 @@ class TestMesh(unittest.TestCase):
         self.expDim     = 3
         self.spaceDim   = 3
         self.nummode    = 5
-        self.verbose    = True
 
     def _create_mesh(self):
         self.mesh = Mesh()
         self.mesh.expDim   = self.expDim
         self.mesh.spaceDim = self.spaceDim
         self.mesh.nummode  = self.nummode
-        self.mesh.verbose  = self.verbose
 
     def _initialize_nodes(self):
         self.nodes = []
@@ -94,10 +92,9 @@ class TestMesh(unittest.TestCase):
         self._create_triangular_elements()
 
     def testMeshConstructor(self):
-        self.assertEqual(self.mesh.expDim   , self.expDim)
-        self.assertEqual(self.mesh.spaceDim , self.spaceDim)
-        self.assertEqual(self.mesh.nummode  , self.nummode)
-        self.assertEqual(self.mesh.verbose  , self.verbose)
+        self.assertEqual(self.mesh.expDim  , self.expDim)
+        self.assertEqual(self.mesh.spaceDim, self.spaceDim)
+        self.assertEqual(self.mesh.nummode , self.nummode)
 
     def testMeshFieldAccess(self):
         self.nodeset = NodeSet()
@@ -113,18 +110,19 @@ class TestMesh(unittest.TestCase):
         self.expDim   = 2
         self.spaceDim = 2
         self.nummode  = 7
-        self.verbose  = False
         self.mesh.node     = self.nodeset
         self.mesh.expDim   = self.expDim
         self.mesh.spaceDim = self.spaceDim
         self.mesh.nummode  = self.nummode
-        self.mesh.verbose  = self.verbose
         for node in self.nodeset:
             self.assertTrue(node in self.mesh.node)
-        self.assertEqual(self.mesh.expDim   , self.expDim)
-        self.assertEqual(self.mesh.spaceDim , self.spaceDim)
-        self.assertEqual(self.mesh.nummode  , self.nummode)
-        self.assertEqual(self.mesh.verbose  , self.verbose)
+        self.assertEqual(self.mesh.expDim  , self.expDim)
+        self.assertEqual(self.mesh.spaceDim, self.spaceDim)
+        self.assertEqual(self.mesh.nummode , self.nummode)
+
+        # Test length of element arrays.
+        self.assertEqual(len(self.mesh.element), 4)
+        self.assertEqual(len(self.mesh.element[2]), 2 * (self.nx-1) * (self.ny-1))
 
         try:
             self.mesh.element = None

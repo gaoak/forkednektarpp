@@ -36,9 +36,9 @@
 #include <LibUtilities/Interpreter/Interpreter.h>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 
-#include <boost/python/raw_function.hpp>
+#include <LibUtilities/BasicConst/NektarUnivTypeDefs.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LibUtilities;
@@ -55,30 +55,20 @@ using namespace Nektar::LibUtilities;
  *
  * @return None (null py::object).
  */
-py::object Equation_SetConstants(py::tuple args, py::dict kwargs)
+void Equation_SetConstants(std::shared_ptr<Equation> equation, py::args args,
+                           const py::kwargs &kwargs)
 {
-    // To extract the 'self' object
-    Equation &equation = py::extract<Equation &>(args[0]);
-
     // Map that will be passed to C++.
     std::map<std::string, NekDouble> constants;
 
-    // Loop over the keys inside the kwargs dictionary
-    py::list keys = kwargs.keys();
-    for (int i = 0; i < py::len(keys); ++i)
+    for (auto &it : kwargs)
     {
-        py::object arg = kwargs[keys[i]];
-        if (arg)
-        {
-            constants[py::extract<std::string>(keys[i])] =
-                py::extract<NekDouble>(arg);
-        }
+        const std::string &key = py::cast<const std::string>(it.first);
+        const NekDouble &val   = py::cast<const NekDouble>(it.second);
+        constants[key]         = val;
     }
 
-    equation.SetConstants(constants);
-
-    // Return nothing.
-    return py::object();
+    equation->SetConstants(constants);
 }
 
 /**
@@ -91,10 +81,10 @@ py::object Equation_SetConstants(py::tuple args, py::dict kwargs)
  *
  * @return An #Equation object.
  */
-std::shared_ptr<Equation> ConstructEquation(
-    std::shared_ptr<Interpreter> evaluator, std::string expr, std::string vlist)
+std::shared_ptr<Equation> ConstructEquation(std::shared_ptr<Interpreter> interp,
+                                            std::string expr, std::string vlist)
 {
-    return std::make_shared<Equation>(evaluator, expr, vlist);
+    return std::make_shared<Equation>(interp, expr, vlist);
 }
 
 /**
@@ -193,12 +183,11 @@ Array<OneD, NekDouble> Equation_Evaluate5(std::shared_ptr<Equation> equation,
     return tmp;
 }
 
-void export_Equation()
+void export_Equation(py::module &m)
 {
-    py::class_<Equation, std::shared_ptr<Equation>, boost::noncopyable>(
-        "Equation", py::no_init)
+    py::class_<Equation, std::shared_ptr<Equation>>(m, "Equation")
 
-        .def("__init__", py::make_constructor(ConstructEquation))
+        .def(py::init(&ConstructEquation))
 
         .def("Evaluate", Equation_Evaluate1)
         .def("Evaluate", Equation_Evaluate2)
@@ -207,7 +196,7 @@ void export_Equation()
         .def("Evaluate", Equation_Evaluate5)
 
         .def("SetParameter", &Equation::SetParameter)
-        .def("SetConstants", py::raw_function(Equation_SetConstants))
+        .def("SetConstants", &Equation_SetConstants)
         .def("GetExpression", &Equation::GetExpression)
         .def("GetVlist", &Equation::GetVlist)
 

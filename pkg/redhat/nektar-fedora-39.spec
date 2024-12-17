@@ -10,7 +10,6 @@ Requires:       libnektar++ = %{version}
 BuildRequires:  arpack-devel
 BuildRequires:  blas-devel
 BuildRequires:  boost-devel
-BuildRequires:  boost-python3-devel
 BuildRequires:  chrpath
 BuildRequires:  cmake
 BuildRequires:  fftw-devel
@@ -43,7 +42,6 @@ discretisation and associated support classes.
 Summary:        Nektar++ spectral/hp element framework libraries
 Group:          System/Libraries
 Requires:       boost
-Requires:       boost-python3
 Requires:       tinyxml
 Requires:       fftw
 Requires:       arpack
@@ -58,7 +56,6 @@ BuildRequires:  hdf5-openmpi-devel
 #BuildRequires:  petsc-openmpi-devel
 BuildRequires:  ptscotch-openmpi-devel
 Requires:       boost
-Requires:       boost-python3
 Requires:       tinyxml
 Requires:       fftw
 Requires:       arpack
@@ -79,7 +76,6 @@ BuildRequires:  hdf5-mpich-devel
 #BuildRequires:  petsc-mpich-devel
 BuildRequires:  ptscotch-mpich-devel
 Requires:       boost
-Requires:       boost-python3
 Requires:       tinyxml
 Requires:       fftw
 Requires:       arpack
@@ -102,7 +98,6 @@ Requires:       libnektar++ = %{version}
 Requires:       arpack-devel
 Requires:       blas-devel
 Requires:       boost-devel
-Requires:       boost-python3-devel
 Requires:       cmake
 Requires:       fftw-devel
 Requires:       gcc-c++
@@ -128,7 +123,6 @@ Requires:       libnektar++-openmpi = %{version}
 Requires:       arpack-devel
 Requires:       blas-devel
 Requires:       boost-devel
-Requires:       boost-python3-devel
 Requires:       cmake
 Requires:       fftw-devel
 Requires:       gcc-c++
@@ -155,7 +149,6 @@ Requires:       libnektar++-mpich = %{version}
 Requires:       arpack-devel
 Requires:       blas-devel
 Requires:       boost-devel
-Requires:       boost-python3-devel
 Requires:       cmake
 Requires:       fftw-devel
 Requires:       gcc-c++

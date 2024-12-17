@@ -33,6 +33,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <FieldUtils/Interpolator.h>
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SolverUtils/Core/SessionFunction.h>
 
@@ -69,7 +70,7 @@ Array<OneD, MultiRegions::ExpListSharedPtr> SessionFunction_Evaluate(
 
     for (std::size_t i = 0; i < py::len(fieldNames); ++i)
     {
-        fields[i] = py::extract<std::string>(fieldNames[i]);
+        fields[i] = py::cast<std::string>(fieldNames[i]);
     }
 
     if (explists.size() == 0)
@@ -89,11 +90,11 @@ Array<OneD, MultiRegions::ExpListSharedPtr> SessionFunction_Evaluate1(
     return SessionFunction_Evaluate(func, fieldNames, explists, 0.0);
 }
 
-void export_SessionFunction()
+void export_SessionFunction(py::module &m)
 {
-    py::class_<SessionFunction, std::shared_ptr<SessionFunction>,
-               boost::noncopyable>("SessionFunction", py::no_init)
-        .def("__init__", &SessionFunction_Init)
+    py::class_<SessionFunction, std::shared_ptr<SessionFunction>>(
+        m, "SessionFunction")
+        .def(py::init<>(&SessionFunction_Init))
         .def("Describe", &SessionFunction_Describe)
         .def("Evaluate", &SessionFunction_Evaluate)
         .def("Evaluate", &SessionFunction_Evaluate1);

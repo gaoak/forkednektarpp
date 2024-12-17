@@ -40,11 +40,10 @@ using namespace Nektar::StdRegions;
 using namespace Nektar::LocalRegions;
 using namespace Nektar::SpatialDomains;
 
-void export_Expansion()
+void export_Expansion(py::module &m)
 {
-    py::class_<Expansion, std::shared_ptr<Expansion>, py::bases<StdExpansion>,
-               boost::noncopyable>("Expansion", py::no_init)
-
+    py::class_<Expansion, StdExpansion, std::shared_ptr<Expansion>>(m,
+                                                                    "Expansion")
         .def("GetGeom", &Expansion::GetGeom)
         .def("Reset", &Expansion::Reset);
 }

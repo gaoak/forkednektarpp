@@ -34,14 +34,34 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <NekMesh/MeshElements/Mesh.h>
+#include <NekMesh/Python/NekMesh.h>
 
 using namespace Nektar;
 using namespace Nektar::NekMesh;
 
-void export_Mesh()
+void export_Mesh(py::module &m)
 {
-    py::class_<Mesh, std::shared_ptr<Mesh>, boost::noncopyable>("Mesh",
-                                                                py::init<>())
+    // Wrapper for ElementMap based loosely on stl_bind.h.
+    py::class_<ElementMap>(m, "ElementMap")
+        .def(py::init<>())
+        .def("__len__", [](const ElementMap &v) { return v.size(); })
+        .def(
+            "__iter__",
+            [](ElementMap &v) { return py::make_iterator(v.begin(), v.end()); },
+            py::keep_alive<0, 1>())
+        .def(
+            "__getitem__",
+            [](ElementMap &v, int &key) -> std::vector<ElementSharedPtr> & {
+                if (key < 0 || key > 3)
+                {
+                    throw py::index_error();
+                }
+                return v[key];
+            },
+            py::return_value_policy::reference_internal);
+
+    py::class_<Mesh, std::shared_ptr<Mesh>>(m, "Mesh")
+        .def(py::init<>())
         .def_readwrite("node", &Mesh::m_vertexSet)
         .def_readwrite("expDim", &Mesh::m_expDim)
         .def_readwrite("spaceDim", &Mesh::m_spaceDim)

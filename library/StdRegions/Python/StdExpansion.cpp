@@ -32,8 +32,11 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <LibUtilities/Python/NekPyConfig.hpp>
 #include <StdRegions/StdExpansion.h>
+
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+#include <LibUtilities/Python/LinearAlgebra/NekMatrix.hpp>
+#include <LibUtilities/Python/NekPyConfig.hpp>
 
 using namespace Nektar;
 using namespace Nektar::StdRegions;
@@ -143,10 +146,30 @@ py::tuple StdExpansion_PhysDeriv(StdExpansionSharedPtr exp,
     return py::tuple();
 }
 
-void export_StdExpansion()
+py::array StdExpansion_GenMatrix(std::shared_ptr<StdExpansion> &stdExp,
+                                 const StdMatrixKey &mkey)
 {
-    py::class_<StdExpansion, std::shared_ptr<StdExpansion>, boost::noncopyable>(
-        "StdExpansion", py::no_init)
+    auto mat = stdExp->GenMatrix(mkey);
+    // A bit wasteful but at the moment we can't easily keep hold of the
+    // NekMatrix returned as a std::shared_ptr, because pybind11 doesn't like
+    // std::shared_ptr around types that have custom casters (see issue #787).
+    return py::array({mat->GetRows(), mat->GetColumns()},
+                     {sizeof(NekDouble), mat->GetRows() * sizeof(NekDouble)},
+                     mat->GetRawPtr());
+}
+
+py::array StdExpansion_GetStdMatrix(std::shared_ptr<StdExpansion> &stdExp,
+                                    const StdMatrixKey &mkey)
+{
+    auto mat = stdExp->GetStdMatrix(mkey);
+    return py::array({mat->GetRows(), mat->GetColumns()},
+                     {sizeof(NekDouble), mat->GetRows() * sizeof(NekDouble)},
+                     mat->GetRawPtr());
+}
+
+void export_StdExpansion(py::module &m)
+{
+    py::class_<StdExpansion, std::shared_ptr<StdExpansion>>(m, "StdExpansion")
 
         .def("GetNcoeffs", &StdExpansion::GetNcoeffs)
         .def("GetTotPoints", &StdExpansion::GetTotPoints)
@@ -158,11 +181,10 @@ void export_StdExpansion()
         .def("GetShapeDimension", &StdExpansion::GetShapeDimension)
         .def("Integral", &StdExpansion::Integral)
 
-        .def("GetBasis", &StdExpansion::GetBasis,
-             py::return_value_policy<py::copy_const_reference>())
+        .def("GetBasis", &StdExpansion::GetBasis)
 
-        .def("GenMatrix", &StdExpansion::GenMatrix)
-        .def("GetStdMatrix", &StdExpansion::GetStdMatrix)
+        .def("GenMatrix", &StdExpansion_GenMatrix)
+        .def("GetStdMatrix", &StdExpansion_GetStdMatrix)
 
         .def("FwdTrans", &StdExpansion_FwdTrans)
         .def("BwdTrans", &StdExpansion_BwdTrans)

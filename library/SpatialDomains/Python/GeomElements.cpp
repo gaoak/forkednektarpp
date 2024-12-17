@@ -33,6 +33,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
+
 #include <SpatialDomains/HexGeom.h>
 #include <SpatialDomains/PointGeom.h>
 #include <SpatialDomains/PrismGeom.h>
@@ -52,7 +54,7 @@ std::shared_ptr<T> Geometry_Init(int id, py::list &facets)
 
     for (int i = 0; i < py::len(facets); ++i)
     {
-        geomVec.push_back(py::extract<std::shared_ptr<S>>(facets[i]));
+        geomVec.push_back(py::cast<std::shared_ptr<S>>(facets[i]));
     }
 
     return std::make_shared<T>(id, &geomVec[0]);
@@ -66,51 +68,47 @@ std::shared_ptr<T> Geometry_Init_Curved(int id, py::list &facets,
 
     for (int i = 0; i < py::len(facets); ++i)
     {
-        geomVec.push_back(py::extract<std::shared_ptr<S>>(facets[i]));
+        geomVec.push_back(py::cast<std::shared_ptr<S>>(facets[i]));
     }
 
     return std::make_shared<T>(id, &geomVec[0], curve);
 }
 
-template <class T, class S> void export_Geom_2d(const char *name)
+template <class T, class S> void export_Geom_2d(py::module &m, const char *name)
 {
-    py::class_<T, py::bases<Geometry2D>, std::shared_ptr<T>>(name, py::init<>())
-        .def("__init__", py::make_constructor(
-                             &Geometry_Init<T, S>, py::default_call_policies(),
-                             (py::arg("id"), py::arg("segments") = py::list())))
-        .def("__init__",
-             py::make_constructor(
-                 &Geometry_Init_Curved<T, S>, py::default_call_policies(),
-                 (py::arg("id"), py::arg("segments"), py::arg("curve"))));
+    py::class_<T, Geometry2D, std::shared_ptr<T>>(m, name)
+        .def(py::init<>())
+        .def(py::init<>(&Geometry_Init<T, S>), py::arg("id"),
+             py::arg("segments") = py::list())
+        .def(py::init<>(&Geometry_Init_Curved<T, S>), py::arg("id"),
+             py::arg("segments"), py::arg("curve"));
 }
 
-template <class T, class S> void export_Geom_3d(const char *name)
+template <class T, class S> void export_Geom_3d(py::module &m, const char *name)
 {
-    py::class_<T, py::bases<Geometry3D>, std::shared_ptr<T>>(name, py::init<>())
-        .def("__init__",
-             py::make_constructor(
-                 &Geometry_Init<T, S>, py::default_call_policies(),
-                 (py::arg("id"), py::arg("segments") = py::list())));
+    py::class_<T, Geometry3D, std::shared_ptr<T>>(m, name)
+        .def(py::init<>())
+        .def(py::init<>(&Geometry_Init<T, S>), py::arg("id"),
+             py::arg("segments") = py::list());
 }
 
 SegGeomSharedPtr SegGeom_Init(int id, int coordim, py::list &points,
-                              py::object &curve)
+                              CurveSharedPtr curve)
 {
     std::vector<PointGeomSharedPtr> geomVec;
 
     for (int i = 0; i < py::len(points); ++i)
     {
-        geomVec.push_back(py::extract<PointGeomSharedPtr>(points[i]));
+        geomVec.push_back(py::cast<PointGeomSharedPtr>(points[i]));
     }
 
-    if (curve.is_none())
+    if (!curve)
     {
         return std::make_shared<SegGeom>(id, coordim, &geomVec[0]);
     }
     else
     {
-        return std::make_shared<SegGeom>(id, coordim, &geomVec[0],
-                                         py::extract<CurveSharedPtr>(curve));
+        return std::make_shared<SegGeom>(id, coordim, &geomVec[0], curve);
     }
 }
 
@@ -119,37 +117,35 @@ py::tuple PointGeom_GetCoordinates(const PointGeom &self)
     return py::make_tuple(self.x(), self.y(), self.z());
 }
 
-void export_GeomElements()
+void export_GeomElements(py::module &m)
 {
     // Geometry dimensioned base classes
-    py::class_<Geometry1D, py::bases<Geometry>, std::shared_ptr<Geometry1D>,
-               boost::noncopyable>("Geometry1D", py::no_init);
-    py::class_<Geometry2D, py::bases<Geometry>, std::shared_ptr<Geometry2D>,
-               boost::noncopyable>("Geometry2D", py::no_init)
+    py::class_<Geometry1D, Geometry, std::shared_ptr<Geometry1D>>(m,
+                                                                  "Geometry1D");
+    py::class_<Geometry2D, Geometry, std::shared_ptr<Geometry2D>>(m,
+                                                                  "Geometry2D")
         .def("GetCurve", &Geometry2D::GetCurve);
-    py::class_<Geometry3D, py::bases<Geometry>, std::shared_ptr<Geometry3D>,
-               boost::noncopyable>("Geometry3D", py::no_init);
+    py::class_<Geometry3D, Geometry, std::shared_ptr<Geometry3D>>(m,
+                                                                  "Geometry3D");
 
     // Point geometries
-    py::class_<PointGeom, py::bases<Geometry>, std::shared_ptr<PointGeom>>(
-        "PointGeom", py::init<>())
+    py::class_<PointGeom, Geometry, std::shared_ptr<PointGeom>>(m, "PointGeom")
+        .def(py::init<>())
         .def(py::init<int, int, NekDouble, NekDouble, NekDouble>())
         .def("GetCoordinates", &PointGeom_GetCoordinates);
 
     // Segment geometries
-    py::class_<SegGeom, py::bases<Geometry>, std::shared_ptr<SegGeom>>(
-        "SegGeom", py::init<>())
-        .def("__init__",
-             py::make_constructor(&SegGeom_Init, py::default_call_policies(),
-                                  (py::arg("id"), py::arg("coordim"),
-                                   py::arg("points") = py::list(),
-                                   py::arg("curve")  = py::object())))
+    py::class_<SegGeom, Geometry, std::shared_ptr<SegGeom>>(m, "SegGeom")
+        .def(py::init<>())
+        .def(py::init<>(&SegGeom_Init), py::arg("id"), py::arg("coordim"),
+             py::arg("points") = py::list(),
+             py::arg("curve")  = CurveSharedPtr())
         .def("GetCurve", &SegGeom::GetCurve);
 
-    export_Geom_2d<TriGeom, SegGeom>("TriGeom");
-    export_Geom_2d<QuadGeom, SegGeom>("QuadGeom");
-    export_Geom_3d<TetGeom, TriGeom>("TetGeom");
-    export_Geom_3d<PrismGeom, Geometry2D>("PrismGeom");
-    export_Geom_3d<PyrGeom, Geometry2D>("PyrGeom");
-    export_Geom_3d<HexGeom, QuadGeom>("HexGeom");
+    export_Geom_2d<TriGeom, SegGeom>(m, "TriGeom");
+    export_Geom_2d<QuadGeom, SegGeom>(m, "QuadGeom");
+    export_Geom_3d<TetGeom, TriGeom>(m, "TetGeom");
+    export_Geom_3d<PrismGeom, Geometry2D>(m, "PrismGeom");
+    export_Geom_3d<PyrGeom, Geometry2D>(m, "PyrGeom");
+    export_Geom_3d<HexGeom, QuadGeom>(m, "HexGeom");
 }

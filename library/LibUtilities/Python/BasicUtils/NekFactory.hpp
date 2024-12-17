@@ -64,24 +64,19 @@ struct is_placeholder<placeholder_template<N>>
 };
 } // namespace std
 
-using namespace Nektar;
-
 /**
  * @brief Helper class to be used in NekFactory_Register. Stores the Python
  * function used to call the creator function.
  */
+#pragma GCC visibility push(hidden)
 template <class T> class NekFactoryRegisterHelper
 {
 public:
     NekFactoryRegisterHelper(py::object obj) : m_obj(obj)
     {
-        py::incref(obj.ptr());
     }
 
-    ~NekFactoryRegisterHelper()
-    {
-        py::decref(m_obj.ptr());
-    }
+    ~NekFactoryRegisterHelper() = default;
 
     /**
      * @brief Callback to Python instantiator function (typically a class
@@ -94,32 +89,14 @@ public:
         py::object inst = m_obj(args...);
 
         // Assume that it returns an object of the appropriate type.
-        return py::extract<std::shared_ptr<T>>(inst);
+        return py::cast<std::shared_ptr<T>>(inst);
     }
 
 protected:
     /// Python function that is used to construct objects.
     py::object m_obj;
 };
-
-/**
- * @brief C-style callback to destroy the #NekFactoryRegisterHelper class
- * to avoid memory leaks.
- */
-#if PY_MAJOR_VERSION == 2
-template <class T> void NekFactoryCapsuleDestructor(void *ptr)
-{
-    NekFactoryRegisterHelper<T> *tmp = (NekFactoryRegisterHelper<T> *)ptr;
-    delete tmp;
-}
-#else
-template <class T> void NekFactoryCapsuleDestructor(PyObject *ptr)
-{
-    NekFactoryRegisterHelper<T> *tmp =
-        (NekFactoryRegisterHelper<T> *)PyCapsule_GetPointer(ptr, nullptr);
-    delete tmp;
-}
-#endif
+#pragma GCC visibility pop
 
 template <typename tFac> class NekFactory_Register;
 
@@ -156,7 +133,7 @@ public:
     {
     }
 
-    void operator()(std::string const &name, py::object &obj)
+    void operator()(tKey &name, py::object &obj, std::string const &nameKey)
     {
         // Create a factory register helper, which will call the C++ function to
         // create the factory.
@@ -171,20 +148,18 @@ public:
         // Create a capsule that will be embedded in the __main__ namespace. So
         // deallocation will occur, but only once Python ends or the Python
         // module is deallocated.
-        std::string key = "_" + name;
+        std::string key = "_" + nameKey;
 
         // Allocate a capsule to ensure memory is cleared up upon deallocation
         // (depends on Python 2 or 3).
-#if PY_MAJOR_VERSION == 2
-        py::object capsule(py::handle<>(
-            PyCObject_FromVoidPtr(helper, NekFactoryCapsuleDestructor<tBase>)));
-#else
-        py::object capsule(py::handle<>(PyCapsule_New(
-            helper, nullptr, NekFactoryCapsuleDestructor<tBase>)));
-#endif
+        py::capsule capsule(helper, [](void *ptr) {
+            NekFactoryRegisterHelper<tBase> *tmp =
+                (NekFactoryRegisterHelper<tBase> *)ptr;
+            delete tmp;
+        });
 
         // Embed the capsule in __main__.
-        py::import("__main__").attr(key.c_str()) = capsule;
+        py::globals()[key.c_str()] = capsule;
     }
 
 private:
@@ -193,8 +168,7 @@ private:
      * register creation function using the #placeholder_template helper struct.
      */
     template <std::size_t... Is>
-    void DoRegister(std::string const &name,
-                    NekFactoryRegisterHelper<tBase> *helper,
+    void DoRegister(tKey &name, NekFactoryRegisterHelper<tBase> *helper,
                     std::integer_sequence<std::size_t, Is...>)
     {
         m_fac.RegisterCreatorFunction(

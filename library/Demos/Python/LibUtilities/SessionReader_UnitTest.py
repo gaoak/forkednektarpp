@@ -33,15 +33,13 @@
 ###############################################################################
 
 from NekPy.LibUtilities import SessionReader
-from NekPy.SpatialDomains import MeshGraphIO
 import unittest
-
 
 class TestInterpreter(unittest.TestCase):
     def setUp(self):
         session_name = ["NekPy_SessionReader_UnitTest.py", "newsquare_2x2.xml"]
         self.session = SessionReader.CreateInstance(session_name)
-        _ = MeshGraphIO.Read(self.session)
+        self.session.InitSession()
 
     # Check that session parameters can be retrieved in a dict
     def testReadParamsMap(self):

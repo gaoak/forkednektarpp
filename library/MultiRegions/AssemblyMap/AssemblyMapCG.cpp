@@ -1970,12 +1970,23 @@ AssemblyMapCG::AssemblyMapCG(
                 if (bndConditions[i]->GetBoundaryConditionType() ==
                     SpatialDomains::eDirichlet)
                 {
-                    CoeffOnDirTrace.insert(locid);
+                    bool addid =
+                        (m_signChange && m_localToGlobalSign[locid] == 0)
+                            ? false
+                            : true;
 
-                    // store the local id and sign from global id
-                    // back to local space;
-                    GloDirBndCoeffToLocalCoeff[gloid] =
-                        pair<int, NekDouble>(locid, sign);
+                    // only add point if sign is +/- 1 since if zero it
+                    // belongs to a mode that is not used in variable p
+                    // expansion
+                    if (addid)
+                    {
+                        CoeffOnDirTrace.insert(locid);
+
+                        // store the local id and sign from global id
+                        // back to local space;
+                        GloDirBndCoeffToLocalCoeff[gloid] =
+                            pair<int, NekDouble>(locid, sign);
+                    }
                 }
             }
         }

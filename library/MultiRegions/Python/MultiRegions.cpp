@@ -34,15 +34,13 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 
-void export_ExpList();
-void export_DisContField();
-void export_ContField();
+void export_ExpList(py::module &m);
+void export_DisContField(py::module &m);
+void export_ContField(py::module &m);
 
-BOOST_PYTHON_MODULE(_MultiRegions)
+PYBIND11_MODULE(_MultiRegions, m)
 {
-    np::initialize();
-
-    export_ExpList();
-    export_DisContField();
-    export_ContField();
+    export_ExpList(m);
+    export_DisContField(m);
+    export_ContField(m);
 }

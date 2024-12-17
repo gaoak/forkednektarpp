@@ -34,17 +34,17 @@
 
 import sys
 import numpy as np
-from NekPy.LibUtilities import SessionReader, NekError
+from NekPy.LibUtilities import SessionReader
 from NekPy.StdRegions import ConstFactorMap, ConstFactorType
 from NekPy.SpatialDomains import MeshGraphIO
 from NekPy.SolverUtils import EquationSystem, UnsteadySystem
 
 class Diffusion(UnsteadySystem):
     def __init__(self, session, graph):
-        super(Diffusion, self).__init__(session, graph)
+        UnsteadySystem.__init__(self, session, graph)
 
     def InitObject(self, declare_field):
-        super(Diffusion, self).InitObject(declare_field)
+        UnsteadySystem.InitObject(self, declare_field)
 
         # Load diffusion parameter from session file
         if session.DefinesParameter("epsilon"):

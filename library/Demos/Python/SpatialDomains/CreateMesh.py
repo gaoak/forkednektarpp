@@ -126,7 +126,7 @@ def main():
         )
         assert quads[i].IsValid()
     print("Generating domain...")
-    composites[0] = SD.Composite([q.data() for q in quads])
+    composites[0] = SD.Composite(list(quads.values()))
     comp_map = SD.CompositeMap()
     comp_map[0] = composites[0]
     domains[0] = comp_map

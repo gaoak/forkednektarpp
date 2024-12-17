@@ -34,7 +34,10 @@
 
 #include <LibUtilities/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Communication/Comm.h>
+
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
 #include <LibUtilities/Python/NekPyConfig.hpp>
+
 #include <vector>
 
 using namespace Nektar;
@@ -50,17 +53,15 @@ T AllReduce(CommSharedPtr &comm, T toReduce, ReduceOperator oper)
 /**
  * @brief Export for Comm communicator.
  */
-void export_Comm()
+void export_Comm(py::module &m)
 {
     // Export ReduceOperator enum
-    NEKPY_WRAP_ENUM(ReduceOperator, ReduceOperatorMap);
+    NEKPY_WRAP_ENUM(m, ReduceOperator, ReduceOperatorMap);
 
-    py::class_<Comm, std::shared_ptr<Comm>, boost::noncopyable>("Comm",
-                                                                py::no_init)
+    py::class_<Comm, std::shared_ptr<Comm>>(m, "Comm")
         .def("GetSize", &Comm::GetSize)
         .def("GetRank", &Comm::GetRank)
-        .def("GetType", &Comm::GetType,
-             py::return_value_policy<py::copy_const_reference>())
+        .def("GetType", &Comm::GetType, py::return_value_policy::reference)
         .def("AllReduce", &AllReduce<double>)
         .def("AllReduce", &AllReduce<int>)
         .def("AllReduce", &AllReduce<long>)

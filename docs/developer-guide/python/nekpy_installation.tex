@@ -3,27 +3,26 @@
 NekPy has the following list of requirements:
 
 \begin{itemize}
-	\item Boost with Python support
-	\item Nektar++ \texttt{master} branch compiled from source (i.e. not from packages)
-	\item Python 2.7+ (note that examples rely on Python 2.7)
-	\item NumPy
+  \item Python 3.5+
+  \item NumPy
 \end{itemize}
 
 Most of these can be installed using package managers on various operating
-systems, as we describe below. We also have a requirement on the \texttt{Boost.NumPy}
-package, which is available in Boost 1.63 or later. If this isn't found on your
-system, it will be automatically downloaded and compiled.
+systems, as we describe below. We also have a requirement on the \texttt{pybind11}
+package; however, this will be automatically be downloaded and compiled as part
+of the compilation process.
 
 \section{Compiling and installing Nektar++}
 
 Nektar++ should be compiled as per the user guide instructions and installed
-into a directory which we will refer to as \texttt{\$NEKDIR}. By default this is the
-\texttt{dist} directory inside the Nektar++ build directory.
+into a directory which we will refer to as \texttt{\$NEKDIR}. By default this is
+the \texttt{dist} directory inside the Nektar++ build directory.
 
-Note that Nektar++ must, at a minimum, be compiled with \texttt{NEKTAR\_BUILD\_LIBRARY},
-\texttt{NEKTAR\_BUILD\_UTILITIES} , \texttt{NEKTAR\_BUILD\_SOLVERS} and \texttt{NEKTAR\_BUILD\_PYTHON}. 
-This will automatically download and install \texttt{Boost.NumPy} if required. Note 
-that all solvers may be disabled as long as the \texttt{NEKTAR\_BUILD\_SOLVERS} option is set. 
+Note that Nektar++ must, at a minimum, be compiled with
+\texttt{NEKTAR\_BUILD\_LIBRARY}, \texttt{NEKTAR\_BUILD\_UTILITIES} ,
+\texttt{NEKTAR\_BUILD\_SOLVERS} and \texttt{NEKTAR\_BUILD\_PYTHON}.  This will
+automatically download and install \texttt{pybind11}. Note that all solvers may
+be disabled as long as the \texttt{NEKTAR\_BUILD\_SOLVERS} option is set.
 
 \subsection{macOS}
 
@@ -33,7 +32,7 @@ Users of Homebrew should make sure their installation is up-to-date with
 \texttt{brew upgrade}. Then run
 
 \begin{lstlisting}[language=bash]
-brew install python boost-python
+brew install python
 \end{lstlisting}
 
 To install the NumPy package, use the \texttt{pip} package manager:
@@ -48,8 +47,8 @@ Users of MacPorts should sure their installation is up-to-date with
 \texttt{sudo port selfupdate \&\& sudo port upgrade outdated}. Then run
 
 \begin{lstlisting}[language=bash]
-sudo port install python27 py27-numpy
-sudo port select --set python python27
+sudo port install python310 py310-numpy
+sudo port select --set python python310
 \end{lstlisting}
 
 
@@ -59,7 +58,7 @@ Users of Debian and Ubuntu Linux systems should sure their installation is
 up-to-date with \texttt{sudo apt-get update \&\& sudo apt-get upgrade}
 
 \begin{lstlisting}[language=bash]
-sudo apt-get install libboost-python-dev python-numpy
+sudo apt-get install libpython-dev python-numpyx
 \end{lstlisting}
 
 \subsection{Compiling the wrappers}
@@ -77,14 +76,13 @@ Alternatively, the following command can be used to install the package for all 
 make nekpy-install-system
 \end{lstlisting}
 
-
 \section{Using the bindings}
 
-By default, the bindings will install into the \texttt{dist} directory, along with a
-number of examples that are stored in the 
-\path{$NEKDIR/library/Demos/Python} directory. To 
-test your installation, you can for example run one of these (e.g. \texttt{python Basis.py}) or
-launch an interactive session:
+By default, the bindings will install into the \texttt{dist} directory, along
+with a number of examples that are stored in the
+\path{$NEKDIR/library/Demos/Python} directory. To test your installation, you
+can for example run one of these (e.g. \texttt{python Basis.py}) or launch an
+interactive session:
 
 \begin{lstlisting}[language=bash]
 $ cd builds

@@ -41,7 +41,7 @@ using namespace Nektar::LibUtilities;
 /**
  * @brief Export for ShapeType enumeration.
  */
-void export_ShapeType()
+void export_ShapeType(py::module &m)
 {
-    NEKPY_WRAP_ENUM(ShapeType, ShapeTypeMap)
+    NEKPY_WRAP_ENUM(m, ShapeType, ShapeTypeMap)
 }

@@ -90,6 +90,7 @@ IF (NEKTAR_USE_SCOTCH)
             COMMAND ln -s
                 ${SCOTCH_SRC}/Make.inc/${SCOTCH_MAKE}
                 ${SCOTCH_SRC}/Makefile.inc
+            PATCH_COMMAND patch -p0 -f < ${PROJECT_SOURCE_DIR}/cmake/thirdparty-patches/scotch-6_0_4-implicit-function.patch
             BUILD_COMMAND $(MAKE) -C ${SCOTCH_SRC}
                 "CFLAGS=-I${TPDIST}/include ${SCOTCH_CFLAGS}"
                 "LDFLAGS=-L${TPDIST}/lib ${SCOTCH_LDFLAGS}"

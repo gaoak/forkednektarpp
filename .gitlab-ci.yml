@@ -146,7 +146,6 @@ include:
       grep --colour=always -A 1 -B 1 -0 "$WARNING_REGEX" $LOG_FILE;
         exit 1;
       fi
-  allow_failure: true
   timeout: 15m
 
 .clang-format-template: &clang-format-template
@@ -198,7 +197,6 @@ include:
     - cd "$CI_PROJECT_DIR"
     - source .gitlab-ci/header-format-filename.sh
     - source .gitlab-ci/header-format-license.sh
-  allow_failure: true
   timeout: 15m
 
 .xml-format-template: &xml-format-template
@@ -212,7 +210,6 @@ include:
   script:
     - cd "$CI_PROJECT_DIR"
     - .gitlab-ci/checkformatXMLfile.sh
-  allow_failure: true
   timeout: 15m
 
 .uncompiled-files-template: &uncompiled-files-template

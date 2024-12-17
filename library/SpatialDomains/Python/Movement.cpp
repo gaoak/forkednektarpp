@@ -34,13 +34,13 @@
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
 #include <SpatialDomains/Movement/Movement.h>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
+#include <SpatialDomains/Python/SpatialDomains.h>
 
 using namespace Nektar;
 using namespace Nektar::SpatialDomains;
 
-// Convert InterfaceCollection to Python types, so it can be indexed
-// using tuples. Avoids having to export type for std::pair<int,
+// Convert InterfaceCollection to Python types, so it can be indexed using
+// tuples. Avoids having to export type for std::pair<int,
 // string>.
 py::dict GetInterfaces_wrapper(MovementSharedPtr movement)
 {
@@ -58,17 +58,14 @@ MovementSharedPtr Movement_Init()
     return std::make_shared<Movement>();
 }
 
-void export_Movement()
+void export_Movement(py::module &m)
 {
+    py::bind_map<std::map<int, ZoneBaseShPtr>>(m, "ZoneMap");
 
-    py::class_<std::map<int, ZoneBaseShPtr>>("ZoneMap").def(
-        py::map_indexing_suite<std::map<int, ZoneBaseShPtr>, true>());
-
-    py::class_<Movement, std::shared_ptr<Movement>>("Movement", py::no_init)
-        .def("__init__", py::make_constructor(&Movement_Init))
+    py::class_<Movement, std::shared_ptr<Movement>>(m, "Movement")
+        .def(py::init<>(&Movement_Init))
         .def("GetInterfaces", &GetInterfaces_wrapper)
-        .def("GetZones", &Movement::GetZones,
-             py::return_value_policy<py::copy_const_reference>())
+        .def("GetZones", &Movement::GetZones, py::return_value_policy::copy)
         .def("PerformMovement", &Movement::PerformMovement)
         .def("AddZone", &Movement::AddZone)
         .def("AddInterface", &Movement::AddInterface);

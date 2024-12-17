@@ -36,44 +36,32 @@
 #include <vector>
 
 #include <LibUtilities/Python/NekPyConfig.hpp>
-#include <boost/python/suite/indexing/map_indexing_suite.hpp>
 
 using namespace Nektar;
 using namespace Nektar::LocalRegions;
 
-MatrixKey *MatrixKey_Init(const StdRegions::MatrixType matType,
-                          const LibUtilities::ShapeType shapeType,
-                          const StdRegions::StdExpansionSharedPtr exp,
-                          const py::object &constFactorMap,
-                          const py::object &varCoeffMap)
+PYBIND11_MAKE_OPAQUE(StdRegions::ConstFactorMap)
+PYBIND11_MAKE_OPAQUE(StdRegions::VarCoeffMap)
+
+std::unique_ptr<MatrixKey> MatrixKey_Init(
+    const StdRegions::MatrixType matType,
+    const LibUtilities::ShapeType shapeType,
+    const StdRegions::StdExpansionSharedPtr exp,
+    const StdRegions::ConstFactorMap &constFactorMap,
+    const StdRegions::VarCoeffMap &varCoeffMap)
 {
-    StdRegions::ConstFactorMap tmp = StdRegions::NullConstFactorMap;
-    StdRegions::VarCoeffMap tmp2   = StdRegions::NullVarCoeffMap;
-
-    if (!constFactorMap.is_none())
-    {
-        tmp = py::extract<StdRegions::ConstFactorMap>(constFactorMap);
-    }
-
-    if (!varCoeffMap.is_none())
-    {
-        tmp2 = py::extract<StdRegions::VarCoeffMap>(varCoeffMap);
-    }
-
-    return new MatrixKey(matType, shapeType, *exp, tmp, tmp2);
+    return std::make_unique<MatrixKey>(matType, shapeType, *exp, constFactorMap,
+                                       varCoeffMap);
 }
 
 /**
  * @brief Export for MatrixKey enumeration.
  */
-void export_MatrixKey()
+void export_MatrixKey(py::module &m)
 {
-    py::class_<MatrixKey, py::bases<StdRegions::StdMatrixKey>>("MatrixKey",
-                                                               py::no_init)
-        .def("__init__",
-             py::make_constructor(&MatrixKey_Init, py::default_call_policies(),
-                                  (py::arg("matType"), py::arg("shapeType"),
-                                   py::arg("exp"),
-                                   py::arg("constFactorMap") = py::object(),
-                                   py::arg("varCoeffMap")    = py::object())));
+    py::class_<MatrixKey, StdRegions::StdMatrixKey>(m, "MatrixKey")
+        .def(py::init<>(&MatrixKey_Init), py::arg("matType"),
+             py::arg("shapeType"), py::arg("exp"),
+             py::arg("constFactorMap") = StdRegions::NullConstFactorMap,
+             py::arg("varCoeffMap")    = StdRegions::NullVarCoeffMap);
 }

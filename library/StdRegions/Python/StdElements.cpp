@@ -43,38 +43,45 @@
 #include <StdRegions/StdTetExp.h>
 #include <StdRegions/StdTriExp.h>
 
+#include <LibUtilities/Python/BasicUtils/SharedArray.hpp>
+
 using namespace Nektar;
 using namespace Nektar::StdRegions;
 
-void export_StdElements()
+void export_StdElements(py::module &m)
 {
-    py::class_<StdPointExp, py::bases<StdExpansion>,
-               std::shared_ptr<StdPointExp>>(
-        "StdPointExp", py::init<const LibUtilities::BasisKey &>());
-    py::class_<StdSegExp, py::bases<StdExpansion>, std::shared_ptr<StdSegExp>>(
-        "StdSegExp", py::init<const LibUtilities::BasisKey &>());
-    py::class_<StdQuadExp, py::bases<StdExpansion>,
-               std::shared_ptr<StdQuadExp>>(
-        "StdQuadExp", py::init<const LibUtilities::BasisKey &,
-                               const LibUtilities::BasisKey &>());
-    py::class_<StdTriExp, py::bases<StdExpansion>, std::shared_ptr<StdTriExp>>(
-        "StdTriExp", py::init<const LibUtilities::BasisKey &,
-                              const LibUtilities::BasisKey &>());
-    py::class_<StdTetExp, py::bases<StdExpansion>, std::shared_ptr<StdTetExp>>(
-        "StdTetExp",
-        py::init<const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
-                 const LibUtilities::BasisKey &>());
-    py::class_<StdPrismExp, py::bases<StdExpansion>,
-               std::shared_ptr<StdPrismExp>>(
-        "StdPrismExp",
-        py::init<const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
-                 const LibUtilities::BasisKey &>());
-    py::class_<StdPyrExp, py::bases<StdExpansion>, std::shared_ptr<StdPyrExp>>(
-        "StdPyrExp",
-        py::init<const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
-                 const LibUtilities::BasisKey &>());
-    py::class_<StdHexExp, py::bases<StdExpansion>, std::shared_ptr<StdHexExp>>(
-        "StdHexExp",
-        py::init<const LibUtilities::BasisKey &, const LibUtilities::BasisKey &,
-                 const LibUtilities::BasisKey &>());
+    py::class_<StdPointExp, StdExpansion, std::shared_ptr<StdPointExp>>(
+        m, "StdPointExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &>());
+    py::class_<StdSegExp, StdExpansion, std::shared_ptr<StdSegExp>>(
+        m, "StdSegExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &>());
+    py::class_<StdQuadExp, StdExpansion, std::shared_ptr<StdQuadExp>>(
+        m, "StdQuadExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
+    py::class_<StdTriExp, StdExpansion, std::shared_ptr<StdTriExp>>(
+        m, "StdTriExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
+    py::class_<StdTetExp, StdExpansion, std::shared_ptr<StdTetExp>>(
+        m, "StdTetExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
+    py::class_<StdPrismExp, StdExpansion, std::shared_ptr<StdPrismExp>>(
+        m, "StdPrismExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
+    py::class_<StdPyrExp, StdExpansion, std::shared_ptr<StdPyrExp>>(
+        m, "StdPyrExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
+    py::class_<StdHexExp, StdExpansion, std::shared_ptr<StdHexExp>>(
+        m, "StdHexExp", py::multiple_inheritance())
+        .def(py::init<const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &,
+                      const LibUtilities::BasisKey &>());
 }

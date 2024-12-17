@@ -32,9 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "../NekPyConvertors.hpp"
 #include <LibUtilities/BasicUtils/SessionReader.h>
 #include <LibUtilities/Python/NekPyConfig.hpp>
+#include <pybind11/stl.h>
 
 using namespace Nektar::LibUtilities;
 
@@ -89,92 +89,56 @@ SessionReaderSharedPtr SessionReader_CreateInstance(py::list &ns)
     return sr;
 }
 
-void SessionReader_SetParameterInt(SessionReaderSharedPtr session,
-                                   std::string paramName, int paramValue)
-{
-    session->SetParameter(paramName, paramValue);
-}
-
-void SessionReader_SetParameterDouble(SessionReaderSharedPtr session,
-                                      std::string paramName, double paramValue)
-{
-    session->SetParameter(paramName, paramValue);
-}
-
-EquationSharedPtr SessionReader_GetFunction1(SessionReaderSharedPtr session,
-                                             std::string func, int var)
-{
-    return session->GetFunction(func, var);
-}
-
-EquationSharedPtr SessionReader_GetFunction2(SessionReaderSharedPtr session,
-                                             std::string func, std::string var)
-{
-    return session->GetFunction(func, var);
-}
-
-/**
- * @brief Function to wrap SessionReader::GetParameters
- *
- * Returns a Python dict containing (parameter name)-> (parameter value)
- * entries.
- */
-py::dict SessionReader_GetParameters(SessionReaderSharedPtr s)
-{
-    return MapToPyDict(s->GetParameters());
-}
-
-/**
- * @brief Function to wrap SessionReader::GetVariables
- *
- * Returns a Python list containing variable names.
- */
-py::list SessionReader_GetVariables(SessionReaderSharedPtr s)
-{
-    return VectorToPyList(s->GetVariables());
-}
-
 /**
  * @brief SessionReader exports.
- *
- * Currently wrapped functions:
- *   - SessionReader::CreateInstance for creating objects
- *   - SessionReader::GetSessionName to return the session name
- *   - SessionReader::Finalise to deal with finalising things
  */
 
-void export_SessionReader()
+void export_SessionReader(py::module &m)
 {
-    py::class_<SessionReader, std::shared_ptr<SessionReader>,
-               boost::noncopyable>("SessionReader", py::no_init)
+    py::class_<SessionReader, std::shared_ptr<SessionReader>>(m,
+                                                              "SessionReader")
 
-        .def("CreateInstance", SessionReader_CreateInstance)
-        .staticmethod("CreateInstance")
+        .def_static("CreateInstance", SessionReader_CreateInstance)
 
         .def("GetSessionName", &SessionReader::GetSessionName,
-             py::return_value_policy<py::copy_const_reference>())
+             py::return_value_policy::copy)
+
+        .def("InitSession", &SessionReader::InitSession,
+             py::arg("filenames") = py::list())
 
         .def("Finalise", &SessionReader::Finalise)
 
         .def("DefinesParameter", &SessionReader::DefinesParameter)
         .def("GetParameter", &SessionReader::GetParameter,
-             py::return_value_policy<py::return_by_value>())
-        .def("GetParameters", &SessionReader_GetParameters)
+             py::return_value_policy::copy)
+        .def("GetParameters", &SessionReader::GetParameters)
 
-        .def("SetParameter", SessionReader_SetParameterInt)
-        .def("SetParameter", SessionReader_SetParameterDouble)
+        .def("SetParameter", py::overload_cast<const std::string &, int &>(
+                                 &SessionReader::SetParameter))
+        .def("SetParameter", py::overload_cast<const std::string &, double &>(
+                                 &SessionReader::SetParameter))
+        .def("SetParameter", py::overload_cast<const std::string &, size_t &>(
+                                 &SessionReader::SetParameter))
 
         .def("DefinesSolverInfo", &SessionReader::DefinesSolverInfo)
         .def("GetSolverInfo", &SessionReader::GetSolverInfo,
-             py::return_value_policy<py::copy_const_reference>())
+             py::return_value_policy::copy)
         .def("SetSolverInfo", &SessionReader::SetSolverInfo)
 
         .def("GetVariable", &SessionReader::GetVariable,
-             py::return_value_policy<py::copy_const_reference>())
-        .def("GetVariables", SessionReader_GetVariables)
+             py::return_value_policy::copy)
+        .def("GetVariables", &SessionReader::GetVariables)
 
-        .def("GetFunction", SessionReader_GetFunction1)
-        .def("GetFunction", SessionReader_GetFunction2)
+        .def("GetFunction",
+             py::overload_cast<const std::string &, const std::string &,
+                               const int>(&SessionReader::GetFunction,
+                                          py::const_),
+             py::arg("name"), py::arg("var"), py::arg("domain") = 0)
+        .def("GetFunction",
+             py::overload_cast<const std::string &, const unsigned int &,
+                               const int>(&SessionReader::GetFunction,
+                                          py::const_),
+             py::arg("name"), py::arg("var"), py::arg("domain") = 0)
 
         .def("GetComm", &SessionReader::GetComm)
 
