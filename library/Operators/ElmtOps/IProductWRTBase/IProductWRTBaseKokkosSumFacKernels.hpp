@@ -517,9 +517,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriKernel_QP(
     // With contributions from every quadrature point
     if (isModified)
     {
-        *s_prod = 0.0;
-
-        team.team_barrier();
+        TData prod = 0.0;
 
         Kokkos::parallel_reduce(
             Kokkos::TeamThreadRange(team, nqTot),
@@ -531,19 +529,14 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriKernel_QP(
 
                 sum += tmp;
             },
-            *s_prod);
+            prod);
 
-        team.team_barrier();
-
-        const unsigned int index = outoffset + 1u;
         if constexpr (SCALE)
         {
-            out[index] += (*s_prod) * scale;
+            prod *= scale;
         }
-        else
-        {
-            out[index] += (*s_prod);
-        }
+
+        out[outoffset + 1u] += prod;
     }
 
     team.team_barrier();
@@ -1098,11 +1091,8 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetKernel_QP(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(team, nm2),
-            [&](const unsigned int &idx) { s_prod[idx] = 0.0; });
-
-        team.team_barrier();
+        TData prod0 = 0.0;
+        TData prod1 = 0.0;
 
         Kokkos::parallel_reduce(
             Kokkos::TeamThreadRange(team, nqTot),
@@ -1110,11 +1100,9 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetKernel_QP(
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
                 const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
 
                 // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
+                TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
                 // top vertex
                 TData tmp = s_basis0[i] * s_basis1[nq1 + j];
@@ -1122,62 +1110,53 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetKernel_QP(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-
                 sum1 += tmp;
 
                 // bottom vertex
-                tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
-                      s_wsp0[idx] * tmpQ;
-
-                sum2 += tmp;
+                sum2 += s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
+                        s_wsp0[idx] * tmpQ;
             },
-            s_prod[nm2 - 1], s_prod[0]);
+            prod0, prod1);
+
+        if constexpr (SCALE)
+        {
+            prod0 *= scale;
+            prod1 *= scale;
+        }
+
+        Kokkos::single(Kokkos::PerTeam(team), [&]() {
+            out[outoffset + 1] += prod0;
+            out[outoffset + nm2] += prod1;
+        });
 
         // singular edge
         for (unsigned int r = 1u; r < nm2 - 1u; ++r)
         {
+            TData prod = 0.0;
+
             Kokkos::parallel_reduce(
                 Kokkos::TeamThreadRange(team, nqTot),
                 [&](const unsigned int &idx, TData &sum) {
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData tmpQ2          = s_w2[k];
-                    TData tmpQ1          = tmpQ2 * s_w1[j];
 
                     // Store jac * quadrature weight
-                    TData tmpQ = tmpQ1 * s_w0[i];
-                    TData tmp  = s_basis2[(r + 1) * nq2 + k] *
-                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
-                                s_wsp0[idx] * tmpQ;
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
-                    sum += tmp;
+                    sum += s_basis2[(r + 1) * nq2 + k] * s_basis1[nq1 + j] *
+                           s_basis0[nq0 + i] * s_wsp0[idx] * tmpQ;
                 },
-                s_prod[r]);
+                prod);
 
-            team.team_barrier();
-        };
+            if constexpr (SCALE)
+            {
+                prod *= scale;
+            }
 
-        if constexpr (SCALE)
-        {
-            Kokkos::single(Kokkos::PerTeam(team), [&]() {
-                out[outoffset + 1] += s_prod[nm2 - 1] * scale;
-            });
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm2 - 1u),
-                                 [&](const unsigned int &r) {
-                                     out[outoffset + nm2 + r] +=
-                                         s_prod[r] * scale;
-                                 });
-        }
-        else
-        {
             Kokkos::single(Kokkos::PerTeam(team),
-                           [&]() { out[outoffset + 1] += s_prod[nm2 - 1]; });
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nm2 - 1u),
-                                 [&](const unsigned int &r) {
-                                     out[outoffset + nm2 + r] += s_prod[r];
-                                 });
-        }
+                           [&]() { out[outoffset + nm2 + r] += prod; });
+        };
     }
 
     team.team_barrier();
@@ -1297,7 +1276,8 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismKernel(
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
-                        TData prod = kj_weight * w0[i] * in[index];
+                        TData prod = kj_weight * basis2[nq2 + k] *
+                                     basis0[nq0 + i] * w0[i] * in[index];
                         if constexpr (DEFORMED)
                         {
                             prod *= jac[index];
@@ -1306,9 +1286,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismKernel(
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
                             wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                 ilane] += prod * basis2[nq2 + k] *
-                                           basis1[q * nq1 + j] *
-                                           basis0[nq0 + i];
+                                 ilane] += prod * basis1[q * nq1 + j];
                         }
                     }
                 }
@@ -1466,50 +1444,38 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePrismKernel_QP(
             }
         });
 
-    team.team_barrier();
-
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(team, nm1),
-            [&](const unsigned int &idx) { s_wsp2[idx] = 0.0; });
-
-        team.team_barrier();
-
         for (unsigned int q = 0u; q < nm1; ++q)
         {
+            TData prod = 0.0;
+
             Kokkos::parallel_reduce(
                 Kokkos::TeamThreadRange(team, nqTot),
                 [&](const unsigned int &idx, TData &sum) {
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData k_weight       = s_w2[k];
-                    TData kj_weight      = k_weight * s_w1[j];
-                    TData tmp1           = kj_weight * s_w0[i] * s_wsp0[idx];
-                    TData tmp            = tmp1 * s_basis2[nq2 + k] *
-                                s_basis1[q * nq1 + j] * s_basis0[nq0 + i];
 
+                    // Store jac * quadrature weight
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                    TData tmp = tmpQ * s_wsp0[idx];
+                    tmp *= s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                           s_basis0[nq0 + i];
                     sum += tmp;
                 },
-                s_wsp2[q]);
+                prod);
+
+            if constexpr (SCALE)
+            {
+                prod *= scale;
+            }
+
+            Kokkos::single(Kokkos::PerTeam(team),
+                           [&]() { out[outoffset + nm2 * q + 1u] += prod; });
         }
-
-        team.team_barrier();
-
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(team, nm1), [&](const unsigned int &idx) {
-                const unsigned int index = outoffset + nm2 * idx + 1u;
-                if constexpr (SCALE)
-                {
-                    out[index] += s_wsp2[idx] * scale;
-                }
-                else
-                {
-                    out[index] += s_wsp2[idx];
-                }
-            });
     }
 
     team.team_barrier();
@@ -1839,9 +1805,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrKernel_QP(
     // Add correction for collapsed coordinate.
     if (isModified)
     {
-        (*s_prod) = 0.0;
-
-        team.team_barrier();
+        TData prod = 0.0;
 
         Kokkos::parallel_reduce(
             Kokkos::TeamThreadRange(team, nqTot),
@@ -1849,11 +1813,9 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrKernel_QP(
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
                 const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
 
                 // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
+                TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
                 // top vertex
                 TData tmp = s_basis0[i] * s_basis1[nq1 + j];
@@ -1863,21 +1825,15 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrKernel_QP(
                 tmp *= s_wsp0[idx] * tmpQ;
                 sum += tmp;
             },
-            *s_prod);
+            prod);
 
-        team.team_barrier();
-
-        // add to existing entry
         if constexpr (SCALE)
         {
-            Kokkos::single(Kokkos::PerTeam(team),
-                           [&]() { out[outoffset + 1] += (*s_prod) * scale; });
+            prod *= scale;
         }
-        else
-        {
-            Kokkos::single(Kokkos::PerTeam(team),
-                           [&]() { out[outoffset + 1] += (*s_prod); });
-        }
+
+        Kokkos::single(Kokkos::PerTeam(team),
+                       [&]() { out[outoffset + 1] += prod; });
     };
 
     team.team_barrier();
