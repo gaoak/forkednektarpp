@@ -556,14 +556,9 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
         // With contributions from every quadrature point
         if (isModified)
         {
-            TData prod = 0.0;
-
-            if (item_ct1.get_local_id(2) == 0)
-            {
-                *s_prod = 0.0;
-            }
-
             item_ct1.barrier(sycl::access::fence_space::local_space);
+
+            TData prod = 0.0;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                  idx += item_ct1.get_local_range(2))
@@ -581,23 +576,13 @@ NEK_FORCE_INLINE static void IProductWRTBaseTriKernel_QP(
 
             if (item_ct1.get_sub_group().get_local_id() == 0)
             {
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod);
-            }
-
-            item_ct1.barrier(sycl::access::fence_space::local_space);
-
-            if (item_ct1.get_local_id(2) == 0)
-            {
-                const unsigned int index = outoffset + 1u;
                 if constexpr (SCALE)
                 {
-                    out[index] += (*s_prod) * scale;
+                    prod *= scale;
                 }
-                else
-                {
-                    out[index] += (*s_prod);
-                }
+
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                    out + outoffset + 1u, prod);
             }
         }
 
@@ -1200,62 +1185,72 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
         // Add correction for collapsed coordinate.
         if (isModified)
         {
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm2;
-                 idx += item_ct1.get_local_range(2))
-            {
-                s_prod[idx] = 0.0;
-            }
-
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            TData prod0 = 0.0;
-            TData prod1 = 0.0;
-
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
-                 idx += item_ct1.get_local_range(2))
+            constexpr unsigned int NM2_MAX = 8;
+            if (nm2 <= NM2_MAX)
             {
-                const unsigned int i = idx % nq0;
-                const unsigned int j = (idx / nq0) % nq1;
-                const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
+                TData prod[NM2_MAX] = {0.0};
+                for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
+                     idx += item_ct1.get_local_range(2))
+                {
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
 
-                // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
+                    // Store jac * quadrature weight
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
-                // top vertex
-                TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                tmp += s_basis0[nq0 + i] * s_basis1[j];
-                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp *= s_basis2[nq2 + k];
-                tmp *= s_wsp0[idx] * tmpQ;
+                    // top vertex
+                    TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                    tmp *= s_basis2[nq2 + k];
+                    tmp *= s_wsp0[idx] * tmpQ;
+                    prod[nm2 - 1u] += tmp;
 
-                prod0 += tmp;
+                    // singular edge
+                    tmpQ *= s_basis1[nq1 + j] * s_basis0[nq0 + i] * s_wsp0[idx];
+                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    {
+                        prod[r] += s_basis2[(r + 1u) * nq2 + k] * tmpQ;
+                    }
 
-                // bottom vertex
-                tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
-                      s_wsp0[idx] * tmpQ;
+                    // bottom vertex
+                    prod[0] += s_basis2[k] * tmpQ;
+                }
 
-                prod1 += tmp;
+                for (unsigned int r = 0u; r < nm2; ++r)
+                {
+                    prod[r] = sycl::reduce_over_group(item_ct1.get_sub_group(),
+                                                      prod[r], sycl::plus<>());
+
+                    if (item_ct1.get_sub_group().get_local_id() == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod[r] *= scale;
+                        }
+
+                        if (r == nm2 - 1u)
+                        {
+                            atomic_add<NektarSpaces::SYCL,
+                                       NektarSpaces::GlobalScope>(
+                                out + outoffset + 1u, prod[nm2 - 1u]);
+                        }
+                        else
+                        {
+                            atomic_add<NektarSpaces::SYCL,
+                                       NektarSpaces::GlobalScope>(
+                                out + outoffset + nm2 + r, prod[r]);
+                        }
+                    }
+                }
             }
-
-            prod0 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod0,
-                                            sycl::plus<>());
-            prod1 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod1,
-                                            sycl::plus<>());
-
-            if (item_ct1.get_sub_group().get_local_id() == 0)
+            else
             {
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                    s_prod + nm2 - 1, prod0);
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod1);
-            }
-
-            // singular edge
-            for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-            {
-                TData prod = 0.0;
+                TData prod0 = 0.0;
+                TData prod1 = 0.0;
 
                 for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                      idx += item_ct1.get_local_range(2))
@@ -1263,52 +1258,76 @@ NEK_FORCE_INLINE static void IProductWRTBaseTetKernel_QP(
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData tmpQ2          = s_w2[k];
-                    TData tmpQ1          = tmpQ2 * s_w1[j];
 
                     // Store jac * quadrature weight
-                    TData tmpQ = tmpQ1 * s_w0[i];
-                    TData tmp  = s_basis2[(r + 1) * nq2 + k] *
-                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
-                                s_wsp0[idx] * tmpQ;
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
-                    prod += tmp;
+                    // top vertex
+                    TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                    tmp *= s_basis2[nq2 + k];
+                    tmp *= s_wsp0[idx] * tmpQ;
+                    prod0 += tmp;
+
+                    // bottom vertex
+                    prod1 += s_basis0[nq0 + i] * s_basis1[nq1 + j] *
+                             s_basis2[k] * s_wsp0[idx] * tmpQ;
                 }
 
-                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                               sycl::plus<>());
+                prod0 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod0,
+                                                sycl::plus<>());
+                prod1 = sycl::reduce_over_group(item_ct1.get_sub_group(), prod1,
+                                                sycl::plus<>());
 
                 if (item_ct1.get_sub_group().get_local_id() == 0)
                 {
-                    atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                        s_prod + r, prod);
-                }
-            }
+                    if constexpr (SCALE)
+                    {
+                        prod0 *= scale;
+                        prod1 *= scale;
+                    }
 
-            item_ct1.barrier(sycl::access::fence_space::local_space);
+                    atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                        out + outoffset + 1, prod0);
+                    atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                        out + outoffset + nm2, prod1);
+                }
 
-            if constexpr (SCALE)
-            {
-                if (item_ct1.get_local_id(2) == 0)
+                // singular edge
+                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
-                    out[outoffset + 1] += s_prod[nm2 - 1] * scale;
-                }
-                for (unsigned int idx = item_ct1.get_local_id(2);
-                     idx < nm2 - 1u; idx += item_ct1.get_local_range(2))
-                {
-                    out[outoffset + nm2 + idx] += s_prod[idx] * scale;
-                }
-            }
-            else
-            {
-                if (item_ct1.get_local_id(2) == 0)
-                {
-                    out[outoffset + 1] += s_prod[nm2 - 1];
-                }
-                for (unsigned int idx = item_ct1.get_local_id(2);
-                     idx < nm2 - 1u; idx += item_ct1.get_local_range(2))
-                {
-                    out[outoffset + nm2 + idx] += s_prod[idx];
+                    TData prod = 0.0;
+
+                    for (unsigned int idx = item_ct1.get_local_id(2);
+                         idx < nqTot; idx += item_ct1.get_local_range(2))
+                    {
+                        const unsigned int i = idx % nq0;
+                        const unsigned int j = (idx / nq0) % nq1;
+                        const unsigned int k = idx / (nq0 * nq1);
+
+                        // Store jac * quadrature weight
+                        TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                        prod += s_basis2[(r + 1) * nq2 + k] *
+                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
+                                s_wsp0[idx] * tmpQ;
+                    }
+
+                    prod = sycl::reduce_over_group(item_ct1.get_sub_group(),
+                                                   prod, sycl::plus<>());
+
+                    if (item_ct1.get_sub_group().get_local_id() == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::SYCL,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 + r, prod);
+                    }
                 }
             }
         }
@@ -1439,7 +1458,8 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
-                        TData prod = kj_weight * w0[i] * in[index];
+                        TData prod = kj_weight * basis2[nq2 + k] *
+                                     basis0[nq0 + i] * w0[i] * in[index];
                         if constexpr (DEFORMED)
                         {
                             prod *= jac[index];
@@ -1448,9 +1468,7 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel(
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
                             wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                 ilane] += prod * basis2[nq2 + k] *
-                                           basis1[q * nq1 + j] *
-                                           basis0[nq0 + i];
+                                 ilane] += prod * basis1[q * nq1 + j];
                         }
                     }
                 }
@@ -1628,22 +1646,15 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        item_ct1.barrier(sycl::access::fence_space::local_space);
-
         // Add correction for collapsed coordinate.
         if (isModified)
         {
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1;
-                 idx += item_ct1.get_local_range(2))
-            {
-                s_wsp2[idx] = 0.0;
-            }
-
             item_ct1.barrier(sycl::access::fence_space::local_space);
 
-            for (unsigned int q = 0u; q < nm1; ++q)
+            constexpr unsigned int NM1_MAX = 8;
+            if (nm1 <= NM1_MAX)
             {
-                TData prod = 0.0;
+                TData prod[NM1_MAX] = {0.0};
 
                 for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                      idx += item_ct1.get_local_range(2))
@@ -1651,38 +1662,72 @@ NEK_FORCE_INLINE static void IProductWRTBasePrismKernel_QP(
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData k_weight       = s_w2[k];
-                    TData kj_weight      = k_weight * s_w1[j];
-                    TData tmp1           = kj_weight * s_w0[i] * s_wsp0[idx];
-                    TData tmp            = tmp1 * s_basis2[nq2 + k] *
-                                s_basis1[q * nq1 + j] * s_basis0[nq0 + i];
 
-                    prod += tmp;
+                    // Store jac * quadrature weight
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                    TData tmp = tmpQ * s_wsp0[idx];
+                    tmp *= s_basis2[nq2 + k] * s_basis0[nq0 + i];
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        prod[q] += tmp * s_basis1[q * nq1 + j];
+                    }
                 }
 
-                prod = sycl::reduce_over_group(item_ct1.get_sub_group(), prod,
-                                               sycl::plus<>());
-
-                if (item_ct1.get_sub_group().get_local_id() == 0)
+                for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(
-                        s_wsp2 + q, prod);
+                    prod[q] = sycl::reduce_over_group(item_ct1.get_sub_group(),
+                                                      prod[q], sycl::plus<>());
+
+                    if (item_ct1.get_sub_group().get_local_id() == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod[q] *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::SYCL,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 * q + 1u, prod[q]);
+                    }
                 }
             }
-
-            item_ct1.barrier(sycl::access::fence_space::local_space);
-
-            for (unsigned int idx = item_ct1.get_local_id(2); idx < nm1;
-                 idx += item_ct1.get_local_range(2))
+            else
             {
-                const unsigned int index = outoffset + nm2 * idx + 1u;
-                if constexpr (SCALE)
+                for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    out[index] += s_wsp2[idx] * scale;
-                }
-                else
-                {
-                    out[index] += s_wsp2[idx];
+                    TData prod = 0.0;
+
+                    for (unsigned int idx = item_ct1.get_local_id(2);
+                         idx < nqTot; idx += item_ct1.get_local_range(2))
+                    {
+                        const unsigned int i = idx % nq0;
+                        const unsigned int j = (idx / nq0) % nq1;
+                        const unsigned int k = idx / (nq0 * nq1);
+
+                        // Store jac * quadrature weight
+                        TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                        TData tmp = tmpQ * s_wsp0[idx];
+                        tmp *= s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                               s_basis0[nq0 + i];
+                        prod += tmp;
+                    }
+
+                    prod = sycl::reduce_over_group(item_ct1.get_sub_group(),
+                                                   prod, sycl::plus<>());
+
+                    if (item_ct1.get_sub_group().get_local_id() == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::SYCL,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 * q + 1u, prod);
+                    }
                 }
             }
         }
@@ -2037,14 +2082,9 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
         // Add correction for collapsed coordinate.
         if (isModified)
         {
-            TData prod = 0.0;
-
-            if (item_ct1.get_local_id(2) == 0)
-            {
-                (*s_prod) = 0.0;
-            }
-
             item_ct1.barrier(sycl::access::fence_space::local_space);
+
+            TData prod = 0.0;
 
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                  idx += item_ct1.get_local_range(2))
@@ -2052,11 +2092,9 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
                 const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
 
                 // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
+                TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
                 // top vertex
                 TData tmp = s_basis0[i] * s_basis1[nq1 + j];
@@ -2064,7 +2102,6 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-
                 prod += tmp;
             }
 
@@ -2073,23 +2110,13 @@ NEK_FORCE_INLINE static void IProductWRTBasePyrKernel_QP(
 
             if (item_ct1.get_sub_group().get_local_id() == 0)
             {
-                atomic_add<NektarSpaces::SYCL, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod);
-            }
-
-            item_ct1.barrier(sycl::access::fence_space::local_space);
-
-            // add to existing entry
-            if (item_ct1.get_local_id(2) == 0)
-            {
                 if constexpr (SCALE)
                 {
-                    out[outoffset + 1] += (*s_prod) * scale;
+                    prod *= scale;
                 }
-                else
-                {
-                    out[outoffset + 1] += (*s_prod);
-                }
+
+                atomic_add<NektarSpaces::SYCL, NektarSpaces::GlobalScope>(
+                    out + outoffset + 1, prod);
             }
         }
 

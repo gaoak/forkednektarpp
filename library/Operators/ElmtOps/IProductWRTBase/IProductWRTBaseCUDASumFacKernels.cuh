@@ -540,17 +540,12 @@ __device__ __forceinline__ void IProductWRTBaseTriKernel_QP(
         // With contributions from every quadrature point
         if (isModified)
         {
+            __syncthreads();
+
             constexpr unsigned int warpsize =
                 NektarSpaces::vector_width<TData>::value;
 
             TData prod = 0.0;
-
-            if (threadIdx.x == 0)
-            {
-                *s_prod = 0.0;
-            }
-
-            __syncthreads();
 
             for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
             {
@@ -570,23 +565,13 @@ __device__ __forceinline__ void IProductWRTBaseTriKernel_QP(
 
             if (threadIdx.x % warpsize == 0)
             {
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod);
-            }
-
-            __syncthreads();
-
-            if (threadIdx.x == 0)
-            {
-                const unsigned int index = outoffset + 1u;
                 if constexpr (SCALE)
                 {
-                    out[index] += (*s_prod) * scale;
+                    prod *= scale;
                 }
-                else
-                {
-                    out[index] += (*s_prod);
-                }
+
+                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                    out + outoffset + 1u, prod);
             }
         }
 
@@ -1174,70 +1159,78 @@ __device__ __forceinline__ void IProductWRTBaseTetKernel_QP(
         // Add correction for collapsed coordinate.
         if (isModified)
         {
+            __syncthreads();
+
+            constexpr unsigned int NM2_MAX = 8;
             constexpr unsigned int warpsize =
                 NektarSpaces::vector_width<TData>::value;
 
-            for (unsigned int idx = threadIdx.x; idx < nm2; idx += blockDim.x)
+            if (nm2 <= NM2_MAX)
             {
-                s_prod[idx] = 0.0;
+                TData prod[NM2_MAX] = {0.0};
+                for (unsigned int idx = threadIdx.x; idx < nqTot;
+                     idx += blockDim.x)
+                {
+                    const unsigned int i = idx % nq0;
+                    const unsigned int j = (idx / nq0) % nq1;
+                    const unsigned int k = idx / (nq0 * nq1);
+
+                    // Store jac * quadrature weight
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                    // top vertex
+                    TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                    tmp *= s_basis2[nq2 + k];
+                    tmp *= s_wsp0[idx] * tmpQ;
+                    prod[nm2 - 1u] += tmp;
+
+                    // singular edge
+                    tmpQ *= s_basis1[nq1 + j] * s_basis0[nq0 + i] * s_wsp0[idx];
+                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    {
+                        prod[r] += s_basis2[(r + 1u) * nq2 + k] * tmpQ;
+                    }
+
+                    // bottom vertex
+                    prod[0] += s_basis2[k] * tmpQ;
+                }
+
+                for (unsigned int r = 0u; r < nm2; ++r)
+                {
+                    prod[r] += __shfl_down_sync(0xffffffff, prod[r], 16);
+                    prod[r] += __shfl_down_sync(0xffffffff, prod[r], 8);
+                    prod[r] += __shfl_down_sync(0xffffffff, prod[r], 4);
+                    prod[r] += __shfl_down_sync(0xffffffff, prod[r], 2);
+                    prod[r] += __shfl_down_sync(0xffffffff, prod[r], 1);
+
+                    if (threadIdx.x % warpsize == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod[r] *= scale;
+                        }
+
+                        if (r == nm2 - 1u)
+                        {
+                            atomic_add<NektarSpaces::CUDA,
+                                       NektarSpaces::GlobalScope>(
+                                out + outoffset + 1u, prod[nm2 - 1u]);
+                        }
+                        else
+                        {
+                            atomic_add<NektarSpaces::CUDA,
+                                       NektarSpaces::GlobalScope>(
+                                out + outoffset + nm2 + r, prod[r]);
+                        }
+                    }
+                }
             }
-
-            __syncthreads();
-
-            TData prod0 = 0.0;
-            TData prod1 = 0.0;
-
-            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            else
             {
-                const unsigned int i = idx % nq0;
-                const unsigned int j = (idx / nq0) % nq1;
-                const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
-
-                // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
-
-                // top vertex
-                TData tmp = s_basis0[i] * s_basis1[nq1 + j];
-                tmp += s_basis0[nq0 + i] * s_basis1[j];
-                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp *= s_basis2[nq2 + k];
-                tmp *= s_wsp0[idx] * tmpQ;
-
-                prod0 += tmp;
-
-                // bottom vertex
-                tmp = s_basis0[nq0 + i] * s_basis1[nq1 + j] * s_basis2[k] *
-                      s_wsp0[idx] * tmpQ;
-
-                prod1 += tmp;
-            }
-
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 16);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 8);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 4);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 2);
-            prod0 += __shfl_down_sync(0xffffffff, prod0, 1);
-
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 16);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 8);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 4);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 2);
-            prod1 += __shfl_down_sync(0xffffffff, prod1, 1);
-
-            if (threadIdx.x % warpsize == 0)
-            {
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(
-                    s_prod + nm2 - 1, prod0);
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod1);
-            }
-
-            // singular edge
-            for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-            {
-                TData prod = 0.0;
+                TData prod0 = 0.0;
+                TData prod1 = 0.0;
 
                 for (unsigned int idx = threadIdx.x; idx < nqTot;
                      idx += blockDim.x)
@@ -1245,55 +1238,86 @@ __device__ __forceinline__ void IProductWRTBaseTetKernel_QP(
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData tmpQ2          = s_w2[k];
-                    TData tmpQ1          = tmpQ2 * s_w1[j];
 
                     // Store jac * quadrature weight
-                    TData tmpQ = tmpQ1 * s_w0[i];
-                    TData tmp  = s_basis2[(r + 1) * nq2 + k] *
-                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
-                                s_wsp0[idx] * tmpQ;
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
-                    prod += tmp;
+                    // top vertex
+                    TData tmp = s_basis0[i] * s_basis1[nq1 + j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[j];
+                    tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                    tmp *= s_basis2[nq2 + k];
+                    tmp *= s_wsp0[idx] * tmpQ;
+                    prod0 += tmp;
+
+                    // bottom vertex
+                    prod1 += s_basis0[nq0 + i] * s_basis1[nq1 + j] *
+                             s_basis2[k] * s_wsp0[idx] * tmpQ;
                 }
 
-                prod += __shfl_down_sync(0xffffffff, prod, 16);
-                prod += __shfl_down_sync(0xffffffff, prod, 8);
-                prod += __shfl_down_sync(0xffffffff, prod, 4);
-                prod += __shfl_down_sync(0xffffffff, prod, 2);
-                prod += __shfl_down_sync(0xffffffff, prod, 1);
+                prod0 += __shfl_down_sync(0xffffffff, prod0, 16);
+                prod0 += __shfl_down_sync(0xffffffff, prod0, 8);
+                prod0 += __shfl_down_sync(0xffffffff, prod0, 4);
+                prod0 += __shfl_down_sync(0xffffffff, prod0, 2);
+                prod0 += __shfl_down_sync(0xffffffff, prod0, 1);
+
+                prod1 += __shfl_down_sync(0xffffffff, prod1, 16);
+                prod1 += __shfl_down_sync(0xffffffff, prod1, 8);
+                prod1 += __shfl_down_sync(0xffffffff, prod1, 4);
+                prod1 += __shfl_down_sync(0xffffffff, prod1, 2);
+                prod1 += __shfl_down_sync(0xffffffff, prod1, 1);
 
                 if (threadIdx.x % warpsize == 0)
                 {
-                    atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(
-                        s_prod + r, prod);
-                }
-            }
+                    if constexpr (SCALE)
+                    {
+                        prod0 *= scale;
+                        prod1 *= scale;
+                    }
 
-            __syncthreads();
+                    atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                        out + outoffset + 1u, prod0);
+                    atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                        out + outoffset + nm2, prod1);
+                }
 
-            if constexpr (SCALE)
-            {
-                if (threadIdx.x == 0)
+                // singular edge
+                for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
-                    out[outoffset + 1] += s_prod[nm2 - 1] * scale;
-                }
-                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
-                     idx += blockDim.x)
-                {
-                    out[outoffset + nm2 + idx] += s_prod[idx] * scale;
-                }
-            }
-            else
-            {
-                if (threadIdx.x == 0)
-                {
-                    out[outoffset + 1] += s_prod[nm2 - 1];
-                }
-                for (unsigned int idx = threadIdx.x; idx < nm2 - 1u;
-                     idx += blockDim.x)
-                {
-                    out[outoffset + nm2 + idx] += s_prod[idx];
+                    TData prod = 0.0;
+
+                    for (unsigned int idx = threadIdx.x; idx < nqTot;
+                         idx += blockDim.x)
+                    {
+                        const unsigned int i = idx % nq0;
+                        const unsigned int j = (idx / nq0) % nq1;
+                        const unsigned int k = idx / (nq0 * nq1);
+
+                        // Store jac * quadrature weight
+                        TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                        prod += s_basis2[(r + 1u) * nq2 + k] *
+                                s_basis1[nq1 + j] * s_basis0[nq0 + i] *
+                                s_wsp0[idx] * tmpQ;
+                    }
+
+                    prod += __shfl_down_sync(0xffffffff, prod, 16);
+                    prod += __shfl_down_sync(0xffffffff, prod, 8);
+                    prod += __shfl_down_sync(0xffffffff, prod, 4);
+                    prod += __shfl_down_sync(0xffffffff, prod, 2);
+                    prod += __shfl_down_sync(0xffffffff, prod, 1);
+
+                    if (threadIdx.x % warpsize == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::CUDA,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 + r, prod);
+                    }
                 }
             }
         }
@@ -1417,7 +1441,8 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel(
                     {
                         const unsigned int index = nqTot * warpsize * iwarp +
                                                    warpsize * cnt_kji + ilane;
-                        TData prod = kj_weight * w0[i] * in[index];
+                        TData prod = kj_weight * basis2[nq2 + k] *
+                                     basis0[nq0 + i] * w0[i] * in[index];
                         if constexpr (DEFORMED)
                         {
                             prod *= jac[index];
@@ -1426,9 +1451,7 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel(
                         for (unsigned int q = 0u; q < nm1; ++q)
                         {
                             wsp2[nm1 * warpsize * iwarp + warpsize * q +
-                                 ilane] += prod * basis2[nq2 + k] *
-                                           basis1[q * nq1 + j] *
-                                           basis0[nq0 + i];
+                                 ilane] += prod * basis1[q * nq1 + j];
                         }
                     }
                 }
@@ -1599,24 +1622,18 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel_QP(
             }
         }
 
-        __syncthreads();
-
         // Add correction for collapsed coordinate.
         if (isModified)
         {
+            __syncthreads();
+
+            constexpr unsigned int NM1_MAX = 8;
             constexpr unsigned int warpsize =
                 NektarSpaces::vector_width<TData>::value;
 
-            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
+            if (nm1 <= NM1_MAX)
             {
-                s_wsp2[idx] = 0.0;
-            }
-
-            __syncthreads();
-
-            for (unsigned int q = 0u; q < nm1; ++q)
-            {
-                TData prod = 0.0;
+                TData prod[NM1_MAX] = {0.0};
 
                 for (unsigned int idx = threadIdx.x; idx < nqTot;
                      idx += blockDim.x)
@@ -1624,40 +1641,78 @@ __device__ __forceinline__ void IProductWRTBasePrismKernel_QP(
                     const unsigned int i = idx % nq0;
                     const unsigned int j = (idx / nq0) % nq1;
                     const unsigned int k = idx / (nq0 * nq1);
-                    TData k_weight       = s_w2[k];
-                    TData kj_weight      = k_weight * s_w1[j];
-                    TData tmp1           = kj_weight * s_w0[i] * s_wsp0[idx];
-                    TData tmp            = tmp1 * s_basis2[nq2 + k] *
-                                s_basis1[q * nq1 + j] * s_basis0[nq0 + i];
 
-                    prod += tmp;
+                    // Store jac * quadrature weight
+                    TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                    TData tmp = tmpQ * s_wsp0[idx];
+                    tmp *= s_basis2[nq2 + k] * s_basis0[nq0 + i];
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        prod[q] += tmp * s_basis1[q * nq1 + j];
+                    }
                 }
 
-                prod += __shfl_down_sync(0xffffffff, prod, 16);
-                prod += __shfl_down_sync(0xffffffff, prod, 8);
-                prod += __shfl_down_sync(0xffffffff, prod, 4);
-                prod += __shfl_down_sync(0xffffffff, prod, 2);
-                prod += __shfl_down_sync(0xffffffff, prod, 1);
-
-                if (threadIdx.x % warpsize == 0)
+                for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(
-                        s_wsp2 + q, prod);
+                    prod[q] += __shfl_down_sync(0xffffffff, prod[q], 16);
+                    prod[q] += __shfl_down_sync(0xffffffff, prod[q], 8);
+                    prod[q] += __shfl_down_sync(0xffffffff, prod[q], 4);
+                    prod[q] += __shfl_down_sync(0xffffffff, prod[q], 2);
+                    prod[q] += __shfl_down_sync(0xffffffff, prod[q], 1);
+
+                    if (threadIdx.x % warpsize == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod[q] *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::CUDA,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 * q + 1u, prod[q]);
+                    }
                 }
             }
-
-            __syncthreads();
-
-            for (unsigned int idx = threadIdx.x; idx < nm1; idx += blockDim.x)
+            else
             {
-                const unsigned int index = outoffset + nm2 * idx + 1u;
-                if constexpr (SCALE)
+                for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    out[index] += s_wsp2[idx] * scale;
-                }
-                else
-                {
-                    out[index] += s_wsp2[idx];
+                    TData prod = 0.0;
+
+                    for (unsigned int idx = threadIdx.x; idx < nqTot;
+                         idx += blockDim.x)
+                    {
+                        const unsigned int i = idx % nq0;
+                        const unsigned int j = (idx / nq0) % nq1;
+                        const unsigned int k = idx / (nq0 * nq1);
+
+                        // Store jac * quadrature weight
+                        TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
+
+                        TData tmp = tmpQ * s_wsp0[idx];
+                        tmp *= s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
+                               s_basis0[nq0 + i];
+                        prod += tmp;
+                    }
+
+                    prod += __shfl_down_sync(0xffffffff, prod, 16);
+                    prod += __shfl_down_sync(0xffffffff, prod, 8);
+                    prod += __shfl_down_sync(0xffffffff, prod, 4);
+                    prod += __shfl_down_sync(0xffffffff, prod, 2);
+                    prod += __shfl_down_sync(0xffffffff, prod, 1);
+
+                    if (threadIdx.x % warpsize == 0)
+                    {
+                        if constexpr (SCALE)
+                        {
+                            prod *= scale;
+                        }
+
+                        atomic_add<NektarSpaces::CUDA,
+                                   NektarSpaces::GlobalScope>(
+                            out + outoffset + nm2 * q + 1u, prod);
+                    }
                 }
             }
         }
@@ -2004,28 +2059,21 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel_QP(
         // Add correction for collapsed coordinate.
         if (isModified)
         {
+            __syncthreads();
+
             constexpr unsigned int warpsize =
                 NektarSpaces::vector_width<TData>::value;
 
             TData prod = 0.0;
-
-            if (threadIdx.x == 0)
-            {
-                (*s_prod) = 0.0;
-            }
-
-            __syncthreads();
 
             for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
             {
                 const unsigned int i = idx % nq0;
                 const unsigned int j = (idx / nq0) % nq1;
                 const unsigned int k = idx / (nq0 * nq1);
-                TData tmpQ2          = s_w2[k];
-                TData tmpQ1          = tmpQ2 * s_w1[j];
 
                 // Store jac * quadrature weight
-                TData tmpQ = tmpQ1 * s_w0[i];
+                TData tmpQ = s_w2[k] * s_w1[j] * s_w0[i];
 
                 // top vertex
                 TData tmp = s_basis0[i] * s_basis1[nq1 + j];
@@ -2033,7 +2081,6 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel_QP(
                 tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
                 tmp *= s_basis2[nq2 + k];
                 tmp *= s_wsp0[idx] * tmpQ;
-
                 prod += tmp;
             }
 
@@ -2045,23 +2092,13 @@ __device__ __forceinline__ void IProductWRTBasePyrKernel_QP(
 
             if (threadIdx.x % warpsize == 0)
             {
-                atomic_add<NektarSpaces::CUDA, NektarSpaces::LocalScope>(s_prod,
-                                                                         prod);
-            }
-
-            __syncthreads();
-
-            // add to existing entry
-            if (threadIdx.x == 0)
-            {
                 if constexpr (SCALE)
                 {
-                    out[outoffset + 1] += (*s_prod) * scale;
+                    prod *= scale;
                 }
-                else
-                {
-                    out[outoffset + 1] += (*s_prod);
-                }
+
+                atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
+                    out + outoffset + 1, prod);
             }
         }
 

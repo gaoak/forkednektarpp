@@ -373,14 +373,15 @@ NEK_FORCE_INLINE static void BwdTransTriKernel_QP(
             unsigned int cnt_jp  = nm0 * j;
 
             TData tmp = 0.0;
-            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
-            {
-                tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
-            }
 
             if (isModified)
             {
                 tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
+            }
+
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
+            {
+                tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
             }
 
             outptr[idx] = tmp;
@@ -811,32 +812,29 @@ NEK_FORCE_INLINE static void BwdTransTetKernel_QP(
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
-            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-            {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-            }
 
             if (isModified)
             {
                 // top vertex
-                TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp1 *= s_basis2[nq2 + k];
-                tmp += tmp1 * s_wsp0[1];
+                tmp += s_basis0[i] * s_basis1[nq1 + j];
+                tmp += s_basis0[nq0 + i] * s_basis1[j];
+                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp *= s_basis2[nq2 + k] * s_wsp0[1];
 
                 // bottom vertex
-                tmp1 = s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp1 *= s_basis2[k];
-                tmp += tmp1 * s_wsp0[nm2];
+                TData tmp1 = s_basis2[k] * s_wsp0[nm2];
 
                 // singular edge
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
-                    tmp1 = s_basis1[nq1 + j] * s_basis0[nq0 + i];
-                    tmp1 *= s_basis2[(r + 1u) * nq2 + k];
-                    tmp += tmp1 * s_wsp0[nm2 + r];
+                    tmp1 += s_basis2[(r + 1u) * nq2 + k] * s_wsp0[nm2 + r];
                 }
+                tmp += s_basis1[nq1 + j] * s_basis0[nq0 + i] * tmp1;
+            }
+
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
             outptr[idx] = tmp;
@@ -953,7 +951,7 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
 
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
+    TData *s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
     TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
     TData *s_basis1 = s_basis0 + nm0 * nq0;
     TData *s_basis2 = s_basis1 + nm1 * nq1;
@@ -1044,18 +1042,19 @@ NEK_FORCE_INLINE static void BwdTransPrismKernel_QP(
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
-            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-            {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-            }
 
             if (isModified)
             {
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    tmp += s_basis2[nq2 + k] * s_basis1[q * nq1 + j] *
-                           s_basis0[nq0 + i] * s_wsp0[q * nm2 + 1u];
+                    tmp += s_basis1[q * nq1 + j] * s_wsp0[q * nm2 + 1u];
                 }
+                tmp *= s_basis2[nq2 + k] * s_basis0[nq0 + i];
+            }
+
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
             outptr[idx] = tmp;
@@ -1291,19 +1290,19 @@ NEK_FORCE_INLINE static void BwdTransPyrKernel_QP(
             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
             TData tmp = 0.0;
-            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-            {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-            }
 
             if (isModified)
             {
                 // top vertex
-                TData tmp1 = s_basis0[i] * s_basis1[nq1 + j];
-                tmp1 += s_basis0[nq0 + i] * s_basis1[j];
-                tmp1 += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp1 *= s_basis2[nq2 + k];
-                tmp += tmp1 * s_wsp0[1];
+                tmp += s_basis0[i] * s_basis1[nq1 + j];
+                tmp += s_basis0[nq0 + i] * s_basis1[j];
+                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp *= s_basis2[nq2 + k] * s_wsp0[1];
+            }
+
+            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+            {
+                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
             }
 
             outptr[idx] = tmp;
