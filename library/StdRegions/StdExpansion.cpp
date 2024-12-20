@@ -1242,13 +1242,6 @@ void StdExpansion::v_SetCoeffsToOrientation(
     NEKERROR(ErrorUtil::efatal, "This function is not defined for this shape");
 }
 
-void StdExpansion::v_SetCoeffsToOrientation(
-    [[maybe_unused]] Array<OneD, NekDouble> &coeffs,
-    [[maybe_unused]] StdRegions::Orientation dir)
-{
-    NEKERROR(ErrorUtil::efatal, "This function is not defined for this shape");
-}
-
 NekDouble StdExpansion::v_StdPhysEvaluate(
     [[maybe_unused]] const Array<OneD, const NekDouble> &Lcoord,
     [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)

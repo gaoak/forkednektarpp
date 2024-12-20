@@ -583,14 +583,6 @@ void AssemblyMap::v_LocalToGlobal(
     NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
 }
 
-void AssemblyMap::v_LocalToGlobal(
-    [[maybe_unused]] const NekVector<NekDouble> &loc,
-    [[maybe_unused]] NekVector<NekDouble> &global,
-    [[maybe_unused]] bool useComm) const
-{
-    NEKERROR(ErrorUtil::efatal, "Not defined for this type of mapping.");
-}
-
 void AssemblyMap::v_GlobalToLocal(
     [[maybe_unused]] const Array<OneD, const NekDouble> &global,
     [[maybe_unused]] Array<OneD, NekDouble> &loc) const
@@ -621,13 +613,6 @@ void AssemblyMap::v_Assemble(
 
 void AssemblyMap::v_UniversalAssemble(
     [[maybe_unused]] Array<OneD, NekDouble> &pGlobal) const
-{
-    // Do nothing here since multi-level static condensation uses a
-    // AssemblyMap and thus will call this routine in serial.
-}
-
-void AssemblyMap::v_UniversalAssemble(
-    [[maybe_unused]] NekVector<NekDouble> &pGlobal) const
 {
     // Do nothing here since multi-level static condensation uses a
     // AssemblyMap and thus will call this routine in serial.
@@ -771,7 +756,7 @@ void AssemblyMap::LocalToGlobal(const NekVector<NekDouble> &loc,
                                 NekVector<NekDouble> &global,
                                 bool useComm) const
 {
-    v_LocalToGlobal(loc, global, useComm);
+    v_LocalToGlobal(loc.GetPtr(), global.GetPtr(), useComm);
 }
 
 void AssemblyMap::GlobalToLocal(const Array<OneD, const NekDouble> &global,
@@ -805,7 +790,7 @@ void AssemblyMap::UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 
 void AssemblyMap::UniversalAssemble(NekVector<NekDouble> &pGlobal) const
 {
-    v_UniversalAssemble(pGlobal);
+    v_UniversalAssemble(pGlobal.GetPtr());
 }
 
 void AssemblyMap::UniversalAssemble(Array<OneD, NekDouble> &pGlobal,

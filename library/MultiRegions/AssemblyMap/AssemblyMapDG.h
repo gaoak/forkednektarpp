@@ -117,6 +117,8 @@ protected:
 
     NekDouble v_GetLocalToGlobalSign(const int i) const override;
 
+    const Array<OneD, NekDouble> &v_GetLocalToGlobalSign() const override;
+
     void v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
                          Array<OneD, NekDouble> &global,
                          bool useComm = false) const override;
@@ -135,7 +137,8 @@ protected:
 
     void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const override;
 
-    void v_UniversalAssemble(NekVector<NekDouble> &pGlobal) const override;
+    void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
+                             int offset) const override;
 
     int v_GetFullSystemBandWidth() const override;
 }; // class

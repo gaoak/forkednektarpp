@@ -841,6 +841,11 @@ NekDouble AssemblyMapDG::v_GetLocalToGlobalSign(const int i) const
     return GetLocalToGlobalBndSign(i);
 }
 
+const Array<OneD, NekDouble> &AssemblyMapDG::v_GetLocalToGlobalSign() const
+{
+    return AssemblyMap::v_GetLocalToGlobalSign();
+}
+
 void AssemblyMapDG::v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
                                     Array<OneD, NekDouble> &global,
                                     bool useComm) const
@@ -877,9 +882,10 @@ void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
     Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
 }
 
-void AssemblyMapDG::v_UniversalAssemble(NekVector<NekDouble> &pGlobal) const
+void AssemblyMapDG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
+                                        int offset) const
 {
-    UniversalAssemble(pGlobal.GetPtr());
+    AssemblyMap::v_UniversalAssemble(pGlobal, offset);
 }
 
 int AssemblyMapDG::v_GetFullSystemBandWidth() const

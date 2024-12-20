@@ -948,6 +948,14 @@ void SegExp::v_LaplacianMatrixOp(
                                      outarray, jac, Deformed);
 }
 
+void SegExp::v_LaplacianMatrixOp(const int k1, const int k2,
+                                 const Array<OneD, const NekDouble> &inarray,
+                                 Array<OneD, NekDouble> &outarray,
+                                 const StdRegions::StdMatrixKey &mkey)
+{
+    StdExpansion::LaplacianMatrixOp_MatFree(k1, k2, inarray, outarray, mkey);
+}
+
 void SegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
                                  Array<OneD, NekDouble> &outarray,
                                  const StdRegions::StdMatrixKey &mkey)

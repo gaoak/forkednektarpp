@@ -185,10 +185,6 @@ protected:
         const Array<OneD, const NekDouble> &loc, Array<OneD, NekDouble> &global,
         bool useComm) const override;
 
-    MULTI_REGIONS_EXPORT void v_LocalToGlobal(const NekVector<NekDouble> &loc,
-                                              NekVector<NekDouble> &global,
-                                              bool useComm) const override;
-
     MULTI_REGIONS_EXPORT void v_GlobalToLocal(
         const Array<OneD, const NekDouble> &global,
         Array<OneD, NekDouble> &loc) const override;
@@ -207,9 +203,6 @@ protected:
 
     MULTI_REGIONS_EXPORT void v_UniversalAssemble(
         Array<OneD, NekDouble> &pGlobal) const override;
-
-    MULTI_REGIONS_EXPORT void v_UniversalAssemble(
-        NekVector<NekDouble> &pGlobal) const override;
 
     MULTI_REGIONS_EXPORT void v_UniversalAssemble(
         Array<OneD, NekDouble> &pGlobal, int offset) const override;

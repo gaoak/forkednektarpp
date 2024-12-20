@@ -599,6 +599,14 @@ void StdSegExp::v_LaplacianMatrixOp(const Array<OneD, const NekDouble> &inarray,
     v_IProductWRTBase(dPhysValuesdx, outarray);
 }
 
+void StdSegExp::v_LaplacianMatrixOp(const int k1, const int k2,
+                                    const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray,
+                                    const StdMatrixKey &mkey)
+{
+    StdExpansion::LaplacianMatrixOp_MatFree(k1, k2, inarray, outarray, mkey);
+}
+
 void StdSegExp::v_HelmholtzMatrixOp(const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray,
                                     const StdMatrixKey &mkey)

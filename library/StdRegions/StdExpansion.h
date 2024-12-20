@@ -1349,9 +1349,6 @@ protected:
         StdRegions::Orientation dir, Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
 
-    STD_REGIONS_EXPORT virtual void v_SetCoeffsToOrientation(
-        Array<OneD, NekDouble> &coeffs, StdRegions::Orientation dir);
-
     STD_REGIONS_EXPORT virtual NekDouble v_StdPhysEvaluate(
         const Array<OneD, const NekDouble> &Lcoord,
         const Array<OneD, const NekDouble> &physvals);

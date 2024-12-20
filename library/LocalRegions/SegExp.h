@@ -194,6 +194,11 @@ protected:
         Array<OneD, NekDouble> &outarray,
         const StdRegions::StdMatrixKey &mkey) override;
 
+    LOCAL_REGIONS_EXPORT void v_LaplacianMatrixOp(
+        const int k1, const int k2, const Array<OneD, const NekDouble> &inarray,
+        Array<OneD, NekDouble> &outarray,
+        const StdRegions::StdMatrixKey &mkey) override;
+
     LOCAL_REGIONS_EXPORT void v_HelmholtzMatrixOp(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray,

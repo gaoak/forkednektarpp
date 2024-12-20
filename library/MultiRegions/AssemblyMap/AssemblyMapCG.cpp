@@ -2831,13 +2831,6 @@ void AssemblyMapCG::v_LocalToGlobal(const Array<OneD, const NekDouble> &loc,
     }
 }
 
-void AssemblyMapCG::v_LocalToGlobal(const NekVector<NekDouble> &loc,
-                                    NekVector<NekDouble> &global,
-                                    bool useComm) const
-{
-    LocalToGlobal(loc.GetPtr(), global.GetPtr(), useComm);
-}
-
 void AssemblyMapCG::v_GlobalToLocal(const Array<OneD, const NekDouble> &global,
                                     Array<OneD, NekDouble> &loc) const
 {
@@ -2906,11 +2899,6 @@ void AssemblyMapCG::v_Assemble(const NekVector<NekDouble> &loc,
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const
 {
     Gs::Gather(pGlobal, Gs::gs_add, m_gsh);
-}
-
-void AssemblyMapCG::v_UniversalAssemble(NekVector<NekDouble> &pGlobal) const
-{
-    UniversalAssemble(pGlobal.GetPtr());
 }
 
 void AssemblyMapCG::v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,

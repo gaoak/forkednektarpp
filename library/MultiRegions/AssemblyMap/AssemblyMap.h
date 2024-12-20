@@ -461,10 +461,6 @@ protected:
                                  Array<OneD, NekDouble> &global,
                                  bool useComm) const;
 
-    virtual void v_LocalToGlobal(const NekVector<NekDouble> &loc,
-                                 NekVector<NekDouble> &global,
-                                 bool useComm) const;
-
     virtual void v_GlobalToLocal(const Array<OneD, const NekDouble> &global,
                                  Array<OneD, NekDouble> &loc) const;
 
@@ -478,8 +474,6 @@ protected:
                             NekVector<NekDouble> &global) const;
 
     virtual void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal) const;
-
-    virtual void v_UniversalAssemble(NekVector<NekDouble> &pGlobal) const;
 
     virtual void v_UniversalAssemble(Array<OneD, NekDouble> &pGlobal,
                                      int offset) const;
