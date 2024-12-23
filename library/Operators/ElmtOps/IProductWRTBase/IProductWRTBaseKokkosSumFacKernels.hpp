@@ -435,8 +435,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTriKernel_QP(
 
     TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
-    TData *s_prod   = s_wsp1 + nm0 * nq1;
-    TData *s_basis0 = s_prod + 1u;
+    TData *s_basis0 = s_wsp1 + nm0 * nq1;
     TData *s_basis1 = s_basis0 + nm0 * nq0;
     TData *s_w0     = s_basis1 + nmTot * nq1;
     TData *s_w1     = s_w0 + nq0;
@@ -974,8 +973,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBaseTetKernel_QP(
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
     const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
-    TData *s_prod   = shmemptr;
-    TData *s_wsp0   = s_prod + nm2;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nqTot;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = s_wsp2 + nm01 * nq2;
@@ -1690,8 +1688,7 @@ KOKKOS_INLINE_FUNCTION static void IProductWRTBasePyrKernel_QP(
     const unsigned int nmode2 =
         nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-    TData *s_prod   = shmemptr;
-    TData *s_wsp0   = s_prod + 1u;
+    TData *s_wsp0   = shmemptr;
     TData *s_wsp1   = s_wsp0 + nq0 * nq1 * nq2;
     TData *s_wsp2   = s_wsp1 + nm0 * nq1 * nq2;
     TData *s_basis0 = s_wsp2 + nm0 * nm1 * nq2;
