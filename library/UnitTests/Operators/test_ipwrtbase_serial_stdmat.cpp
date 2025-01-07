@@ -45,7 +45,7 @@
     {                                                                          \
         using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::StdMat;                                   \
-        Configure();                                                           \
+        Configure(2, 2);                                                       \
         SetTestCase();                                                         \
         RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \

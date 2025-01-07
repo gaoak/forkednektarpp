@@ -60,6 +60,7 @@ public:
 
         // Loop over the elements of expansionList.
         const auto nTotElmts = this->m_expansionList->GetNumElmts();
+
         for (size_t e = 0; e < nTotElmts; ++e)
         {
             const auto expPtr = this->m_expansionList->GetExp(e);
@@ -103,6 +104,10 @@ public:
     {
         // Initialize index.
         size_t exp_idx = 0;
+
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
 
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
@@ -164,13 +169,19 @@ public:
 
         auto nElmts = inblock.GetNumElements();
 
-        // Perform matrix-matrix multiply.
-        Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(), nqTot,
-                   inptr, nmTot, 0.0, outptr, nqTot);
+        for (size_t nc = 0; nc < m_nComps; ++nc)
+        {
+            // Perform matrix-matrix multiply.
+            Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
+                       nqTot, inptr, nmTot, 0.0, outptr, nqTot);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
     }
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 

@@ -45,7 +45,7 @@
     {                                                                          \
         using ExecSpace = NektarSpaces::SYCL;                                  \
         using Impl      = Operators::SumFacQP;                                 \
-        Configure(1, dim);                                                     \
+        Configure(2, 2 * dim);                                                 \
         SetTestCase();                                                         \
         RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \

@@ -98,6 +98,11 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = out.GetNumComponents();
+        ASSERTL1(m_nComps == in.GetNumComponents() /
+                                 this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
@@ -191,6 +196,7 @@ public:
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -245,9 +251,9 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -276,34 +282,39 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                for (int n = 0; n < ncoord; ++n)
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            in_interleave_width, chunkSize, nq0,
+                            (TData *)(tmpIn +
+                                      n * inblock.GetNumElmtGroups() * nq0));
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nq0,
-                        (TData *)(tmpIn +
-                                  n * inblock.GetNumElmtGroups() * nq0));
+                        out_interleave_width, chunkSize, nm0, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    out_interleave_width, chunkSize, nm0, tmpOut);
+
+                StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
+                                              inblock.GetNumElmtGroups() * nq0,
+                                              tmpIn, tmpPtr);
+                IProductSegKernel<false, false, DEFORMED>(
+                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
+                    dbasis0, W0, jacPtr, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nq0;
+                tmpOut += nm0 * simd_t::width;
+                jacPtr += jacSize;
+                dfPtr += jacSize * ncoord;
             }
-
-            StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
-                                          inblock.GetNumElmtGroups() * nq0,
-                                          tmpIn, tmpPtr);
-            IProductSegKernel<false, false, DEFORMED>(
-                nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, dbasis0,
-                W0, jacPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nq0;
-            tmpOut += nm0 * simd_t::width;
-            jacPtr += jacSize;
-            dfPtr += jacSize * ncoord;
         }
     }
 
@@ -331,9 +342,9 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -362,34 +373,39 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                for (int n = 0; n < ncoord; ++n)
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
                 {
+                    for (int n = 0; n < ncoord; ++n)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            in_interleave_width, chunkSize, nq0,
+                            (TData *)(tmpIn +
+                                      n * inblock.GetNumElmtGroups() * nq0));
+                    }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nq0,
-                        (TData *)(tmpIn +
-                                  n * inblock.GetNumElmtGroups() * nq0));
+                        out_interleave_width, chunkSize, nm0, tmpOut);
                 }
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    out_interleave_width, chunkSize, nm0, tmpOut);
+
+                StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
+                                              inblock.GetNumElmtGroups() * nq0,
+                                              tmpIn, tmpPtr);
+                IProductSegKernel<false, false, DEFORMED>(
+                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
+                    dbasis0, W0, jacPtr, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nq0;
+                tmpOut += nm0 * simd_t::width;
+                jacPtr += jacSize;
+                dfPtr += jacSize * ncoord;
             }
-
-            StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
-                                          inblock.GetNumElmtGroups() * nq0,
-                                          tmpIn, tmpPtr);
-            IProductSegKernel<false, false, DEFORMED>(
-                nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, dbasis0,
-                W0, jacPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nq0;
-            tmpOut += nm0 * simd_t::width;
-            jacPtr += jacSize;
-            dfPtr += jacSize * ncoord;
         }
     }
 
@@ -439,18 +455,19 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
         unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
         unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
-        auto chunkSize = std::max(simd_t::width, in_interleave_width);
+
+        auto width_ratio = (in_interleave_width == 1)
+                               ? 1
+                               : in_interleave_width / simd_t::width;
+        auto chunkSize   = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -480,86 +497,96 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacPtr        = jacPtr_init;
+            auto dfPtr         = dfPtr_init;
+            auto NumElmtGroups = inblock.GetNumElmtGroups();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
-                {
-                    for (int n = 0; n < ncoord; ++n)
-                    {
-                        ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
-                    }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
-                }
-
-                StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, ncoord, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr,
-                    (simd_t *)nullptr, (simd_t *)nullptr);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
-                    jacPtr, D0, D1, tmp2Ptr);
-                IProductQuadKernel<false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp, tmpOut,
-                    1.0, colldir0, colldir1);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
-            }
-        }
-
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
-            {
-                if (e % width_ratio == 0)
+                const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+                const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
                     // Reshape, if necessary.
-                    for (int n = 0; n < ncoord; ++n)
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < ncoord; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                    SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                        nq0, nq1,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                        jacPtr, D0, D1, tmp2Ptr);
+                    IProductQuadKernel<false, false, simd_t>(
+                        nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp,
+                        tmpOut, 1.0, colldir0, colldir1);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, ncoord, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr, F0, F1);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
-                    jacPtr, D0, D1, tmp2Ptr);
-                IProductTriKernel<false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
-                    wsp, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
+
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
+            {
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
+                {
+                    if (e % width_ratio == 0)
+                    {
+                        // Reshape, if necessary.
+                        for (int n = 0; n < ncoord; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                    }
+
+                    StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        tmpIn, tmpPtr, F0, F1);
+                    SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                        nq0, nq1,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                        jacPtr, D0, D1, tmp2Ptr);
+                    IProductTriKernel<false, false, simd_t>(
+                        nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
+                        wsp, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
+                }
+            }
+            // advance input by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpIn += nqTot * NumElmtGroups * (ncoord - 1);
         }
     }
 
@@ -604,9 +631,9 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -645,86 +672,96 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacPtr        = jacPtr_init;
+            auto dfPtr         = dfPtr_init;
+            auto NumElmtGroups = inblock.GetNumElmtGroups();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::eQuadrilateral)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+                const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < ncoord; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < ncoord; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                    SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                        nq0, nq1,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                        jacPtr, D0, D1, tmp2Ptr);
+                    IProductQuadKernel<false, false, simd_t>(
+                        nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp,
+                        tmpOut, 1.0, colldir0, colldir1);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, ncoord, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr,
-                    (simd_t *)nullptr, (simd_t *)nullptr);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
-                    jacPtr, D0, D1, tmp2Ptr);
-                IProductQuadKernel<false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp, tmpOut,
-                    1.0, colldir0, colldir1);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < ncoord; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < ncoord; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        tmpIn, tmpPtr, F0, F1);
+                    SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                        nq0, nq1,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
+                        jacPtr, D0, D1, tmp2Ptr);
+                    IProductTriKernel<false, false, simd_t>(
+                        nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
+                        wsp, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, ncoord, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr, F0, F1);
-                SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
-                    jacPtr, D0, D1, tmp2Ptr);
-                IProductTriKernel<false, false, simd_t>(
-                    nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
-                    wsp, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
+            // advance input by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpIn += nqTot * NumElmtGroups * (ncoord - 1);
         }
     }
 
@@ -781,9 +818,9 @@ private:
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -824,190 +861,195 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
-            const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacPtr        = jacPtr_init;
+            auto dfPtr         = dfPtr_init;
+            auto NumElmtGroups = inblock.GetNumElmtGroups();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+                const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+                const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
+                                                   NumElmtGroups * nqTot, tmpIn,
+                                                   tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductHexKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
+                        basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
+                        colldir2);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBaseHex<DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductHexKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
-                    basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
-                    colldir2);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1a =
-                m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1a =
+                    m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        F1, F1a, F2, tmpIn, tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductTetKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, F1, F1a, F2, tmpIn,
-                    tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductTetKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        F1, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductPyrKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, F1,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductPyrKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
-
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
+
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn,
+                        tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductPrismKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, (simd_t *)nullptr,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductPrismKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, wsp1, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
+            // advance input by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpIn += nqTot * NumElmtGroups * 2;
         }
     }
 
@@ -1057,9 +1099,9 @@ private:
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -1098,191 +1140,197 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
-            const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
-            const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            auto jacPtr        = jacPtr_init;
+            auto dfPtr         = dfPtr_init;
+            auto NumElmtGroups = inblock.GetNumElmtGroups();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                const bool colldir0 = m_expPtr->GetBasis(0)->Collocation();
+                const bool colldir1 = m_expPtr->GetBasis(1)->Collocation();
+                const bool colldir2 = m_expPtr->GetBasis(2)->Collocation();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
+                                                   NumElmtGroups * nqTot, tmpIn,
+                                                   tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductHexKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
+                        basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
+                        colldir2);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBaseHex<DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductHexKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
-                    basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
-                    colldir2);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Tet)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1a =
-                m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1a =
+                    m_Fac1[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        F1, F1a, F2, tmpIn, tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductTetKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, F1, F1a, F2, tmpIn,
-                    tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductTetKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F1 =
-                m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F1 =
+                    m_Fac0[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        F1, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductPyrKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, F1,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductPyrKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
-        }
 
-        if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
-
-            // Get geometric factors.
-            auto F0 =
-                m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-            auto F2 =
-                m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+            if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                // Reshape, if necessary.
-                if (e % width_ratio == 0)
+                std::vector<simd_t, tinysimd::allocator<simd_t>> wsp1(nm1);
+
+                // Get geometric factors.
+                auto F0 =
+                    m_Fac0[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+                auto F2 =
+                    m_Fac1[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+                for (int e = 0; e < NumElmtGroups; ++e)
                 {
-                    for (int n = 0; n < 3; ++n)
+                    // Reshape, if necessary.
+                    if (e % width_ratio == 0)
                     {
+                        for (int n = 0; n < 3; ++n)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                in_interleave_width, chunkSize, nqTot,
+                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                        }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            in_interleave_width, chunkSize, nqTot,
-                            (TData *)(tmpIn +
-                                      n * inblock.GetNumElmtGroups() * nqTot));
+                            out_interleave_width, chunkSize, nmTot, tmpOut);
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
+                        (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn,
+                        tmpPtr);
+                    SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                        nq0, nq1, nq2,
+                        (const typename simd_t::vectorType *)tmpPtr[0],
+                        (const typename simd_t::vectorType *)tmpPtr[1],
+                        (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
+                        W2, jacPtr, D0, D1, D2, tmp3Ptr);
+                    IProductPrismKernel<false, false, simd_t>(
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
+                        basis0, basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+
+                    // Increment pointers for the next elmt group.
+                    tmpIn += nqTot;
+                    tmpOut += nmTot * simd_t::width;
+                    jacPtr += jacSize;
+                    dfPtr += jacSize * ndf;
                 }
-
-                StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
-                    nq0, nq1, nq2, dfPtr, df_tmp,
-                    inblock.GetNumElmtGroups() * nqTot, F0, (simd_t *)nullptr,
-                    (simd_t *)nullptr, F2, tmpIn, tmpPtr);
-                SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                    nq0, nq1, nq2,
-                    (const typename simd_t::vectorType *)tmpPtr[0],
-                    (const typename simd_t::vectorType *)tmpPtr[1],
-                    (const typename simd_t::vectorType *)tmpPtr[2], W0, W1, W2,
-                    jacPtr, D0, D1, D2, tmp3Ptr);
-                IProductPrismKernel<false, false, simd_t>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, basis0,
-                    basis1, basis2, wsp, wsp0, wsp1, tmpOut);
-
-                // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
-                jacPtr += jacSize;
-                dfPtr += jacSize * ndf;
             }
+            // advance input by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpIn += nqTot * NumElmtGroups * 2;
         }
     }
 };

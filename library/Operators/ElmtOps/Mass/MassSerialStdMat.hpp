@@ -49,11 +49,7 @@ class OperatorMassImpl : public OperatorMass<TData>
 
 public:
     OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
-        : OperatorMass<TData>(expansionList),
-          m_tmp(Field<TData, FieldState::Phys>::template Create<MemSpace>(
-              "Mass tmp",
-              GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
-              ExecSpace::alignment))
+        : OperatorMass<TData>(expansionList)
     {
         m_BwdTransOp =
             BwdTrans<TData>::template Create<ExecSpace, Implementation>(
@@ -61,16 +57,28 @@ public:
         m_IProductWRTBaseOp =
             IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
                 this->m_expansionList);
+        m_PhysBlockAttributes =
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
+        int CompSize = in.GetNumComponents();
+
+        // initialise bwd storage space if not for correct number of components
+        if (m_bwd.GetNumComponents() != CompSize)
+        {
+            m_bwd = Field<TData, FieldState::Phys>::template Create<MemSpace>(
+                "Mass tmp", m_PhysBlockAttributes, CompSize,
+                ExecSpace::alignment);
+        }
+
         // Step 1: BwdTrans
-        m_BwdTransOp->apply(in, m_tmp);
+        m_BwdTransOp->apply(in, m_bwd);
 
         // Step 2: Inner product for mass matrix operation
-        m_IProductWRTBaseOp->apply(m_tmp, out);
+        m_IProductWRTBaseOp->apply(m_bwd, out);
     }
 
     // className - for OperatorFactory
@@ -85,10 +93,12 @@ public:
     }
 
 protected:
+    Field<TData, FieldState::Phys> m_bwd;
+
     std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
 
-    Field<TData, FieldState::Phys> m_tmp;
+    std::vector<BlockAttributes> m_PhysBlockAttributes;
 };
 
 } // namespace Nektar::Operators::detail

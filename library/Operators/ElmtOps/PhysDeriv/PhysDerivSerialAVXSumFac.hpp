@@ -81,6 +81,11 @@ public:
                      out.GetNumComponents(),
                  "Output field has fewer components than the coordinate!");
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents() /
+                                 this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
         // Initialize index.
         size_t exp_idx = 0;
 
@@ -176,6 +181,7 @@ public:
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -223,7 +229,7 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -243,34 +249,49 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output +
-                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+                output + d * compOffset);
         }
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto dfPtr = dfPtr_init;
+
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Get the basic derivative.
+                PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
+
+                // Calculate physical derivative.
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr,
+                                                        tmpOut);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                for (int d = 0; d < nCoord; ++d)
+                {
+                    tmpOut[d] += nqBlock;
+                }
             }
 
-            // Get the basic derivative.
-            PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
-
-            // Calculate physical derivative.
-            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            for (int d = 0; d < nCoord; ++d)
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            for (int d = 0; d < nCoord; ++d) // reset to next output components
             {
-                tmpOut[d] += nqBlock;
+                tmpOut[d] += (nCoord - 1) * compOffset;
             }
         }
     }
@@ -299,7 +320,7 @@ private:
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -319,34 +340,48 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output +
-                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+                output + d * compOffset);
         }
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto dfPtr = dfPtr_init;
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Get the basic derivative.
+                PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
+
+                // Calculate physical derivative.
+                PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr,
+                                                        tmpOut);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                for (int d = 0; d < nCoord; ++d) // automatically unrolled
+                {
+                    tmpOut[d] += nqBlock;
+                }
             }
 
-            // Get the basic derivative.
-            PhysDerivTensor1DKernel(nq0, tmpIn, D0, tmpOut[0]);
-
-            // Calculate physical derivative.
-            PhysDeriv1DKernel<SHAPE_TYPE, DEFORMED>(nq0, nCoord, dfPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            for (int d = 0; d < nCoord; ++d) // automatically unrolled
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            for (int d = 0; d < nCoord; ++d) // reset to next output components
             {
-                tmpOut[d] += nqBlock;
+                tmpOut[d] += (nCoord - 1) * compOffset;
             }
         }
     }
@@ -383,7 +418,7 @@ private:
         auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -403,36 +438,48 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output +
-                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+                output + d * compOffset);
         }
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto dfPtr = dfPtr_init;
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Results written to tmpOut0, tmpOut1.
+                PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
+                                        tmpOut[1]);
+
+                // Calculate physical derivative.
+                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0,
+                                                        Z1, dfPtr, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                for (int d = 0; d < nCoord; ++d) // automatically unrolled
+                {
+                    tmpOut[d] += nqBlock;
+                }
             }
 
-            // Results written to tmpOut0, tmpOut1.
-            PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
-                                    tmpOut[1]);
-
-            // Calculate physical derivative.
-            PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
-                                                    dfPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            for (int d = 0; d < nCoord; ++d) // automatically unrolled
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            for (int d = 0; d < nCoord; ++d) // reset to next output components
             {
-                tmpOut[d] += nqBlock;
+                tmpOut[d] += (nCoord - 1) * compOffset;
             }
         }
     }
@@ -466,7 +513,7 @@ private:
         auto Z1 = m_zeroMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -486,36 +533,49 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         for (int d = 0; d < nCoord; ++d)
         {
             tmpOut[d] = reinterpret_cast<typename simd_t::scalarType *>(
-                output +
-                d * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+                output + d * compOffset);
         }
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto dfPtr = dfPtr_init;
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Results written to tmpOut0, tmpOut1.
+                PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
+                                        tmpOut[1]);
+
+                // Calculate physical derivative.
+                PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0,
+                                                        Z1, dfPtr, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                for (int d = 0; d < nCoord; ++d) // automatically unrolled
+                {
+                    tmpOut[d] += nqBlock;
+                }
             }
 
-            // Results written to tmpOut0, tmpOut1.
-            PhysDerivTensor2DKernel(nq0, nq1, tmpIn, D0, D1, tmpOut[0],
-                                    tmpOut[1]);
-
-            // Calculate physical derivative.
-            PhysDeriv2DKernel<SHAPE_TYPE, DEFORMED>(nq0, nq1, nCoord, Z0, Z1,
-                                                    dfPtr, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            for (int d = 0; d < nCoord; ++d) // automatically unrolled
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            for (int d = 0; d < nCoord; ++d) // reset to next output components
             {
-                tmpOut[d] += nqBlock;
+                tmpOut[d] += (nCoord - 1) * compOffset;
             }
         }
     }
@@ -556,7 +616,7 @@ private:
         auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -582,36 +642,50 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+
+        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(output +
+                                                                    compOffset);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            output + 2 * compOffset);
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto dfPtr = dfPtr_init;
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Get the basic derivative.
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2,
+                                        tmpOut[0], tmpOut[1], tmpOut[2]);
+
+                // Calculate physical derivative.
+                PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
+                    tmpOut[1], tmpOut[2]);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                tmpOut[0] += nqBlocks;
+                tmpOut[1] += nqBlocks;
+                tmpOut[2] += nqBlocks;
             }
 
-            // Get the basic derivative.
-            PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
-                                    tmpOut[1], tmpOut[2]);
-
-            // Calculate physical derivative.
-            PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
-                tmpOut[1], tmpOut[2]);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            tmpOut[0] += nqBlocks;
-            tmpOut[1] += nqBlocks;
-            tmpOut[2] += nqBlocks;
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpOut[0] += 2 * compOffset;
+            tmpOut[1] += 2 * compOffset;
+            tmpOut[2] += 2 * compOffset;
         }
     }
 
@@ -648,7 +722,7 @@ private:
         auto Z2 = m_zeroMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch derivative factor.
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -674,36 +748,50 @@ private:
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
+
+        auto compOffset = outblock.GetNumElmtGroups() * simd_t::width * nqTot;
         typename simd_t::scalarType *tmpOut[3];
         tmpOut[0] = reinterpret_cast<typename simd_t::scalarType *>(output);
-        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + outblock.GetNumElmtGroups() * simd_t::width * nqTot);
+
+        tmpOut[1] = reinterpret_cast<typename simd_t::scalarType *>(output +
+                                                                    compOffset);
         tmpOut[2] = reinterpret_cast<typename simd_t::scalarType *>(
-            output + 2 * outblock.GetNumElmtGroups() * simd_t::width * nqTot);
-        for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
+            output + 2 * compOffset);
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+
+            auto dfPtr = dfPtr_init;
+            for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                }
+
+                // Get the basic derivative.
+                PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2,
+                                        tmpOut[0], tmpOut[1], tmpOut[2]);
+
+                // Calculate physical derivative.
+                PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
+                    nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
+                    tmpOut[1], tmpOut[2]);
+
+                // Increment pointers for the next elmt group.
+                dfPtr += dfsize;
+                tmpIn += nqTot;
+                tmpOut[0] += nqBlocks;
+                tmpOut[1] += nqBlocks;
+                tmpOut[2] += nqBlocks;
             }
-
-            // Get the basic derivative.
-            PhysDerivTensor3DKernel(nq0, nq1, nq2, tmpIn, D0, D1, D2, tmpOut[0],
-                                    tmpOut[1], tmpOut[2]);
-
-            // Calculate physical derivative.
-            PhysDeriv3DKernel<SHAPE_TYPE, DEFORMED>(
-                nq0, nq1, nq2, Z0, Z1, Z2, dfPtr, wsp0, wsp1, tmpOut[0],
-                tmpOut[1], tmpOut[2]);
-
-            // Increment pointers for the next elmt group.
-            dfPtr += dfsize;
-            tmpIn += nqTot;
-            tmpOut[0] += nqBlocks;
-            tmpOut[1] += nqBlocks;
-            tmpOut[2] += nqBlocks;
+            // advance  by ncoord-1 componennts since have already
+            // advanced one component in the above
+            tmpOut[0] += 2 * compOffset;
+            tmpOut[1] += 2 * compOffset;
+            tmpOut[2] += 2 * compOffset;
         }
     }
 };

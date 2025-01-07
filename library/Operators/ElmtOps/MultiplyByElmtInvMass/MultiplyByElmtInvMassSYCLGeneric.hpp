@@ -141,6 +141,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
@@ -190,11 +194,16 @@ public:
         if (deformed)
         {
             // Perform batched matrix-vector multiply.
-            const auto dmatPtr =
-                m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
-            OneMKL::gemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha, dmatPtr,
-                               nmTot, nmTot * nmTot, inptr, nmTot, nmTot, beta,
-                               outptr, nmTot, nmTot, nElmts);
+            for (size_t nc = 0; nc < m_nComps; ++nc)
+            {
+                const auto dmatPtr =
+                    m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
+                OneMKL::gemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha,
+                                   dmatPtr, nmTot, nmTot * nmTot, inptr, nmTot,
+                                   nmTot, beta, outptr, nmTot, nmTot, nElmts);
+                inptr += inblock.size();
+                outptr += outblock.size();
+            }
         }
         else
         {
@@ -211,17 +220,24 @@ public:
                 m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
             const auto scalePtr =
                 m_scale[m_blk].template GetPtr<MemSpace, ReadOnly>();
-            OneMKL::gemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha, matPtr,
-                         nmTot, inptr, nmTot, beta, outptr, nmTot);
-            Nektar::parallel_for<ExecSpace>(
-                0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
-                    outptr[i] *= scalePtr[i / nmTot];
-                });
+
+            for (size_t nc = 0; nc < m_nComps; ++nc)
+            {
+                OneMKL::gemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha,
+                             matPtr, nmTot, inptr, nmTot, beta, outptr, nmTot);
+                Nektar::parallel_for<ExecSpace>(
+                    0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
+                        outptr[i] *= scalePtr[i / nmTot];
+                    });
+                inptr += inblock.size();
+                outptr += outblock.size();
+            }
         }
     }
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 

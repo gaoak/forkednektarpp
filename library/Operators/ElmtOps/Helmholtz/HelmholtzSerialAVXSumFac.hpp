@@ -106,6 +106,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -197,6 +201,7 @@ public:
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -266,9 +271,9 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -300,37 +305,42 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // Step 1: BwdTrans.
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
+                // Step 2: Inner product for mass matrix operation.
+                IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                    nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
+                // Step 3: Take derivatives in collapsed coordinate space.
+                PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
+                // Step 4: Apply diffusion coefficiets.
+                DiffusionCoeffSegKernel<DEFORMED, simd_t>(
+                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                    deriv0);
+                // Step 5: Apply Laplacian metrics & inner product.
+                IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
+                    nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
             }
-
-            // Step 1: BwdTrans.
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
-            // Step 2: Inner product for mass matrix operation.
-            IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
-            // Step 3: Take derivatives in collapsed coordinate space.
-            PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
-            // Step 4: Apply diffusion coefficiets.
-            DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
-                deriv0);
-            // Step 5: Apply Laplacian metrics & inner product.
-            IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
         }
-
         // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
@@ -366,9 +376,9 @@ private:
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -400,35 +410,40 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
-            }
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
 
-            // Step 1: BwdTrans.
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
-            // Step 2: Inner product for mass matrix operation.
-            IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
-                nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
-            // Step 3: Take derivatives in collapsed coordinate space.
-            PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
-            // Step 4: Apply diffusion coefficiets.
-            DiffusionCoeffSegKernel<DEFORMED, simd_t>(
-                nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
-                deriv0);
-            // Step 5: Apply Laplacian metrics & inner product.
-            IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
-                nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
+                // Step 1: BwdTrans.
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
+                // Step 2: Inner product for mass matrix operation.
+                IProduct1DKernel<SHAPE_TYPE, true, false, DEFORMED>(
+                    nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut, this->m_lambda);
+                // Step 3: Take derivatives in collapsed coordinate space.
+                PhysDerivTensor1DKernel(nq0, bwdvec, D0, deriv0);
+                // Step 4: Apply diffusion coefficiets.
+                DiffusionCoeffSegKernel<DEFORMED, simd_t>(
+                    nq0, true, this->m_diffCoeff, false, NullTDataVector, dfPtr,
+                    deriv0);
+                // Step 5: Apply Laplacian metrics & inner product.
+                IProduct1DKernel<SHAPE_TYPE, false, true, DEFORMED>(
+                    nm0, nq0, deriv0vec, DB0, W0, jacPtr, tmpOut);
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
+            }
         }
 
         // Free aligned memory.
@@ -479,9 +494,9 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -535,37 +550,44 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // Step 1: BwdTrans.
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
+                                             B1, wsp0, tmpIn, bwd);
+                // Step 2 + 3: Get tensor derivative and apply diffusion coeff
+                TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr,
+                    m_h0, m_h1, deriv0, deriv1);
+                // Step 4: apply WJ, derivative and sum up
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd,
+                    this->m_lambda);
+                // Step 5 : inner product without WJ
+                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0,
+                    tmpOut);
+
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
             }
-
-            // Step 1: BwdTrans.
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
-                                         wsp0, tmpIn, bwd);
-            // Step 2 + 3: Get tensor derivative and apply diffusion coeff
-            TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr, m_h0,
-                m_h1, deriv0, deriv1);
-            // Step 4: apply WJ, derivative and sum up
-            SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd,
-                this->m_lambda);
-            // Step 5 : inner product without WJ
-            IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0, tmpOut);
-
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
         }
 
         // Free aligned memory.
@@ -618,9 +640,9 @@ private:
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -668,37 +690,44 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // Step 1: BwdTrans.
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
+                                             B1, wsp0, tmpIn, bwd);
+                // Step 2 + 3: Get tensor derivative and apply diffusion coeff
+                TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                    nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
+                    NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr,
+                    m_h0, m_h1, deriv0, deriv1);
+                // Step 4: apply WJ, derivative and sum up
+                SumDerivTensor2DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd,
+                    this->m_lambda);
+                // Step 5 : inner product without WJ
+                IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
+                    nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0,
+                    tmpOut);
+
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
             }
-
-            // Step 1: BwdTrans.
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0, B1,
-                                         wsp0, tmpIn, bwd);
-            // Step 2 + 3: Get tensor derivative and apply diffusion coeff
-            TensorDerivWithDiffuCoeff2DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, true, this->m_diffCoeff, false, NullTDataVector,
-                NullTDataVector, NullTDataVector, bwdvec, D0, D1, dfPtr, m_h0,
-                m_h1, deriv0, deriv1);
-            // Step 4: apply WJ, derivative and sum up
-            SumDerivTensor2DKernel<DEFORMED, simd_t>(
-                nq0, nq1, deriv0vec, deriv1vec, W0, W1, jacPtr, D0, D1, bwd,
-                this->m_lambda);
-            // Step 5 : inner product without WJ
-            IProduct2DKernel<SHAPE_TYPE, false, false, simd_t>(
-                nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, wsp0, tmpOut);
-
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
         }
     }
 
@@ -753,9 +782,9 @@ private:
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -824,42 +853,48 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // Step 1: BwdTrans.
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             isModified, B0, B1, B2, wsp0, wsp1,
+                                             tmpIn, bwd);
+                // Step 2 + 3 : Get tensor derivative and apply diffusion coeff
+                TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
+                    D0, D1, D2, dfPtr, m_h0, m_h1, m_h2, m_h3, deriv0, deriv1,
+                    deriv2);
+                // Step 4: apply WJ, derivative and sum up
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
+                    jacPtr, D0, D1, D2, bwd, this->m_lambda);
+                // Step 5 : inner product without WJ
+                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
+                    B2, wsp0, wsp1, wsp2, tmpOut);
+
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
             }
-
-            // Step 1: BwdTrans.
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, B0, B1, B2, wsp0, wsp1,
-                                         tmpIn, bwd);
-            // Step 2 + 3 : Get tensor derivative and apply diffusion coeff
-            TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
-                NullTDataVector, NullTDataVector, NullTDataVector,
-                NullTDataVector, NullTDataVector, bwdvec, D0, D1, D2, dfPtr,
-                m_h0, m_h1, m_h2, m_h3, deriv0, deriv1, deriv2);
-            // Step 4: apply WJ, derivative and sum up
-            SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
-                jacPtr, D0, D1, D2, bwd, this->m_lambda);
-            // Step 5 : inner product without WJ
-            IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
-                wsp0, wsp1, wsp2, tmpOut);
-
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
         }
-
         // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
@@ -911,9 +946,9 @@ private:
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian and deriv factors.
-        auto jacPtr = reinterpret_cast<const simd_t *>(
+        auto jacPtr_init = reinterpret_cast<const simd_t *>(
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
-        auto dfPtr = reinterpret_cast<const simd_t *>(
+        auto dfPtr_init = reinterpret_cast<const simd_t *>(
             m_df[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
@@ -974,40 +1009,47 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        // loop over componnets
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            auto jacPtr = jacPtr_init;
+            auto dfPtr  = dfPtr_init;
+            for (size_t e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot,
-                    (TData *)input + e * nmTot * simd_t::width);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // Step 1: BwdTrans.
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             isModified, B0, B1, B2, wsp0, wsp1,
+                                             tmpIn, bwd);
+                // Step 2 + 3 : Get tensor derivative and apply diffusion coeff
+                TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
+                    nq0, nq1, nq2, true, this->m_diffCoeff, false,
+                    NullTDataVector, NullTDataVector, NullTDataVector,
+                    NullTDataVector, NullTDataVector, NullTDataVector, bwdvec,
+                    D0, D1, D2, dfPtr, m_h0, m_h1, m_h2, m_h3, deriv0, deriv1,
+                    deriv2);
+                // Step 4: apply WJ, derivative and sum up
+                SumDerivTensor3DKernel<DEFORMED, simd_t>(
+                    nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
+                    jacPtr, D0, D1, D2, bwd, this->m_lambda);
+                // Step 5 : inner product without WJ
+                IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
+                    B2, wsp0, wsp1, wsp2, tmpOut);
+
+                // Increment pointers.
+                dfPtr += dfSize * ndf;
+                jacPtr += dfSize;
+                tmpIn += nmTot;
+                tmpOut += nmTot * simd_t::width;
             }
-
-            // Step 1: BwdTrans.
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, B0, B1, B2, wsp0, wsp1,
-                                         tmpIn, bwd);
-            // Step 2 + 3 : Get tensor derivative and apply diffusion coeff
-            TensorDerivWithDiffuCoeff3DKernel<SHAPE_TYPE, DEFORMED, simd_t>(
-                nq0, nq1, nq2, true, this->m_diffCoeff, false, NullTDataVector,
-                NullTDataVector, NullTDataVector, NullTDataVector,
-                NullTDataVector, NullTDataVector, bwdvec, D0, D1, D2, dfPtr,
-                m_h0, m_h1, m_h2, m_h3, deriv0, deriv1, deriv2);
-            // Step 4: apply WJ, derivative and sum up
-            SumDerivTensor3DKernel<DEFORMED, simd_t>(
-                nq0, nq1, nq2, deriv0vec, deriv1vec, deriv2vec, W0, W1, W2,
-                jacPtr, D0, D1, D2, bwd, this->m_lambda);
-            // Step 5 : inner product without WJ
-            IProduct3DKernel<SHAPE_TYPE, false, false, simd_t>(
-                nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1, B2,
-                wsp0, wsp1, wsp2, tmpOut);
-
-            // Increment pointers.
-            dfPtr += dfSize * ndf;
-            jacPtr += dfSize;
-            tmpIn += nmTot;
-            tmpOut += nmTot * simd_t::width;
         }
     }
 };

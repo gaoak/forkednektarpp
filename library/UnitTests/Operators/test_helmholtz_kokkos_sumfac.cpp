@@ -45,7 +45,7 @@
     {                                                                          \
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
-        Configure();                                                           \
+        Configure(2, 2);                                                       \
         SetTestCase();                                                         \
         RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
