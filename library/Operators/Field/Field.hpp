@@ -52,7 +52,7 @@ public:
                     const size_t num_elements_with_padding,
                     const size_t num_data, const size_t interleave_width)
         : m_num_elements(num_elements),
-          num_elements_with_padding(num_elements_with_padding),
+          m_num_elements_with_padding(num_elements_with_padding),
           m_num_data(num_data), m_size(num_elements_with_padding * num_data),
           m_interleave_width(interleave_width)
     {
@@ -66,7 +66,7 @@ public:
         if (interleave_width != 1)
         {
             ASSERTL0(
-                num_elements_with_padding % interleave_width == 0,
+                m_num_elements_with_padding % interleave_width == 0,
                 "Number of elements is not divisible by interleave width.");
             ASSERTL0(
                 interleave_width % tinysimd::simd<TData>::width == 0,
@@ -83,7 +83,7 @@ public:
 
     size_t GetNumElementsWithPadding(void) const
     {
-        return num_elements_with_padding;
+        return m_num_elements_with_padding;
     }
 
     size_t GetNumData(void) const
@@ -103,17 +103,17 @@ public:
 
     size_t GetNumPaddingElements(void) const
     {
-        return num_elements_with_padding - m_num_elements;
+        return m_num_elements_with_padding - m_num_elements;
     }
 
     size_t GetNumElmtGroups(void) const
     {
-        return num_elements_with_padding / m_interleave_width;
+        return m_num_elements_with_padding / m_interleave_width;
     }
 
 private:
     const size_t m_num_elements;
-    const size_t num_elements_with_padding;
+    const size_t m_num_elements_with_padding;
     const size_t m_num_data;
     const size_t m_size;
     size_t m_interleave_width;

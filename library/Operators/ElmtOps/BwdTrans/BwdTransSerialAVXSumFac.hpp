@@ -66,6 +66,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         for (size_t blk = 0; blk < in.GetBlocks().size(); ++blk)
         {
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -158,6 +162,7 @@ public:
 
 private:
     LocalRegions::ExpansionSharedPtr m_expPtr;
+    size_t m_nComps;
 
     BasisDataMap<simd_t> m_basisMap;
 
@@ -215,21 +220,25 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 
@@ -270,21 +279,24 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, basis0, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 
@@ -340,22 +352,26 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified,
+                                             basis0, basis1, wsp0, tmpIn,
+                                             tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
-                                         basis1, wsp0, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 
@@ -406,22 +422,26 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified,
+                                             basis0, basis1, wsp0, tmpIn,
+                                             tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, basis0,
-                                         basis1, wsp0, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 
@@ -484,23 +504,26 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             isModified, basis0, basis1, basis2,
+                                             wsp0, wsp1, tmpIn, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, basis0, basis1, basis2,
-                                         wsp0, wsp1, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 
@@ -556,23 +579,26 @@ private:
         auto tmpIn =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
-        for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
+        for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-            // Reshape, if necessary.
-            if (e % width_ratio == 0)
+            for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
             {
-                ReshapeStorage<ExecSpace, simd_t::width>(
-                    interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                // Reshape, if necessary.
+                if (e % width_ratio == 0)
+                {
+                    ReshapeStorage<ExecSpace, simd_t::width>(
+                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                }
+
+                // BwdTrans kernel.
+                BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                             isModified, basis0, basis1, basis2,
+                                             wsp0, wsp1, tmpIn, tmpOut);
+
+                // Increment pointers for the next elmt group.
+                tmpIn += nmTot;
+                tmpOut += nqTot * simd_t::width;
             }
-
-            // BwdTrans kernel.
-            BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
-                                         isModified, basis0, basis1, basis2,
-                                         wsp0, wsp1, tmpIn, tmpOut);
-
-            // Increment pointers for the next elmt group.
-            tmpIn += nmTot;
-            tmpOut += nqTot * simd_t::width;
         }
     }
 };

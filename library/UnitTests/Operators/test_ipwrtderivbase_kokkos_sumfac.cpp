@@ -45,7 +45,7 @@
     {                                                                          \
         using ExecSpace = NektarSpaces::KOKKOS;                                \
         using Impl      = Operators::SumFac;                                   \
-        Configure(dim, 1);                                                     \
+        Configure(2 * dim, 2);                                                 \
         SetTestCase();                                                         \
         RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \
@@ -55,11 +55,11 @@
     }
 
 BOOST_AUTO_TEST_SUITE(TestIProductWRTDerivBaseKokkos)
-#if 0 
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_sumfac_seg, Seg, 1, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_sumfac_seg_sem, SegSEM, 1, 1.0E-12)
-#endif
+
 TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_sumfac_quad, Quad, 2, 1.0E-12)
 
 TEST_IPWRTDERIVBASE(ipwrtderivbase_kokkos_sumfac_quad_sem, QuadSEM, 2, 1.0E-12)

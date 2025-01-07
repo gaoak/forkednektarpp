@@ -75,6 +75,11 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents() /
+                                 this->m_expansionList->GetCoordim(0),
+                 "Number of input and output components differ");
+
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
             m_expPtr = this->m_expansionList->GetExp(exp_idx);
@@ -159,6 +164,7 @@ public:
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -212,16 +218,22 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
+                nCoord, nq0, nElmtsPad, D0, dfPtr, inptr, outptr);
+
+            inptr += inblock.size();
+            outptr += nCoord * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED>(
-            nCoord, nq0, nElmtsPad, D0, dfPtr, inptr, outptr);
     }
 
     // Size based template version.
@@ -247,16 +259,22 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, nCoord, nq0>(
+                nElmtsPad, D0, dfPtr, inptr, outptr);
+
+            inptr += inblock.size();
+            outptr += nCoord * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv1DKernel<ExecSpace, Implementation, DEFORMED, nCoord, nq0>(
-            nElmtsPad, D0, dfPtr, inptr, outptr);
     }
 
     // Non-size based operator.
@@ -292,16 +310,23 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+                nCoord, nq0, nq1, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr,
+                outptr);
+
+            inptr += inblock.size();
+            outptr += nCoord * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-            nCoord, nq0, nq1, nElmtsPad, D0, D1, Z0, Z1, dfPtr, inptr, outptr);
     }
 
     // Size based template version.
@@ -332,17 +357,23 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
+                              nCoord, nq0, nq1>(nElmtsPad, D0, D1, Z0, Z1,
+                                                dfPtr, inptr, outptr);
+
+            inptr += inblock.size();
+            outptr += nCoord * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
-                          nCoord, nq0, nq1>(nElmtsPad, D0, D1, Z0, Z1, dfPtr,
-                                            inptr, outptr);
     }
 
     // Non-size based operator.
@@ -381,17 +412,23 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+                nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr, inptr,
+                outptr);
+
+            inptr += inblock.size();
+            outptr += 3 * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
-            nq0, nq1, nq2, nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr, inptr,
-            outptr);
     }
 
     // Size based template version.
@@ -426,17 +463,22 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Calculate derivative.
+            PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED,
+                              nq0, nq1, nq2>(nElmtsPad, D0, D1, D2, Z0, Z1, Z2,
+                                             dfPtr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += 3 * outblock.size();
+        }
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // Calculate derivative.
-        PhysDeriv3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nq0,
-                          nq1, nq2>(nElmtsPad, D0, D1, D2, Z0, Z1, Z2, dfPtr,
-                                    inptr, outptr);
     }
 };
 

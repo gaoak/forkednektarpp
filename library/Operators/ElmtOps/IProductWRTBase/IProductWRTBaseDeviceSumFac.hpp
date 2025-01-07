@@ -73,6 +73,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
@@ -208,6 +212,7 @@ public:
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 
@@ -274,41 +279,40 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
+            // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
+
+                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
+                                        Append, DEFORMED>(
+                    nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
+                                        Append, DEFORMED>(
+                    nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr,
+                    this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
-        {
-            constexpr bool Scale = false;
-
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED>(nm0, nq0, nElmtsPad, basis0, w0,
-                                              jacptr, inptr, outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
-
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED>(nm0, nq0, nElmtsPad, basis0, w0,
-                                              jacptr, inptr, outptr,
-                                              this->m_lambda);
-        }
     }
 
     // Size based template version.
@@ -336,40 +340,40 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
+            // Reshape, if necessary.
             ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
+
+                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
+                                        Append, DEFORMED, nm0, nq0>(
+                    nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
+                                        Append, DEFORMED, nm0, nq0>(
+                    nElmtsPad, basis0, w0, jacptr, inptr, outptr,
+                    this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
-        {
-            constexpr bool Scale = false;
-
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, nm0, nq0>(nElmtsPad, basis0, w0,
-                                                        jacptr, inptr, outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
-
-            IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, nm0, nq0>(
-                nElmtsPad, basis0, w0, jacptr, inptr, outptr, this->m_lambda);
-        }
     }
 
     // Non-size based operator.
@@ -413,22 +417,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
-
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
-        {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
-        }
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -473,25 +464,38 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            constexpr bool Scale = false;
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
 
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
-                basis1, w0, w1, jacptr, wspptr, inptr, outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
 
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
-                basis1, w0, w1, jacptr, wspptr, inptr, outptr, this->m_lambda);
+                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED>(
+                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
+                    basis1, w0, w1, jacptr, wspptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED>(
+                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
+                    basis1, w0, w1, jacptr, wspptr, inptr, outptr,
+                    this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -530,22 +534,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
-
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
-        {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
-        }
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -590,27 +581,39 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            constexpr bool Scale = false;
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
 
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, basis0,
-                                         basis1, w0, w1, jacptr, wspptr, inptr,
-                                         outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
 
-            IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, basis0,
-                                         basis1, w0, w1, jacptr, wspptr, inptr,
-                                         outptr, this->m_lambda);
+                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED, nm0, nm1, nq0,
+                                        nq1>(nElmtsPad, isModified, index0,
+                                             basis0, basis1, w0, w1, jacptr,
+                                             wspptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED, nm0, nm1, nq0,
+                                        nq1>(
+                    nElmtsPad, isModified, index0, basis0, basis1, w0, w1,
+                    jacptr, wspptr, inptr, outptr, this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Non-size based operator.
@@ -664,22 +667,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
-
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
-        {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
-        }
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -822,27 +812,40 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            constexpr bool Scale = false;
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
 
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
-                wspptr, inptr, outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
 
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
-                wspptr, inptr, outptr, this->m_lambda);
+                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
+                    index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
+                    wspptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED>(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
+                    index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
+                    wspptr, inptr, outptr, this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
     // Size based template version.
@@ -889,22 +892,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_lambda == 1.0)
+        auto outptr = (this->m_scale == 1.0)
                           ? outblock.template GetPtr<MemSpace, WriteOnly>()
                           : outblock.template GetPtr<MemSpace, ReadWrite>();
-
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
-            (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
-        {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(), nElmtsPad, outblock.GetNumData(),
-                outptr);
-        }
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -1047,28 +1037,40 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // IProduct kernel.
-        if (this->m_lambda == 1.0)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            constexpr bool Scale = false;
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
 
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
-                                    nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr);
-        }
-        else
-        {
-            constexpr bool Scale = true;
+            // IProduct kernel.
+            if (this->m_scale == 1.0)
+            {
+                constexpr bool Scale = false;
 
-            IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
-                                    Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
-                                    nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
-                basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr,
-                this->m_lambda);
+                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED, nm0, nm1, nm2,
+                                        nq0, nq1, nq2>(
+                    nElmtsPad, isModified, index0, index1, index2, basis0,
+                    basis1, basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr);
+            }
+            else
+            {
+                constexpr bool Scale = true;
+
+                IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
+                                        Scale, Append, DEFORMED, nm0, nm1, nm2,
+                                        nq0, nq1, nq2>(
+                    nElmtsPad, isModified, index0, index1, index2, basis0,
+                    basis1, basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr,
+                    this->m_scale);
+            }
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 };
 

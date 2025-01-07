@@ -60,13 +60,13 @@ public:
         apply(in, out);
     }
 
-    void SetLambda(TData lambda)
+    void SetScale(TData scale)
     {
-        m_lambda = lambda;
+        m_scale = scale;
     }
 
 protected:
-    TData m_lambda = 1.0;
+    TData m_scale = 1.0;
 };
 
 // Descriptor / traits class for IProductWRTBase
