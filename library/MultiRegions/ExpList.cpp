@@ -6625,8 +6625,9 @@ void ExpList::v_PhysGalerkinProjection1DScaled(
                 // get new points key
                 int pt0  = (*m_exp)[i]->GetNumPoints(0);
                 int pt1  = (*m_exp)[i]->GetNumPoints(1);
-                int npt0 = (int)pt0 * scale;
-                int npt1 = (int)pt1 * scale;
+                int npt0 = (int)(pt0 * scale);
+                int npt1 = (pt0 - pt1 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt1 * scale);
 
                 LibUtilities::PointsKey newPointsKey0(
                     npt0, (*m_exp)[i]->GetPointsType(0));
@@ -6652,9 +6653,11 @@ void ExpList::v_PhysGalerkinProjection1DScaled(
                 int pt0  = (*m_exp)[i]->GetNumPoints(0);
                 int pt1  = (*m_exp)[i]->GetNumPoints(1);
                 int pt2  = (*m_exp)[i]->GetNumPoints(2);
-                int npt0 = (int)pt0 * scale;
-                int npt1 = (int)pt1 * scale;
-                int npt2 = (int)pt2 * scale;
+                int npt0 = (int)(pt0 * scale);
+                int npt1 = (pt0 - pt1 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt1 * scale);
+                int npt2 = (pt0 - pt2 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt2 * scale);
 
                 LibUtilities::PointsKey newPointsKey0(
                     npt0, (*m_exp)[i]->GetPointsType(0));

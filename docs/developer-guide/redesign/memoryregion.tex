@@ -1,12 +1,30 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{MemoryRegion Class}
-This chapter describes the \lstinline[style=C++Style]!MemoryRegion! class which is responsible of the memory management of a contiguous chunk of memory between the host and device. This class encapsulates various functionalities related to memory allocation, initialization, and host/device synchronization. The \lstinline[style=C++Style]!MemoryRegion! class is the lowest level of direct memory management control provided to developers.
+This chapter describes the \lstinline[style=C++Style]!MemoryRegion!
+class which is responsible of the memory management of a contiguous
+chunk of memory between the host and device. This class encapsulates
+various functionalities related to memory allocation, initialization,
+and host/device synchronization. The
+\lstinline[style=C++Style]!MemoryRegion! class is the lowest level of
+direct memory management control provided to developers.
 
 Note: Multi-device capabilities are not yet fully implemented.
 
 \section{MemoryRegion}
 \subsection{Description}
-\lstinline[style=C++Style]!MemoryRegion! is a templated class containing a pointer to a \lstinline[style=C++Style]!MemoryRegionHost! base class. The \lstinline[style=C++Style]!MemoryRegionHost! base class and its \lstinline[style=C++Style]!MemoryRegionDevice! derived class should never be used directly. Instead the \lstinline[style=C++Style]!MemoryRegion! class should be used as a higher level memory management object encapsulating the functionalities of both the \lstinline[style=C++Style]!MemoryRegionHost! base class and the \lstinline[style=C++Style]!MemoryRegionDevice! derived class. The \lstinline[style=C++Style]!MemoryRegion! class has a default constructor and a default destructor but no copy constructor and only move semantics is allowed after object instantiation.
+\lstinline[style=C++Style]!MemoryRegion! is a templated class
+containing a pointer to a \lstinline[style=C++Style]!MemoryRegionHost!
+base class. The \lstinline[style=C++Style]!MemoryRegionHost! base
+class and its \lstinline[style=C++Style]!MemoryRegionDevice! derived
+class should never be used directly. Instead the
+\lstinline[style=C++Style]!MemoryRegion! class should be used as a
+higher level memory management object encapsulating the
+functionalities of both the
+\lstinline[style=C++Style]!MemoryRegionHost! base class and the
+\lstinline[style=C++Style]!MemoryRegionDevice! derived class. The
+\lstinline[style=C++Style]!MemoryRegion! class has a default
+constructor and a default destructor but no copy constructor and only
+move semantics is allowed after object instantiation.
 
 \begin{lstlisting}[style=C++Style]
 template <typename TData> class MemoryRegion

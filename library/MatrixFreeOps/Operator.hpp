@@ -560,13 +560,18 @@ protected:
         // Is this updated at each time-step?
         // Depending on element dimension, set up interpolation matrices,
         // inside vectorised environment.
+
+        int npt0 = basis[0]->GetNumPoints();
+
         for (int i = 0; i < DIM; ++i)
         {
-            m_enhancednq[i] = (int)basis[i]->GetNumPoints() * factor;
+            int npt         = basis[i]->GetNumPoints();
+            m_enhancednq[i] = (npt0 - npt == 1) ? (int)(npt0 * factor - 1)
+                                                : (int)(npt * factor);
 
             LibUtilities::PointsKey PointsKeyIn(m_nq[i],
                                                 basis[i]->GetPointsType());
-            LibUtilities::PointsKey PointsKeyOut((int)m_nq[i] * factor,
+            LibUtilities::PointsKey PointsKeyOut(m_enhancednq[i],
                                                  basis[i]->GetPointsType());
             auto I = LibUtilities::PointsManager()[PointsKeyIn]
                          ->GetI(PointsKeyOut)
