@@ -58,14 +58,6 @@ class OperatorHelmholtzImpl : public OperatorHelmholtz<TData>
 public:
     OperatorHelmholtzImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorHelmholtz<TData>(expansionList),
-          m_bwd(Field<TData, FieldState::Phys>::template Create<MemSpace>(
-              "Helmholtz bwd",
-              GetBlockAttributes<TData>(FieldState::Phys, expansionList), 1,
-              ExecSpace::alignment)),
-          m_deriv(Field<TData, FieldState::Phys>::template Create<MemSpace>(
-              "Helmholtz deriv",
-              GetBlockAttributes<TData>(FieldState::Phys, expansionList),
-              expansionList->GetCoordim(0), ExecSpace::alignment)),
           m_diffCoeff(MemoryRegion<TData>::template Create<MemSpace>(
               "Helmholtz diffCoeff",
               expansionList->GetCoordim(0) * expansionList->GetCoordim(0),
@@ -95,27 +87,44 @@ public:
         m_IProductWRTDerivBaseOp = IProductWRTDerivBase<TData>::template Create<
             ExecSpace, Implementation>(this->m_expansionList);
 
-        m_IProductWRTBaseOp->SetLambda(this->m_lambda);
+        m_IProductWRTBaseOp->SetScale(this->m_lambda);
         m_IProductWRTDerivBaseOp->SetAppend(true);
+
+        m_PhysBlockAttributes =
+            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
+        int CompSize = in.GetNumComponents();
+        int nCoords  = this->m_expansionList->GetCoordim(0);
+
+        // initialise bwd storage space if not for correct number of components
+        if (m_bwd.GetNumComponents() != CompSize)
+        {
+            m_bwd = Field<TData, FieldState::Phys>::template Create<MemSpace>(
+                "Helmholtz tmp", m_PhysBlockAttributes, CompSize,
+                ExecSpace::alignment);
+            m_deriv = Field<TData, FieldState::Phys>::template Create<MemSpace>(
+                "Helmholtz bwd", m_PhysBlockAttributes, CompSize * nCoords,
+                ExecSpace::alignment);
+        }
+
         // Step 1: BwdTrans
-        this->m_BwdTransOp->apply(in, this->m_bwd);
+        this->m_BwdTransOp->apply(in, m_bwd);
 
         // Step 2: PhysDeriv
-        this->m_PhysDerivOp->apply(this->m_bwd, this->m_deriv);
+        this->m_PhysDerivOp->apply(m_bwd, m_deriv);
 
         // Step 3: Inner product for mass matrix operation
-        this->m_IProductWRTBaseOp->apply(this->m_bwd, out);
+        this->m_IProductWRTBaseOp->apply(m_bwd, out);
 
         // Step 4: Multiply by diffusion coefficient
-        DiffusionCoeff(this->m_deriv);
+        DiffusionCoeff(m_deriv);
 
         // Step 5: Inner product
-        this->m_IProductWRTDerivBaseOp->apply(this->m_deriv, out);
+        this->m_IProductWRTDerivBaseOp->apply(m_deriv, out);
     }
 
     void DiffusionCoeff(Field<TData, FieldState::Phys> &deriv)
@@ -178,16 +187,18 @@ public:
     }
 
 private:
+    Field<TData, FieldState::Phys> m_bwd;
+    Field<TData, FieldState::Phys> m_deriv;
+
     std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
     std::shared_ptr<OperatorPhysDeriv<TData>> m_PhysDerivOp;
     std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
     std::shared_ptr<OperatorIProductWRTDerivBase<TData>>
         m_IProductWRTDerivBaseOp;
 
-    Field<TData, FieldState::Phys> m_bwd;
-    Field<TData, FieldState::Phys> m_deriv;
-
     MemoryRegion<TData> m_diffCoeff;
+
+    std::vector<BlockAttributes> m_PhysBlockAttributes;
 };
 
 } // namespace Nektar::Operators::detail

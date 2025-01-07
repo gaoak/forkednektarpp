@@ -165,25 +165,6 @@ public:
         Nektar::stripString(descriptStr, "struct ");
 #endif
 
-        // The TDescriptor name may contain the FieldState, if so get
-        // the enum and corresponding string.
-        std::string fieldStateStr(descript);
-
-        size_t found0 = fieldStateStr.find("0");
-        size_t found1 = fieldStateStr.find("1");
-        if (found0 != std::string::npos)
-        {
-            fieldStateStr = "Phys";
-        }
-        else if (found1 != std::string::npos)
-        {
-            fieldStateStr = "Coeff";
-        }
-        else
-        {
-            fieldStateStr.clear();
-        }
-
         // The ExecSpace name contains the namespace which needs to be
         // removed.
         std::string execStr = Nektar::demangleTypeName(typeid(ExecSpace));
@@ -223,9 +204,8 @@ public:
             implStr = session->GetCmdLineArgument<std::string>("opImpl");
         }
 
-        std::string requestedKey =
-            descriptStr + fieldStateStr + execStr + implStr;
-        std::string key = requestedKey;
+        std::string requestedKey = descriptStr + execStr + implStr;
+        std::string key          = requestedKey;
 
         OperatorFactory<TData> &factory = GetOperatorFactory<TData>();
 
@@ -244,22 +224,22 @@ public:
                 case 0:
                     // Find the operator with the requested ExecSpace and the
                     // same implementation.
-                    key = descriptStr + fieldStateStr + execStr + implStr;
+                    key = descriptStr + execStr + implStr;
                     break;
                 case 1:
                     // Find the operator with the requested ExecSpace and a
                     // general implementation.
-                    key = descriptStr + fieldStateStr + execStr + "Generic";
+                    key = descriptStr + execStr + "Generic";
                     break;
                 case 2:
                     // Find the operator with the "Serial" ExecSpace and the
                     // same implementation.
-                    key = descriptStr + fieldStateStr + "Serial" + implStr;
+                    key = descriptStr + "Serial" + implStr;
                     break;
                 case 3:
                     // Find the operator with the "Serial" ExecSpace and
                     // the "StdMat" implementation.
-                    key = descriptStr + fieldStateStr + "Serial" + "StdMat";
+                    key = descriptStr + "Serial" + "StdMat";
                     break;
                 default:
                     break;

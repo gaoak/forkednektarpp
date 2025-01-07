@@ -56,14 +56,19 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             double *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                 ++el)
+
+            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int phys = 0; phys < block.GetNumData();
-                     ++phys, ++cnt)
+                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                     ++el)
                 {
-                    inptr[cnt] = phys;
+                    for (unsigned int phys = 0; phys < block.GetNumData();
+                         ++phys, ++cnt)
+                    {
+                        inptr[cnt] = phys + nc;
+                    }
                 }
+                inptr += block.size();
             }
         }
         ExpectedSolution();
@@ -78,9 +83,18 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
+        int compSize = fixt_in->GetNumComponents();
+        int ncoeffs  = fixt_explist->GetNcoeffs();
+        int nphys    = fixt_explist->GetTotPoints();
+
         Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
-        fixt_explist->IProductWRTBase(inphys, outcoeffs);
+        Array<OneD, double> outcoeffs(compSize * ncoeffs);
+        Array<OneD, NekDouble> tmp;
+        for (int i = 0; i < compSize; ++i)
+        {
+            fixt_explist->IProductWRTBase(inphys + i * nphys,
+                                          tmp = outcoeffs + i * ncoeffs);
+        }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };

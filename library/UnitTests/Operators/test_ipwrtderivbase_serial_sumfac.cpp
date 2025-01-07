@@ -45,7 +45,7 @@
     {                                                                          \
         using ExecSpace = NektarSpaces::Serial;                                \
         using Impl      = Operators::SumFac;                                   \
-        Configure(dim, 1);                                                     \
+        Configure(2 * dim, 2);                                                 \
         SetTestCase();                                                         \
         RunTestCase<ExecSpace, Impl>();                                        \
         boost::test_tools::output_test_stream output;                          \

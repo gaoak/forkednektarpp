@@ -81,9 +81,13 @@ public:
 
         int shape_dimension = m_stdExp->GetShapeDimension();
         m_outputSize        = m_numElmt; // initializing m_outputSize
+        int npt0            = m_stdExp->GetNumPoints(0);
+
         for (int i = 0; i < shape_dimension; ++i)
         {
-            m_outputSize *= (int)(m_stdExp->GetNumPoints(i) * scale);
+            int npt = m_stdExp->GetNumPoints(i);
+            m_outputSize *= (npt0 - npt == 1) ? (int)(npt0 * scale - 1)
+                                              : (int)(npt * scale);
         }
     }
 
@@ -105,9 +109,12 @@ protected:
         // expect input to be number of elements by the number of quad points
         int shape_dimension = m_stdExp->GetShapeDimension();
         m_outputSize        = m_numElmt; // initializing m_outputSize
+        int npt0            = m_stdExp->GetNumPoints(0);
         for (int i = 0; i < shape_dimension; ++i)
         {
-            m_outputSize *= (int)(m_stdExp->GetNumPoints(i) * scale);
+            int npt = m_stdExp->GetNumPoints(i);
+            m_outputSize *= (npt0 - npt == 1) ? (int)(npt0 * scale - 1)
+                                              : (int)(npt * scale);
         }
     }
 
@@ -304,7 +311,7 @@ public:
                 // the number of points before and after interpolation are the
                 // same for each element inside a single collection
                 int pt0  = m_expList[0]->GetNumPoints(0);
-                int npt0 = (int)pt0 * scale;
+                int npt0 = (int)(pt0 * scale);
                 // current points key - use first entry
                 LibUtilities::PointsKey PointsKey0(
                     pt0, m_expList[0]->GetPointsType(0));
@@ -332,8 +339,9 @@ public:
                 // the same for each element inside a single collection
                 int pt0  = m_expList[0]->GetNumPoints(0);
                 int pt1  = m_expList[0]->GetNumPoints(1);
-                int npt0 = (int)pt0 * scale;
-                int npt1 = (int)pt1 * scale;
+                int npt0 = (int)(pt0 * scale);
+                int npt1 = (pt0 - pt1 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt1 * scale);
                 // workspace declaration
                 Array<OneD, NekDouble> wsp(npt1 * pt0); // fnp0*tnp1
 
@@ -376,9 +384,11 @@ public:
                 int pt0  = m_expList[0]->GetNumPoints(0);
                 int pt1  = m_expList[0]->GetNumPoints(1);
                 int pt2  = m_expList[0]->GetNumPoints(2);
-                int npt0 = (int)pt0 * scale;
-                int npt1 = (int)pt1 * scale;
-                int npt2 = (int)pt2 * scale;
+                int npt0 = (int)(pt0 * scale);
+                int npt1 = (pt0 - pt1 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt1 * scale);
+                int npt2 = (pt0 - pt2 == 1) ? (int)(pt0 * scale - 1)
+                                            : (int)(pt2 * scale);
                 Array<OneD, NekDouble> wsp1(npt0 * npt1 * pt2);
                 Array<OneD, NekDouble> wsp2(npt0 * pt1 * pt2);
 

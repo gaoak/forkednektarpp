@@ -140,6 +140,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
@@ -179,21 +183,31 @@ public:
         const auto nmTot     = m_expPtr->GetNcoeffs();
         const auto deformed =
             m_expPtr->GetMetricInfo()->GetGtype() == SpatialDomains::eDeformed;
-        const auto nElmts = inblock.GetNumElements();
+        const auto nElmts        = inblock.GetNumElements();
+        const auto nElmtsWithPad = inblock.GetNumElementsWithPadding();
 
         const TData alpha = 1.0;
         const TData beta  = 0.0;
+
         if (deformed)
         {
             // Perform matrix-vector multiply.
-            auto dmatPtr = m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
-            for (size_t e = 0; e < nElmts; e++)
+            for (size_t nc = 0; nc < m_nComps; ++nc)
             {
-                Blas::Gemv('N', nmTot, nmTot, alpha, dmatPtr, nmTot, inptr, 1,
-                           beta, outptr, 1);
-                inptr += nmTot;
-                outptr += nmTot;
-                dmatPtr += nmTot * nmTot;
+                auto dmatPtr =
+                    m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+                unsigned int e = 0;
+                for (; e < nElmts; e++)
+                {
+                    Blas::Gemv('N', nmTot, nmTot, alpha, dmatPtr, nmTot, inptr,
+                               1, beta, outptr, 1);
+                    inptr += nmTot;
+                    outptr += nmTot;
+                    dmatPtr += nmTot * nmTot;
+                }
+                inptr += nmTot * (nElmtsWithPad - e);
+                outptr += nmTot * (nElmtsWithPad - e);
             }
         }
         else
@@ -211,17 +225,24 @@ public:
                 m_mat[basisKeys].template GetPtr<MemSpace, ReadOnly>();
             const auto scalePtr =
                 m_scale[m_blk].template GetPtr<MemSpace, ReadOnly>();
-            Blas::Gemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr, nmTot,
-                       inptr, nmTot, beta, outptr, nmTot);
-            Nektar::parallel_for<ExecSpace>(
-                0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
-                    outptr[i] *= scalePtr[i / nmTot];
-                });
+
+            for (size_t nc = 0; nc < m_nComps; ++nc)
+            {
+                Blas::Gemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr, nmTot,
+                           inptr, nmTot, beta, outptr, nmTot);
+                Nektar::parallel_for<ExecSpace>(
+                    0, nElmts * nmTot, NEKTAR_LAMBDA(const unsigned int i) {
+                        outptr[i] *= scalePtr[i / nmTot];
+                    });
+                inptr += inblock.size();
+                outptr += outblock.size();
+            }
         }
     }
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 

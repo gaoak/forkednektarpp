@@ -56,14 +56,18 @@ public:
             auto &block = fixt_in->GetBlocks()[blk];
             auto inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                 ++el)
+            for (unsigned int nc = 0; nc < fixt_in->GetNumComponents(); ++nc)
             {
-                for (unsigned int coeff = 0; coeff < block.GetNumData();
-                     ++coeff, ++cnt)
+                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
+                     ++el)
                 {
-                    inptr[cnt] = coeff;
+                    for (unsigned int coeff = 0; coeff < block.GetNumData();
+                         ++coeff, ++cnt)
+                    {
+                        inptr[cnt] = coeff;
+                    }
                 }
+                inptr += block.size();
             }
         }
         ExpectedSolution();
@@ -78,25 +82,33 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
-        auto e = 0, offset = 0;
+        int compSize = fixt_in->GetNumComponents();
+        int ncoeffs  = fixt_explist->GetNcoeffs();
+
         StdRegions::FactorMap factors;
         factors[StdRegions::eFactorLambda] = 1.0;
         Array<OneD, double> incoeffs       = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs());
+        Array<OneD, double> outcoeffs(compSize * ncoeffs);
         Array<OneD, double> tmp;
-        for (const auto &block : fixt_expected->GetBlocks())
+
+        for (int i = 0; i < compSize; ++i)
         {
-            auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
-            for (unsigned int el = 0; el < block.GetNumElements(); ++el)
+            unsigned int e      = 0;
+            unsigned int offset = i * ncoeffs;
+            for (const auto &block : fixt_expected->GetBlocks())
             {
-                StdRegions::StdMatrixKey mkey(
-                    StdRegions::eHelmholtz,
-                    fixt_explist->GetExp(e)->DetShapeType(),
-                    *(fixt_explist->GetExp(e)), factors);
-                fixt_explist->GetExp(e)->GeneralMatrixOp(
-                    incoeffs + offset, tmp = outcoeffs + offset, mkey);
-                e++;
-                offset += nmTot;
+                auto nmTot = fixt_explist->GetExp(e)->GetNcoeffs();
+                for (unsigned int el = 0; el < block.GetNumElements(); ++el)
+                {
+                    StdRegions::StdMatrixKey mkey(
+                        StdRegions::eHelmholtz,
+                        fixt_explist->GetExp(e)->DetShapeType(),
+                        *(fixt_explist->GetExp(e)), factors);
+                    fixt_explist->GetExp(e)->GeneralMatrixOp(
+                        incoeffs + offset, tmp = outcoeffs + offset, mkey);
+                    e++;
+                    offset += nmTot;
+                }
             }
         }
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);

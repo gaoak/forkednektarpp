@@ -179,7 +179,8 @@ public:
         }
     }
 
-    void Configure(unsigned int nin = 1, unsigned int nout = 1)
+    void Configure(unsigned int nin = 1, unsigned int nout = 1,
+                   double scale_out = 1.0)
     {
         BOOST_TEST_MESSAGE("Creating input and output fields");
         // Initialise a session, graph and Create an expansion list
@@ -217,8 +218,40 @@ public:
         }
 
         // Create two Field objects with a MemoryRegionHost backend by default
-        auto blocks_in  = GetBlockAttributes<TData>(stateIn, fixt_explist);
-        auto blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
+        auto blocks_in = GetBlockAttributes<TData>(stateIn, fixt_explist);
+        std::vector<BlockAttributes> blocks_out;
+
+        if (scale_out != 1.0)
+        {
+            int eid = 0;
+            for (unsigned int blk = 0; blk < blocks_in.size(); ++blk)
+            {
+                auto expPtr = fixt_explist->GetExp(eid);
+
+                int npts0 = expPtr->GetNumPoints(0);
+                int ndata = 1;
+                for (int d = 0; d < expPtr->GetNumBases(); ++d)
+                {
+                    int npts = expPtr->GetNumPoints(d);
+                    ndata *= (npts0 - npts == 1) ? (int)(npts0 * scale_out - 1)
+                                                 : (int)(npts * scale_out);
+                }
+
+                BlockAttributes new_block(
+                    blocks_in[blk].GetNumElements(),
+                    blocks_in[blk].GetNumElementsWithPadding(), ndata,
+                    blocks_in[blk].GetInterleaveWidth());
+
+                blocks_out.push_back(new_block);
+
+                eid += blocks_in[blk].GetNumElements();
+            }
+        }
+        else
+        {
+            blocks_out = GetBlockAttributes<TData>(stateOut, fixt_explist);
+        }
+
         if (testModule.find("AVX") != std::string::npos)
         {
             alignment = NektarSpaces::AVX::alignment;

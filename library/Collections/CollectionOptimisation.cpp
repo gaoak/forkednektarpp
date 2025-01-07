@@ -435,11 +435,14 @@ OperatorImpMap CollectionOptimisation::SetWithTimings(
                                // points towards the i-th direction
     int newTotQpInsideElmt{1}; // initialization for the total number of scaled
                                // quadrature points inside an element
+    int npts0 = pExp->GetNumPoints(0);
     for (int i = 0; i < pExp->GetShapeDimension(); ++i)
     {
         qpInsideElmt_idir = pExp->GetNumPoints(i);
         newQpInsideElmt_idir =
-            (int)qpInsideElmt_idir * factors[StdRegions::eFactorConst];
+            (npts0 - qpInsideElmt_idir == 1)
+                ? (int)(npts0 * factors[StdRegions::eFactorConst] - 1)
+                : (int)(qpInsideElmt_idir * factors[StdRegions::eFactorConst]);
         newTotQpInsideElmt *= newQpInsideElmt_idir;
     }
     int maxsize = pCollExp.size() * max(pExp->GetNcoeffs(), newTotQpInsideElmt);

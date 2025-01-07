@@ -113,6 +113,10 @@ public:
         // Initialize index.
         size_t exp_idx = 0;
 
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
         // Loop over the blocks.
         for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
@@ -157,20 +161,6 @@ public:
         const auto nmTot = m_expPtr->GetNcoeffs();
         const auto nqTot = m_expPtr->GetTotPoints();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), inblock.GetNumElementsWithPadding(),
-            inblock.GetNumData(), (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        if (this->m_lambda == 1.0)
-        {
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                outptr);
-        }
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
         auto nElmts = inblock.GetNumElements();
 
         auto jacPtr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
@@ -184,41 +174,59 @@ public:
         // Get workspace pointer.
         auto wspptr = m_wsp[m_blk].data();
 
-        // Multiply by jacobian.
-        if (deformed)
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
-            for (size_t i = 0; i < nElmts * nqTot; ++i)
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                (TData *)inptr);
+
+            // Multiply by jacobian.
+
+            if (deformed)
             {
-                wspptr[i] = jacPtr[i] * inptr[i];
-            }
-        }
-        else
-        {
-            for (size_t e = 0; e < nElmts; ++e)
-            {
-                for (size_t i = 0; i < nqTot; ++i)
+                for (size_t i = 0; i < nElmts * nqTot; ++i)
                 {
-                    wspptr[e * nqTot + i] = jacPtr[e] * inptr[e * nqTot + i];
+                    wspptr[i] = jacPtr[i] * inptr[i];
                 }
             }
+            else
+            {
+                for (size_t e = 0; e < nElmts; ++e)
+                {
+                    for (size_t i = 0; i < nqTot; ++i)
+                    {
+                        wspptr[e * nqTot + i] =
+                            jacPtr[e] * inptr[e * nqTot + i];
+                    }
+                }
+            }
+
+            // Fetch matrix.
+            std::vector<LibUtilities::BasisKey> basisKeys(
+                dimension, LibUtilities::NullBasisKey);
+            for (unsigned int d = 0; d < dimension; d++)
+            {
+                basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
+            }
+            const auto &matPtr = m_mat[basisKeys];
+
+            // Perform matrix-matrix multiply.
+            Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, this->m_scale,
+                       matPtr.data(), nmTot, wspptr, nqTot, 0.0, outptr, nmTot);
+
+            inptr += inblock.size();
+            outptr += outblock.size();
         }
 
-        // Fetch matrix.
-        std::vector<LibUtilities::BasisKey> basisKeys(
-            dimension, LibUtilities::NullBasisKey);
-        for (unsigned int d = 0; d < dimension; d++)
-        {
-            basisKeys[d] = m_expPtr->GetBasis(d)->GetBasisKey();
-        }
-        const auto &matPtr = m_mat[basisKeys];
-
-        // Perform matrix-matrix multiply.
-        Blas::Gemm('N', 'N', nmTot, nElmts, nqTot, this->m_lambda,
-                   matPtr.data(), nmTot, wspptr, nqTot, 0.0, outptr, nmTot);
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
 private:
     unsigned int m_blk;
+    size_t m_nComps;
 
     LocalRegions::ExpansionSharedPtr m_expPtr;
 

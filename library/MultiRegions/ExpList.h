@@ -1574,10 +1574,14 @@ inline int ExpList::Get1DScaledTotPoints(const NekDouble scale) const
 
     for (size_t i = 0; i < (*m_exp).size(); ++i)
     {
-        cnt = 1;
+        int npt0 = (*m_exp)[i]->GetNumPoints(0);
+        cnt      = 1;
+
         for (size_t j = 0; j < nbase; ++j)
         {
-            cnt *= scale * ((*m_exp)[i]->GetNumPoints(j));
+            int npt = (*m_exp)[i]->GetNumPoints(j);
+            cnt *= (npt0 - npt == 1) ? (size_t)(scale * npt0 - 1)
+                                     : (size_t)(scale * npt);
         }
         returnval += cnt;
     }

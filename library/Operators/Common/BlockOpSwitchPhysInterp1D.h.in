@@ -1,0 +1,189 @@
+// clang-format off
+#if defined(SHAPE_TYPE_Seg)
+    const auto nmodes0  = m_expPtr->GetNumPoints(0); 
+    const int  nquad0   = m_scale * nmodes0;
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                               \
+    Operator1D(input, output);
+
+        // Inner loop case over quarature points Shape dependent
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                           \
+    case NQ(i):                                                                \
+        Operator1D<NM(i), NQ(i)>(input, output);                               \
+        break;
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                           \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             LEV2TEST1, LEV2UPDATE1,                           \
+                             PHYSINTERP1D_Q) default                   \
+                : PHYSINTERP1D_DEF break;                              \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+            // templated cases on equi-ordered modes and standard quad usage
+            // where quad order goes from mode order to 2(*mode order)
+    switch (nmodes0)
+       {
+            BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                         PHYSINTERP1D_M)
+            default:
+                PHYSINTERP1D_DEF
+                break;
+        }
+        
+#elif defined(SHAPE_TYPE_Quad) || defined(SHAPE_TYPE_Tri)
+    const auto nmodes0  = m_expPtr->GetNumPoints(0);
+    const auto nmodes1  = m_expPtr->GetNumPoints(1);
+
+    const int nquad0 = m_scale * nmodes0;
+    const int nquad1 = m_scale * nmodes1;
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                               \
+    Operator2D(input, output);
+
+        // Inner loop case over quarature points Shape dependent
+#if defined(SHAPE_TYPE_Quad)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+        Operator2D< NM(i), NM(i), NQ(i), NQ(i)>(input, output);                \
+        break;
+#elif defined(SHAPE_TYPE_Tri)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+        Operator2D<NM(i), NM_M1(i), NQ(i), NQ_M1(i)>(input, output);           \
+        break;
+#endif
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                                   \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             LEV2TEST1, LEV2UPDATE1,                           \
+                             PHYSINTERP1D_Q) default                   \
+                : PHYSINTERP1D_DEF break;                              \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad
+        // usage where quad order goes from mode order to 2(*mode
+        // order) Note this will likely not work on cases wtih nquad,
+        // nquad+1 distributions
+#if defined(SHAPE_TYPE_Quad)
+        if ((nmodes0 == nmodes1) && (nquad0 == nquad1))
+#elif defined(SHAPE_TYPE_Tri)
+        if ((nmodes0 == nmodes1 + 1) && (nquad0 == nquad1 + 1))
+#endif
+        {
+            switch (nmodes0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             PHYSINTERP1D_M)
+                default:
+                    PHYSINTERP1D_DEF
+                    break;
+            }
+        }
+        else
+        {
+            PHYSINTERP1D_DEF
+        }
+#else
+    const auto nmodes0  = m_expPtr->GetNumPoints(0);
+    const auto nmodes1  = m_expPtr->GetNumPoints(1);
+    const auto nmodes2  = m_expPtr->GetNumPoints(2);
+
+    const int  nquad0 = m_scale * nmodes0; 
+    const int  nquad1 = m_scale * nmodes1; 
+    const int  nquad2 = m_scale * nmodes2; 
+
+        // Default case
+#undef PHYSINTERP1D_DEF
+#define PHYSINTERP1D_DEF                                               \
+    Operator3D(input, output);
+
+        // Inner loop case over quarature points Shape dependent
+#if defined(SHAPE_TYPE_Hex)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                \
+    case NQ(i):                                                             \
+        Operator3D<NM(i), NM(i), NM(i), NQ(i),                              \
+                   NQ(i), NQ(i)>(input, output);                            \
+        break;
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+        Operator3D<NM(i), NM(i), NM_M1(i), NQ(i),                              \
+                   NQ(i), NQ_M1(i)>(input, output);                            \
+        break;
+#elif defined(SHAPE_TYPE_Tet)
+#undef PHYSINTERP1D_Q
+#define PHYSINTERP1D_Q(r, i)                                                   \
+    case NQ(i):                                                                \
+        Operator3D<NM(i), NM_M1(i), NM_M1(i), NQ(i),                           \
+                   NQ_M1(i), NQ_M1(i)>(input, output);                         \
+        break;
+#endif
+
+        // outer loop case over modes
+#undef PHYSINTERP1D_M
+#define PHYSINTERP1D_M(r, i)                                           \
+    case NM(i):                                                                \
+    {                                                                          \
+        switch (nquad0)                                                        \
+        {                                                                      \
+            BOOST_PP_FOR_##r((NM(i), NM_P1(i), BOOST_PP_MUL(2, NM(i))),        \
+                             LEV2TEST1, LEV2UPDATE1,                           \
+                             PHYSINTERP1D_Q) default                   \
+                : PHYSINTERP1D_DEF break;                              \
+        }                                                                      \
+    }                                                                          \
+    break;
+
+        // templated cases on equi-ordered modes and standard quad usage
+        // where quad order goes from mode order to 2(*mode order)
+#if defined(SHAPE_TYPE_Hex)
+        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2) &&
+            (nquad0 == nquad1) && (nquad1 == nquad2))
+#elif defined(SHAPE_TYPE_Prism) || defined(SHAPE_TYPE_Pyr)
+        if ((nmodes0 == nmodes1) && (nmodes1 == nmodes2+1) &&
+            (nquad0 == nquad1) && (nquad1 == nquad2 + 1))
+#elif defined(SHAPE_TYPE_Tet)
+        if ((nmodes0 == nmodes1+1) && (nmodes1 == nmodes2) &&
+            (nquad0 == nquad1 + 1) && (nquad1 == nquad2))
+#endif
+        {
+            switch (nmodes0)
+            {
+                BOOST_PP_FOR((MIN1D, 0, MAX1D), LEV2TEST, LEV2UPDATE,
+                             PHYSINTERP1D_M)
+                default:
+                    PHYSINTERP1D_DEF
+                    break;
+            }
+        }
+        else
+        {
+            PHYSINTERP1D_DEF
+        }
+#endif
+// clang-format on

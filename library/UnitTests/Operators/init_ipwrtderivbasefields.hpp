@@ -51,23 +51,31 @@ public:
 
     void SetTestCase()
     {
+        // expect coordim components for each input dimension
+        int coordim  = fixt_explist->GetCoordim(0);
+        int compSize = fixt_in->GetNumComponents() / coordim;
+
         for (unsigned int blk = 0; blk < fixt_in->GetBlocks().size(); ++blk)
         {
             auto &block = fixt_in->GetBlocks()[blk];
             double *inptr =
                 block.template GetPtr<NektarSpaces::HostSpace, WriteOnly>();
-            for (unsigned int k = 0; k < fixt_explist->GetCoordim(0); k++)
+
+            for (unsigned int nc = 0; nc < compSize; ++nc)
             {
-                for (unsigned int el = 0, cnt = 0; el < block.GetNumElements();
-                     ++el)
+                for (unsigned int k = 0; k < coordim; k++)
                 {
-                    for (unsigned int phys = 0; phys < block.GetNumData();
-                         ++phys, ++cnt)
+                    for (unsigned int el = 0, cnt = 0;
+                         el < block.GetNumElements(); ++el)
                     {
-                        inptr[cnt] = phys + k;
+                        for (unsigned int phys = 0; phys < block.GetNumData();
+                             ++phys, ++cnt)
+                        {
+                            inptr[cnt] = phys + k + nc;
+                        }
                     }
+                    inptr += block.size();
                 }
-                inptr += block.size();
             }
         }
         ExpectedSolution();
@@ -83,23 +91,27 @@ public:
     void ExpectedSolution()
     {
         // Calculate expected result from Nektar++
+        int ncoeffs = fixt_explist->GetNcoeffs();
+        int nphys   = fixt_explist->GetTotPoints();
+        int coordim = fixt_explist->GetCoordim(0);
+
+        // expect coordim components for each input dimension
+        int compSize = fixt_in->GetNumComponents() / coordim;
+
         Array<OneD, double> inphys = fixt_in->ToArray();
-        Array<OneD, double> outcoeffs(fixt_explist->GetNcoeffs(), 0.0);
-        Array<OneD, Array<OneD, double>> inphysarray(
-            fixt_explist->GetCoordim(0));
-        if (fixt_explist->GetCoordim(0) > 0)
+        Array<OneD, double> outcoeffs(ncoeffs * compSize, 0.0), tmp;
+        Array<OneD, Array<OneD, double>> inphysarray(coordim);
+
+        for (int i = 0; i < compSize; ++i)
         {
-            inphysarray[0] = inphys;
+            inphysarray[0] = inphys + i * nphys * coordim;
+            for (int j = 1; j < coordim; ++j)
+            {
+                inphysarray[j] = inphysarray[j - 1] + nphys;
+            }
+            fixt_explist->IProductWRTDerivBase(inphysarray,
+                                               tmp = outcoeffs + i * ncoeffs);
         }
-        if (fixt_explist->GetCoordim(0) > 1)
-        {
-            inphysarray[1] = inphysarray[0] + fixt_explist->GetTotPoints();
-        }
-        if (fixt_explist->GetCoordim(0) > 2)
-        {
-            inphysarray[2] = inphysarray[1] + fixt_explist->GetTotPoints();
-        }
-        fixt_explist->IProductWRTDerivBase(inphysarray, outcoeffs);
         fixt_expected->CopyArray<NektarSpaces::HostSpace>(outcoeffs);
     }
 };

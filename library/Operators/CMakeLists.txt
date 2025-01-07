@@ -83,6 +83,16 @@ MACRO(ADD_OPERATOR dir)
         ENDFOREACH()
     ENDIF()
 
+    IF(EXISTS "${CMAKE_CURRENT_BINARY_DIR}/BlockOpSwitchPhysInterp1DSeg.h")
+    ELSE()
+        SET(ShapeIncludeName "Common/BlockOpSwitchPhysInterp1D.h.in")
+        FOREACH (Shape IN LISTS Shapes)
+            SET(ShapeIncName BlockOpSwitchPhysInterp1D${Shape}.h)
+            MESSAGE("Generating block header  file file: " "${ShapeIncName}")
+            CONFIGURE_FILE(${ShapeIncludeName} ${ShapeIncName})
+        ENDFOREACH()
+    ENDIF()
+
     # Loop through each possible execution space.
     FOREACH (ExecSpace IN LISTS ExecSpaces)
     

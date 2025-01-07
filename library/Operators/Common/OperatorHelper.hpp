@@ -35,18 +35,20 @@
 #pragma once
 
 #include "Operators/Field/Field.hpp"
+#include <LibUtilities/Foundations/ManagerAccess.h>
 
 namespace Nektar::Operators
 {
 
 enum BasisDataType
 {
-    eUnknown         = 0,
-    eBasis           = 1,
-    eBasisDerivative = 2,
-    eWeights         = 3,
-    eZeros           = 4,
-    eDerivative      = 5,
+    eUnknown,
+    eBasis,
+    eBasisDerivative,
+    eDerivative,
+    eInterp,
+    eWeights,
+    eZeros,
     eHalfMultOnePlusZero,
     eTwoOverOneMinusZero
 };
@@ -70,7 +72,7 @@ size_t GetGeometricFactorSize(
 template <typename MemSpace, typename TDataIn, typename TDataOut = TDataIn>
 MemoryRegion<TDataOut> GetBasisData(
     const LibUtilities::BasisSharedPtr &basis, BasisDataType basisDataType,
-    size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__)
+    size_t alignment = __STDCPP_DEFAULT_NEW_ALIGNMENT__, double factor = 1.0)
 {
     switch (basisDataType)
     {
@@ -86,6 +88,28 @@ MemoryRegion<TDataOut> GetBasisData(
             return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetDbdata(), alignment);
+            break;
+        }
+        case eDerivative:
+        {
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
+                                                              TDataIn>(
+                basis->GetD()->GetPtr(), alignment);
+        }
+        break;
+        case eInterp:
+        {
+            int np = (int)(factor);
+            LibUtilities::PointsKey pkey(np, basis->GetPointsType());
+
+            // Need points manager to get correct interpolation matrix
+            auto I = LibUtilities::PointsManager()[basis->GetPointsKey()]
+                         ->GetI(pkey)
+                         ->GetPtr();
+
+            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
+                                                              TDataIn>(
+                I, alignment);
             break;
         }
         case eWeights:
@@ -164,13 +188,6 @@ MemoryRegion<TDataOut> GetBasisData(
             return MemoryRegion<TDataOut>::template FromArray<MemSpace,
                                                               TDataIn>(
                 basis->GetZ(), alignment);
-        }
-        break;
-        case eDerivative:
-        {
-            return MemoryRegion<TDataOut>::template FromArray<MemSpace,
-                                                              TDataIn>(
-                basis->GetD()->GetPtr(), alignment);
         }
         break;
         case eHalfMultOnePlusZero:
