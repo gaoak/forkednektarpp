@@ -36,10 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
-#include "Operators/Common/Spaces.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -50,146 +46,87 @@ using ScratchMemoryView =
                  Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransSegKernel(
-    const unsigned int nm0, const unsigned int nq0, const unsigned int nelmt,
+KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nq0,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    TData *KOKKOS_RESTRICT out)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int i = 0u; i < nq0; ++i)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-
-        for (unsigned int i = 0u; i < nq0; ++i)
+        TData tmp = 0.0;
+        for (unsigned int p = 0u; p < nm0; ++p)
         {
-            TData tmp = 0.0;
-            for (unsigned int p = 0u; p < nm0; ++p)
-            {
-                tmp += in[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                       basis0[p * nq0 + i];
-            }
-            out[nq0 * warpsize * iwarp + warpsize * i + ilane] = tmp;
+            tmp += in[warpsize * p + ilane] * basis0[p * nq0 + i];
         }
-
-        e += team.team_size() * team.league_size();
+        out[warpsize * i + ilane] = tmp;
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransSegKernel_QP(
+KOKKOS_INLINE_FUNCTION static void BwdTransSegSumFacQPKernel(
     const unsigned int nm0, const unsigned int nq0,
-    [[maybe_unused]] const unsigned int nelmt,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT in,
     TData *KOKKOS_RESTRICT out, const team_handle &team)
 {
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nm0 * e;
-    TData *outptr        = out + nq0 * e;
-
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
                          [&](const unsigned int &i) {
                              TData tmp = 0.0;
                              for (unsigned int p = 0u; p < nm0; p++)
                              {
-                                 tmp += inptr[p] * basis0[p * nq0 + i];
+                                 tmp += in[p] * basis0[p * nq0 + i];
                              }
-                             outptr[i] = tmp;
+                             out[i] = tmp;
                          });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransQuadKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    TData *KOKKOS_RESTRICT wsp, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, const team_handle &team)
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    TData *KOKKOS_RESTRICT wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1;
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int i = 0u; i < nq0; ++i)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-
-        for (unsigned int i = 0u; i < nq0; ++i)
+        // direction 0
+        for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
         {
-            // direction 0
-            for (unsigned int q = 0u, cnt_qp = 0u; q < nm1; ++q)
+            TData tmp = 0.0;
+            for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
             {
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
-                {
-                    tmp += in[nmTot * warpsize * iwarp + warpsize * cnt_qp +
-                              ilane] *
-                           basis0[p * nq0 + i];
-                }
-                wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] = tmp;
+                tmp += in[warpsize * cnt_qp + ilane] * basis0[p * nq0 + i];
             }
-
-            // direction 1
-            for (unsigned int j = 0u; j < nq1; ++j)
-            {
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < nm1; ++q)
-                {
-                    tmp += wsp[nm1 * warpsize * iwarp + warpsize * q + ilane] *
-                           basis1[q * nq1 + j];
-                }
-                out[nqTot * warpsize * iwarp + warpsize * (nq0 * j + i) +
-                    ilane] = tmp;
-            }
+            wsp[warpsize * q + ilane] = tmp;
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < nm1; ++q)
+            {
+                tmp += wsp[warpsize * q + ilane] * basis1[q * nq1 + j];
+            }
+            out[warpsize * (nq0 * j + i) + ilane] = tmp;
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransQuadKernel_QP(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nelmt,
+KOKKOS_INLINE_FUNCTION static void BwdTransQuadSumFacQPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nqTot,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    TData *KOKKOS_RESTRICT wsp, const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = s_wsp1 + nm1 * nq0;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm1 * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
-
     // direction 0
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0 * nm1),
                          [&](const unsigned int &idx) {
@@ -200,9 +137,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransQuadKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int p = 0u; p < nm0; ++p, ++cnt_qp)
                              {
-                                 tmp += s_wsp0[cnt_qp] * s_basis0[p * nq0 + i];
+                                 tmp += in[cnt_qp] * basis0[p * nq0 + i];
                              }
-                             s_wsp1[idx] = tmp;
+                             wsp[idx] = tmp;
                          });
 
     team.team_barrier();
@@ -217,108 +154,66 @@ KOKKOS_INLINE_FUNCTION static void BwdTransQuadKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int q = 0u; q < nm1; ++q, ++cnt_iq)
                              {
-                                 tmp += s_wsp1[cnt_iq] * s_basis1[q * nq1 + j];
+                                 tmp += wsp[cnt_iq] * basis1[q * nq1 + j];
                              }
-                             outptr[idx] = tmp;
+                             out[idx] = tmp;
                          });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTriKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
-    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, TData *KOKKOS_RESTRICT wsp,
+KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nq0, const unsigned int nq1, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    TData *KOKKOS_RESTRICT wsp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1;
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-
-        for (unsigned int j = 0u, cnt_ji = 0u; j < nq1; ++j)
+        // direction 1
+        for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
         {
-            // direction 1
-            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+            TData tmp = 0.0;
+            for (unsigned int q = 0u; q < (nm1 - p); ++q, ++mode_pq)
             {
-                TData tmp = 0.0;
-                for (unsigned int q = 0u; q < (nm1 - p); ++q, ++mode_pq)
-                {
-                    tmp += in[nmTot * warpsize * iwarp + warpsize * mode_pq +
-                              ilane] *
-                           basis1[mode_pq * nq1 + j];
-                }
-                wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
+                tmp +=
+                    in[warpsize * mode_pq + ilane] * basis1[mode_pq * nq1 + j];
             }
-
-            // direction 0
-            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
-            {
-                TData tmp = 0.0;
-                for (unsigned int p = 0u; p < nm0; ++p)
-                {
-                    tmp += wsp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                           basis0[p * nq0 + i];
-                }
-
-                if (isModified)
-                {
-                    tmp += in[nmTot * warpsize * iwarp + warpsize + ilane] *
-                           basis0[nq0 + i] * basis1[nq1 + j];
-                }
-
-                out[nqTot * warpsize * iwarp + warpsize * cnt_ji + ilane] = tmp;
-            }
+            wsp[warpsize * p + ilane] = tmp;
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 0
+        for (unsigned int i = 0u; i < nq0; ++i, ++cnt_ji)
+        {
+            TData tmp = 0.0;
+
+            if (isModified)
+            {
+                tmp += in[warpsize + ilane] * basis0[nq0 + i] * basis1[nq1 + j];
+            }
+
+            for (unsigned int p = 0u; p < nm0; ++p)
+            {
+                tmp += wsp[warpsize * p + ilane] * basis0[p * nq0 + i];
+            }
+
+            out[warpsize * cnt_ji + ilane] = tmp;
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTriKernel_QP(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
-    const unsigned int nq0, const unsigned int nq1,
-    [[maybe_unused]] const unsigned int nelmt, const bool isModified,
+KOKKOS_INLINE_FUNCTION static void BwdTransTriSumFacQPKernel(
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
+    const unsigned int nq1, const unsigned int nqTot, const bool isModified,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    TData *KOKKOS_RESTRICT wsp, const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_basis0 = s_wsp1 + nm0 * nq1;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
-
     // direction 1
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange(team, nm0 * nq1), [&](const unsigned int &idx) {
@@ -329,9 +224,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTriKernel_QP(
             TData tmp = 0.0;
             for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
             {
-                tmp += s_basis1[mode_pq * nq1 + j] * s_wsp0[mode_pq];
+                tmp += in[mode_pq] * basis1[mode_pq * nq1 + j];
             }
-            s_wsp1[idx] = tmp;
+            wsp[idx] = tmp;
         });
 
     team.team_barrier();
@@ -347,139 +242,85 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTriKernel_QP(
 
             if (isModified)
             {
-                tmp += s_wsp0[1] * s_basis0[nq0 + i] * s_basis1[nq1 + j];
+                tmp += in[1] * basis0[nq0 + i] * basis1[nq1 + j];
             }
 
             for (unsigned int p = 0u; p < nm0; ++p, ++cnt_jp)
             {
-                tmp += s_wsp1[cnt_jp] * s_basis0[p * nq0 + i];
+                tmp += wsp[cnt_jp] * basis0[p * nq0 + i];
             }
 
-            outptr[idx] = tmp;
+            out[idx] = tmp;
         });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransHexKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
+KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT wsp2)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int i = 0u; i < nq0; ++i)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-        TData *wsp1        = wsp;
-        TData *wsp2        = wsp1 + (nm1 * nm2) * nelmt;
-
-        for (unsigned int i = 0u; i < nq0; ++i)
+        // direction 0
+        for (unsigned int r = 0u, cnt_rqp = 0u, cnt_rq = 0u; r < nm2; ++r)
         {
-            // direction 0
-            for (unsigned int r = 0u, cnt_rqp = 0u, cnt_rq = 0u; r < nm2; ++r)
+            for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
             {
-                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
+                TData tmp = 0.0;
+                for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
                 {
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * cnt_rqp + ilane] *
-                               basis0[p * nq0 + i];
-                    }
-                    wsp1[nm1 * nm2 * warpsize * iwarp + warpsize * cnt_rq +
-                         ilane] = tmp;
+                    tmp += in[warpsize * cnt_rqp + ilane] * basis0[p * nq0 + i];
                 }
-            }
-
-            // direction 1
-            for (unsigned int j = 0u; j < nq1; ++j)
-            {
-                for (unsigned int r = 0u, cnt_rq = 0u; r < nm2; ++r)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
-                    {
-                        tmp += wsp1[nm1 * nm2 * warpsize * iwarp +
-                                    warpsize * cnt_rq + ilane] *
-                               basis1[q * nq1 + j];
-                    }
-                    wsp2[nm2 * warpsize * iwarp + warpsize * r + ilane] = tmp;
-                }
-
-                // direction 2
-                for (unsigned int k = 0u; k < nq2; ++k)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2; ++r)
-                    {
-                        tmp += wsp2[nm2 * warpsize * iwarp + warpsize * r +
-                                    ilane] *
-                               basis2[r * nq2 + k];
-                    }
-                    out[nqTot * warpsize * iwarp +
-                        warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
-                }
+                wsp1[warpsize * cnt_rq + ilane] = tmp;
             }
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            for (unsigned int r = 0u, cnt_rq = 0u; r < nm2; ++r)
+            {
+                TData tmp = 0.0;
+                for (unsigned int q = 0u; q < nm1; ++q, ++cnt_rq)
+                {
+                    tmp +=
+                        wsp1[warpsize * cnt_rq + ilane] * basis1[q * nq1 + j];
+                }
+                wsp2[warpsize * r + ilane] = tmp;
+            }
+
+            // direction 2
+            for (unsigned int k = 0u; k < nq2; ++k)
+            {
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2; ++r)
+                {
+                    tmp += wsp2[warpsize * r + ilane] * basis2[r * nq2 + k];
+                }
+                out[warpsize * (k * nq1 * nq0 + j * nq0 + i) + ilane] = tmp;
+            }
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransHexKernel_QP(
+KOKKOS_INLINE_FUNCTION static void BwdTransHexSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, [[maybe_unused]] const unsigned int nelmt,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nqTot, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
+    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    TData *KOKKOS_RESTRICT wsp1, TData *KOKKOS_RESTRICT wsp2,
     const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
-    TData *s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-    TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm1 * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm2 * nq2),
-        [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
-
     // direction 0
     Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0 * nm1 * nm2),
                          [&](const unsigned int &idx) {
@@ -491,9 +332,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransHexKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int p = 0u; p < nm0; ++p, ++cnt_rqp)
                              {
-                                 tmp += s_wsp0[cnt_rqp] * s_basis0[p * nq0 + i];
+                                 tmp += in[cnt_rqp] * basis0[p * nq0 + i];
                              }
-                             s_wsp1[idx] = tmp;
+                             wsp1[idx] = tmp;
                          });
 
     team.team_barrier();
@@ -509,9 +350,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransHexKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int q = 0u; q < nm1; ++q, ++cnt_irq)
                              {
-                                 tmp += s_wsp1[cnt_irq] * s_basis1[q * nq1 + j];
+                                 tmp += wsp1[cnt_irq] * basis1[q * nq1 + j];
                              }
-                             s_wsp2[idx] = tmp;
+                             wsp2[idx] = tmp;
                          });
 
     team.team_barrier();
@@ -527,175 +368,114 @@ KOKKOS_INLINE_FUNCTION static void BwdTransHexKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int r = 0u; r < nm2; ++r, ++cnt_jir)
                              {
-                                 tmp += s_wsp2[cnt_jir] * s_basis2[r * nq2 + k];
+                                 tmp += wsp2[cnt_jir] * basis2[r * nq2 + k];
                              }
-                             outptr[idx] = tmp;
+                             out[idx] = tmp;
                          });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTetKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
+    TData *KOKKOS_RESTRICT fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-
-    team.team_barrier();
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-        TData *fpq         = wsp;
-        TData *fp          = fpq + nm01 * nelmt;
-
-        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        // direction 2
+        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+             p < nm0; ++p)
         {
-            // direction 2
-            for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
-                 p < nm0; ++p)
+            for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
             {
-                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2 - p - q;
+                     ++r, ++mode2, ++mode_pqr)
                 {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p - q;
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * mode_pqr + ilane] *
-                               basis2[nq2 * mode2 + k];
-                    }
-                    fpq[nm01 * warpsize * iwarp + warpsize * mode_pq + ilane] =
-                        tmp;
+                    tmp += in[warpsize * mode_pqr + ilane] *
+                           basis2[nq2 * mode2 + k];
                 }
-
-                // increment mode in case order1!=order2
-                for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
-                {
-                    mode2 += nm2 - p - q;
-                }
+                fpq[warpsize * mode_pq + ilane] = tmp;
             }
 
-            // direction 1
-            for (unsigned int j = 0u; j < nq1; ++j)
+            // increment mode in case order1!=order2
+            for (unsigned int q = nm1 - p; q < nm2 - p; ++q)
             {
-                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
-                    {
-                        tmp += fpq[nm01 * warpsize * iwarp +
-                                   warpsize * mode_pq + ilane] *
-                               basis1[mode_pq * nq1 + j];
-                    }
-                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
-                }
-
-                // direction 0
-                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p)
-                    {
-                        tmp +=
-                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 *
-                               in[nmTot * warpsize * iwarp + warpsize + ilane];
-
-                        // bottom vertex
-                        tmp1 = basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[k];
-                        tmp += tmp1 * in[nmTot * warpsize * iwarp +
-                                         warpsize * nm2 + ilane];
-
-                        // singular edge
-                        for (unsigned int r = 1u; r < nm2 - 1u; ++r)
-                        {
-                            tmp1 = basis1[nq1 + j] * basis0[nq0 + i];
-                            tmp1 *= basis2[(r + 1u) * nq2 + k];
-                            tmp += tmp1 * in[nmTot * warpsize * iwarp +
-                                             warpsize * (nm2 + r) + ilane];
-                        }
-                    }
-
-                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
-                        tmp;
-                }
+                mode2 += nm2 - p - q;
             }
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+            {
+                TData tmp = 0.0;
+                for (unsigned int q = 0u; q < nm1 - p; ++q, ++mode_pq)
+                {
+                    tmp += fpq[warpsize * mode_pq + ilane] *
+                           basis1[mode_pq * nq1 + j];
+                }
+                fp[warpsize * p + ilane] = tmp;
+            }
+
+            // direction 0
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                TData tmp = 0.0;
+
+                if (isModified)
+                {
+                    // top vertex
+                    tmp += basis0[i] * basis1[nq1 + j];
+                    tmp += basis0[nq0 + i] * basis1[j];
+                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp *= basis2[nq2 + k] * in[warpsize + ilane];
+
+                    // bottom vertex
+                    TData tmp1 = basis2[k] * in[warpsize * nm2 + ilane];
+
+                    // singular edge
+                    for (unsigned int r = 1u; r < nm2 - 1u; ++r)
+                    {
+                        tmp1 += basis2[(r + 1u) * nq2 + k] *
+                                in[warpsize * (nm2 + r) + ilane];
+                    }
+                    tmp += basis1[nq1 + j] * basis0[nq0 + i] * tmp1;
+                }
+
+                for (unsigned int p = 0u; p < nm0; ++p)
+                {
+                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
+                }
+
+                out[warpsize * cnt_kji + ilane] = tmp;
+            }
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransTetKernel_QP(
+KOKKOS_INLINE_FUNCTION static void BwdTransTetSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, [[maybe_unused]] const unsigned int nelmt,
-    const bool isModified, const unsigned int *KOKKOS_RESTRICT pindex,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nqTot, const bool isModified,
+    const unsigned int *KOKKOS_RESTRICT pindex,
     const unsigned int *KOKKOS_RESTRICT qindex,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
     const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
-    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT shmemptr,
-    const team_handle &team)
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp1,
+    TData *KOKKOS_RESTRICT wsp2, const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm01  = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + nm01 * nq2;
-    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-    TData *s_basis2 = s_basis1 + nm01 * nq1;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm01 * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmode2 * nq2),
-        [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
+    const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
 
     // direction 2
     Kokkos::parallel_for(
@@ -716,9 +496,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetKernel_QP(
             TData tmp = 0.0;
             for (unsigned int r = 0u; r < nm2 - p - q; ++r, ++mode2, ++mode_pqr)
             {
-                tmp += s_wsp0[mode_pqr] * s_basis2[k + nq2 * mode2];
+                tmp += in[mode_pqr] * basis2[k + nq2 * mode2];
             }
-            s_wsp1[idx] = tmp;
+            wsp1[idx] = tmp;
         });
 
     team.team_barrier();
@@ -736,9 +516,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetKernel_QP(
             TData tmp = 0.0;
             for (unsigned int q = 0u; q < nm1 - p; ++q, ++cnt_kpq, ++mode_pq)
             {
-                tmp += s_wsp1[cnt_kpq] * s_basis1[mode_pq * nq1 + j];
+                tmp += wsp1[cnt_kpq] * basis1[mode_pq * nq1 + j];
             }
-            s_wsp2[idx] = tmp;
+            wsp2[idx] = tmp;
         });
 
     team.team_barrier();
@@ -756,169 +536,114 @@ KOKKOS_INLINE_FUNCTION static void BwdTransTetKernel_QP(
             if (isModified)
             {
                 // top vertex
-                tmp += s_basis0[i] * s_basis1[nq1 + j];
-                tmp += s_basis0[nq0 + i] * s_basis1[j];
-                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp *= s_basis2[nq2 + k] * s_wsp0[1];
+                tmp += basis0[i] * basis1[nq1 + j];
+                tmp += basis0[nq0 + i] * basis1[j];
+                tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                tmp *= basis2[nq2 + k] * in[1];
 
                 // bottom vertex
-                TData tmp1 = s_basis2[k] * s_wsp0[nm2];
+                TData tmp1 = basis2[k] * in[nm2];
 
                 // singular edge
                 for (unsigned int r = 1u; r < nm2 - 1u; ++r)
                 {
-                    tmp1 += s_basis2[(r + 1u) * nq2 + k] * s_wsp0[nm2 + r];
+                    tmp1 += basis2[(r + 1u) * nq2 + k] * in[nm2 + r];
                 }
-                tmp += s_basis1[nq1 + j] * s_basis0[nq0 + i] * tmp1;
+                tmp += basis1[nq1 + j] * basis0[nq0 + i] * tmp1;
             }
 
             for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
             {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
+                tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
             }
 
-            outptr[idx] = tmp;
+            out[idx] = tmp;
         });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPrismKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
+    TData *KOKKOS_RESTRICT fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    team.team_barrier();
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-        TData *fpq         = wsp;
-        TData *fp          = fpq + nm0 * nm1 * nelmt;
-
-        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        // direction 2
+        for (unsigned int p = 0u, mode_pr = 0u, mode_pq = 0u, mode_pqr = 0u;
+             p < nm0; ++p)
         {
-            // direction 2
-            for (unsigned int p = 0u, mode_pr = 0u, mode_pq = 0u, mode_pqr = 0u;
-                 p < nm0; ++p)
+            for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
             {
-                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
                 {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * mode_pqr + ilane] *
-                               basis2[(mode_pr + r) * nq2 + k];
-                    }
-                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
-                        ilane] = tmp;
+                    tmp += in[warpsize * mode_pqr + ilane] *
+                           basis2[(mode_pr + r) * nq2 + k];
                 }
-                mode_pr += nm2 - p;
+                fpq[warpsize * mode_pq + ilane] = tmp;
             }
-
-            // direction 1
-            for (unsigned int j = 0u; j < nq1; ++j)
-            {
-                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-                    {
-                        tmp += fpq[nm0 * nm1 * warpsize * iwarp +
-                                   warpsize * mode_pq + ilane] *
-                               basis1[q * nq1 + j];
-                    }
-                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
-                }
-
-                // direction 0
-                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p)
-                    {
-                        tmp +=
-                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        for (unsigned int q = 0u; q < nm1; ++q)
-                        {
-                            tmp += basis2[nq2 + k] * basis1[q * nq1 + j] *
-                                   basis0[nq0 + i] *
-                                   in[nmTot * warpsize * iwarp +
-                                      warpsize * (nm2 * q + 1u) + ilane];
-                        }
-                    }
-
-                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
-                        tmp;
-                }
-            }
+            mode_pr += nm2 - p;
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+            {
+                TData tmp = 0.0;
+                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
+                {
+                    tmp +=
+                        fpq[warpsize * mode_pq + ilane] * basis1[q * nq1 + j];
+                }
+                fp[warpsize * p + ilane] = tmp;
+            }
+
+            // direction 0
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                TData tmp = 0.0;
+
+                if (isModified)
+                {
+                    for (unsigned int q = 0u; q < nm1; ++q)
+                    {
+                        tmp += basis1[q * nq1 + j] *
+                               in[warpsize * (nm2 * q + 1u) + ilane];
+                    }
+                    tmp *= basis2[nq2 + k] * basis0[nq0 + i];
+                }
+
+                for (unsigned int p = 0u; p < nm0; ++p)
+                {
+                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
+                }
+
+                out[warpsize * cnt_kji + ilane] = tmp;
+            }
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPrismKernel_QP(
+KOKKOS_INLINE_FUNCTION static void BwdTransPrismSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, [[maybe_unused]] const unsigned int nelmt,
-    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nqTot, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp1,
+    TData *KOKKOS_RESTRICT wsp2, const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nm12  = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
-    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-    TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm1 * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm12 * nq2),
-        [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
-
     // direction 2
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange(team, nm0 * nm1 * nq2),
@@ -932,9 +657,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismKernel_QP(
             TData tmp = 0.0;
             for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode_pqr, ++mode_pr)
             {
-                tmp += s_wsp0[mode_pqr] * s_basis2[mode_pr * nq2 + k];
+                tmp += in[mode_pqr] * basis2[mode_pr * nq2 + k];
             }
-            s_wsp1[idx] = tmp;
+            wsp1[idx] = tmp;
         });
 
     team.team_barrier();
@@ -950,10 +675,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
                              {
-                                 tmp +=
-                                     s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
+                                 tmp += wsp1[mode_kpq] * basis1[q * nq1 + j];
                              }
-                             s_wsp2[idx] = tmp;
+                             wsp2[idx] = tmp;
                          });
 
     team.team_barrier();
@@ -972,165 +696,108 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPrismKernel_QP(
             {
                 for (unsigned int q = 0u; q < nm1; ++q)
                 {
-                    tmp += s_basis1[q * nq1 + j] * s_wsp0[q * nm2 + 1u];
+                    tmp += in[q * nm2 + 1u] * basis1[q * nq1 + j];
                 }
-                tmp *= s_basis2[nq2 + k] * s_basis0[nq0 + i];
+                tmp *= basis2[nq2 + k] * basis0[nq0 + i];
             }
 
             for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
             {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
+                tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
             }
 
-            outptr[idx] = tmp;
+            out[idx] = tmp;
         });
 
     team.team_barrier();
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
+KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacKernel(
+    const unsigned int ilane, const unsigned int nm0, const unsigned int nm1,
+    const unsigned int nm2, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const bool isModified,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2, TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    const team_handle &team)
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT fpq,
+    TData *KOKKOS_RESTRICT fp)
 {
     constexpr unsigned int warpsize = NektarSpaces::vector_width<TData>::value;
 
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-
-    team.team_barrier();
-
-    unsigned int e = team.league_rank() * team.team_size() + team.team_rank();
-
-    while (e < nelmt)
+    for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
     {
-        unsigned int iwarp = e / warpsize;
-        unsigned int ilane = e % warpsize;
-        TData *fpq         = wsp;
-        TData *fp          = fpq + nm0 * nm1 * nelmt;
-
-        for (unsigned int k = 0u, cnt_kji = 0u; k < nq2; ++k)
+        // direction 2
+        for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
+             p < nm0; ++p)
         {
-            // direction 2
-            for (unsigned int p = 0u, mode_pq = 0u, mode2 = 0u, mode_pqr = 0u;
-                 p < nm0; ++p)
+            for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
             {
-                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
+                TData tmp = 0.0;
+                for (unsigned int r = 0u; r < nm2 - std::max(p, q);
+                     ++r, ++mode2, ++mode_pqr)
                 {
-                    TData tmp = 0.0;
-                    for (unsigned int r = 0u; r < nm2 - std::max(p, q);
-                         ++r, ++mode2, ++mode_pqr)
-                    {
-                        tmp += in[nmTot * warpsize * iwarp +
-                                  warpsize * mode_pqr + ilane] *
-                               basis2[mode2 * nq2 + k];
-                    }
-                    fpq[nm0 * nm1 * warpsize * iwarp + warpsize * mode_pq +
-                        ilane] = tmp;
+                    tmp += in[warpsize * mode_pqr + ilane] *
+                           basis2[mode2 * nq2 + k];
                 }
-
-                // increment mode in case nm2>nm1
-                for (unsigned int q = nm1; q < nm2; ++q)
-                {
-                    mode2 += nm2 - q;
-                }
+                fpq[warpsize * mode_pq + ilane] = tmp;
             }
 
-            // direction 1
-            for (unsigned int j = 0u; j < nq1; ++j)
+            // increment mode in case nm2>nm1
+            for (unsigned int q = nm1; q < nm2; ++q)
             {
-                for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
-                    {
-                        tmp += fpq[nm0 * nm1 * warpsize * iwarp +
-                                   warpsize * mode_pq + ilane] *
-                               basis1[q * nq1 + j];
-                    }
-                    fp[nm0 * warpsize * iwarp + warpsize * p + ilane] = tmp;
-                }
-
-                // direction 0
-                for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
-                {
-                    TData tmp = 0.0;
-                    for (unsigned int p = 0u; p < nm0; ++p)
-                    {
-                        tmp +=
-                            fp[nm0 * warpsize * iwarp + warpsize * p + ilane] *
-                            basis0[p * nq0 + i];
-                    }
-
-                    if (isModified)
-                    {
-                        // top vertex
-                        TData tmp1 = basis0[i] * basis1[nq1 + j];
-                        tmp1 += basis0[nq0 + i] * basis1[j];
-                        tmp1 += basis0[nq0 + i] * basis1[nq1 + j];
-                        tmp1 *= basis2[nq2 + k];
-                        tmp += tmp1 *
-                               in[nmTot * warpsize * iwarp + warpsize + ilane];
-                    }
-
-                    out[nqTot * warpsize * iwarp + warpsize * cnt_kji + ilane] =
-                        tmp;
-                }
+                mode2 += nm2 - q;
             }
         }
 
-        e += team.team_size() * team.league_size();
+        // direction 1
+        for (unsigned int j = 0u; j < nq1; ++j)
+        {
+            for (unsigned int p = 0u, mode_pq = 0u; p < nm0; ++p)
+            {
+                TData tmp = 0.0;
+                for (unsigned int q = 0u; q < nm1; ++q, ++mode_pq)
+                {
+                    tmp +=
+                        fpq[warpsize * mode_pq + ilane] * basis1[q * nq1 + j];
+                }
+                fp[warpsize * p + ilane] = tmp;
+            }
+
+            // direction 0
+            for (unsigned int i = 0u; i < nq0; ++i, ++cnt_kji)
+            {
+                TData tmp = 0.0;
+
+                if (isModified)
+                {
+                    // top vertex
+                    tmp += basis0[i] * basis1[nq1 + j];
+                    tmp += basis0[nq0 + i] * basis1[j];
+                    tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                    tmp *= basis2[nq2 + k] * in[warpsize + ilane];
+                }
+
+                for (unsigned int p = 0u; p < nm0; ++p)
+                {
+                    tmp += fp[warpsize * p + ilane] * basis0[p * nq0 + i];
+                }
+
+                out[warpsize * cnt_kji + ilane] = tmp;
+            }
+        }
     }
 }
 
 template <typename TData>
-KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel_QP(
+KOKKOS_INLINE_FUNCTION static void BwdTransPyrSumFacQPKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
-    const unsigned int nq2, [[maybe_unused]] const unsigned int nelmt,
-    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT basis2,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
-    TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
+    const unsigned int nqTot, const bool isModified,
+    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, TData *KOKKOS_RESTRICT wsp1,
+    TData *KOKKOS_RESTRICT wsp2, const team_handle &team)
 {
-    const unsigned int nqTot = nq0 * nq1 * nq2;
-    const unsigned int nmode2 =
-        nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-    TData *s_wsp0   = shmemptr;
-    TData *s_wsp1   = s_wsp0 + nmTot;
-    TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-    TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-    TData *s_basis1 = s_basis0 + nm0 * nq0;
-    TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-    // Copy to shared memory.
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm0 * nq0),
-        [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nm1 * nq1),
-        [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmode2 * nq2),
-        [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-    // Copy to shared memory.
-    const unsigned int e = team.league_rank();
-    const TData *inptr   = in + nmTot * e;
-    TData *outptr        = out + nqTot * e;
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nmTot),
-        [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-    team.team_barrier();
-
     // direction 2
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange(team, nm0 * nm1 * nq2),
@@ -1152,9 +819,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel_QP(
                 TData tmp = 0.0;
                 for (unsigned int r = 0u; r < nm2 - p; ++r, ++mode2, ++mode_pqr)
                 {
-                    tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
+                    tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
                 }
-                s_wsp1[idx] = tmp;
+                wsp1[idx] = tmp;
             }
             else
             {
@@ -1165,9 +832,9 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel_QP(
                 TData tmp = 0.0;
                 for (unsigned int r = 0u; r < nm2 - q; ++r, ++mode2, ++mode_pqr)
                 {
-                    tmp += s_wsp0[mode_pqr] * s_basis2[mode2 * nq2 + k];
+                    tmp += in[mode_pqr] * basis2[mode2 * nq2 + k];
                 }
-                s_wsp1[idx] = tmp;
+                wsp1[idx] = tmp;
             }
         });
 
@@ -1184,40 +851,39 @@ KOKKOS_INLINE_FUNCTION static void BwdTransPyrKernel_QP(
                              TData tmp = 0.0;
                              for (unsigned int q = 0u; q < nm1; ++q, ++mode_kpq)
                              {
-                                 tmp +=
-                                     s_wsp1[mode_kpq] * s_basis1[q * nq1 + j];
+                                 tmp += wsp1[mode_kpq] * basis1[q * nq1 + j];
                              }
-                             s_wsp2[idx] = tmp;
+                             wsp2[idx] = tmp;
                          });
 
     team.team_barrier();
 
     // direction 0
-    Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(team, nqTot), [&](const unsigned int &idx) {
-            const unsigned int i  = idx % nq0;
-            const unsigned int j  = (idx / nq0) % nq1;
-            const unsigned int k  = idx / (nq0 * nq1);
-            unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
+                         [&](const unsigned int &idx) {
+                             const unsigned int i  = idx % nq0;
+                             const unsigned int j  = (idx / nq0) % nq1;
+                             const unsigned int k  = idx / (nq0 * nq1);
+                             unsigned int mode_kjp = nm0 * nq1 * k + nm0 * j;
 
-            TData tmp = 0.0;
+                             TData tmp = 0.0;
 
-            if (isModified)
-            {
-                // top vertex
-                tmp += s_basis0[i] * s_basis1[nq1 + j];
-                tmp += s_basis0[nq0 + i] * s_basis1[j];
-                tmp += s_basis0[nq0 + i] * s_basis1[nq1 + j];
-                tmp *= s_basis2[nq2 + k] * s_wsp0[1];
-            }
+                             if (isModified)
+                             {
+                                 // top vertex
+                                 tmp += basis0[i] * basis1[nq1 + j];
+                                 tmp += basis0[nq0 + i] * basis1[j];
+                                 tmp += basis0[nq0 + i] * basis1[nq1 + j];
+                                 tmp *= basis2[nq2 + k] * in[1];
+                             }
 
-            for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
-            {
-                tmp += s_wsp2[mode_kjp] * s_basis0[p * nq0 + i];
-            }
+                             for (unsigned int p = 0u; p < nm0; ++p, ++mode_kjp)
+                             {
+                                 tmp += wsp2[mode_kjp] * basis0[p * nq0 + i];
+                             }
 
-            outptr[idx] = tmp;
-        });
+                             out[idx] = tmp;
+                         });
 
     team.team_barrier();
 }
@@ -1231,51 +897,136 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans1DKernel(
 {
     if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        BwdTransSegKernel(nm0, nq0, nelmt, basis0, in, out, team);
+        constexpr unsigned int warpsize =
+            NektarSpaces::vector_width<TData>::value;
+
+        unsigned int e =
+            team.league_rank() * team.team_size() + team.team_rank();
+        while (e < nelmt)
+        {
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *inptr       = in + nm0 * warpsize * iwarp;
+            TData *outptr            = out + nq0 * warpsize * iwarp;
+            BwdTransSegSumFacKernel(ilane, nm0, nq0, basis0, inptr, outptr);
+            e += team.team_size() * team.league_size();
+        }
     }
-    else
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        BwdTransSegKernel_QP(nm0, nq0, nelmt, basis0, in, out, team);
+        const unsigned int e = team.league_rank();
+
+        const TData *inptr = in + nm0 * e;
+        TData *outptr      = out + nq0 * e;
+        BwdTransSegSumFacQPKernel(nm0, nq0, basis0, inptr, outptr, team);
     }
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
-    const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
-    const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
+    const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
+    const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
+    const bool isModified, const TData *KOKKOS_RESTRICT basis0,
+    const TData *KOKKOS_RESTRICT basis1,
     [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+    const unsigned int nqTot = nq0 * nq1;
 
-    if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        constexpr unsigned int warpsize =
+            NektarSpaces::vector_width<TData>::value;
+
+        unsigned int e =
+            team.league_rank() * team.team_size() + team.team_rank();
+        while (e < nelmt)
         {
-            BwdTransQuadKernel(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0, basis1,
-                               wsp, in, out, team);
-        }
-        else
-        {
-            BwdTransQuadKernel_QP(nm0, nm1, nmTot, nq0, nq1, nelmt, basis0,
-                                  basis1, in, out, shmemptr, team);
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *inptr       = in + nmTot * warpsize * iwarp;
+            TData *outptr            = out + nqTot * warpsize * iwarp;
+            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+            {
+                TData *wspptr = wsp + nm1 * warpsize * iwarp;
+                BwdTransQuadSumFacKernel(ilane, nm0, nm1, nq0, nq1, basis0,
+                                         basis1, inptr, outptr, wspptr);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+            {
+                TData *wspptr = wsp + nm0 * warpsize * iwarp;
+                BwdTransTriSumFacKernel(ilane, nm0, nm1, nq0, nq1, isModified,
+                                        basis0, basis1, inptr, outptr, wspptr);
+            }
+            e += team.team_size() * team.league_size();
         }
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            BwdTransTriKernel(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                              basis0, basis1, wsp, in, out, team);
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_basis0 = s_wsp1 + nm1 * nq0;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm1 * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
+                                       s_basis1, s_wsp0, outptr, s_wsp1, team);
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            BwdTransTriKernel_QP(nm0, nm1, nmTot, nq0, nq1, nelmt, isModified,
-                                 basis0, basis1, in, out, shmemptr, team);
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_basis0 = s_wsp1 + nm0 * nq1;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
+                                      s_basis0, s_basis1, s_wsp0, outptr,
+                                      s_wsp1, team);
         }
     }
 }
@@ -1284,8 +1035,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename Implementation,
           typename TData>
 KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
-    const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified,
+    const unsigned int nmTot, const unsigned int nq0, const unsigned int nq1,
+    const unsigned int nq2, const unsigned int nelmt, const bool isModified,
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
@@ -1294,66 +1045,226 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
     const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
     [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
-    const unsigned int nmTot =
-        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+    const unsigned int nqTot = nq0 * nq1 * nq2;
 
-    if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+    if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
     {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        constexpr unsigned int warpsize =
+            NektarSpaces::vector_width<TData>::value;
+
+        unsigned int e =
+            team.league_rank() * team.team_size() + team.team_rank();
+        while (e < nelmt)
         {
-            BwdTransHexKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                              basis0, basis1, basis2, wsp, in, out, team);
-        }
-        else
-        {
-            BwdTransHexKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 basis0, basis1, basis2, in, out, shmemptr,
-                                 team);
+            const unsigned int ilane = e % warpsize;
+            const unsigned int iwarp = e / warpsize;
+            const TData *inptr       = in + nmTot * warpsize * iwarp;
+            TData *outptr            = out + nqTot * warpsize * iwarp;
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+            {
+                TData *wsp1 = wsp + nm1 * nm2 * warpsize * iwarp;
+                TData *wsp2 =
+                    wsp + (nm1 * nm2) * nelmt + nm2 * warpsize * iwarp;
+
+                BwdTransHexSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        basis0, basis1, basis2, inptr, outptr,
+                                        wsp1, wsp2);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+
+                TData *fpq = wsp + nm01 * warpsize * iwarp;
+                TData *fp  = wsp + nm01 * nelmt + nm0 * warpsize * iwarp;
+
+                BwdTransTetSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, basis0, basis1, basis2,
+                                        inptr, outptr, fpq, fp);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+            {
+                TData *fpq = wsp + nm0 * nm1 * warpsize * iwarp;
+                TData *fp  = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
+
+                BwdTransPrismSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                          isModified, basis0, basis1, basis2,
+                                          inptr, outptr, fpq, fp);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            {
+                TData *fpq = wsp + nm0 * nm1 * warpsize * iwarp;
+                TData *fp  = wsp + nm0 * nm1 * nelmt + nm0 * warpsize * iwarp;
+
+                BwdTransPyrSumFacKernel(ilane, nm0, nm1, nm2, nq0, nq1, nq2,
+                                        isModified, basis0, basis1, basis2,
+                                        inptr, outptr, fpq, fp);
+            }
+            e += team.team_size() * team.league_size();
         }
     }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+    else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            BwdTransTetKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                              isModified, basis0, basis1, basis2, wsp, in, out,
-                              team);
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
+            TData *s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            TData *s_basis2 = s_basis1 + nm1 * nq1;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm1 * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm2 * nq2),
+                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                      s_basis0, s_basis1, s_basis2, s_wsp0,
+                                      outptr, s_wsp1, s_wsp2, team);
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            BwdTransTetKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 isModified, index0, index1, basis0, basis1,
-                                 basis2, in, out, shmemptr, team);
+            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            const unsigned int nmode2 =
+                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_wsp2   = s_wsp1 + nm01 * nq2;
+            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            TData *s_basis2 = s_basis1 + nm01 * nq1;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm01 * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                      isModified, index0, index1, s_basis0,
+                                      s_basis1, s_basis2, s_wsp0, outptr,
+                                      s_wsp1, s_wsp2, team);
         }
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-    {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            BwdTransPrismKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                isModified, basis0, basis1, basis2, wsp, in,
-                                out, team);
+            const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
+
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
+            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            TData *s_basis2 = s_basis1 + nm1 * nq1;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm1 * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm12 * nq2),
+                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransPrismSumFacQPKernel(
+                nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, team);
         }
-        else
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            BwdTransPrismKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                   isModified, basis0, basis1, basis2, in, out,
-                                   shmemptr, team);
-        }
-    }
-    else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-    {
-        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
-        {
-            BwdTransPyrKernel(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                              isModified, basis0, basis1, basis2, wsp, in, out,
-                              team);
-        }
-        else
-        {
-            BwdTransPyrKernel_QP(nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt,
-                                 isModified, basis0, basis1, basis2, in, out,
-                                 shmemptr, team);
+            TData *s_wsp0   = shmemptr;
+            TData *s_wsp1   = s_wsp0 + nmTot;
+            TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
+            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            TData *s_basis2 = s_basis1 + nm1 * nq1;
+
+            // Copy to shared memory.
+            const unsigned int nmode2 =
+                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm0 * nq0),
+                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nm1 * nq1),
+                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmode2 * nq2),
+                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
+
+            const unsigned int e = team.league_rank();
+
+            const TData *inptr = in + nmTot * e;
+            TData *outptr      = out + nqTot * e;
+
+            // Copy to shared memory.
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange(team, nmTot),
+                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+            team.team_barrier();
+
+            BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                      isModified, s_basis0, s_basis1, s_basis2,
+                                      s_wsp0, outptr, s_wsp1, s_wsp2, team);
         }
     }
 }
@@ -1405,6 +1316,9 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const TData *basis0, const TData *basis1, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
+
     constexpr unsigned int slevel = 0u;
     const unsigned int nshared =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nm0,
@@ -1421,8 +1335,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
         KOKKOS_LAMBDA(const team_handle &team) {
             ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
             BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
-                nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in,
-                out, shmem.data(), team);
+                nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
+                wsp, in, out, shmem.data(), team);
         });
 }
 
@@ -1453,6 +1367,9 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
     const TData *in, TData *out)
 {
+    const unsigned int nmTot =
+        LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
     constexpr unsigned int slevel = 0u;
     const unsigned int nshared =
         BwdTransSharedMemorySize<SHAPE_TYPE, Implementation>(nq0, nq1, nq2, nm0,
@@ -1469,8 +1386,9 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
         KOKKOS_LAMBDA(const team_handle &team) {
             ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
             BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
-                nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1,
-                basis0, basis1, basis2, wsp, in, out, shmem.data(), team);
+                nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
+                index1, basis0, basis1, basis2, wsp, in, out, shmem.data(),
+                team);
         });
 }
 
