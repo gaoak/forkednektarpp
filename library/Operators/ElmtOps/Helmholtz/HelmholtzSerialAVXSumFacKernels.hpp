@@ -34,9 +34,9 @@
 
 #pragma once
 
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 

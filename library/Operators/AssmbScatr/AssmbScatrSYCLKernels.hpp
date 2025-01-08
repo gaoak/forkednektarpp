@@ -45,7 +45,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *signPtr, const TData *inPtr, TData *outPtr)
+               const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -59,8 +59,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 
                  while (i < nsize)
                  {
-                     TData *const ptr = outPtr + assmbPtr[i];
-                     const TData val  = signPtr[i] * inPtr[i];
+                     TData *const ptr = outptr + assmbPtr[i];
+                     const TData val  = signPtr[i] * inptr[i];
                      Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
                          ptr, val);
                      i += indx.get_global_range(0);
@@ -73,7 +73,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
-               const TData *inPtr, TData *outPtr)
+               const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -87,8 +87,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
 
                  while (i < nsize)
                  {
-                     TData *const ptr = outPtr + assmbPtr[i];
-                     const TData val  = sign * inPtr[i];
+                     TData *const ptr = outptr + assmbPtr[i];
+                     const TData val  = sign * inptr[i];
                      Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
                          ptr, val);
                      i += indx.get_global_range(0);
@@ -101,7 +101,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *inPtr, TData *outPtr)
+               const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -115,8 +115,8 @@ AssembleKernel(const unsigned int nsize, const int *assmbPtr,
 
                  while (i < nsize)
                  {
-                     TData *const ptr = outPtr + assmbPtr[i];
-                     const TData val  = inPtr[i];
+                     TData *const ptr = outptr + assmbPtr[i];
+                     const TData val  = inptr[i];
                      Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
                          ptr, val);
                      i += indx.get_global_range(0);
@@ -129,7 +129,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *signPtr, const TData *inPtr, TData *outPtr)
+                    const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -142,7 +142,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
                               while (i < nsize)
                               {
-                                  outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
+                                  outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });
@@ -153,7 +153,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData sign, const TData *inPtr, TData *outPtr)
+                    const TData sign, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -166,7 +166,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
                               while (i < nsize)
                               {
-                                  outPtr[i] = sign * inPtr[assmbPtr[i]];
+                                  outptr[i] = sign * inptr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });
@@ -177,7 +177,7 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::SYCL>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *inPtr, TData *outPtr)
+                    const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -190,7 +190,7 @@ GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
 
                               while (i < nsize)
                               {
-                                  outPtr[i] = inPtr[assmbPtr[i]];
+                                  outptr[i] = inptr[assmbPtr[i]];
                                   i += indx.get_global_range(0);
                               }
                           });

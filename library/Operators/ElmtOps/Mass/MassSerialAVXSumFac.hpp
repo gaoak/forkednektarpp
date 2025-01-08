@@ -37,13 +37,11 @@
 
 #pragma once
 
-#include <LibUtilities/Foundations/Basis.h>
-
-#include "Common/OperatorHelper.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorMass.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "ElmtOps/Mass/MassSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/Mass/MassSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -259,9 +257,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // loop over componnets
         for (size_t nc = 0; nc < m_nComps; ++nc)
@@ -273,18 +271,18 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut);
+                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 
@@ -341,9 +339,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         // loop over componnets
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -354,18 +352,18 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
-                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, tmpIn, bwd);
+                BwdTrans1DKernel<SHAPE_TYPE>(nm0, nq0, B0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, bwdvec, B0, W0, jacPtr, tmpOut);
+                    nm0, nq0, bwdvec, B0, W0, jacPtr, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 
@@ -441,9 +439,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -454,20 +452,20 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
-                                             B1, wsp0, tmpIn, bwd);
+                                             B1, wsp0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacPtr, wsp0, tmpOut);
+                    jacPtr, wsp0, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 
@@ -539,9 +537,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -552,20 +550,20 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
                 BwdTrans2DKernel<SHAPE_TYPE>(nm0, nm1, nq0, nq1, isModified, B0,
-                                             B1, wsp0, tmpIn, bwd);
+                                             B1, wsp0, inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nq0, nq1, isModified, bwdvec, B0, B1, W0, W1,
-                    jacPtr, wsp0, tmpOut);
+                    jacPtr, wsp0, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 
@@ -652,9 +650,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -665,21 +663,21 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                              isModified, B0, B1, B2, wsp0, wsp1,
-                                             tmpIn, bwd);
+                                             inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 
@@ -759,9 +757,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -772,21 +770,21 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // Step 1: BwdTrans.
                 BwdTrans3DKernel<SHAPE_TYPE>(nm0, nm1, nm2, nq0, nq1, nq2,
                                              isModified, B0, B1, B2, wsp0, wsp1,
-                                             tmpIn, bwd);
+                                             inptr, bwd);
                 // Step 2: Inner product for mass matrix operation.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, isModified, bwdvec, B0, B1,
-                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, tmpOut);
+                    B2, W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
 
                 jacPtr += jacSize;
-                tmpIn += nmTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nmTot * simd_t::width;
             }
         }
 

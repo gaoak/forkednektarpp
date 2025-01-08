@@ -34,10 +34,8 @@
 
 #pragma once
 
-#include <LibUtilities/BasicUtils/ShapeType.hpp>
-
 #include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorPhysInterp1DScaled.hpp"
+#include "Operators/ElmtOps/OperatorPhysInterp1DScaled.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
 // interpolation is just a bwd trans from a nodal basis so using these kernels
@@ -251,7 +249,7 @@ private:
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -271,9 +269,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -283,15 +281,15 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, basis0, tmpIn, tmpOut);
+                BwdTransSegKernel(nm0, nq0, B0, inptr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }
@@ -314,7 +312,7 @@ private:
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -334,9 +332,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -346,15 +344,15 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransSegKernel(nm0, nq0, basis0, tmpIn, tmpOut);
+                BwdTransSegKernel(nm0, nq0, B0, inptr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }
@@ -376,8 +374,8 @@ private:
         LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
         LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -399,9 +397,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -410,16 +408,16 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp0,
-                                   tmpIn, tmpOut);
+                BwdTransQuadKernel(nm0, nm1, nq0, nq1, B0, B1, wsp0, inptr,
+                                   outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }
@@ -450,8 +448,8 @@ private:
         LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
         LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -473,9 +471,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -484,16 +482,16 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransQuadKernel(nm0, nm1, nq0, nq1, basis0, basis1, wsp0,
-                                   tmpIn, tmpOut);
+                BwdTransQuadKernel(nm0, nm1, nq0, nq1, B0, B1, wsp0, inptr,
+                                   outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }
@@ -519,9 +517,9 @@ private:
         LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
         LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -545,9 +543,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -556,16 +554,16 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1,
-                                  basis2, wsp0, wsp1, tmpIn, tmpOut);
+                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, B0, B1, B2,
+                                  wsp0, wsp1, inptr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }
@@ -603,9 +601,9 @@ private:
         LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
         LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
 
         // Get interleave parameter.
         unsigned int interleave_width = inblock.GetInterleaveWidth();
@@ -629,9 +627,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -640,16 +638,16 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        interleave_width, chunkSize, nmTot, (TData *)tmpIn);
+                        interleave_width, chunkSize, nmTot, (TData *)inptr);
                 }
 
                 // PhysInterp1DScaled kernel.
-                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, basis0, basis1,
-                                  basis2, wsp0, wsp1, tmpIn, tmpOut);
+                BwdTransHexKernel(nm0, nm1, nm2, nq0, nq1, nq2, B0, B1, B2,
+                                  wsp0, wsp1, inptr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nmTot;
-                tmpOut += nqTot * simd_t::width;
+                inptr += nmTot;
+                outptr += nqTot * simd_t::width;
             }
         }
     }

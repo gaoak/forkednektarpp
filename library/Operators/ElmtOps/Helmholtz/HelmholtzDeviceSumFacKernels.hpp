@@ -1,6 +1,7 @@
+
 ///////////////////////////////////////////////////////////////////////////////
 //
-// File: AddTraceIntegralKokkosKernels.hpp
+// File: HelmholtzDeviceSumFacKernels.hpp
 //
 // For more information, please see: http://www.nektar.info
 //
@@ -34,44 +35,6 @@
 
 #pragma once
 
-#if defined(NEKTAR_ENABLE_KOKKOS)
-
-#include "Operators/LoopExecution/LoopExecution.hpp"
-
-namespace Nektar::Operators::detail
-{
-
-template <typename ExecSpace, typename TData>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-AddTraceIntegralKernel(const unsigned int nsize,
-                       const int *traceCoeffsToElmtMapPtr,
-                       const int *traceCoeffsToElmtSignPtr,
-                       const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outptr)
-{
-    const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
-
-    Kokkos::parallel_for(
-        Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
-        KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outptr + traceCoeffsToElmtMapPtr[i],
-                               traceCoeffsToElmtSignPtr[i] *
-                                   tracePtr[traceCoeffsToElmtTracePtr[i]]);
-        });
-}
-
-// Launchers
-template <typename ExecSpace>
-inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
-                               void>::type
-ReOrderMapKernel([[maybe_unused]] const unsigned int nsize,
-                 [[maybe_unused]] int *traceCoeffsToElmtMapPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtSignPtr,
-                 [[maybe_unused]] int *traceCoeffsToElmtTracePtr)
-{
-}
-
-} // namespace Nektar::Operators::detail
-
-#endif
+#include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzKokkosSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernels.hpp"

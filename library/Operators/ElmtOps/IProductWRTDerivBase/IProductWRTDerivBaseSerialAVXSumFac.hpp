@@ -34,16 +34,11 @@
 
 #pragma once
 
-#include <LibUtilities/Foundations/Basis.h>
-
-#include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
-#if !defined(NEKTAR_USE_DERIV_BASE)
-#include "ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
-#endif
+#include "Operators/ElmtOps/IProductWRTDerivBase/IProductWRTDerivBaseSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -245,7 +240,7 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -279,9 +274,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -295,23 +290,23 @@ private:
                     {
                         ReshapeStorage<ExecSpace, simd_t::width>(
                             in_interleave_width, chunkSize, nq0,
-                            (TData *)(tmpIn +
+                            (TData *)(inptr +
                                       n * inblock.GetNumElmtGroups() * nq0));
                     }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nm0, tmpOut);
+                        out_interleave_width, chunkSize, nm0, outptr);
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
                                               inblock.GetNumElmtGroups() * nq0,
-                                              tmpIn, tmpPtr);
+                                              inptr, tmpPtr);
                 IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
-                    dbasis0, W0, jacPtr, tmpOut);
+                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, DB0,
+                    W0, jacPtr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nq0;
-                tmpOut += nm0 * simd_t::width;
+                inptr += nq0;
+                outptr += nm0 * simd_t::width;
                 jacPtr += jacSize;
                 dfPtr += jacSize * ncoord;
             }
@@ -336,7 +331,7 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -370,9 +365,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -386,23 +381,23 @@ private:
                     {
                         ReshapeStorage<ExecSpace, simd_t::width>(
                             in_interleave_width, chunkSize, nq0,
-                            (TData *)(tmpIn +
+                            (TData *)(inptr +
                                       n * inblock.GetNumElmtGroups() * nq0));
                     }
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nm0, tmpOut);
+                        out_interleave_width, chunkSize, nm0, outptr);
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
                                               inblock.GetNumElmtGroups() * nq0,
-                                              tmpIn, tmpPtr);
+                                              inptr, tmpPtr);
                 IProductSegKernel<false, false, DEFORMED>(
-                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr,
-                    dbasis0, W0, jacPtr, tmpOut);
+                    nm0, nq0, (const typename simd_t::vectorType *)tmpPtr, DB0,
+                    W0, jacPtr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nq0;
-                tmpOut += nm0 * simd_t::width;
+                inptr += nq0;
+                outptr += nm0 * simd_t::width;
                 jacPtr += jacSize;
                 dfPtr += jacSize * ncoord;
             }
@@ -441,9 +436,9 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D0 =
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -494,9 +489,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -517,27 +512,27 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
-                        tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                        inptr, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
                     SumDerivTensor2DKernel<DEFORMED, simd_t>(
                         nq0, nq1,
                         (const typename simd_t::vectorType *)tmpPtr[0],
                         (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
                         jacPtr, D0, D1, tmp2Ptr);
                     IProductQuadKernel<false, false, simd_t>(
-                        nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp,
-                        tmpOut, 1.0, colldir0, colldir1);
+                        nm0, nm1, nq0, nq1, tmp2vec, B0, B1, wsp, outptr, 1.0,
+                        colldir0, colldir1);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -559,34 +554,34 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
-                        tmpIn, tmpPtr, F0, F1);
+                        inptr, tmpPtr, F0, F1);
                     SumDerivTensor2DKernel<DEFORMED, simd_t>(
                         nq0, nq1,
                         (const typename simd_t::vectorType *)tmpPtr[0],
                         (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
                         jacPtr, D0, D1, tmp2Ptr);
                     IProductTriKernel<false, false, simd_t>(
-                        nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
-                        wsp, tmpOut);
+                        nm0, nm1, nq0, nq1, isModified, tmp2vec, B0, B1, wsp,
+                        outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
             }
             // advance input by ncoord-1 componennts since have already
             // advanced one component in the above
-            tmpIn += nqTot * NumElmtGroups * (ncoord - 1);
+            inptr += nqTot * NumElmtGroups * (ncoord - 1);
         }
     }
 
@@ -617,9 +612,9 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto D0 =
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -669,9 +664,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -692,27 +687,27 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
-                        tmpIn, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
+                        inptr, tmpPtr, (simd_t *)nullptr, (simd_t *)nullptr);
                     SumDerivTensor2DKernel<DEFORMED, simd_t>(
                         nq0, nq1,
                         (const typename simd_t::vectorType *)tmpPtr[0],
                         (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
                         jacPtr, D0, D1, tmp2Ptr);
                     IProductQuadKernel<false, false, simd_t>(
-                        nm0, nm1, nq0, nq1, tmp2vec, basis0, basis1, wsp,
-                        tmpOut, 1.0, colldir0, colldir1);
+                        nm0, nm1, nq0, nq1, tmp2vec, B0, B1, wsp, outptr, 1.0,
+                        colldir0, colldir1);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -734,34 +729,34 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, ncoord, dfPtr, df_tmp, NumElmtGroups * nqTot,
-                        tmpIn, tmpPtr, F0, F1);
+                        inptr, tmpPtr, F0, F1);
                     SumDerivTensor2DKernel<DEFORMED, simd_t>(
                         nq0, nq1,
                         (const typename simd_t::vectorType *)tmpPtr[0],
                         (const typename simd_t::vectorType *)tmpPtr[1], W0, W1,
                         jacPtr, D0, D1, tmp2Ptr);
                     IProductTriKernel<false, false, simd_t>(
-                        nm0, nm1, nq0, nq1, isModified, tmp2vec, basis0, basis1,
-                        wsp, tmpOut);
+                        nm0, nm1, nq0, nq1, isModified, tmp2vec, B0, B1, wsp,
+                        outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
             }
             // advance input by ncoord-1 componennts since have already
             // advanced one component in the above
-            tmpIn += nqTot * NumElmtGroups * (ncoord - 1);
+            inptr += nqTot * NumElmtGroups * (ncoord - 1);
         }
     }
 
@@ -798,11 +793,11 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto D0 =
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -858,9 +853,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -882,14 +877,14 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
-                                                   NumElmtGroups * nqTot, tmpIn,
+                                                   NumElmtGroups * nqTot, inptr,
                                                    tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
@@ -898,13 +893,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductHexKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
-                        basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
-                        colldir2);
+                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, B0, B1, B2, wsp,
+                        wsp0, outptr, 1.0, colldir0, colldir1, colldir2);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -930,15 +924,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        F1, F1a, F2, tmpIn, tmpPtr);
+                        F1, F1a, F2, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
@@ -946,12 +940,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductTetKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -975,15 +969,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        F1, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                        F1, (simd_t *)nullptr, F2, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
@@ -991,12 +985,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductPyrKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -1020,15 +1014,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn,
+                        (simd_t *)nullptr, (simd_t *)nullptr, F2, inptr,
                         tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
@@ -1037,19 +1031,19 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductPrismKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, wsp1, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
             }
             // advance input by ncoord-1 componennts since have already
             // advanced one component in the above
-            tmpIn += nqTot * NumElmtGroups * 2;
+            inptr += nqTot * NumElmtGroups * 2;
         }
     }
 
@@ -1079,11 +1073,11 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto D0 =
             m_derivativeMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -1138,10 +1132,10 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
 
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -1163,14 +1157,14 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
-                                                   NumElmtGroups * nqTot, tmpIn,
+                                                   NumElmtGroups * nqTot, inptr,
                                                    tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
@@ -1179,13 +1173,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductHexKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, basis0, basis1,
-                        basis2, wsp, wsp0, tmpOut, 1.0, colldir0, colldir1,
-                        colldir2);
+                        nm0, nm1, nm2, nq0, nq1, nq2, tmp3vec, B0, B1, B2, wsp,
+                        wsp0, outptr, 1.0, colldir0, colldir1, colldir2);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -1211,15 +1204,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        F1, F1a, F2, tmpIn, tmpPtr);
+                        F1, F1a, F2, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
@@ -1227,12 +1220,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductTetKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -1256,15 +1249,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        F1, (simd_t *)nullptr, F2, tmpIn, tmpPtr);
+                        F1, (simd_t *)nullptr, F2, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
@@ -1272,12 +1265,12 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductPyrKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
@@ -1301,15 +1294,15 @@ private:
                         {
                             ReshapeStorage<ExecSpace, simd_t::width>(
                                 in_interleave_width, chunkSize, nqTot,
-                                (TData *)(tmpIn + n * NumElmtGroups * nqTot));
+                                (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
                         ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, tmpOut);
+                            out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
                     StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
                         nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot, F0,
-                        (simd_t *)nullptr, (simd_t *)nullptr, F2, tmpIn,
+                        (simd_t *)nullptr, (simd_t *)nullptr, F2, inptr,
                         tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
@@ -1318,19 +1311,19 @@ private:
                         (const typename simd_t::vectorType *)tmpPtr[2], W0, W1,
                         W2, jacPtr, D0, D1, D2, tmp3Ptr);
                     IProductPrismKernel<false, false, simd_t>(
-                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec,
-                        basis0, basis1, basis2, wsp, wsp0, wsp1, tmpOut);
+                        nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmp3vec, B0,
+                        B1, B2, wsp, wsp0, wsp1, outptr);
 
                     // Increment pointers for the next elmt group.
-                    tmpIn += nqTot;
-                    tmpOut += nmTot * simd_t::width;
+                    inptr += nqTot;
+                    outptr += nmTot * simd_t::width;
                     jacPtr += jacSize;
                     dfPtr += jacSize * ndf;
                 }
             }
             // advance input by ncoord-1 componennts since have already
             // advanced one component in the above
-            tmpIn += nqTot * NumElmtGroups * 2;
+            inptr += nqTot * NumElmtGroups * 2;
         }
     }
 };

@@ -47,10 +47,10 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
-                     const TData *inPtr, TData *outPtr)
+                     const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] += inPtr[i];
+        outptr[mapPtr[i]] += inptr[i];
     });
 }
 
@@ -60,10 +60,10 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                     const int *mapPtr, const TData *inPtr, TData *outPtr)
+                     const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(0u, bndExpSize, [&](const unsigned int i) {
-        outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
+        outptr[mapPtr[i]] += signPtr[i] * inptr[i];
     });
 }
 

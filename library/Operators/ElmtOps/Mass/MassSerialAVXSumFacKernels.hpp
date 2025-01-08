@@ -35,5 +35,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+#pragma once
+
+#include "Operators/ElmtOps/BwdTrans/BwdTransSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"

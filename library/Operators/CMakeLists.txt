@@ -346,14 +346,7 @@ ENDMACRO()
 
 # Common header file.
 SET(OPERATORS_HEADERS
-    Field/Field.hpp
-    Field/MemoryRegionHost.hpp
-    Field/MemoryRegionDevice.hpp
-    LoopExecution/LoopExecution.hpp
     Common/Operator.hpp
-    Common/OperatorHelper.hpp
-    Common/Spaces.hpp
-    MathKernels/MathKernels.hpp
     )
 
 # Common source file.

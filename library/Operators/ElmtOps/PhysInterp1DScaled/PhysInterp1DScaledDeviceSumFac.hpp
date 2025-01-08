@@ -273,7 +273,7 @@ private:
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -291,8 +291,8 @@ private:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
-                                                        basis0, inptr, outptr);
+            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, B0,
+                                                        inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -312,7 +312,7 @@ private:
         LibUtilities::PointsKey p0(nq0, b0.GetPointsType());
         LibUtilities::BasisKey b0new(b0.GetBasisType(), nm0, p0);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -330,8 +330,8 @@ private:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
-                                                        basis0, inptr, outptr);
+            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, B0,
+                                                        inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -352,8 +352,8 @@ private:
         LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
         LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -387,8 +387,8 @@ private:
                 (TData *)inptr);
 
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, basis0, basis1, wspptr,
-                inptr, outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
+                outptr);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -419,8 +419,8 @@ private:
         LibUtilities::PointsKey p1(nq1, b1.GetPointsType());
         LibUtilities::BasisKey b1new(b1.GetBasisType(), nm1, p1);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
@@ -454,8 +454,8 @@ private:
                 (TData *)inptr);
 
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, basis0, basis1, wspptr,
-                inptr, outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
+                outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -479,9 +479,9 @@ private:
         LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
         LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -516,7 +516,7 @@ private:
 
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, basis0, basis1, basis2, wspptr, inptr, outptr);
+                nullptr, B0, B1, B2, wspptr, inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -552,9 +552,9 @@ private:
         LibUtilities::PointsKey p2(nq2, b2.GetPointsType());
         LibUtilities::BasisKey b2new(b2.GetBasisType(), nm2, p2);
 
-        auto basis0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
+        auto B0 = m_interpMap[b0new].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 = m_interpMap[b1new].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 = m_interpMap[b2new].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
@@ -589,7 +589,7 @@ private:
 
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, basis0, basis1, basis2, wspptr, inptr, outptr);
+                nullptr, B0, B1, B2, wspptr, inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

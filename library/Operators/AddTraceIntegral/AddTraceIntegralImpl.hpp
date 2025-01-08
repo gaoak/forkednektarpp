@@ -236,7 +236,7 @@ public:
                 if (nFwdBwdCoeffsBlock > 0)
                 {
                     // Initialize pointers.
-                    auto outPtr = out.GetBlocks()[blk0]
+                    auto outptr = out.GetBlocks()[blk0]
                                       .template GetPtr<MemSpace, ReadWrite>();
                     auto traceCoeffsToElmtSignPtr =
                         m_traceCoeffsToElmtSign[blk1][blk0]
@@ -251,7 +251,7 @@ public:
                     AddTraceIntegralKernel<ExecSpace>(
                         nFwdBwdCoeffsBlock, traceCoeffsToElmtMapPtr,
                         traceCoeffsToElmtSignPtr, traceCoeffsToElmtTracePtr,
-                        tracePtr, outPtr);
+                        tracePtr, outptr);
                 }
             }
         }

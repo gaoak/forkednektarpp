@@ -37,7 +37,7 @@
 
 #include <LocalRegions/Expansion.h>
 
-#include "ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
+#include "Operators/ElmtOps/OperatorMultiplyByElmtInvMass.hpp"
 #include "Operators/LoopExecution/LoopExecution.hpp"
 
 namespace Nektar::Operators::detail

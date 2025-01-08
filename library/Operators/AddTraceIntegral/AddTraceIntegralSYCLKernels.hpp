@@ -48,7 +48,7 @@ AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
                        const int *traceCoeffsToElmtSignPtr,
                        const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outPtr)
+                       const TData *tracePtr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::SYCL::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
@@ -62,7 +62,7 @@ AddTraceIntegralKernel(const unsigned int nsize,
 
                  while (i < nsize)
                  {
-                     TData *const ptr = outPtr + traceCoeffsToElmtMapPtr[i];
+                     TData *const ptr = outptr + traceCoeffsToElmtMapPtr[i];
                      const TData val  = traceCoeffsToElmtSignPtr[i] *
                                        tracePtr[traceCoeffsToElmtTracePtr[i]];
                      Nektar::atomic_add<ExecSpace, NektarSpaces::GlobalScope>(
