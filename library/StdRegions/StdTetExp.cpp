@@ -922,9 +922,10 @@ NekDouble StdTetExp::v_PhysEvaluateBasis(
            StdExpansion::BaryEvaluateBasis<2>(coll[2], mode2);
 }
 
-NekDouble StdTetExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                                    const Array<OneD, const NekDouble> &inarray,
-                                    std::array<NekDouble, 3> &firstOrderDerivs)
+NekDouble StdTetExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
 {
     // Collapse coordinates
     Array<OneD, NekDouble> coll(3, 0.0);

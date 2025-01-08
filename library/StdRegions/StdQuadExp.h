@@ -177,13 +177,10 @@ protected:
         Array<OneD, NekDouble> &coords_2) override;
     STD_REGIONS_EXPORT NekDouble v_PhysEvaluateBasis(
         const Array<OneD, const NekDouble> &coords, int mode) override;
-    STD_REGIONS_EXPORT inline NekDouble v_PhysEvaluate(
-        const Array<OneD, NekDouble> &coord,
-        const Array<OneD, const NekDouble> &inarray,
-        std::array<NekDouble, 3> &firstOrderDerivs) override
-    {
-        return BaryTensorDeriv(coord, inarray, firstOrderDerivs);
-    }
+    STD_REGIONS_EXPORT NekDouble
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
 
     //--------------------------
     // Mappings

@@ -1241,9 +1241,10 @@ void StdHexExp::v_GetBoundaryMap(Array<OneD, unsigned int> &outarray)
     sort(outarray.data(), outarray.data() + nBndCoeffs);
 }
 
-NekDouble StdHexExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                                    const Array<OneD, const NekDouble> &inarray,
-                                    std::array<NekDouble, 3> &firstOrderDerivs)
+NekDouble StdHexExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
 {
     return BaryTensorDeriv(coord, inarray, firstOrderDerivs);
 }

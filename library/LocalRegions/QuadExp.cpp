@@ -565,14 +565,15 @@ NekDouble QuadExp::v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
     return StdExpansion2D::v_PhysEvaluate(Lcoord, physvals);
 }
 
-NekDouble QuadExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                                  const Array<OneD, const NekDouble> &inarray,
-                                  std::array<NekDouble, 3> &firstOrderDerivs)
+NekDouble QuadExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(2);
     ASSERTL0(m_geom, "m_geom not defined");
     m_geom->GetLocCoords(coord, Lcoord);
-    return StdQuadExp::v_PhysEvaluate(Lcoord, inarray, firstOrderDerivs);
+    return StdQuadExp::v_PhysEvalFirstDeriv(Lcoord, inarray, firstOrderDerivs);
 }
 
 void QuadExp::v_GetTracePhysVals(

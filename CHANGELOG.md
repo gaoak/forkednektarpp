@@ -14,10 +14,12 @@ v5.8.0
 - Patch for implicit-function error in scotch-6.0.4 (!1938)
 - Tidy virtual inheritance in NodalTriExp (!1979)
 - Fix partial overload virtual function in AssemblyMap, StdRegions, and LocalRegions (!1978)
+- Fix partial overload virtual function v_PhysEvaluate (!1980)
 
 **CI**
 - Fix CubeAllElements performance test tolerance (!1943)
 - Remove `allow_failure` from compiler warnings and formatting (!1958, !1966)
+- remove CI image tag when dockerhub deploy completes (!1960)
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)

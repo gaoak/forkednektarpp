@@ -90,17 +90,6 @@ protected:
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,
                    const Array<OneD, const NekDouble> &physvals) override;
 
-    STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
-
-    STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs,
-                   std::array<NekDouble, 6> &secondOrderDerivs) override;
-
     STD_REGIONS_EXPORT void v_PhysInterp(
         std::shared_ptr<StdExpansion> fromExp,
         const Array<OneD, const NekDouble> &fromData,

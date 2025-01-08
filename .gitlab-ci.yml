@@ -917,6 +917,26 @@ win10-mpi-default-build-and-test:
     - docker push $DH_IMAGE:$CI_COMMIT_SHORT_SHA
     - docker push $DH_IMAGE:latest
     - docker rmi $DH_IMAGE:$CI_COMMIT_SHORT_SHA $DH_IMAGE:latest
+    - docker rmi $CI_IMAGE
+
+# This cleans up the local temporary image if not deploying
+.dockerhub-cleanup-template: &dockerhub_cleanup_template
+  image: docker:stable
+  stage: package-deploy
+#  except:
+#    refs:
+#      - master@nektar/nektar
+#      - tags@nektar/nektar
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - CI_IMAGE=$CI_REGISTRY_IMAGE/${image_name}:$CI_COMMIT_SHORT_SHA
+    - docker rmi $CI_IMAGE
+    - apk update
+    - apk add curl
+    - curl --fail-with-body --location "https://www.nektar.info/thirdparty/regctl" > /usr/bin/regctl
+    - chmod 755 /usr/bin/regctl
+    - regctl registry login ${CI_REGISTRY} -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD}
+    - regctl tag rm $CI_IMAGE
 
 # Docker pushrm template: used to automatically deploy the README.md files to
 # the Dockerhub description of each image.
@@ -1079,3 +1099,52 @@ dockerhub-pushrm-nekmesh:
   variables:
     image_name: nekmesh
     short_description: Image for the high-order mesh generator NekMesh.
+
+# Cleanup (if not deploying)
+dockerhub-cleanup-nekmesh:
+  <<: *dockerhub_cleanup_template
+  needs: 
+    - job: dockerhub-build-nekmesh
+    - job: dockerhub-deploy-nekmesh
+      optional: true
+  variables:
+    image_name: nekmesh
+
+dockerhub-cleanup-workbook:
+  <<: *dockerhub_cleanup_template
+  needs:
+    - job: dockerhub-build-workbook
+    - job: dockerhub-deploy-nektar-workbook
+      optional: true
+  variables:
+    image_name: nektar-workbook
+
+dockerhub-cleanup-nektar-dev:
+  <<: *dockerhub_cleanup_template
+  needs:
+    - job: dockerhub-test-nektar-dev
+    - job: dockerhub-deploy-nektar-dev
+      optional: true
+  variables:
+    image_name: nektar-dev
+
+dockerhub-cleanup-nektar:
+  <<: *dockerhub_cleanup_template
+  needs: 
+    - job: dockerhub-test-nektar
+    - job: dockerhub-cleanup-nektar-dev
+    - job: dockerhub-deploy-nektar
+      optional: true
+  variables:
+    image_name: nektar
+
+dockerhub-cleanup-nektar-env:
+  <<: *dockerhub_cleanup_template
+  needs: 
+    - job: dockerhub-cleanup-nektar
+    - job: dockerhub-cleanup-nektar-dev
+    - job: dockerhub-cleanup-nekmesh
+    - job: dockerhub-deploy-nektar-env
+      optional: true
+  variables:
+    image_name: nektar-env

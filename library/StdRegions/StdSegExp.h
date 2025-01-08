@@ -111,23 +111,15 @@ protected:
         Array<OneD, NekDouble> &xi) override;
     STD_REGIONS_EXPORT NekDouble v_PhysEvaluateBasis(
         const Array<OneD, const NekDouble> &coords, int mode) final;
-    STD_REGIONS_EXPORT inline NekDouble v_PhysEvaluate(
+    STD_REGIONS_EXPORT NekDouble
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
+    STD_REGIONS_EXPORT NekDouble v_PhysEvalFirstSecondDeriv(
         const Array<OneD, NekDouble> &coord,
         const Array<OneD, const NekDouble> &inarray,
-        std::array<NekDouble, 3> &firstOrderDerivs) override
-    {
-        return StdExpansion1D::BaryTensorDeriv(coord, inarray,
-                                               firstOrderDerivs);
-    }
-    STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs,
-                   std::array<NekDouble, 6> &secondOrderDerivs) override
-    {
-        return StdExpansion1D::BaryTensorDeriv(coord, inarray, firstOrderDerivs,
-                                               secondOrderDerivs);
-    }
+        std::array<NekDouble, 3> &firstOrderDerivs,
+        std::array<NekDouble, 6> &secondOrderDerivs) override;
     STD_REGIONS_EXPORT void v_LaplacianMatrixOp(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray, const StdMatrixKey &mkey) override;

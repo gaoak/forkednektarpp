@@ -788,9 +788,67 @@ void StdPyrExp::v_GetCoords(Array<OneD, NekDouble> &xi_x,
     }
 }
 
-NekDouble StdPyrExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                                    const Array<OneD, const NekDouble> &inarray,
-                                    std::array<NekDouble, 3> &firstOrderDerivs)
+NekDouble StdPyrExp::v_PhysEvaluateBasis(
+    const Array<OneD, const NekDouble> &coords, int mode)
+{
+    Array<OneD, NekDouble> coll(3);
+    LocCoordToLocCollapsed(coords, coll);
+
+    const int nm0 = m_base[0]->GetNumModes();
+    const int nm1 = m_base[1]->GetNumModes();
+    const int nm2 = m_base[2]->GetNumModes();
+
+    int mode0 = 0, mode1 = 0, mode2 = 0, cnt = 0;
+
+    bool found = false;
+    for (mode0 = 0; mode0 < nm0; ++mode0)
+    {
+        for (mode1 = 0; mode1 < nm1; ++mode1)
+        {
+            int maxpq = max(mode0, mode1);
+            for (mode2 = 0; mode2 < nm2 - maxpq; ++mode2, ++cnt)
+            {
+                if (cnt == mode)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found)
+            {
+                break;
+            }
+        }
+
+        if (found)
+        {
+            break;
+        }
+
+        for (int j = nm1; j < nm2; ++j)
+        {
+            int ijmax = max(mode0, j);
+            mode2 += nm2 - ijmax;
+        }
+    }
+
+    if (mode == 1 && m_base[0]->GetBasisType() == LibUtilities::eModified_A)
+    {
+        return StdExpansion::BaryEvaluateBasis<2>(coll[2], 1);
+    }
+    else
+    {
+        return StdExpansion::BaryEvaluateBasis<0>(coll[0], mode0) *
+               StdExpansion::BaryEvaluateBasis<1>(coll[1], mode1) *
+               StdExpansion::BaryEvaluateBasis<2>(coll[2], mode2);
+    }
+}
+
+NekDouble StdPyrExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
 {
     // Collapse coordinates
     Array<OneD, NekDouble> coll(3, 0.0);
@@ -869,63 +927,6 @@ void StdPyrExp::v_GetTraceNumModes(const int fid, int &numModes0,
     if (faceOrient >= 9)
     {
         std::swap(numModes0, numModes1);
-    }
-}
-
-NekDouble StdPyrExp::v_PhysEvaluateBasis(
-    const Array<OneD, const NekDouble> &coords, int mode)
-{
-    Array<OneD, NekDouble> coll(3);
-    LocCoordToLocCollapsed(coords, coll);
-
-    const int nm0 = m_base[0]->GetNumModes();
-    const int nm1 = m_base[1]->GetNumModes();
-    const int nm2 = m_base[2]->GetNumModes();
-
-    int mode0 = 0, mode1 = 0, mode2 = 0, cnt = 0;
-
-    bool found = false;
-    for (mode0 = 0; mode0 < nm0; ++mode0)
-    {
-        for (mode1 = 0; mode1 < nm1; ++mode1)
-        {
-            int maxpq = max(mode0, mode1);
-            for (mode2 = 0; mode2 < nm2 - maxpq; ++mode2, ++cnt)
-            {
-                if (cnt == mode)
-                {
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found)
-            {
-                break;
-            }
-        }
-
-        if (found)
-        {
-            break;
-        }
-
-        for (int j = nm1; j < nm2; ++j)
-        {
-            int ijmax = max(mode0, j);
-            mode2 += nm2 - ijmax;
-        }
-    }
-
-    if (mode == 1 && m_base[0]->GetBasisType() == LibUtilities::eModified_A)
-    {
-        return StdExpansion::BaryEvaluateBasis<2>(coll[2], 1);
-    }
-    else
-    {
-        return StdExpansion::BaryEvaluateBasis<0>(coll[0], mode0) *
-               StdExpansion::BaryEvaluateBasis<1>(coll[1], mode1) *
-               StdExpansion::BaryEvaluateBasis<2>(coll[2], mode2);
     }
 }
 

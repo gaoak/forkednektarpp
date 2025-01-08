@@ -872,6 +872,14 @@ NekDouble StdQuadExp::v_PhysEvaluateBasis(
            StdExpansion::BaryEvaluateBasis<1>(coords[1], mode / nm0);
 }
 
+NekDouble StdQuadExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
+{
+    return BaryTensorDeriv(coord, inarray, firstOrderDerivs);
+}
+
 //////////////
 // Mappings //
 //////////////

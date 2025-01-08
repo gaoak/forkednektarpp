@@ -578,14 +578,15 @@ NekDouble PyrExp::v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
     return StdExpansion3D::v_PhysEvaluate(Lcoord, physvals);
 }
 
-NekDouble PyrExp::v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                                 const Array<OneD, const NekDouble> &inarray,
-                                 std::array<NekDouble, 3> &firstOrderDerivs)
+NekDouble PyrExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
 {
     Array<OneD, NekDouble> Lcoord(3);
     ASSERTL0(m_geom, "m_geom not defined");
     m_geom->GetLocCoords(coord, Lcoord);
-    return StdPyrExp::v_PhysEvaluate(Lcoord, inarray, firstOrderDerivs);
+    return StdPyrExp::v_PhysEvalFirstDeriv(Lcoord, inarray, firstOrderDerivs);
 }
 
 //---------------------------------------

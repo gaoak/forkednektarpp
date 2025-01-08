@@ -78,7 +78,7 @@ NekDouble StdExpansion2D::v_PhysEvaluate(
     return StdExpansion::BaryEvaluate<1>(coll[1], &wsp[0]);
 }
 
-NekDouble StdExpansion2D::v_PhysEvaluate(
+NekDouble StdExpansion2D::v_PhysEvaluateInterp(
     const Array<OneD, DNekMatSharedPtr> &I,
     const Array<OneD, const NekDouble> &physvals)
 {
@@ -99,14 +99,6 @@ NekDouble StdExpansion2D::v_PhysEvaluate(
     val = Blas::Ddot(nq1, I[1]->GetPtr(), 1, wsp1, 1);
 
     return val;
-}
-
-NekDouble StdExpansion2D::v_PhysEvaluate(
-    [[maybe_unused]] const Array<OneD, NekDouble> &coord,
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] std::array<NekDouble, 3> &firstOrderDerivs)
-{
-    return 0;
 }
 
 //////////////////////////////

@@ -139,9 +139,9 @@ protected:
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
                    const Array<OneD, const NekDouble> &physvals) override;
     LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
     LOCAL_REGIONS_EXPORT void v_GetTracePhysVals(
         const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
         const Array<OneD, const NekDouble> &inarray,

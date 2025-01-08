@@ -58,11 +58,6 @@ public:
         return LibUtilities::eTetrahedron;
     }
 
-    /** \brief Single Point Evaluation */
-    STD_REGIONS_EXPORT NekDouble
-    PhysEvaluate3D(const Array<OneD, const NekDouble> &coords,
-                   const Array<OneD, const NekDouble> &physvals);
-
 protected:
     //----------------------------
     // Differentiation Methods
@@ -172,11 +167,10 @@ protected:
         const int mode, Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT NekDouble v_PhysEvaluateBasis(
         const Array<OneD, const NekDouble> &coords, int mode) final;
-
     STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
     STD_REGIONS_EXPORT void v_GetTraceNumModes(
         const int fid, int &numModes0, int &numModes1,
         Orientation traceOrient = eDir1FwdDir1_Dir2FwdDir2) override;

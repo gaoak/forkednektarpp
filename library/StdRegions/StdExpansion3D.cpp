@@ -159,7 +159,7 @@ NekDouble StdExpansion3D::v_PhysEvaluate(
     return StdExpansion::BaryEvaluate<2>(eta[2], &wsp2[0]);
 }
 
-NekDouble StdExpansion3D::v_PhysEvaluate(
+NekDouble StdExpansion3D::v_PhysEvaluateInterp(
     const Array<OneD, DNekMatSharedPtr> &I,
     const Array<OneD, const NekDouble> &physvals)
 {
@@ -193,14 +193,6 @@ NekDouble StdExpansion3D::v_PhysEvaluate(
     value = Blas::Ddot(Qz, interpolatingNodes, 1, &sumFactorization_r[0], 1);
 
     return value;
-}
-
-NekDouble StdExpansion3D::v_PhysEvaluate(
-    [[maybe_unused]] const Array<OneD, NekDouble> &coord,
-    [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
-    [[maybe_unused]] std::array<NekDouble, 3> &firstOrderDerivs)
-{
-    return 0;
 }
 
 /**

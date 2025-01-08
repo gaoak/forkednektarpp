@@ -165,13 +165,8 @@ protected:
                    const Array<OneD, const NekDouble> &physvals) override;
 
     STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, DNekMatSharedPtr> &I,
-                   const Array<OneD, const NekDouble> &physvals) override;
-
-    STD_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
+    v_PhysEvaluateInterp(const Array<OneD, DNekMatSharedPtr> &I,
+                         const Array<OneD, const NekDouble> &physvals) override;
 
     STD_REGIONS_EXPORT virtual void v_IProductWRTBaseKernel(
         const Array<OneD, const NekDouble> &base0,

@@ -359,17 +359,6 @@ NekDouble NodalTriExp::v_PhysEvaluate(
     return StdExpansion2D::v_PhysEvaluate(Lcoord, physvals);
 }
 
-NekDouble NodalTriExp::v_PhysEvaluate(
-    const Array<OneD, NekDouble> &coord,
-    const Array<OneD, const NekDouble> &inarray,
-    std::array<NekDouble, 3> &firstOrderDerivs)
-{
-    Array<OneD, NekDouble> Lcoord(2);
-    ASSERTL0(m_geom, "m_geom not defined");
-    m_geom->GetLocCoords(coord, Lcoord);
-    return StdExpansion2D::v_PhysEvaluate(Lcoord, inarray, firstOrderDerivs);
-}
-
 void NodalTriExp::v_ComputeTraceNormal(const int edge)
 {
     int i;

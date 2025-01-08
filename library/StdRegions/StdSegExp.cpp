@@ -583,6 +583,23 @@ NekDouble StdSegExp::v_PhysEvaluateBasis(
     return StdExpansion::BaryEvaluateBasis<0>(coords[0], mode);
 }
 
+NekDouble StdSegExp::v_PhysEvalFirstDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs)
+{
+    return StdExpansion1D::BaryTensorDeriv(coord, inarray, firstOrderDerivs);
+}
+
+NekDouble StdSegExp::v_PhysEvalFirstSecondDeriv(
+    const Array<OneD, NekDouble> &coord,
+    const Array<OneD, const NekDouble> &inarray,
+    std::array<NekDouble, 3> &firstOrderDerivs,
+    std::array<NekDouble, 6> &secondOrderDerivs)
+{
+    return StdExpansion1D::BaryTensorDeriv(coord, inarray, firstOrderDerivs,
+                                           secondOrderDerivs);
+}
 void StdSegExp::v_LaplacianMatrixOp(const Array<OneD, const NekDouble> &inarray,
                                     Array<OneD, NekDouble> &outarray,
                                     [[maybe_unused]] const StdMatrixKey &mkey)

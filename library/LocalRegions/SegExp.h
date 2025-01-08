@@ -129,15 +129,15 @@ protected:
                    const Array<OneD, const NekDouble> &physvals) override;
 
     LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
 
-    LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs,
-                   std::array<NekDouble, 6> &secondOrderDerivs) override;
+    LOCAL_REGIONS_EXPORT NekDouble v_PhysEvalFirstSecondDeriv(
+        const Array<OneD, NekDouble> &coord,
+        const Array<OneD, const NekDouble> &inarray,
+        std::array<NekDouble, 3> &firstOrderDerivs,
+        std::array<NekDouble, 6> &secondOrderDerivs) override;
 
     LOCAL_REGIONS_EXPORT void v_GetCoord(
         const Array<OneD, const NekDouble> &Lcoords,

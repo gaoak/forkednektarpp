@@ -104,9 +104,9 @@ protected:
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coords,
                    const Array<OneD, const NekDouble> &physvals) override;
     LOCAL_REGIONS_EXPORT NekDouble
-    v_PhysEvaluate(const Array<OneD, NekDouble> &coord,
-                   const Array<OneD, const NekDouble> &inarray,
-                   std::array<NekDouble, 3> &firstOrderDerivs) override;
+    v_PhysEvalFirstDeriv(const Array<OneD, NekDouble> &coord,
+                         const Array<OneD, const NekDouble> &inarray,
+                         std::array<NekDouble, 3> &firstOrderDerivs) override;
 
     LOCAL_REGIONS_EXPORT void v_GetCoord(
         const Array<OneD, const NekDouble> &Lcoords,

@@ -1427,22 +1427,6 @@ void StdExpansion::v_StdPhysDeriv(
     NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
 }
 
-NekDouble StdExpansion::v_PhysEvaluate(
-    [[maybe_unused]] const Array<OneD, const NekDouble> &coords,
-    [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
-    return 0;
-}
-
-NekDouble StdExpansion::v_PhysEvaluate(
-    [[maybe_unused]] const Array<OneD, DNekMatSharedPtr> &I,
-    [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)
-{
-    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
-    return 0;
-}
-
 NekDouble StdExpansion::v_PhysEvaluateBasis(
     [[maybe_unused]] const Array<OneD, const NekDouble> &coords,
     [[maybe_unused]] int mode)
@@ -1452,6 +1436,22 @@ NekDouble StdExpansion::v_PhysEvaluateBasis(
 }
 
 NekDouble StdExpansion::v_PhysEvaluate(
+    [[maybe_unused]] const Array<OneD, const NekDouble> &coords,
+    [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)
+{
+    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
+    return 0;
+}
+
+NekDouble StdExpansion::v_PhysEvaluateInterp(
+    [[maybe_unused]] const Array<OneD, DNekMatSharedPtr> &I,
+    [[maybe_unused]] const Array<OneD, const NekDouble> &physvals)
+{
+    NEKERROR(ErrorUtil::efatal, "Method does not exist for this shape");
+    return 0;
+}
+
+NekDouble StdExpansion::v_PhysEvalFirstDeriv(
     [[maybe_unused]] const Array<OneD, NekDouble> &coord,
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
     [[maybe_unused]] std::array<NekDouble, 3> &firstOrderDerivs)
@@ -1464,7 +1464,7 @@ NekDouble StdExpansion::v_PhysEvaluate(
     return 0;
 }
 
-NekDouble StdExpansion::v_PhysEvaluate(
+NekDouble StdExpansion::v_PhysEvalFirstSecondDeriv(
     [[maybe_unused]] const Array<OneD, NekDouble> &coord,
     [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
     [[maybe_unused]] std::array<NekDouble, 3> &firstOrderDerivs,
