@@ -45,14 +45,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *signPtr, const TData *inPtr, TData *outPtr)
+               const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], signPtr[i] * inPtr[i]);
+            Kokkos::atomic_add(outptr + assmbPtr[i], signPtr[i] * inptr[i]);
         });
 }
 
@@ -60,14 +60,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr, const TData sign,
-               const TData *inPtr, TData *outPtr)
+               const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], sign * inPtr[i]);
+            Kokkos::atomic_add(outptr + assmbPtr[i], sign * inptr[i]);
         });
 }
 
@@ -75,14 +75,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-               const TData *inPtr, TData *outPtr)
+               const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            Kokkos::atomic_add(outPtr + assmbPtr[i], inPtr[i]);
+            Kokkos::atomic_add(outptr + assmbPtr[i], inptr[i]);
         });
 }
 
@@ -90,14 +90,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *signPtr, const TData *inPtr, TData *outPtr)
+                    const TData *signPtr, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
+            outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
         });
 }
 
@@ -105,14 +105,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData sign, const TData *inPtr, TData *outPtr)
+                    const TData sign, const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            outPtr[i] = sign * inPtr[assmbPtr[i]];
+            outptr[i] = sign * inptr[assmbPtr[i]];
         });
 }
 
@@ -120,14 +120,14 @@ template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type
 GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                    const TData *inPtr, TData *outPtr)
+                    const TData *inptr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::KOKKOS::defaultBlockSize;
 
     Kokkos::parallel_for(
         Kokkos::RangePolicy<>(0u, nsize, Kokkos::ChunkSize(blockSize)),
         KOKKOS_LAMBDA(const unsigned int i) {
-            outPtr[i] = inPtr[assmbPtr[i]];
+            outptr[i] = inptr[assmbPtr[i]];
         });
 }
 

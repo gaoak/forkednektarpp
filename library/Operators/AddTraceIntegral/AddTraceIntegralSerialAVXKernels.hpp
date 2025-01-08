@@ -48,10 +48,10 @@ inline
                            const int *traceCoeffsToElmtMapPtr,
                            const int *traceCoeffsToElmtSignPtr,
                            const int *traceCoeffsToElmtTracePtr,
-                           const TData *tracePtr, TData *outPtr)
+                           const TData *tracePtr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(0u, nsize, [&](const unsigned int i) {
-        outPtr[traceCoeffsToElmtMapPtr[i]] +=
+        outptr[traceCoeffsToElmtMapPtr[i]] +=
             traceCoeffsToElmtSignPtr[i] *
             tracePtr[traceCoeffsToElmtTracePtr[i]];
     });

@@ -80,13 +80,13 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
           bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void IProduct1DKernel(
     const size_t nm0, const size_t nq0,
-    const typename simd_type::vectorType *in, const simd_type *basis0,
+    const typename simd_type::vectorType *in, const simd_type *B0,
     const simd_type *w0, const simd_type *jac,
     typename simd_type::scalarType *out,
     typename simd_type::scalarType scale = 1.0)
 {
-    IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, basis0, w0, jac,
-                                               out, scale);
+    IProductSegKernel<SCALE, APPEND, DEFORMED>(nm0, nq0, in, B0, w0, jac, out,
+                                               scale);
 }
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
@@ -94,8 +94,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
     [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *w0, const simd_type *w1,
+    const typename simd_type::vectorType *in, const simd_type *B0,
+    const simd_type *B1, const simd_type *w0, const simd_type *w1,
     const simd_type *jac,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     typename simd_type::scalarType *out,
@@ -103,15 +103,14 @@ NEK_FORCE_INLINE static void IProduct2DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
-        IProductTriKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nq0, nq1, isModified, in, basis0, basis1, w0, w1, jac,
-            wsp0, out, scale);
+        IProductTriKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nq0, nq1,
+                                                   isModified, in, B0, B1, w0,
+                                                   w1, jac, wsp0, out, scale);
     }
     else
     {
-        IProductQuadKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nq0, nq1, in,
-                                                    basis0, basis1, w0, w1, jac,
-                                                    wsp0, out, scale);
+        IProductQuadKernel<SCALE, APPEND, DEFORMED>(
+            nm0, nm1, nq0, nq1, in, B0, B1, w0, w1, jac, wsp0, out, scale);
     }
 }
 
@@ -121,22 +120,21 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct2DKernel(
     const size_t nm0, const size_t nm1, const size_t nq0, const size_t nq1,
     [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *basis0,
-    const simd_type *basis1,
+    const typename simd_type::vectorType *in, const simd_type *B0,
+    const simd_type *B1,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     typename simd_type::scalarType *out,
     typename simd_type::scalarType scale = 1.0)
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eTriangle)
     {
-        IProductTriKernel<SCALE, APPEND, simd_type>(nm0, nm1, nq0, nq1,
-                                                    isModified, in, basis0,
-                                                    basis1, wsp0, out, scale);
+        IProductTriKernel<SCALE, APPEND, simd_type>(
+            nm0, nm1, nq0, nq1, isModified, in, B0, B1, wsp0, out, scale);
     }
     else
     {
-        IProductQuadKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nq0, nq1, in, basis0, basis1, wsp0, out, scale);
+        IProductQuadKernel<SCALE, APPEND, simd_type>(nm0, nm1, nq0, nq1, in, B0,
+                                                     B1, wsp0, out, scale);
     }
 }
 
@@ -145,8 +143,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2, const simd_type *w0,
+    const typename simd_type::vectorType *in, const simd_type *B0,
+    const simd_type *B1, const simd_type *B2, const simd_type *w0,
     const simd_type *w1, const simd_type *w2, const simd_type *jac,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
@@ -157,27 +155,27 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
-        IProductHexKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nm2, nq0, nq1, nq2, in, basis0, basis1, basis2, w0, w1,
-            w2, jac, wsp0, wsp1, out, scale);
+        IProductHexKernel<SCALE, APPEND, DEFORMED>(nm0, nm1, nm2, nq0, nq1, nq2,
+                                                   in, B0, B1, B2, w0, w1, w2,
+                                                   jac, wsp0, wsp1, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
         IProductTetKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, w0, w1, w2, jac, wsp0, wsp1, out, scale);
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         IProductPrismKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, w0, w1, w2, jac, wsp0, wsp1, wsp2, out, scale);
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, wsp2, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
         IProductPyrKernel<SCALE, APPEND, DEFORMED>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, w0, w1, w2, jac, wsp0, wsp1, out, scale);
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, w0, w1,
+            w2, jac, wsp0, wsp1, out, scale);
     }
 }
 
@@ -187,8 +185,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, bool SCALE, bool APPEND,
 NEK_FORCE_INLINE static void IProduct3DKernel(
     const size_t nm0, const size_t nm1, const size_t nm2, const size_t nq0,
     const size_t nq1, const size_t nq2, [[maybe_unused]] const bool isModified,
-    const typename simd_type::vectorType *in, const simd_type *basis0,
-    const simd_type *basis1, const simd_type *basis2,
+    const typename simd_type::vectorType *in, const simd_type *B0,
+    const simd_type *B1, const simd_type *B2,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp0,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &wsp1,
     [[maybe_unused]] std::vector<simd_type, tinysimd::allocator<simd_type>>
@@ -198,26 +196,26 @@ NEK_FORCE_INLINE static void IProduct3DKernel(
 {
     if constexpr (SHAPE_TYPE == LibUtilities::eHexahedron)
     {
-        IProductHexKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, in, basis0, basis1, basis2, wsp0,
-            wsp1, out, scale);
+        IProductHexKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
+                                                    nq2, in, B0, B1, B2, wsp0,
+                                                    wsp1, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::eTetrahedron)
     {
-        IProductTetKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, wsp0, wsp1, out, scale);
+        IProductTetKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
+                                                    nq2, isModified, in, B0, B1,
+                                                    B2, wsp0, wsp1, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
     {
         IProductPrismKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, wsp0, wsp1, wsp2, out, scale);
+            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, B0, B1, B2, wsp0,
+            wsp1, wsp2, out, scale);
     }
     else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
     {
-        IProductPyrKernel<SCALE, APPEND, simd_type>(
-            nm0, nm1, nm2, nq0, nq1, nq2, isModified, in, basis0, basis1,
-            basis2, wsp0, wsp1, out, scale);
+        IProductPyrKernel<SCALE, APPEND, simd_type>(nm0, nm1, nm2, nq0, nq1,
+                                                    nq2, isModified, in, B0, B1,
+                                                    B2, wsp0, wsp1, out, scale);
     }
 }

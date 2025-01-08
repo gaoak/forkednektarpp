@@ -265,9 +265,9 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -297,7 +297,7 @@ private:
 
                 IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                         Append, DEFORMED>(
-                    nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+                    nm0, nq0, nElmtsPad, B0, W0, jacptr, inptr, outptr);
             }
             else
             {
@@ -305,7 +305,7 @@ private:
 
                 IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                         Append, DEFORMED>(
-                    nm0, nq0, nElmtsPad, basis0, w0, jacptr, inptr, outptr,
+                    nm0, nq0, nElmtsPad, B0, W0, jacptr, inptr, outptr,
                     this->m_scale);
             }
             inptr += inblock.size();
@@ -326,9 +326,9 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -358,7 +358,7 @@ private:
 
                 IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                         Append, DEFORMED, nm0, nq0>(
-                    nElmtsPad, basis0, w0, jacptr, inptr, outptr);
+                    nElmtsPad, B0, W0, jacptr, inptr, outptr);
             }
             else
             {
@@ -366,8 +366,7 @@ private:
 
                 IProductWRTBase1DKernel<ExecSpace, Implementation, Scale,
                                         Append, DEFORMED, nm0, nq0>(
-                    nElmtsPad, basis0, w0, jacptr, inptr, outptr,
-                    this->m_scale);
+                    nElmtsPad, B0, W0, jacptr, inptr, outptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -399,13 +398,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -478,8 +477,8 @@ private:
 
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
-                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
-                    basis1, w0, w1, jacptr, wspptr, inptr, outptr);
+                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, B1,
+                    W0, W1, jacptr, wspptr, inptr, outptr);
             }
             else
             {
@@ -487,9 +486,8 @@ private:
 
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
-                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
-                    basis1, w0, w1, jacptr, wspptr, inptr, outptr,
-                    this->m_scale);
+                    nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, B1,
+                    W0, W1, jacptr, wspptr, inptr, outptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -516,13 +514,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -595,9 +593,9 @@ private:
 
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                        nq1>(nElmtsPad, isModified, index0,
-                                             basis0, basis1, w0, w1, jacptr,
-                                             wspptr, inptr, outptr);
+                                        nq1>(nElmtsPad, isModified, index0, B0,
+                                             B1, W0, W1, jacptr, wspptr, inptr,
+                                             outptr);
             }
             else
             {
@@ -605,9 +603,9 @@ private:
 
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                        nq1>(
-                    nElmtsPad, isModified, index0, basis0, basis1, w0, w1,
-                    jacptr, wspptr, inptr, outptr, this->m_scale);
+                                        nq1>(nElmtsPad, isModified, index0, B0,
+                                             B1, W0, W1, jacptr, wspptr, inptr,
+                                             outptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -645,17 +643,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w2 =
+        auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -827,8 +825,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                    index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
-                    wspptr, inptr, outptr);
+                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, wspptr,
+                    inptr, outptr);
             }
             else
             {
@@ -837,8 +835,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                    index1, index2, basis0, basis1, basis2, w0, w1, w2, jacptr,
-                    wspptr, inptr, outptr, this->m_scale);
+                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, wspptr,
+                    inptr, outptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -870,17 +868,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w2 =
+        auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -1052,8 +1050,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
-                    nElmtsPad, isModified, index0, index1, index2, basis0,
-                    basis1, basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr);
+                    nElmtsPad, isModified, index0, index1, index2, B0, B1, B2,
+                    W0, W1, W2, jacptr, wspptr, inptr, outptr);
             }
             else
             {
@@ -1062,9 +1060,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
-                    nElmtsPad, isModified, index0, index1, index2, basis0,
-                    basis1, basis2, w0, w1, w2, jacptr, wspptr, inptr, outptr,
-                    this->m_scale);
+                    nElmtsPad, isModified, index0, index1, index2, B0, B1, B2,
+                    W0, W1, W2, jacptr, wspptr, inptr, outptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();

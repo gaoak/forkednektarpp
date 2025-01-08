@@ -34,13 +34,12 @@
 
 #pragma once
 
-#include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 
-#include "ElmtOps/OperatorBwdTrans.hpp"
-#include "ElmtOps/OperatorIProductWRTBase.hpp"
-#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
-#include "ElmtOps/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 
 namespace Nektar::Operators::detail
 {

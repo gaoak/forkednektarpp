@@ -54,7 +54,7 @@
  */
 template <typename ExecSpace, size_t interleave_width, typename TData>
 void ReshapeStorage(const int curr_interleave_width, const int numElmt,
-                    const int ndata, TData *inoutPtr)
+                    const int ndata, TData *inoutptr)
 {
     if (curr_interleave_width != interleave_width)
     {
@@ -63,7 +63,7 @@ void ReshapeStorage(const int curr_interleave_width, const int numElmt,
         {
             deInterleave<ExecSpace>(curr_interleave_width,
                                     numElmt / curr_interleave_width, ndata,
-                                    inoutPtr);
+                                    inoutptr);
         }
 
         // Reshape to required shape, if necessary
@@ -74,7 +74,7 @@ void ReshapeStorage(const int curr_interleave_width, const int numElmt,
                 "Number of elements is not divisible by interleave width.");
 
             interleave<interleave_width, ExecSpace>(numElmt / interleave_width,
-                                                    ndata, inoutPtr);
+                                                    ndata, inoutptr);
         }
     }
 }

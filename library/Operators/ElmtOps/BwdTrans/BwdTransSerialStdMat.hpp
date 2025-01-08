@@ -36,6 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
+#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorBwdTrans.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 

@@ -274,7 +274,7 @@ public:
         }
 
         // Get pointers.
-        auto inPtr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
+        auto inptr   = in.GetBlocks()[0].template GetPtr<MemSpace, ReadOnly>();
         auto matPtr  = m_mat.template GetPtr<MemSpace, ReadOnly>();
         auto mapPtr  = m_map.template GetPtr<MemSpace, ReadOnly>();
         auto signPtr = m_sign.template GetPtr<MemSpace, ReadOnly>();
@@ -282,7 +282,7 @@ public:
         auto offsetPtr    = m_offset.template GetPtr<MemSpace, ReadOnly>();
         auto matOffsetPtr = m_matOffset.template GetPtr<MemSpace, ReadOnly>();
         auto mapOffsetPtr = m_mapOffset.template GetPtr<MemSpace, ReadOnly>();
-        auto outPtr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
+        auto outptr = out.GetBlocks()[0].template GetPtr<MemSpace, WriteOnly>();
 
         // Apply Robin boundary conditions.
         auto dimension = this->m_expansionList->GetExp(0)->GetShapeDimension();
@@ -291,12 +291,12 @@ public:
             if (negflag)
             {
                 RobBndCond1DKernel<ExecSpace, true>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inptr, outptr);
             }
             else
             {
                 RobBndCond1DKernel<ExecSpace, false>(
-                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inPtr, outPtr);
+                    m_nBndEdge, offsetPtr, matPtr, mapPtr, inptr, outptr);
             }
         }
         else if (dimension == 2)
@@ -305,13 +305,13 @@ public:
             {
                 RobBndCond2DKernel<ExecSpace, true>(
                     m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inptr, outptr);
             }
             else
             {
                 RobBndCond2DKernel<ExecSpace, false>(
                     m_nmaxcoeff, m_nBndEdge, ncoeffPtr, offsetPtr, matOffsetPtr,
-                    mapOffsetPtr, matPtr, mapPtr, signPtr, inPtr, outPtr);
+                    mapOffsetPtr, matPtr, mapPtr, signPtr, inptr, outptr);
             }
         }
     }

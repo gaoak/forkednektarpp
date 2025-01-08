@@ -180,7 +180,7 @@ public:
         for (size_t blk = 0; blk < inout.GetBlocks().size(); ++blk)
         {
             // Initialize pointers.
-            auto inoutPtr =
+            auto inoutptr =
                 inout.GetBlocks()[blk].template GetPtr<MemSpace, ReadWrite>();
             auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
             auto bndcoeffPtr =
@@ -196,12 +196,12 @@ public:
             if (m_signChange)
             {
                 NeuBndCondKernel<ExecSpace, TData>(
-                    nbndCoeffBlock, signPtr, mapPtr, bndcoeffPtr, inoutPtr);
+                    nbndCoeffBlock, signPtr, mapPtr, bndcoeffPtr, inoutptr);
             }
             else
             {
                 NeuBndCondKernel<ExecSpace, TData>(nbndCoeffBlock, mapPtr,
-                                                   bndcoeffPtr, inoutPtr);
+                                                   bndcoeffPtr, inoutptr);
             }
         }
     }

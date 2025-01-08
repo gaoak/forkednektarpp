@@ -35,6 +35,7 @@
 
 #include <LibUtilities/BasicUtils/NekInline.hpp>
 
+#include "Operators/ElmtOps/PhysDeriv/PhysDerivSerialAVXSumFacKernels.hpp"
 #include "StdRegions/Operators/IProductWRTBaseSumFacStdKernels.hpp"
 
 template <bool DEFORMED, typename simd_type>

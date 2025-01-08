@@ -34,17 +34,14 @@
 
 #pragma once
 
-#include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorHelmholtz.hpp"
+#include "Operators/ElmtOps/OperatorHelmholtz.hpp"
 
-#include "ElmtOps/OperatorBwdTrans.hpp"
-#include "ElmtOps/OperatorIProductWRTBase.hpp"
-#include "ElmtOps/OperatorIProductWRTDerivBase.hpp"
-#include "ElmtOps/OperatorPhysDeriv.hpp"
+#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTDerivBase.hpp"
+#include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 
-#include "Operators/ElmtOps/Helmholtz/HelmholtzCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/Helmholtz/HelmholtzSYCLSumFacKernels.hpp"
+#include "Operators/ElmtOps/Helmholtz//HelmholtzDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {

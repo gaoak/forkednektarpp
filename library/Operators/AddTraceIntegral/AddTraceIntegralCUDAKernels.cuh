@@ -46,7 +46,7 @@ __global__ void AddTraceIntegralKernel(
     const unsigned int nsize, const int *__restrict__ traceCoeffsToElmtMapPtr,
     const int *__restrict__ traceCoeffsToElmtSignPtr,
     const int *__restrict__ traceCoeffsToElmtTracePtr,
-    const TData *__restrict__ tracePtr, TData *__restrict__ outPtr)
+    const TData *__restrict__ tracePtr, TData *__restrict__ outptr)
 {
     unsigned int i      = blockDim.x * blockIdx.x + threadIdx.x;
     unsigned int stride = blockDim.x * gridDim.x;
@@ -54,7 +54,7 @@ __global__ void AddTraceIntegralKernel(
     while (i < nsize)
     {
         atomic_add<NektarSpaces::CUDA, NektarSpaces::GlobalScope>(
-            outPtr + traceCoeffsToElmtMapPtr[i],
+            outptr + traceCoeffsToElmtMapPtr[i],
             traceCoeffsToElmtSignPtr[i] *
                 tracePtr[traceCoeffsToElmtTracePtr[i]]);
         i += stride;
@@ -69,14 +69,14 @@ AddTraceIntegralKernel(const unsigned int nsize,
                        const int *traceCoeffsToElmtMapPtr,
                        const int *traceCoeffsToElmtSignPtr,
                        const int *traceCoeffsToElmtTracePtr,
-                       const TData *tracePtr, TData *outPtr)
+                       const TData *tracePtr, TData *outptr)
 {
     const unsigned int blockSize = NektarSpaces::CUDA::defaultBlockSize;
     const unsigned int gridSize  = (nsize + blockSize - 1u) / blockSize;
 
     AddTraceIntegralKernel<TData><<<gridSize, blockSize>>>(
         nsize, traceCoeffsToElmtMapPtr, traceCoeffsToElmtSignPtr,
-        traceCoeffsToElmtTracePtr, tracePtr, outPtr);
+        traceCoeffsToElmtTracePtr, tracePtr, outptr);
 }
 
 // Launchers

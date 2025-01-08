@@ -36,7 +36,6 @@
 
 #include <MultiRegions/ContField.h>
 
-#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/PreconOps/OperatorDiagPrecon.hpp"
 
 #include "Operators/BndCondOps/OperatorRobBndCond.hpp"

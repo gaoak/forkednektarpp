@@ -46,11 +46,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     DirBndCondKernel(const unsigned int nsize, const int *mapPtr,
-                     const TData *inPtr, TData *outPtr)
+                     const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize,
-        NEKTAR_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] = inPtr[i]; });
+        NEKTAR_LAMBDA(const unsigned int i) { outptr[mapPtr[i]] = inptr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -60,11 +60,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     DirBndCondKernel(const unsigned int nsize, const TData *signPtr,
-                     const int *mapPtr, const TData *inPtr, TData *outPtr)
+                     const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[mapPtr[i]] = signPtr[i] * inPtr[i];
+            outptr[mapPtr[i]] = signPtr[i] * inptr[i];
         });
 }
 
@@ -75,11 +75,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     ParallelDirBndSignKernel(const unsigned int nsize, const int *signPtr,
-                             TData *outPtr)
+                             TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize,
-        NEKTAR_LAMBDA(const unsigned int i) { outPtr[signPtr[i]] *= -1; });
+        NEKTAR_LAMBDA(const unsigned int i) { outptr[signPtr[i]] *= -1; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -90,12 +90,12 @@ inline
                             void>::type
     LocalDirBndCondKernel(const unsigned int nsize, const int *id0Ptr,
                           const int *id1Ptr, const TData *signPtr,
-                          const TData *inPtr, TData *outPtr)
+                          const TData *inptr, TData *outptr)
 {
-    // Note: inPtr and outPtr might alias each other.
+    // Note: inptr and outptr might alias each other.
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[id0Ptr[i]] = inPtr[id1Ptr[i]] * signPtr[i];
+            outptr[id0Ptr[i]] = inptr[id1Ptr[i]] * signPtr[i];
         });
 }
 

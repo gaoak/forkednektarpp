@@ -289,7 +289,7 @@ private:
         // Get Basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -333,7 +333,7 @@ private:
             IProductWRTDerivBase1DKernel<ExecSpace, Implementation, DEFORMED>(
                 nCoord, nq0, nElmtsPad, dfptr, inptr, tmpptr);
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED>(nm0, nq0, nElmtsPad, dbasis0, W0,
+                                    DEFORMED>(nm0, nq0, nElmtsPad, DB0, W0,
                                               jacptr, tmpptr, outptr);
 
             inptr += nCoord * inblock.size();
@@ -358,7 +358,7 @@ private:
         // Get Basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -404,7 +404,7 @@ private:
                                          nq0>(nCoord, nElmtsPad, dfptr, inptr,
                                               tmpptr);
             IProductWRTBase1DKernel<ExecSpace, Implementation, Scale, Append,
-                                    DEFORMED, nm0, nq0>(nElmtsPad, dbasis0, W0,
+                                    DEFORMED, nm0, nq0>(nElmtsPad, DB0, W0,
                                                         jacptr, tmpptr, outptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -441,13 +441,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis1 =
+        auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -540,13 +540,12 @@ private:
                 nCoord, nq0, nq1, nElmtsPad, Z0, Z1, dfptr, inptr, tmpptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, dbasis0,
-                basis1, W0, W1, jacptr, wspptr, tmpptr, outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, DB0, B1, W0,
+                W1, jacptr, wspptr, tmpptr, outptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, basis0,
-                dbasis1, W0, W1, jacptr, wspptr, tmpptr + nElmtsPad * nqTot,
-                outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, DB1, W0,
+                W1, jacptr, wspptr, tmpptr + nElmtsPad * nqTot, outptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -578,13 +577,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis1 =
+        auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -677,13 +676,13 @@ private:
                 nCoord, nElmtsPad, Z0, Z1, dfptr, inptr, tmpptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, dbasis0,
-                                         basis1, W0, W1, jacptr, wspptr, tmpptr,
+                                    nq1>(nElmtsPad, isModified, index0, DB0, B1,
+                                         W0, W1, jacptr, wspptr, tmpptr,
                                          outptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, basis0,
-                                         dbasis1, W0, W1, jacptr, wspptr,
+                                    nq1>(nElmtsPad, isModified, index0, B0, DB1,
+                                         W0, W1, jacptr, wspptr,
                                          tmpptr + nElmtsPad * nqTot, outptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -725,17 +724,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis1 =
+        auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis2 =
+        auto DB2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -932,18 +931,18 @@ private:
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, dbasis0, basis1, basis2, W0, W1, W2, jacptr,
-                wspptr, tmpptr, outptr);
+                index1, index2, DB0, B1, B2, W0, W1, W2, jacptr, wspptr, tmpptr,
+                outptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, basis0, dbasis1, basis2, W0, W1, W2, jacptr,
-                wspptr, tmpptr + nElmtsPad * nqTot, outptr);
+                index1, index2, B0, DB1, B2, W0, W1, W2, jacptr, wspptr,
+                tmpptr + nElmtsPad * nqTot, outptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, basis0, basis1, dbasis2, W0, W1, W2, jacptr,
-                wspptr, tmpptr + 2 * nElmtsPad * nqTot, outptr);
+                index1, index2, B0, B1, DB2, W0, W1, W2, jacptr, wspptr,
+                tmpptr + 2 * nElmtsPad * nqTot, outptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -979,17 +978,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis0 =
+        auto DB0 =
             m_dbasisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis1 =
+        auto DB1 =
             m_dbasisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto dbasis2 =
+        auto DB2 =
             m_dbasisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
         auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
@@ -1185,20 +1184,18 @@ private:
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, dbasis0, basis1,
-                basis2, W0, W1, W2, jacptr, wspptr, tmpptr, outptr);
+                nElmtsPad, isModified, index0, index1, index2, DB0, B1, B2, W0,
+                W1, W2, jacptr, wspptr, tmpptr, outptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, basis0, dbasis1,
-                basis2, W0, W1, W2, jacptr, wspptr, tmpptr + nElmtsPad * nqTot,
-                outptr);
+                nElmtsPad, isModified, index0, index1, index2, B0, DB1, B2, W0,
+                W1, W2, jacptr, wspptr, tmpptr + nElmtsPad * nqTot, outptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
-                nElmtsPad, isModified, index0, index1, index2, basis0, basis1,
-                dbasis2, W0, W1, W2, jacptr, wspptr,
-                tmpptr + 2 * nElmtsPad * nqTot, outptr);
+                nElmtsPad, isModified, index0, index1, index2, B0, B1, DB2, W0,
+                W1, W2, jacptr, wspptr, tmpptr + 2 * nElmtsPad * nqTot, outptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }

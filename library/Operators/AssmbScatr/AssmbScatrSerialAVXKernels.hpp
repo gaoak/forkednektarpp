@@ -45,11 +45,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *signPtr, const TData *inPtr, TData *outPtr)
+                   const TData *signPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[assmbPtr[i]] += signPtr[i] * inPtr[i];
+            outptr[assmbPtr[i]] += signPtr[i] * inptr[i];
         });
 }
 
@@ -59,11 +59,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData sign, const TData *inPtr, TData *outPtr)
+                   const TData sign, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[assmbPtr[i]] += sign * inPtr[i];
+            outptr[assmbPtr[i]] += sign * inptr[i];
         });
 }
 
@@ -73,11 +73,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     AssembleKernel(const unsigned int nsize, const int *assmbPtr,
-                   const TData *inPtr, TData *outPtr)
+                   const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[assmbPtr[i]] += inPtr[i];
+            outptr[assmbPtr[i]] += inptr[i];
         });
 }
 
@@ -87,11 +87,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *signPtr, const TData *inPtr, TData *outPtr)
+                        const TData *signPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[i] = signPtr[i] * inPtr[assmbPtr[i]];
+            outptr[i] = signPtr[i] * inptr[assmbPtr[i]];
         });
 }
 
@@ -101,11 +101,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData sign, const TData *inPtr, TData *outPtr)
+                        const TData sign, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[i] = sign * inPtr[assmbPtr[i]];
+            outptr[i] = sign * inptr[assmbPtr[i]];
         });
 }
 
@@ -115,11 +115,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::AVX>,
                             void>::type
     GlobalToLocalKernel(const unsigned int nsize, const int *assmbPtr,
-                        const TData *inPtr, TData *outPtr)
+                        const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, nsize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[i] = inPtr[assmbPtr[i]];
+            outptr[i] = inptr[assmbPtr[i]];
         });
 }
 

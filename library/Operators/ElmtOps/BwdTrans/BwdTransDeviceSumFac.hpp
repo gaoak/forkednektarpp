@@ -241,7 +241,7 @@ private:
         // Fetch basis data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
@@ -260,8 +260,8 @@ private:
                 (TData *)inptr);
 
             // BwdTrans kernel.
-            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad,
-                                                        basis0, inptr, outptr);
+            BwdTrans1DKernel<ExecSpace, Implementation>(nm0, nq0, nElmtsPad, B0,
+                                                        inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -278,7 +278,7 @@ private:
         // Fetch basis data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
@@ -298,7 +298,7 @@ private:
 
             // BwdTrans kernel.
             BwdTrans1DKernel<ExecSpace, Implementation, nm0, nq0>(
-                nElmtsPad, basis0, inptr, outptr);
+                nElmtsPad, B0, inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -326,9 +326,9 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
@@ -363,8 +363,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, basis0, basis1,
-                wspptr, inptr, outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, isModified, B0, B1, wspptr,
+                inptr, outptr);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -388,9 +388,9 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
@@ -426,8 +426,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1,
-                             nq0, nq1>(nElmtsPad, isModified, basis0, basis1,
-                                       wspptr, inptr, outptr);
+                             nq0, nq1>(nElmtsPad, isModified, B0, B1, wspptr,
+                                       inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -460,11 +460,11 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
@@ -536,7 +536,7 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, basis0, basis1, basis2, wspptr, inptr, outptr);
+                index1, B0, B1, B2, wspptr, inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -562,11 +562,11 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Initialize pointers.
@@ -638,8 +638,8 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1,
                              nm2, nq0, nq1, nq2>(nElmtsPad, isModified, index0,
-                                                 index1, basis0, basis1, basis2,
-                                                 wspptr, inptr, outptr);
+                                                 index1, B0, B1, B2, wspptr,
+                                                 inptr, outptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

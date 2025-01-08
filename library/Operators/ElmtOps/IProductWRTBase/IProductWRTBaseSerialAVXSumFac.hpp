@@ -34,14 +34,11 @@
 
 #pragma once
 
-#include <LibUtilities/Foundations/Basis.h>
-#include <LibUtilities/SimdLib/tinysimd.hpp>
-
-#include "Common/OperatorHelper.hpp"
-#include "ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
+#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
-#include "ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
+#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSerialAVXSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
@@ -223,9 +220,9 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -249,9 +246,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         // loop over componnets
         for (size_t nc = 0; nc < m_nComps; ++nc)
@@ -263,18 +260,18 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, tmpIn, basis0, w0, jacPtr, tmpOut);
+                    nm0, nq0, inptr, B0, W0, jacPtr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }
@@ -299,9 +296,9 @@ private:
         // Fetch basis and weight data.
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -325,9 +322,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
@@ -338,18 +335,18 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct1DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nq0, tmpIn, basis0, w0, jacPtr, tmpOut);
+                    nm0, nq0, inptr, B0, W0, jacPtr, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }
@@ -385,13 +382,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -420,9 +417,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -432,19 +429,19 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, isModified, tmpIn, basis0, basis1, w0,
-                    w1, jacPtr, wsp0, tmpOut);
+                    nm0, nm1, nq0, nq1, isModified, inptr, B0, B1, W0, W1,
+                    jacPtr, wsp0, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }
@@ -475,13 +472,13 @@ private:
         std::vector<LibUtilities::BasisKey> basisKeys{
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -510,9 +507,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -522,19 +519,19 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct2DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nq0, nq1, isModified, tmpIn, basis0, basis1, w0,
-                    w1, jacPtr, wsp0, tmpOut);
+                    nm0, nm1, nq0, nq1, isModified, inptr, B0, B1, W0, W1,
+                    jacPtr, wsp0, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }
@@ -573,17 +570,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w2 =
+        auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -615,9 +612,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -627,20 +624,19 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, basis0,
-                    basis1, basis2, w0, w1, w2, jacPtr, wsp0, wsp1, wsp2,
-                    tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, inptr, B0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }
@@ -671,17 +667,17 @@ private:
             m_expPtr->GetBasis(0)->GetBasisKey(),
             m_expPtr->GetBasis(1)->GetBasisKey(),
             m_expPtr->GetBasis(2)->GetBasisKey()};
-        auto basis0 =
+        auto B0 =
             m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis1 =
+        auto B1 =
             m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto basis2 =
+        auto B2 =
             m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
-        auto w0 =
+        auto W0 =
             m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
-        auto w1 =
+        auto W1 =
             m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
-        auto w2 =
+        auto W2 =
             m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
 
         // Fetch Jacobian data.
@@ -712,9 +708,9 @@ private:
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto output = outblock.template GetPtr<MemSpace, WriteOnly>();
-        auto tmpIn =
+        auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
-        auto tmpOut = reinterpret_cast<typename simd_t::scalarType *>(output);
+        auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -724,20 +720,19 @@ private:
                 if (e % width_ratio == 0)
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        in_interleave_width, chunkSize, nqTot, (TData *)tmpIn);
+                        in_interleave_width, chunkSize, nqTot, (TData *)inptr);
                     ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, tmpOut);
+                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
                 IProduct3DKernel<SHAPE_TYPE, false, false, DEFORMED>(
-                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, tmpIn, basis0,
-                    basis1, basis2, w0, w1, w2, jacPtr, wsp0, wsp1, wsp2,
-                    tmpOut);
+                    nm0, nm1, nm2, nq0, nq1, nq2, isModified, inptr, B0, B1, B2,
+                    W0, W1, W2, jacPtr, wsp0, wsp1, wsp2, outptr);
 
                 // Increment pointers for the next elmt group.
-                tmpIn += nqTot;
-                tmpOut += nmTot * simd_t::width;
+                inptr += nqTot;
+                outptr += nmTot * simd_t::width;
                 jacPtr += jacSize;
             }
         }

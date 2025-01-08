@@ -48,11 +48,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     NeuBndCondKernel(const size_t bndExpSize, const int *mapPtr,
-                     const TData *inPtr, TData *outPtr)
+                     const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize,
-        NEKTAR_LAMBDA(const unsigned int i) { outPtr[mapPtr[i]] += inPtr[i]; });
+        NEKTAR_LAMBDA(const unsigned int i) { outptr[mapPtr[i]] += inptr[i]; });
 }
 
 template <typename ExecSpace, typename TData>
@@ -62,11 +62,11 @@ inline
                                 std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                             void>::type
     NeuBndCondKernel(const size_t bndExpSize, const TData *signPtr,
-                     const int *mapPtr, const TData *inPtr, TData *outPtr)
+                     const int *mapPtr, const TData *inptr, TData *outptr)
 {
     Nektar::parallel_for<ExecSpace>(
         0u, bndExpSize, NEKTAR_LAMBDA(const unsigned int i) {
-            outPtr[mapPtr[i]] += signPtr[i] * inPtr[i];
+            outptr[mapPtr[i]] += signPtr[i] * inptr[i];
         });
 }
 

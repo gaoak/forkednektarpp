@@ -335,7 +335,7 @@ public:
             if (nbndCoeffBlock > 0)
             {
                 // Initialize pointers.
-                auto inoutPtr = inout.GetBlocks()[blk]
+                auto inoutptr = inout.GetBlocks()[blk]
                                     .template GetPtr<MemSpace, ReadWrite>();
                 auto mapPtr = m_map[blk].template GetPtr<MemSpace, ReadOnly>();
                 auto bndcoeffPtr =
@@ -349,12 +349,12 @@ public:
                 if (m_signChange)
                 {
                     DirBndCondKernel<ExecSpace>(nbndCoeffBlock, signPtr, mapPtr,
-                                                bndcoeffPtr, inoutPtr);
+                                                bndcoeffPtr, inoutptr);
                 }
                 else
                 {
                     DirBndCondKernel<ExecSpace>(nbndCoeffBlock, mapPtr,
-                                                bndcoeffPtr, inoutPtr);
+                                                bndcoeffPtr, inoutptr);
                 }
             }
         }
@@ -368,14 +368,14 @@ public:
                 if (nParDirBndSignBlock > 0)
                 {
                     // Initialize pointers.
-                    auto inoutPtr = inout.GetBlocks()[blk]
+                    auto inoutptr = inout.GetBlocks()[blk]
                                         .template GetPtr<MemSpace, ReadWrite>();
                     auto parDirBndSignPtr =
                         m_parDirBndSign[blk]
                             .template GetPtr<MemSpace, ReadOnly>();
 
                     ParallelDirBndSignKernel<ExecSpace>(
-                        nParDirBndSignBlock, parDirBndSignPtr, inoutPtr);
+                        nParDirBndSignBlock, parDirBndSignPtr, inoutptr);
                 }
             }
         }
@@ -403,14 +403,14 @@ public:
                 if (nParDirBndSignBlock > 0)
                 {
                     // Initialize pointers.
-                    auto inoutPtr = inout.GetBlocks()[blk]
+                    auto inoutptr = inout.GetBlocks()[blk]
                                         .template GetPtr<MemSpace, ReadWrite>();
                     auto parDirBndSignPtr =
                         m_parDirBndSign[blk]
                             .template GetPtr<MemSpace, ReadOnly>();
 
                     ParallelDirBndSignKernel<ExecSpace>(
-                        nParDirBndSignBlock, parDirBndSignPtr, inoutPtr);
+                        nParDirBndSignBlock, parDirBndSignPtr, inoutptr);
                 }
             }
         }
@@ -420,7 +420,7 @@ public:
             for (size_t blk1 = 0; blk1 < inout.GetBlocks().size(); ++blk1)
             {
                 // Initialize pointers.
-                auto inPtr = inout.GetBlocks()[blk1]
+                auto inptr = inout.GetBlocks()[blk1]
                                  .template GetPtr<MemSpace, ReadOnly>();
                 for (size_t blk0 = 0; blk0 < inout.GetBlocks().size(); ++blk0)
                 {
@@ -429,7 +429,7 @@ public:
                     if (nLocCoeffBlock > 0)
                     {
                         // Initialize pointers.
-                        auto outPtr =
+                        auto outptr =
                             inout.GetBlocks()[blk0]
                                 .template GetPtr<MemSpace, WriteOnly>();
                         auto locid0Ptr =
@@ -444,7 +444,7 @@ public:
 
                         LocalDirBndCondKernel<ExecSpace>(
                             nLocCoeffBlock, locid0Ptr, locid1Ptr, locsignPtr,
-                            inPtr, outPtr);
+                            inptr, outptr);
                     }
                 }
             }
