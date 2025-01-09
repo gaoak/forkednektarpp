@@ -230,11 +230,10 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
         auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
@@ -261,8 +260,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
@@ -306,11 +303,10 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
         auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
@@ -336,8 +332,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
@@ -396,11 +390,10 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
         auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
@@ -430,8 +423,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
@@ -486,11 +477,10 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
         auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
@@ -520,8 +510,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
@@ -588,13 +576,11 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-
-        auto width_ratio = (in_interleave_width == 1)
-                               ? 1
-                               : in_interleave_width / simd_t::width;
-        auto chunkSize   = std::max(simd_t::width, in_interleave_width);
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
+        auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(simd_t::width);
@@ -625,8 +611,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.
@@ -685,11 +669,10 @@ private:
             m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>());
 
         // Get interleave parameter.
-        unsigned int in_interleave_width  = inblock.GetInterleaveWidth();
-        unsigned int out_interleave_width = outblock.GetInterleaveWidth();
-        auto width_ratio                  = (in_interleave_width == 1)
-                                                ? 1
-                                                : in_interleave_width / simd_t::width;
+        unsigned int in_interleave_width = inblock.GetInterleaveWidth();
+        auto width_ratio                 = (in_interleave_width == 1)
+                                               ? 1
+                                               : in_interleave_width / simd_t::width;
         auto chunkSize = std::max(simd_t::width, in_interleave_width);
 
         // Set to new interleave width.
@@ -721,8 +704,6 @@ private:
                 {
                     ReshapeStorage<ExecSpace, simd_t::width>(
                         in_interleave_width, chunkSize, nqTot, (TData *)inptr);
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nmTot, outptr);
                 }
 
                 // IProduct Kernel.

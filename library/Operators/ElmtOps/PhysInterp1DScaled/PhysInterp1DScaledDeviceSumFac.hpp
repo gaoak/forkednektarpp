@@ -296,6 +296,8 @@ private:
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -336,6 +338,7 @@ private:
             outptr += outblock.size();
         }
 
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -393,6 +396,8 @@ private:
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -459,6 +464,8 @@ private:
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -520,6 +527,8 @@ private:
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
@@ -593,6 +602,8 @@ private:
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }

@@ -36,7 +36,7 @@
 
 #include <StdRegions/StdExpansion.h>
 
-#include "Common/OperatorHelper.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorPhysDeriv.hpp"
 #include "Operators/Utils/UtilsKernels.hpp"
 
@@ -245,6 +245,7 @@ public:
             outptr += nCoord * outblock.size();
         }
 
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }

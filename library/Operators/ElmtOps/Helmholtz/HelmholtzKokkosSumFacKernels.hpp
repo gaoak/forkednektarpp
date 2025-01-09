@@ -41,7 +41,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Generic kernel launchers except for CUDA.
 template <typename ExecSpace, typename TData>
 inline typename std::enable_if<std::is_same_v<ExecSpace, NektarSpaces::KOKKOS>,
                                void>::type

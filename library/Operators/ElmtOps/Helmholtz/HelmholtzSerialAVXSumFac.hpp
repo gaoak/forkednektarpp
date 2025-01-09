@@ -337,6 +337,7 @@ private:
                 outptr += nmTot * simd_t::width;
             }
         }
+
         // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));
@@ -891,6 +892,7 @@ private:
                 outptr += nmTot * simd_t::width;
             }
         }
+
         // Free aligned memory.
         ::operator delete[](bwd, std::align_val_t(simd_t::alignment));
         ::operator delete[](deriv0, std::align_val_t(simd_t::alignment));

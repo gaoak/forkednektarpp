@@ -220,6 +220,7 @@ public:
             outptr += outblock.size();
         }
 
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
