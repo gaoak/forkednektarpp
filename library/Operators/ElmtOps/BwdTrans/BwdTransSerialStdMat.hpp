@@ -152,13 +152,6 @@ public:
         const auto nmTot     = m_expPtr->GetNcoeffs();
         const auto nqTot     = m_expPtr->GetTotPoints();
 
-        // Reshape, if necessary.
-        ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-            inblock.GetInterleaveWidth(), inblock.GetNumElementsWithPadding(),
-            inblock.GetNumData(), (TData *)inptr);
-        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
-
         // Fetch matrix.
         std::vector<LibUtilities::BasisKey> basisKeys(
             dimension, LibUtilities::NullBasisKey);
@@ -172,12 +165,22 @@ public:
 
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(),
+                inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
+                (TData *)inptr);
+
             // Perform matrix-matrix multiply.
             Blas::Gemm('N', 'N', nqTot, nElmts, nmTot, 1.0, matPtr.data(),
                        nqTot, inptr, nmTot, 0.0, outptr, nqTot);
             inptr += inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
 
 private:

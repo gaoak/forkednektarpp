@@ -293,8 +293,11 @@ private:
                             (TData *)(inptr +
                                       n * inblock.GetNumElmtGroups() * nq0));
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nm0, outptr);
+                    if (this->m_append)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            out_interleave_width, chunkSize, nm0, outptr);
+                    }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
@@ -384,8 +387,11 @@ private:
                             (TData *)(inptr +
                                       n * inblock.GetNumElmtGroups() * nq0));
                     }
-                    ReshapeStorage<ExecSpace, simd_t::width>(
-                        out_interleave_width, chunkSize, nm0, outptr);
+                    if (this->m_append)
+                    {
+                        ReshapeStorage<ExecSpace, simd_t::width>(
+                            out_interleave_width, chunkSize, nm0, outptr);
+                    }
                 }
 
                 StdAlignDerivBase1D<DEFORMED>(nq0, ncoord, dfPtr, df_tmp,
@@ -514,8 +520,11 @@ private:
                                 in_interleave_width, chunkSize, nqTot,
                                 (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
-                        ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, outptr);
+                        if (this->m_append)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                out_interleave_width, chunkSize, nmTot, outptr);
+                        }
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
@@ -556,8 +565,11 @@ private:
                                 in_interleave_width, chunkSize, nqTot,
                                 (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
-                        ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, outptr);
+                        if (this->m_append)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                out_interleave_width, chunkSize, nmTot, outptr);
+                        }
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
@@ -689,8 +701,11 @@ private:
                                 in_interleave_width, chunkSize, nqTot,
                                 (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
-                        ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, outptr);
+                        if (this->m_append)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                out_interleave_width, chunkSize, nmTot, outptr);
+                        }
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(
@@ -731,8 +746,11 @@ private:
                                 in_interleave_width, chunkSize, nqTot,
                                 (TData *)(inptr + n * NumElmtGroups * nqTot));
                         }
-                        ReshapeStorage<ExecSpace, simd_t::width>(
-                            out_interleave_width, chunkSize, nmTot, outptr);
+                        if (this->m_append)
+                        {
+                            ReshapeStorage<ExecSpace, simd_t::width>(
+                                out_interleave_width, chunkSize, nmTot, outptr);
+                        }
                     }
 
                     StdAlignDerivBase2D<SHAPE_TYPE, DEFORMED>(

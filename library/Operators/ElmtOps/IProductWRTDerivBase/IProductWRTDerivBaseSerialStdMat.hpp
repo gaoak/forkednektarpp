@@ -213,10 +213,13 @@ public:
                     inblock.GetNumElementsWithPadding(), inblock.GetNumData(),
                     (TData *)inptr + 2 * inblock.size());
             }
-            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
-                outblock.GetInterleaveWidth(),
-                outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
-                outptr);
+            if (this->m_append)
+            {
+                ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                    outblock.GetInterleaveWidth(),
+                    outblock.GetNumElementsWithPadding(), outblock.GetNumData(),
+                    outptr);
+            }
 
             // Calculate dx/dxi in[0] + dy/dxi in[1] + dz/dxi in[2].
             if (deformed)
@@ -299,6 +302,8 @@ public:
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
+
+        // Set to new interleave width.
         inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
         outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
     }
