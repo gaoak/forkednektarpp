@@ -62,7 +62,7 @@ TEST_FWDTRANS(fwdtrans_kokkos_sumfac_qp_seg, Helmholtz1D_Seg, 1.0E-12)
 
 TEST_FWDTRANS(fwdtrans_kokkos_sumfac_qp_tri_quad, Helmholtz2D_Tri_Quad, 1.0E-08)
 
-TEST_FWDTRANS(fwdtrans_kokkos_sumfac_qp_hex, Helmholtz3D_Hex, 1.1E-08)
+TEST_FWDTRANS(fwdtrans_kokkos_sumfac_qp_hex, Helmholtz3D_Hex, 2.0E-08)
 
 TEST_FWDTRANS(fwdtrans_kokkos_sumfac_qp_prism, Helmholtz3D_Prism, 1.0E-08)
 

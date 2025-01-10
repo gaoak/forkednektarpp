@@ -66,13 +66,13 @@ inline unsigned int IProductWRTBaseSharedMemorySize(const unsigned int nq0,
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            return nm0 * nq0 + nm1 * nq1 + nq0 + nq1 + nq0 * nq1 + nm0 * nq1;
+            return nm0 * nq0 + nm1 * nq1 + nq0 * nq1 + nm0 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
             const unsigned int nmTot =
                 LibUtilities::StdTriData::getNumberOfCoefficients(nm0, nm1);
-            return nm0 * nq0 + nmTot * nq1 + nq0 + nq1 + nq0 * nq1 + nm0 * nq1;
+            return nm0 * nq0 + nmTot * nq1 + nq0 * nq1 + nm0 * nq1;
         }
     }
     else
@@ -90,8 +90,8 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
     {
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 + nq1 + nq2 +
-                   nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+            return nm0 * nq0 + nm1 * nq1 + nm2 * nq2 + nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
@@ -100,14 +100,14 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
             const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 +
-                   nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm01 * nq2;
+            return nm0 * nq0 + nm01 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm01 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
             const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-            return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 + nq1 + nq2 +
-                   nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+            return nm0 * nq0 + nm1 * nq1 + nm02 * nq2 + nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
@@ -115,8 +115,8 @@ inline unsigned int IProductWRTBaseSharedMemorySize(
                 SHAPE_TYPE, nm0, nm1, nm2);
             const unsigned int nmode2 =
                 nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-            return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 + nq1 + nq2 +
-                   nq0 * nq1 * nq2 + nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
+            return nm0 * nq0 + nm1 * nq1 + nmode2 * nq2 + nq0 * nq1 * nq2 +
+                   nm0 * nq1 * nq2 + nm0 * nm1 * nq2;
         }
     }
     else
