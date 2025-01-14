@@ -933,8 +933,8 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *__restrict basis0,
-    const TData *__restrict basis1, [[maybe_unused]] TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out,
+    const TData *__restrict basis1, const TData *__restrict in,
+    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
     [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
@@ -1063,8 +1063,8 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     [[maybe_unused]] const unsigned int *__restrict index0,
     [[maybe_unused]] const unsigned int *__restrict index1,
     const TData *__restrict basis0, const TData *__restrict basis1,
-    const TData *__restrict basis2, [[maybe_unused]] TData *__restrict wsp,
-    const TData *__restrict in, TData *__restrict out,
+    const TData *__restrict basis2, const TData *__restrict in,
+    TData *__restrict out, [[maybe_unused]] TData *__restrict wsp,
     [[maybe_unused]] TData *__restrict shmemptr,
     const sycl::nd_item<3> &item_ct1)
 {
@@ -1361,6 +1361,7 @@ NEK_FORCE_INLINE static void BwdTrans1DKernel(const unsigned int nm0,
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
+#pragma forceinline
                  BwdTrans1DKernel<Implementation>(nm0, nq0, nelmt, basis0, in,
                                                   out, shmemptr, item);
              });
@@ -1384,8 +1385,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *basis0, const TData *basis1, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
+    TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -1405,9 +1406,10 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
+#pragma forceinline
                  BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0,
-                     basis1, wsp, in, out, shmemptr, item);
+                     basis1, in, out, wsp, shmemptr, item);
              });
      }).wait();
 }
@@ -1419,8 +1421,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
                                               const bool isModified,
                                               const TData *basis0,
-                                              const TData *basis1,
-                                              [[maybe_unused]] TData *wsp,
+                                              const TData *basis1, TData *wsp,
                                               const TData *in, TData *out)
 {
     BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
@@ -1433,11 +1434,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
-    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, TData *wsp, const TData *in, TData *out)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -1457,9 +1456,10 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
                  TData *shmemptr =
                      shmem.template get_multi_ptr<sycl::access::decorated::no>()
                          .get();
+#pragma forceinline
                  BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
                      nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified,
-                     index0, index1, basis0, basis1, basis2, wsp, in, out,
+                     index0, index1, basis0, basis1, basis2, in, out, wsp,
                      shmemptr, item);
              });
      }).wait();
@@ -1471,11 +1471,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nm2, unsigned int nq0, unsigned int nq1,
           unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
-    const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
-    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, TData *wsp, const TData *in, TData *out)
 {
     BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,

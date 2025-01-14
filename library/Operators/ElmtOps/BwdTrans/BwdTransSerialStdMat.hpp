@@ -163,6 +163,7 @@ public:
 
         auto nElmts = inblock.GetNumElements();
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.

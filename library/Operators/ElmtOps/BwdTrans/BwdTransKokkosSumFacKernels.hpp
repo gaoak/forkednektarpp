@@ -928,9 +928,8 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nmTot,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nelmt,
     const bool isModified, const TData *KOKKOS_RESTRICT basis0,
-    const TData *KOKKOS_RESTRICT basis1,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const TData *KOKKOS_RESTRICT basis1, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
     [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1;
@@ -1040,9 +1039,8 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
     [[maybe_unused]] const unsigned int *index0,
     [[maybe_unused]] const unsigned int *index1,
     const TData *KOKKOS_RESTRICT basis0, const TData *KOKKOS_RESTRICT basis1,
-    const TData *KOKKOS_RESTRICT basis2,
-    [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
-    const TData *KOKKOS_RESTRICT in, TData *KOKKOS_RESTRICT out,
+    const TData *KOKKOS_RESTRICT basis2, const TData *KOKKOS_RESTRICT in,
+    TData *KOKKOS_RESTRICT out, [[maybe_unused]] TData *KOKKOS_RESTRICT wsp,
     [[maybe_unused]] TData *KOKKOS_RESTRICT shmemptr, const team_handle &team)
 {
     const unsigned int nqTot = nq0 * nq1 * nq2;
@@ -1313,8 +1311,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *basis0, const TData *basis1, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
+    TData *out)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1);
@@ -1336,7 +1334,7 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
             ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
             BwdTrans2DKernel<SHAPE_TYPE, Implementation>(
                 nm0, nm1, nmTot, nq0, nq1, nelmt, isModified, basis0, basis1,
-                wsp, in, out, shmem.data(), team);
+                in, out, wsp, shmem.data(), team);
         });
 }
 
@@ -1347,8 +1345,7 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
                                               const bool isModified,
                                               const TData *basis0,
-                                              const TData *basis1,
-                                              [[maybe_unused]] TData *wsp,
+                                              const TData *basis1, TData *wsp,
                                               const TData *in, TData *out)
 {
     BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
@@ -1361,11 +1358,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nm2,
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
-    const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
-    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, TData *wsp, const TData *in, TData *out)
 {
     const unsigned int nmTot =
         LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
@@ -1387,7 +1382,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
             ScratchMemoryView<TData> shmem(team.team_scratch(slevel), nshared);
             BwdTrans3DKernel<SHAPE_TYPE, Implementation>(
                 nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nelmt, isModified, index0,
-                index1, basis0, basis1, basis2, wsp, in, out, shmem.data(),
+                index1, basis0, basis1, basis2, in, out, wsp, shmem.data(),
                 team);
         });
 }
@@ -1398,11 +1393,9 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           unsigned int nm2, unsigned int nq0, unsigned int nq1,
           unsigned int nq2, typename TData>
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
-    const unsigned int nelmt, const bool isModified,
-    [[maybe_unused]] const unsigned int *index0,
-    [[maybe_unused]] const unsigned int *index1, const TData *basis0,
-    const TData *basis1, const TData *basis2, [[maybe_unused]] TData *wsp,
-    const TData *in, TData *out)
+    const unsigned int nelmt, const bool isModified, const unsigned int *index0,
+    const unsigned int *index1, const TData *basis0, const TData *basis1,
+    const TData *basis2, TData *wsp, const TData *in, TData *out)
 {
     BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,

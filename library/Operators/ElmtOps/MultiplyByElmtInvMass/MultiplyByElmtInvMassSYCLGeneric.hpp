@@ -193,9 +193,10 @@ public:
         const TData beta  = 0.0;
         if (deformed)
         {
-            // Perform batched matrix-vector multiply.
+            // Loop over components.
             for (size_t nc = 0; nc < m_nComps; ++nc)
             {
+                // Perform batched matrix-vector multiply.
                 const auto dmatPtr =
                     m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
                 OneMKL::gemm_batch(queue, "N", "N", nmTot, 1, nmTot, alpha,
@@ -221,6 +222,7 @@ public:
             const auto scalePtr =
                 m_scale[m_blk].template GetPtr<MemSpace, ReadOnly>();
 
+            // Loop over components.
             for (size_t nc = 0; nc < m_nComps; ++nc)
             {
                 OneMKL::gemm(queue, "N", "N", nmTot, nElmts, nmTot, alpha,

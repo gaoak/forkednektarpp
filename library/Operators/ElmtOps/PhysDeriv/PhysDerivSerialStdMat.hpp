@@ -187,6 +187,7 @@ public:
         // Get pointer.
         auto derivPtr = m_deriv[m_blk].data();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;

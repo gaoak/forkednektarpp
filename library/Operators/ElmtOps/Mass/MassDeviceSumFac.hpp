@@ -34,14 +34,15 @@
 
 #pragma once
 
-#include "Operators/ElmtOps/OperatorBwdTrans.hpp"
-#include "Operators/ElmtOps/OperatorIProductWRTBase.hpp"
+#include "Operators/Common/OperatorHelper.hpp"
 #include "Operators/ElmtOps/OperatorMass.hpp"
+#include "Operators/Utils/UtilsKernels.hpp"
+
+#include "Operators/ElmtOps/Mass/MassDeviceSumFacKernels.hpp"
 
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorMassImpl : public OperatorMass<TData>
 {
@@ -51,34 +52,101 @@ public:
     OperatorMassImpl(const MultiRegions::ExpListSharedPtr &expansionList)
         : OperatorMass<TData>(expansionList)
     {
-        m_BwdTransOp =
-            BwdTrans<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_IProductWRTBaseOp =
-            IProductWRTBase<TData>::template Create<ExecSpace, Implementation>(
-                this->m_expansionList);
-        m_PhysBlockAttributes =
-            GetBlockAttributes<TData>(FieldState::Phys, expansionList);
+        // Initialise the jacobian.
+        auto locblocks = GetBlockAttributes<TData>(
+            FieldState::Phys, expansionList, m_implInterleaveWidth);
+        m_jac = SetJacobian<MemSpace, TData>(expansionList, locblocks,
+                                             ExecSpace::alignment);
+
+        // Initialize the basis data.
+        m_basisMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eBasis);
+        m_weightMap =
+            GetBasisData<MemSpace, NekDouble, TData>(expansionList, eWeights);
     }
 
     void apply(Field<TData, FieldState::Coeff> &in,
                Field<TData, FieldState::Coeff> &out) override
     {
-        int CompSize = in.GetNumComponents();
+        // Initialize index.
+        size_t exp_idx = 0;
 
-        // initialise bwd storage space if not for correct number of components
-        if (m_bwd.GetNumComponents() != CompSize)
+        m_nComps = in.GetNumComponents();
+        ASSERTL1(m_nComps == out.GetNumComponents(),
+                 "Number of input and output components differ");
+
+        // Loop over the blocks.
+        for (m_blk = 0; m_blk < in.GetBlocks().size(); ++m_blk)
         {
-            m_bwd = Field<TData, FieldState::Phys>::template Create<MemSpace>(
-                "Mass tmp", m_PhysBlockAttributes, CompSize,
-                ExecSpace::alignment);
+            m_expPtr = this->m_expansionList->GetExp(exp_idx);
+
+            // Block dependent.
+            auto &inblock  = in.GetBlocks()[m_blk];
+            auto &outblock = out.GetBlocks()[m_blk];
+
+            this->BlockOperator(inblock, outblock);
+
+            // Increment index for next element type.
+            exp_idx += inblock.GetNumElements();
+        }
+    }
+
+    size_t GetSharedWorkspaceSize(LibUtilities::ShapeType shapeType,
+                                  size_t nElmts, [[maybe_unused]] size_t nq0,
+                                  size_t nq1, size_t nq2,
+                                  [[maybe_unused]] size_t nm0, size_t nm1,
+                                  size_t nm2)
+    {
+        size_t wspsize = 0;
+
+        if (shapeType == LibUtilities::Seg)
+        {
+            wspsize = nq0 * nElmts;
+        }
+        else if (shapeType == LibUtilities::Quad)
+        {
+            wspsize = (nq0 * nq1 + nq1) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tri)
+        {
+            wspsize = (nq0 * nq1 + std::max(nq1, nm0)) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Hex)
+        {
+            wspsize = (nq0 * nq1 * nq2 + nq2 * nq1 + nq2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Tet)
+        {
+            wspsize = (nq0 * nq1 * nq2 + nq2 * nq1 + nq2 + nm2) * nElmts;
+        }
+        else if (shapeType == LibUtilities::Prism)
+        {
+            wspsize = (nq0 * nq1 * nq2 + std::max(nq2 * nq1, nm0 * nm1) +
+                       std::max(nq2, nm0) + nm1) *
+                      nElmts;
+        }
+        else if (shapeType == LibUtilities::Pyr)
+        {
+            wspsize = (nq0 * nq1 * nq2 + std::max(nq2 * nq1, nm0 * nm1) +
+                       std::max(nq2, nm0)) *
+                      nElmts;
         }
 
-        // Step 1: BwdTrans
-        m_BwdTransOp->apply(in, m_bwd);
+        return wspsize;
+    }
 
-        // Step 2: Inner product for mass matrix operation
-        m_IProductWRTBaseOp->apply(m_bwd, out);
+    MemoryRegion<TData> SetWorkspace(LibUtilities::ShapeType shapeType,
+                                     size_t nElmts, size_t nq0, size_t nq1,
+                                     size_t nq2, size_t nm0, size_t nm1,
+                                     size_t nm2)
+    {
+        size_t wspsize = GetSharedWorkspaceSize(shapeType, nElmts, nq0, nq1,
+                                                nq2, nm0, nm1, nm2);
+
+        constexpr bool device_only = true;
+
+        return MemoryRegion<TData>::template Create<MemSpace>(
+            wspsize, ExecSpace::alignment, device_only);
     }
 
     // className - for OperatorFactory
@@ -92,13 +160,874 @@ public:
             OperatorMassImpl<ExecSpace, Implementation, TData>>(expansionList);
     }
 
+    void BlockOperator(BlockAccessor<TData> &inblock,
+                       BlockAccessor<TData> &outblock)
+    {
+        // Determine shape and type of the element.
+        const auto shapeType = m_expPtr->DetShapeType();
+
+        switch (shapeType)
+        {
+            // Segment
+            case LibUtilities::Seg:
+            {
+                SegBlock(inblock, outblock);
+                break;
+            }
+            // Quads
+            case LibUtilities::Quad:
+            {
+                QuadBlock(inblock, outblock);
+                break;
+            }
+            // Triangles
+            case LibUtilities::Tri:
+            {
+                TriBlock(inblock, outblock);
+                break;
+            }
+            // Hexes
+            case LibUtilities::Hex:
+            {
+                HexBlock(inblock, outblock);
+                break;
+            }
+            // Tet
+            case LibUtilities::Tet:
+            {
+                TetBlock(inblock, outblock);
+                break;
+            }
+            // Pyr
+            case LibUtilities::Pyr:
+            {
+                PyrBlock(inblock, outblock);
+                break;
+            }
+            // Prism
+            case LibUtilities::Prism:
+            {
+                PrismBlock(inblock, outblock);
+                break;
+            }
+            default:
+                std::cout << "shapetype not implemented" << std::endl;
+        }
+    }
+
 protected:
-    Field<TData, FieldState::Phys> m_bwd;
+    unsigned int m_blk;
+    size_t m_nComps;
 
-    std::shared_ptr<OperatorBwdTrans<TData>> m_BwdTransOp;
-    std::shared_ptr<OperatorIProductWRTBase<TData>> m_IProductWRTBaseOp;
+    LocalRegions::ExpansionSharedPtr m_expPtr;
 
-    std::vector<BlockAttributes> m_PhysBlockAttributes;
+    BasisDataMap<TData> m_basisMap;
+    BasisDataMap<TData> m_weightMap;
+    std::vector<MemoryRegion<TData>> m_jac;
+    std::vector<MemoryRegion<TData>> m_wsp;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index0;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index1;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index2;
+    std::map<std::vector<LibUtilities::BasisKey>, MemoryRegion<unsigned int>>
+        m_index3;
+    static constexpr size_t m_implInterleaveWidth =
+        std::is_same_v<Implementation, Operators::SumFac>
+            ? NektarSpaces::vector_width<TData>::value
+            : 1u;
+
+    void SegBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void TriBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void QuadBlock(BlockAccessor<TData> &inblock,
+                   BlockAccessor<TData> &outblock);
+
+    void HexBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    void PrismBlock(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock);
+
+    void PyrBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+    void TetBlock(BlockAccessor<TData> &inblock,
+                  BlockAccessor<TData> &outblock);
+
+    // Non-size based operator.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, 0, 0, nm0, 0, 0));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass1DKernel<ExecSpace, Implementation, DEFORMED>(
+                nm0, nq0, nElmtsPad, B0, W0, jacptr, wspptr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nq0>
+    void Operator1D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(
+                    SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, 0, 0, nm0, 0, 0));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass1DKernel<ExecSpace, Implementation, DEFORMED, nm0, nq0>(
+                nElmtsPad, B0, W0, jacptr, wspptr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Non-size based operator.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool device_only = true;
+
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Precompute index, if necessary.
+        const bool indexing =
+            SHAPE_TYPE == LibUtilities::Tri &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+
+        if (indexing)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                std::vector<unsigned int> index0(nm01);
+                for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
+                    {
+                        index0[mode_pq] = p;
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+            }
+        }
+
+        auto index0 =
+            indexing ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                     : nullptr;
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, nq1, 0,
+                                             nm0, nm1, 0));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+                nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, B1, W0,
+                W1, jacptr, wspptr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nq0,
+              unsigned int nq1>
+    void Operator2D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool device_only = true;
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Precompute index, if necessary.
+        const bool indexing =
+            SHAPE_TYPE == LibUtilities::Tri &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+
+        if (indexing)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                std::vector<unsigned int> index0(nm01);
+                for (unsigned int p = 0, mode_pq = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
+                    {
+                        index0[mode_pq] = p;
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+            }
+        }
+
+        auto index0 =
+            indexing ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                     : nullptr;
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, nq1, 0,
+                                             nm0, nm1, 0));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass2DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nm0,
+                         nm1, nq0, nq1>(nElmtsPad, isModified, index0, B0, B1,
+                                        W0, W1, jacptr, wspptr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Non-size based operator.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool device_only = true;
+
+        // Shape size.
+        const auto nm0 = m_expPtr->GetBasisNumModes(0);
+        const auto nm1 = m_expPtr->GetBasisNumModes(1);
+        const auto nm2 = m_expPtr->GetBasisNumModes(2);
+
+        const auto nq0 = m_expPtr->GetNumPoints(0);
+        const auto nq1 = m_expPtr->GetNumPoints(1);
+        const auto nq2 = m_expPtr->GetNumPoints(2);
+
+        const auto nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 =
+            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W2 =
+            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Precompute index, if necessary.
+        const bool indexingTet =
+            SHAPE_TYPE == LibUtilities::Tet &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        const bool indexingPrism =
+            SHAPE_TYPE == LibUtilities::Prism &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        const bool indexingPyr =
+            SHAPE_TYPE == LibUtilities::Pyr &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+
+        // Precompute index, if necessary.
+        if (indexingTet)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                std::vector<unsigned int> index0(nm01);
+                std::vector<unsigned int> index1(nmTot);
+                std::vector<unsigned int> index2(nmTot);
+                std::vector<unsigned int> index3(nm01);
+                for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0;
+                     p++)
+                {
+                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
+                    {
+                        index0[mode_pq] = p;
+                        index3[mode_pq] = q;
+                        for (unsigned int r = 0; r < nm2 - p - q;
+                             r++, mode_pqr++)
+                        {
+                            index1[mode_pqr] = p;
+                            index2[mode_pqr] = q;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                m_index2[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index2, ExecSpace::alignment, device_only);
+                m_index3[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index3, ExecSpace::alignment, device_only);
+            }
+        }
+
+        if (indexingPrism)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                std::vector<unsigned int> index0(nmTot);
+                std::vector<unsigned int> index1(nmTot);
+                std::vector<unsigned int> index2(nmTot);
+                for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0u; q < nm1; q++)
+                    {
+                        for (unsigned int r = 0u; r < nm2 - p; r++, mode_pqr++)
+                        {
+                            unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
+                            unsigned int mode_pqr =
+                                mode_pr * nm1 + (nm2 - p) * q + r;
+                            index0[mode_pqr] = p;
+                            index1[mode_pqr] = q;
+                            index2[mode_pqr] = r;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                m_index2[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index2, ExecSpace::alignment, device_only);
+            }
+        }
+
+        if (indexingPyr)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                std::vector<unsigned int> index0(nmTot);
+                std::vector<unsigned int> index1(nmTot);
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0u; q < nm1; q++)
+                    {
+                        for (unsigned int r = 0; r < nm2 - std::max(p, q);
+                             r++, mode_pqr++)
+                        {
+                            index0[mode_pqr] = p;
+                            index1[mode_pqr] = q;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+            }
+        }
+
+        auto index0 =
+            (indexingTet || indexingPrism || indexingPyr)
+                ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index1 =
+            (indexingTet || indexingPrism || indexingPyr)
+                ? m_index1[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index2 =
+            (indexingTet || indexingPrism)
+                ? m_index2[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index3 =
+            (indexingTet)
+                ? m_index3[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, nq1,
+                                             nq2, nm0, nm1, nm2));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED>(
+                nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
+                index1, index2, index3, B0, B1, B2, W0, W1, W2, jacptr, wspptr,
+                inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
+
+    // Size based template version.
+    template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED,
+              unsigned int nm0, unsigned int nm1, unsigned int nm2,
+              unsigned int nq0, unsigned int nq1, unsigned int nq2>
+    void Operator3D(BlockAccessor<TData> &inblock,
+                    BlockAccessor<TData> &outblock)
+    {
+        constexpr bool device_only = true;
+
+        const auto nmTot =
+            LibUtilities::GetNumberOfCoefficients(SHAPE_TYPE, nm0, nm1, nm2);
+
+        // Flag for collapsed coordinate correction.
+        const bool isModified =
+            m_expPtr->GetBasis(0)->GetBasisType() == LibUtilities::eModified_A;
+
+        // Fetch basis and weight data.
+        std::vector<LibUtilities::BasisKey> basisKeys{
+            m_expPtr->GetBasis(0)->GetBasisKey(),
+            m_expPtr->GetBasis(1)->GetBasisKey(),
+            m_expPtr->GetBasis(2)->GetBasisKey()};
+        auto B0 =
+            m_basisMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto B1 =
+            m_basisMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto B2 =
+            m_basisMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+        auto W0 =
+            m_weightMap[basisKeys[0]].template GetPtr<MemSpace, ReadOnly>();
+        auto W1 =
+            m_weightMap[basisKeys[1]].template GetPtr<MemSpace, ReadOnly>();
+        auto W2 =
+            m_weightMap[basisKeys[2]].template GetPtr<MemSpace, ReadOnly>();
+
+        // Fetch Jacobian data.
+        auto jacptr = m_jac[m_blk].template GetPtr<MemSpace, ReadOnly>();
+
+        const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
+        // Initialize pointers.
+        auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
+                          ? inblock.template GetPtr<MemSpace, ReadOnly>()
+                          : inblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
+
+        // Precompute index, if necessary.
+        const bool indexingTet =
+            SHAPE_TYPE == LibUtilities::Tet &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        const bool indexingPrism =
+            SHAPE_TYPE == LibUtilities::Prism &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+        const bool indexingPyr =
+            SHAPE_TYPE == LibUtilities::Pyr &&
+            std::is_same_v<Implementation, Operators::SumFacQP>;
+
+        // Precompute index, if necessary.
+        if (indexingTet)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+                std::vector<unsigned int> index0(nm01);
+                std::vector<unsigned int> index1(nmTot);
+                std::vector<unsigned int> index2(nmTot);
+                std::vector<unsigned int> index3(nm01);
+                for (unsigned int p = 0, mode_pq = 0, mode_pqr = 0; p < nm0;
+                     p++)
+                {
+                    for (unsigned int q = 0; q < nm1 - p; q++, mode_pq++)
+                    {
+                        index0[mode_pq] = p;
+                        index3[mode_pq] = q;
+                        for (unsigned int r = 0; r < nm2 - p - q;
+                             r++, mode_pqr++)
+                        {
+                            index1[mode_pqr] = p;
+                            index2[mode_pqr] = q;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                m_index2[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index2, ExecSpace::alignment, device_only);
+                m_index3[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index3, ExecSpace::alignment, device_only);
+            }
+        }
+
+        if (indexingPrism)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                std::vector<unsigned int> index0(nmTot);
+                std::vector<unsigned int> index1(nmTot);
+                std::vector<unsigned int> index2(nmTot);
+                for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0u; q < nm1; q++)
+                    {
+                        for (unsigned int r = 0u; r < nm2 - p; r++, mode_pqr++)
+                        {
+                            unsigned int mode_pr = (2u * nm2 - p + 1u) * p / 2u;
+                            unsigned int mode_pqr =
+                                mode_pr * nm1 + (nm2 - p) * q + r;
+                            index0[mode_pqr] = p;
+                            index1[mode_pqr] = q;
+                            index2[mode_pqr] = r;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                m_index2[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index2, ExecSpace::alignment, device_only);
+            }
+        }
+
+        if (indexingPyr)
+        {
+            if (m_index0.find(basisKeys) == m_index0.end())
+            {
+                std::vector<unsigned int> index0(nmTot);
+                std::vector<unsigned int> index1(nmTot);
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+                for (unsigned int p = 0, mode_pqr = 0; p < nm0; p++)
+                {
+                    for (unsigned int q = 0u; q < nm1; q++)
+                    {
+                        for (unsigned int r = 0; r < nm2 - std::max(p, q);
+                             r++, mode_pqr++)
+                        {
+                            index0[mode_pqr] = p;
+                            index1[mode_pqr] = q;
+                        }
+                    }
+                }
+                m_index0[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index0, ExecSpace::alignment, device_only);
+                m_index1[basisKeys] =
+                    MemoryRegion<unsigned int>::template FromVector<MemSpace>(
+                        index1, ExecSpace::alignment, device_only);
+            }
+        }
+
+        auto index0 =
+            (indexingTet || indexingPrism || indexingPyr)
+                ? m_index0[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index1 =
+            (indexingTet || indexingPrism || indexingPyr)
+                ? m_index1[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index2 =
+            (indexingTet || indexingPrism)
+                ? m_index2[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+        auto index3 =
+            (indexingTet)
+                ? m_index3[basisKeys].template GetPtr<MemSpace, ReadOnly>()
+                : nullptr;
+
+        // Set workspace.
+        if constexpr (std::is_same_v<Implementation, Operators::SumFac>)
+        {
+            if (m_wsp.size() <= m_blk)
+            {
+                m_wsp.push_back(SetWorkspace(SHAPE_TYPE, nElmtsPad, nq0, nq1,
+                                             nq2, nm0, nm1, nm2));
+            }
+        }
+
+        // Get workspace pointer.
+        auto wspptr = std::is_same_v<Implementation, Operators::SumFac>
+                          ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
+                          : nullptr;
+
+        // Loop over components.
+        for (unsigned int nc = 0; nc < m_nComps; ++nc)
+        {
+            // Reshape, if necessary.
+            ReshapeStorage<ExecSpace, m_implInterleaveWidth>(
+                inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
+                (TData *)inptr);
+
+            // IProduct kernel.
+            Mass3DKernel<SHAPE_TYPE, ExecSpace, Implementation, DEFORMED, nm0,
+                         nm1, nm2, nq0, nq1, nq2>(
+                nElmtsPad, isModified, index0, index1, index2, index3, B0, B1,
+                B2, W0, W1, W2, jacptr, wspptr, inptr, outptr);
+            inptr += inblock.size();
+            outptr += outblock.size();
+        }
+
+        // Set to new interleave width.
+        inblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+        outblock.template SetInterleaveWidth<TData>(m_implInterleaveWidth);
+    }
 };
 
 } // namespace Nektar::Operators::detail

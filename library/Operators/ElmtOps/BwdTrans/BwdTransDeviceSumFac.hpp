@@ -252,6 +252,7 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -291,6 +292,7 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -358,6 +360,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -422,6 +425,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
 
@@ -534,6 +538,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -638,6 +643,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.

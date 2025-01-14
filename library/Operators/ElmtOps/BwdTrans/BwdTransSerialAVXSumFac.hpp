@@ -221,6 +221,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -279,6 +280,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -352,6 +355,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -421,6 +426,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -502,6 +509,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)
@@ -577,6 +586,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             for (int e = 0; e < inblock.GetNumElmtGroups(); ++e)

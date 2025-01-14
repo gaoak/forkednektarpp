@@ -218,6 +218,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -261,6 +262,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -314,6 +316,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -363,6 +366,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -420,6 +424,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -473,6 +478,7 @@ private:
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
