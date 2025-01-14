@@ -15,17 +15,26 @@ v5.8.0
 - Tidy virtual inheritance in NodalTriExp (!1979)
 - Fix partial overload virtual function in AssemblyMap, StdRegions, and LocalRegions (!1978)
 - Fix partial overload virtual function v_PhysEvaluate (!1980)
+- Matrix free ops shape cleanup (!1735) 
+- Fix NodalTri processing and static condensation matrix release (!1989)
+- Fix third-party Scotch patch (!1998)
 
 **CI**
 - Fix CubeAllElements performance test tolerance (!1943)
 - Remove `allow_failure` from compiler warnings and formatting (!1958, !1966)
 - remove CI image tag when dockerhub deploy completes (!1960)
+- Use recursive strategy for submodule (!1997)
+- cleanup CI environment images after packaging (!1991)
 
 **NekMesh**
 - Add high-order pyramid and prism support from gmsh (!1956)
 
 **Python**
 - Transition bindings to use pybind11 (!1950)
+
+**Documentation**
+- Updated the User-guide with additional inofrmation for outflow BC, addressing the issue #103 (!1990)
+
 
 v5.7.0
 -----

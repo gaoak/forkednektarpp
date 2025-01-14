@@ -117,6 +117,11 @@ protected:
     v_PhysEvaluate(const Array<OneD, const NekDouble> &coord,
                    const Array<OneD, const NekDouble> &physvals) override;
     LOCAL_REGIONS_EXPORT void v_ComputeTraceNormal(const int edge) override;
+    LOCAL_REGIONS_EXPORT void v_ExtractDataToCoeffs(
+        const NekDouble *data, const std::vector<unsigned int> &nummodes,
+        const int mode_offset, NekDouble *coeffs,
+        [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
+        override;
 
     //---------------------------------------
     // Helper functions

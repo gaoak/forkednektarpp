@@ -4235,8 +4235,20 @@ void ExpList::v_AppendFieldData(
     {
         int eid     = ElmtID_to_ExpID[fielddef->m_elementIDs[i]];
         int datalen = (*m_exp)[eid]->GetNcoeffs();
-        fielddata.insert(fielddata.end(), &coeffs[m_coeff_offset[eid]],
-                         &coeffs[m_coeff_offset[eid]] + datalen);
+        if ((*m_exp)[eid]->IsNodalNonTensorialExp())
+        {
+            // need to convert nodal coeff values into orthonormal expansion
+            Array<OneD, NekDouble> orthocoeffs((*m_exp)[eid]->GetNcoeffs());
+            (*m_exp)[eid]->NodalToModal(coeffs + m_coeff_offset[eid],
+                                        orthocoeffs);
+            fielddata.insert(fielddata.end(), &orthocoeffs[0],
+                             &orthocoeffs[0] + datalen);
+        }
+        else
+        {
+            fielddata.insert(fielddata.end(), &coeffs[m_coeff_offset[eid]],
+                             &coeffs[m_coeff_offset[eid]] + datalen);
+        }
     }
 }
 

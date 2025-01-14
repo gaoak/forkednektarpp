@@ -71,8 +71,8 @@ bool StdNodalTriExp::v_IsNodalNonTensorialExp()
 // Nodal basis specific routines
 //-------------------------------
 
-void StdNodalTriExp::NodalToModal(const Array<OneD, const NekDouble> &inarray,
-                                  Array<OneD, NekDouble> &outarray)
+void StdNodalTriExp::v_NodalToModal(const Array<OneD, const NekDouble> &inarray,
+                                    Array<OneD, NekDouble> &outarray)
 {
     StdMatrixKey Nkey(eInvNBasisTrans, DetShapeType(), *this,
                       NullConstFactorMap, NullVarCoeffMap,
@@ -157,7 +157,7 @@ void StdNodalTriExp::v_BwdTrans(const Array<OneD, const NekDouble> &inarray,
                                 Array<OneD, NekDouble> &outarray)
 {
     Array<OneD, NekDouble> tmp(m_ncoeffs);
-    NodalToModal(inarray, tmp);
+    v_NodalToModal(inarray, tmp);
     StdTriExp::v_BwdTrans(tmp, outarray);
 }
 

@@ -56,15 +56,11 @@ namespace Nektar::MatrixFree
 // implementation file.  See the CMakeLists.txt files for more
 // details.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
-struct PhysDerivTemplate
-    : public PhysDeriv,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>
+struct PhysDerivTemplate : public PhysDeriv, public Helper<SHAPE_TYPE, DEFORMED>
 {
     PhysDerivTemplate(std::vector<LibUtilities::BasisSharedPtr> basis,
                       int nElmt)
-        : PhysDeriv(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>(basis,
-                                                                      nElmt)
+        : PhysDeriv(basis, nElmt), Helper<SHAPE_TYPE, DEFORMED>(basis, nElmt)
     {
     }
 

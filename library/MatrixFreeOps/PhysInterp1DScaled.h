@@ -56,14 +56,12 @@ namespace Nektar::MatrixFree
 {
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
-struct PhysInterp1DScaledTemplate
-    : public PhysInterp1DScaled,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]>
+struct PhysInterp1DScaledTemplate : public PhysInterp1DScaled,
+                                    public Helper<SHAPE_TYPE>
 {
     PhysInterp1DScaledTemplate(std::vector<LibUtilities::BasisSharedPtr> basis,
                                int nElmt)
-        : PhysInterp1DScaled(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]>(basis, nElmt)
+        : PhysInterp1DScaled(basis, nElmt), Helper<SHAPE_TYPE>(basis, nElmt)
     {
     }
 

@@ -42,6 +42,7 @@
 #include <Collections/Operator.h>
 #include <LibUtilities/BasicUtils/NekFactory.hpp>
 #include <LibUtilities/BasicUtils/NekInline.hpp>
+#include <LibUtilities/BasicUtils/ShapeType.hpp>
 #include <LibUtilities/Foundations/Basis.h>
 #include <LibUtilities/Foundations/ManagerAccess.h>
 #include <LibUtilities/SimdLib/tinysimd.hpp>
@@ -495,8 +496,11 @@ protected:
     std::shared_ptr<std::vector<vec_t, tinysimd::allocator<vec_t>>> m_advVel;
 };
 
-template <int DIM, bool DEFORMED = false> class Helper : virtual public Operator
+template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
+class Helper : virtual public Operator
 {
+    static const size_t DIM{LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]};
+
 protected:
     Helper(std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
         : Operator()

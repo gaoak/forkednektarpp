@@ -441,6 +441,12 @@ public:
         return v_IsNodalNonTensorialExp();
     }
 
+    void NodalToModal(const Array<OneD, const NekDouble> &inarray,
+                      Array<OneD, NekDouble> &outarray)
+    {
+        v_NodalToModal(inarray, outarray);
+    }
+
     /** \brief This function performs the Backward transformation from
      *  coefficient space to physical space
      *
@@ -1567,6 +1573,10 @@ private:
     STD_REGIONS_EXPORT virtual bool v_IsBoundaryInteriorExpansion() const;
 
     STD_REGIONS_EXPORT virtual bool v_IsNodalNonTensorialExp();
+
+    STD_REGIONS_EXPORT virtual void v_NodalToModal(
+        [[maybe_unused]] const Array<OneD, const NekDouble> &inarray,
+        [[maybe_unused]] Array<OneD, NekDouble> &outarray){};
 
     STD_REGIONS_EXPORT virtual void v_BwdTrans(
         const Array<OneD, const NekDouble> &inarray,

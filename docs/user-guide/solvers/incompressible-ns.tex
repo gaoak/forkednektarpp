@@ -1242,7 +1242,9 @@ is replaced with
    \mathbf{u}^{*,n+1})
 \]
 where the default values are given by $\theta = 1,\alpha_1 = 0,\alpha_2 = 0$ and these values can be set through the parameters \inltt{OutflowBC\_theta},
-\inltt{OutflowBC\_alpha1} and \inltt{OutflowBC\_alpha2}. 
+\inltt{OutflowBC\_alpha1} and \inltt{OutflowBC\_alpha2}.  
+
+To have a closer look at how these parameters affect the boundary condition, let us assume $\alpha_1=\alpha_2=0$. Then, changing $\theta$ weighs between the first and second terms, where the first term is the original formulation for the outflow, while the second one accounts for the inflow via the dot product. In general, even with the existence of inflow at the boundary, using $\theta$ should be sufficient to handle the situation. When the inflow exist at the boundary, a starting point could be using $\theta=1/2$ with $\alpha$s being zero. The other two parameters, $\alpha_1$ and $\alpha_2$, provide additional flexibility in the formulation to possibly handle exceptional cases, and it is expected that, in general, they are not needed for simulations.
 
 Dong has also suggested convective like outflow conditions in
 \cite{Dong15} which can be enforced through a Robin type specification

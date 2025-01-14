@@ -534,6 +534,19 @@ void NodalTriExp::v_ComputeTraceNormal(const int edge)
     }
 }
 
+void NodalTriExp::v_ExtractDataToCoeffs(
+    const NekDouble *data, const std::vector<unsigned int> &nummodes,
+    const int mode_offset, NekDouble *coeffs,
+    [[maybe_unused]] std::vector<LibUtilities::BasisType> &fromType)
+{
+    Array<OneD, NekDouble> modes(m_ncoeffs);
+    Expansion::ExtractDataToCoeffs(data, nummodes, mode_offset, &modes[0],
+                                   fromType);
+
+    Array<OneD, NekDouble> nodes(m_ncoeffs, coeffs, eArrayWrapper);
+    ModalToNodal(modes, nodes);
+}
+
 void NodalTriExp::v_GetTracePhysVals(
     const int edge, const StdRegions::StdExpansionSharedPtr &EdgeExp,
     const Array<OneD, const NekDouble> &inarray,

@@ -57,14 +57,10 @@ namespace Nektar::MatrixFree
 // implementation file.  See the CMakeLists.txt files for more
 // details.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
-struct IProductTemplate
-    : public IProduct,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>
+struct IProductTemplate : public IProduct, public Helper<SHAPE_TYPE, DEFORMED>
 {
     IProductTemplate(std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
-        : IProduct(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>(basis,
-                                                                      nElmt)
+        : IProduct(basis, nElmt), Helper<SHAPE_TYPE, DEFORMED>(basis, nElmt)
     {
         constexpr auto DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 

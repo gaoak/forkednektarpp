@@ -63,13 +63,12 @@ namespace Nektar::MatrixFree
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
 struct LinearAdvectionDiffusionReactionTemplate
     : public LinearAdvectionDiffusionReaction,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>
+      public Helper<SHAPE_TYPE, DEFORMED>
 {
     LinearAdvectionDiffusionReactionTemplate(
         std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
         : LinearAdvectionDiffusionReaction(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>(basis,
-                                                                      nElmt)
+          Helper<SHAPE_TYPE, DEFORMED>(basis, nElmt)
     {
         constexpr auto DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 

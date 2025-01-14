@@ -60,15 +60,11 @@ namespace Nektar::MatrixFree
 // implementation file.  See the CMakeLists.txt files for more
 // details.
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
-struct HelmholtzTemplate
-    : public Helmholtz,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>
+struct HelmholtzTemplate : public Helmholtz, public Helper<SHAPE_TYPE, DEFORMED>
 {
     HelmholtzTemplate(std::vector<LibUtilities::BasisSharedPtr> basis,
                       int nElmt)
-        : Helmholtz(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE], DEFORMED>(basis,
-                                                                      nElmt)
+        : Helmholtz(basis, nElmt), Helper<SHAPE_TYPE, DEFORMED>(basis, nElmt)
     {
         constexpr auto DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 

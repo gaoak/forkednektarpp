@@ -65,6 +65,7 @@ ADD_NEKTAR_TEST(averagefld)
 ADD_NEKTAR_TEST(powerspectrum)
 ADD_NEKTAR_TEST(chanflow_m8_addfld)
 ADD_NEKTAR_TEST(MRF)
+ADD_NEKTAR_TEST(Nodal2DTriQuad)
 ADD_NEKTAR_TEST(vortexinducedvelocity)
 
 IF (NEKTAR_USE_METIS OR NEKTAR_USE_SCOTCH)

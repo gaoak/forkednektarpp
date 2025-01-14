@@ -56,13 +56,10 @@ namespace Nektar::MatrixFree
 {
 
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED = false>
-struct BwdTransTemplate
-    : public BwdTrans,
-      public Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]>
+struct BwdTransTemplate : public BwdTrans, public Helper<SHAPE_TYPE>
 {
     BwdTransTemplate(std::vector<LibUtilities::BasisSharedPtr> basis, int nElmt)
-        : BwdTrans(basis, nElmt),
-          Helper<LibUtilities::ShapeTypeDimMap[SHAPE_TYPE]>(basis, nElmt)
+        : BwdTrans(basis, nElmt), Helper<SHAPE_TYPE>(basis, nElmt)
     {
         constexpr auto DIM = LibUtilities::ShapeTypeDimMap[SHAPE_TYPE];
 

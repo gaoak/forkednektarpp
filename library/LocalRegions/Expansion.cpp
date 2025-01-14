@@ -405,6 +405,10 @@ DNekScalBlkMatSharedPtr Expansion::CreateStaticCondMatrix(const MatrixKey &mkey)
                 1, 1,
                 Atmp = MemoryManager<DNekScalMat>::AllocateSharedPtr(invfactor,
                                                                      D));
+
+            // Remove the local matrix from manager if using this option since
+            // we assume it is only created to generate static condensed system
+            v_DropLocMatrix(mkey);
         }
     }
     return returnval;

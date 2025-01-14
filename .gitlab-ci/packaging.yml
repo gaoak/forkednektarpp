@@ -14,13 +14,11 @@
   image: docker:stable
   stage: package-env
   needs: []
-  tags:
-    - pkg
   script:
     - OS_DIST=$(echo $CI_JOB_NAME | cut -d- -f 2)
     - OS_VERSION=$(echo $CI_JOB_NAME | cut -d- -f 3)
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
-    - IMAGE=$CI_REGISTRY_IMAGE/pkg/${OS_DIST}-${OS_VERSION}
+    - IMAGE=$CI_REGISTRY_IMAGE/pkg-env:${OS_DIST}-${OS_VERSION}
     - DOCKERFILE=docker/packaging/Dockerfile-${OS_DIST}-${OS_VERSION}
     - docker pull $IMAGE || true
     - docker build --pull -t $IMAGE -f ${DOCKERFILE} .
@@ -30,8 +28,6 @@
   <<: *package-conditions
   image: $CI_REGISTRY_IMAGE/${image_name}
   stage: package-build
-  tags:
-    - pkg
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -72,8 +68,6 @@
   <<: *package-conditions
   image: ${image_name}
   stage: package-test
-  tags:
-    - pkg
   script:
     - DEBIAN_FRONTEND=noninteractive
     - if [ -f /etc/apt/sources.list ]; then sed -i 's/main$/main contrib non-free/g' /etc/apt/sources.list; fi
@@ -99,7 +93,6 @@
   variables:
     DPATH: /web/deb-test
   tags:
-    - pkg
     - pkg-deb
   script:
     - OS_DIST=$(echo $CI_JOB_NAME | cut -d- -f 2)
@@ -137,8 +130,6 @@
   <<: *package-conditions
   image: $CI_REGISTRY_IMAGE/${image_name}
   stage: package-build
-  tags:
-    - pkg
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   script:
@@ -174,8 +165,6 @@
   <<: *package-conditions
   image: ${image_name}
   stage: package-test
-  tags:
-    - pkg
   variables:
     needs_epel: 0
     needs_powertools: 0
@@ -210,7 +199,6 @@
   variables:
     DPATH: /web/rpm-test
   tags:
-    - pkg
     - pkg-rpm
   script:
     - OS_DIST=$(echo $CI_JOB_NAME | cut -d- -f 2)
@@ -240,6 +228,24 @@
   variables:
       DPATH: /web/rpm
 
+# This cleans up the temporary environment image
+.package-env-cleanup: &package-env-cleanup
+  <<: *package-conditions
+  image: docker:stable
+  stage: cleanup
+#  except:
+#    refs:
+#      - master@nektar/nektar
+#      - tags@nektar/nektar
+  script:
+    - CI_IMAGE=$CI_REGISTRY_IMAGE/${image_name}
+    - apk update
+    - apk add curl
+    - curl --fail-with-body --location "https://www.nektar.info/thirdparty/regctl" > /usr/bin/regctl
+    - chmod 755 /usr/bin/regctl
+    - regctl registry login ${CI_REGISTRY} -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD}
+    - regctl tag rm $CI_IMAGE
+
 
 ##
 ## Source packages
@@ -250,10 +256,8 @@ package-source-archive-env:
 package-source-archive-build:
   <<: *package-conditions
   stage: package-build
-  image: $CI_REGISTRY_IMAGE/pkg/source-archive
+  image: $CI_REGISTRY_IMAGE/pkg-env:source-archive
   needs: ["package-source-archive-env"]
-  tags:
-    - pkg
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   script:
@@ -278,7 +282,6 @@ package-source-archive-deploy-dev: &package-source-archive-deploy-dev
   image: debian:stable-slim
   needs: ["package-source-archive-build"]
   tags:
-    - pkg
     - pkg-src
   variables:
     DPATH: /web/src-test
@@ -305,10 +308,8 @@ package-source-doc-env:
 package-source-doc-build:
   <<: *package-conditions
   stage: package-build
-  image: $CI_REGISTRY_IMAGE/pkg/source-doc
+  image: $CI_REGISTRY_IMAGE/pkg-env:source-doc
   needs: ["package-source-doc-env"]
-  tags:
-    - pkg
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   script:
@@ -339,7 +340,6 @@ package-source-doc-deploy-dev: &package-source-doc-deploy-dev
       DPATH_DOC: /web/doc-test
       DPATH_SRC: /web/src-test
   tags:
-    - pkg
     - pkg-src
   dependencies:
     - package-source-doc-build
@@ -385,7 +385,7 @@ package-source-doc-deploy:
 #  <<: *package-deb-build
 #  needs: ["package-debian-unstable-env"]
 #  variables:
-#    image_name: pkg/debian-unstable
+#    image_name: pkg-env:debian-unstable
 
 #package-debian-unstable-test:
 #  <<: *package-deb-test
@@ -417,7 +417,7 @@ package-debian-bookworm-build:
   <<: *package-deb-build
   needs: ["package-debian-bookworm-env"]
   variables:
-    image_name: pkg/debian-bookworm
+    image_name: pkg-env:debian-bookworm
 
 package-debian-bookworm-test:
   <<: *package-deb-test
@@ -439,6 +439,14 @@ package-debian-bookworm-deploy:
   dependencies:
     - package-debian-bookworm-build
 
+package-debian-bookworm-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-debian-bookworm-deploy-dev
+    - job: package-debian-bookworm-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:debian-bookworm
 
 ##
 ## Debian bullseye
@@ -450,7 +458,7 @@ package-debian-bullseye-build:
   <<: *package-deb-build
   needs: ["package-debian-bullseye-env"]
   variables:
-    image_name: pkg/debian-bullseye
+    image_name: pkg-env:debian-bullseye
 
 package-debian-bullseye-test:
   <<: *package-deb-test
@@ -472,6 +480,16 @@ package-debian-bullseye-deploy:
   dependencies:
     - package-debian-bullseye-build
 
+package-debian-bullseye-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-debian-bullseye-deploy-dev
+    - job: package-debian-bullseye-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:debian-bullseye
+
+
 ##
 ## Ubuntu noble
 ##
@@ -482,7 +500,7 @@ package-ubuntu-noble-build:
   <<: *package-deb-build
   needs: ["package-ubuntu-noble-env"]
   variables:
-    image_name: pkg/ubuntu-noble
+    image_name: pkg-env:ubuntu-noble
 
 package-ubuntu-noble-test:
   <<: *package-deb-test
@@ -504,6 +522,15 @@ package-ubuntu-noble-deploy:
   dependencies:
     - package-ubuntu-noble-build
 
+package-ubuntu-noble-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-ubuntu-noble-deploy-dev
+    - job: package-ubuntu-noble-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:ubuntu-noble
+
 ##
 ## Ubuntu jammy
 ##
@@ -514,7 +541,7 @@ package-ubuntu-jammy-build:
   <<: *package-deb-build
   needs: ["package-ubuntu-jammy-env"]
   variables:
-    image_name: pkg/ubuntu-jammy
+    image_name: pkg-env:ubuntu-jammy
 
 package-ubuntu-jammy-test:
   <<: *package-deb-test
@@ -536,6 +563,14 @@ package-ubuntu-jammy-deploy:
   dependencies:
     - package-ubuntu-jammy-build
 
+package-ubuntu-jammy-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-ubuntu-jammy-deploy-dev
+    - job: package-ubuntu-jammy-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:ubuntu-jammy
 
 ##
 ## Ubuntu focal
@@ -547,7 +582,7 @@ package-ubuntu-focal-build:
   <<: *package-deb-build
   needs: ["package-ubuntu-focal-env"]
   variables:
-    image_name: pkg/ubuntu-focal
+    image_name: pkg-env:ubuntu-focal
 
 package-ubuntu-focal-test:
   <<: *package-deb-test
@@ -569,6 +604,15 @@ package-ubuntu-focal-deploy:
   dependencies:
     - package-ubuntu-focal-build
 
+package-ubuntu-focal-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-ubuntu-focal-deploy-dev
+    - job: package-ubuntu-focal-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:ubuntu-focal
+
 ##
 ## Fedora 39
 ##
@@ -579,7 +623,7 @@ package-fedora-39-build:
   <<: *package-rpm-build
   needs: ["package-fedora-39-env"]
   variables:
-    image_name: pkg/fedora-39
+    image_name: pkg-env:fedora-39
     version_file: fedora-39.json
 
 package-fedora-39-test:
@@ -603,6 +647,15 @@ package-fedora-39-deploy:
   dependencies:
     - package-fedora-39-build
 
+package-fedora-39-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-fedora-39-deploy-dev
+    - job: package-fedora-39-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:fedora-39
+
 ##
 ## Fedora 40
 ##
@@ -613,7 +666,7 @@ package-fedora-40-build:
   <<: *package-rpm-build
   needs: ["package-fedora-40-env"]
   variables:
-    image_name: pkg/fedora-40
+    image_name: pkg-env:fedora-40
     version_file: fedora-40.json
 
 package-fedora-40-test:
@@ -637,3 +690,11 @@ package-fedora-40-deploy:
   dependencies:
     - package-fedora-40-build
 
+package-fedora-40-cleanup:
+  <<: *package-env-cleanup
+  needs: 
+    - job: package-fedora-40-deploy-dev
+    - job: package-fedora-40-deploy
+      optional: true
+  variables:
+    image_name: pkg-env:fedora-40

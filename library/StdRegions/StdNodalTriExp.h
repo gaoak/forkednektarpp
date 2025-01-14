@@ -53,9 +53,9 @@ public:
     //-------------------------------
     // Nodal basis specific routines
     //-------------------------------
-    STD_REGIONS_EXPORT void NodalToModal(
+    STD_REGIONS_EXPORT void v_NodalToModal(
         const Array<OneD, const NekDouble> &inarray,
-        Array<OneD, NekDouble> &outarray);
+        Array<OneD, NekDouble> &outarray) override;
     STD_REGIONS_EXPORT void NodalToModalTranspose(
         const Array<OneD, const NekDouble> &inarray,
         Array<OneD, NekDouble> &outarray);
