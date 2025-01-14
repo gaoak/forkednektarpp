@@ -307,6 +307,7 @@ private:
                           : outblock.template GetPtr<MemSpace, WriteOnly>();
 
         const auto nElmtsPad = inblock.GetNumElementsWithPadding();
+
         // Set workspace.
         if (m_tmp.size() <= m_blk)
         {
@@ -317,6 +318,7 @@ private:
         // Get workspace pointer.
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -389,6 +391,7 @@ private:
         // Get workspace pointer.
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -523,6 +526,7 @@ private:
                             : nullptr;
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -661,6 +665,7 @@ private:
                             : nullptr;
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -914,6 +919,7 @@ private:
                             : nullptr;
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -1170,6 +1176,7 @@ private:
                             : nullptr;
         TData *tmpptr = m_tmp[m_blk].template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.

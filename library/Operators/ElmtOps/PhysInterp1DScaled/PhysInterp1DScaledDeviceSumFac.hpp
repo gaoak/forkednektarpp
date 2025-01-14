@@ -283,6 +283,7 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, f necessary.
@@ -324,6 +325,7 @@ private:
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
         auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, f necessary.
@@ -381,7 +383,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // BwdTrans kernel.
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -389,6 +391,7 @@ private:
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inptr);
 
+            // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
                 nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
                 outptr);
@@ -450,7 +453,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // BwdTrans kernel.
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -458,6 +461,7 @@ private:
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inptr);
 
+            // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
                 nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
                 outptr);
@@ -513,7 +517,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // BwdTrans kernel.
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -521,6 +525,7 @@ private:
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inptr);
 
+            // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
                 nullptr, B0, B1, B2, wspptr, inptr, outptr);
@@ -588,7 +593,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
-        // BwdTrans kernel.
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -596,6 +601,7 @@ private:
                 inblock.GetInterleaveWidth(), nElmtsPad, inblock.GetNumData(),
                 (TData *)inptr);
 
+            // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
                 nullptr, B0, B1, B2, wspptr, inptr, outptr);

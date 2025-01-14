@@ -41,7 +41,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorMassImpl : public OperatorMass<TData>
 {

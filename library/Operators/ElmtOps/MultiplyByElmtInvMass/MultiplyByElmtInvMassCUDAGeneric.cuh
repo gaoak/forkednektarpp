@@ -193,6 +193,7 @@ public:
         const TData beta  = 0.0;
         if (deformed)
         {
+            // Loop over components.
             for (size_t nc = 0; nc < m_nComps; ++nc)
             {
                 const auto dmatPtr =
@@ -234,6 +235,7 @@ public:
                 m_scale[m_blk].template GetPtr<MemSpace, ReadOnly>();
             if constexpr (std::is_same_v<TData, double>)
             {
+                // Loop over components.
                 for (size_t nc = 0; nc < m_nComps; ++nc)
                 {
                     cublasDgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,
@@ -249,6 +251,7 @@ public:
             }
             else
             {
+                // Loop over components.
                 for (size_t nc = 0; nc < m_nComps; ++nc)
                 {
                     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nmTot, nElmts,

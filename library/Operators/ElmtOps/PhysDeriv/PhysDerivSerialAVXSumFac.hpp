@@ -255,6 +255,7 @@ private:
                 output + d * compOffset);
         }
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;
@@ -346,6 +347,7 @@ private:
                 output + d * compOffset);
         }
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;
@@ -443,6 +445,7 @@ private:
                 output + d * compOffset);
         }
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;
@@ -539,6 +542,7 @@ private:
                 output + d * compOffset);
         }
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;
@@ -649,6 +653,7 @@ private:
         outptr[2] = reinterpret_cast<typename simd_t::scalarType *>(
             output + 2 * compOffset);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto dfPtr = dfPtr_init;
@@ -755,9 +760,9 @@ private:
         outptr[2] = reinterpret_cast<typename simd_t::scalarType *>(
             output + 2 * compOffset);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
-
             auto dfPtr = dfPtr_init;
             for (size_t e = 0; e < outblock.GetNumElmtGroups(); ++e)
             {

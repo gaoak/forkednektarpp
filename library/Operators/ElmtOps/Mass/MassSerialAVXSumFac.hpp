@@ -46,7 +46,6 @@
 namespace Nektar::Operators::detail
 {
 
-// Generic implementation
 template <typename ExecSpace, typename Implementation, typename TData>
 class OperatorMassImpl : public OperatorMass<TData>
 {
@@ -261,7 +260,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
-        // loop over componnets
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -342,7 +341,8 @@ private:
         auto inptr =
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
-        // loop over componnets
+
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -443,6 +443,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -541,6 +542,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -654,6 +656,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;
@@ -761,6 +764,7 @@ private:
             reinterpret_cast<const typename simd_t::vectorType *>(input);
         auto outptr = reinterpret_cast<typename simd_t::scalarType *>(output);
 
+        // Loop over components.
         for (size_t nc = 0; nc < m_nComps; ++nc)
         {
             auto jacPtr = jacPtr_init;

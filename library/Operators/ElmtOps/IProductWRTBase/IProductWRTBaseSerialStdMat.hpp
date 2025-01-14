@@ -174,6 +174,7 @@ public:
         // Get workspace pointer.
         auto wspptr = m_wsp[m_blk].data();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.

@@ -191,9 +191,10 @@ public:
 
         if (deformed)
         {
-            // Perform matrix-vector multiply.
+            // Loop over components.
             for (size_t nc = 0; nc < m_nComps; ++nc)
             {
+                // Perform matrix-vector multiply.
                 auto dmatPtr =
                     m_dmat[m_blk].template GetPtr<MemSpace, ReadOnly>();
 
@@ -226,6 +227,7 @@ public:
             const auto scalePtr =
                 m_scale[m_blk].template GetPtr<MemSpace, ReadOnly>();
 
+            // Loop over components.
             for (size_t nc = 0; nc < m_nComps; ++nc)
             {
                 Blas::Gemm('N', 'N', nmTot, nElmts, nmTot, alpha, matPtr, nmTot,

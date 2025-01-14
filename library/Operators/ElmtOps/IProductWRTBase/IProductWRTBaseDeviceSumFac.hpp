@@ -279,10 +279,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -342,10 +341,9 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -420,9 +418,7 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -467,6 +463,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -538,9 +535,7 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Precompute index, if necessary.
         const bool indexing =
@@ -585,6 +580,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -673,9 +669,7 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -818,6 +812,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
@@ -899,9 +894,7 @@ private:
         auto inptr  = (inblock.GetInterleaveWidth() == m_implInterleaveWidth)
                           ? inblock.template GetPtr<MemSpace, ReadOnly>()
                           : inblock.template GetPtr<MemSpace, ReadWrite>();
-        auto outptr = (this->m_scale == 1.0)
-                          ? outblock.template GetPtr<MemSpace, WriteOnly>()
-                          : outblock.template GetPtr<MemSpace, ReadWrite>();
+        auto outptr = outblock.template GetPtr<MemSpace, WriteOnly>();
 
         // Precompute index, if necessary.
         const bool indexingTet =
@@ -1044,6 +1037,7 @@ private:
                           ? m_wsp[m_blk].template GetPtr<MemSpace, WriteOnly>()
                           : nullptr;
 
+        // Loop over components.
         for (unsigned int nc = 0; nc < m_nComps; ++nc)
         {
             // Reshape, if necessary.
