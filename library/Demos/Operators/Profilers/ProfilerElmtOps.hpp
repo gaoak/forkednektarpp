@@ -28,7 +28,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 //
-// Description:
+// Description: main content of profilers
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -50,7 +50,7 @@
 
 #include <LibUtilities/BasicUtils/ErrorUtil.hpp>
 #include <LibUtilities/BasicUtils/Timer.h>
-#include <MultiRegions/ContField.h>
+#include <MultiRegions/ExpList.h>
 #include <SpatialDomains/MeshGraphIO.h>
 
 // Add likwid support
@@ -70,7 +70,6 @@
 using namespace Nektar;
 using namespace Nektar::Operators;
 using namespace Nektar::LibUtilities;
-using FP_t = double;
 
 static bool _verbose_ = false;
 
@@ -158,14 +157,89 @@ template <class Op, typename TData> std::string GetOperatorName()
     return opName;
 }
 
+/// Compute the expected results of certain operator from the expList
+template <class Op, typename TData>
+void GetExpectedResults(const MultiRegions::ExpListSharedPtr &expList,
+                        const Array<OneD, NekDouble> &inArr,
+                        const Array<OneD, Array<OneD, NekDouble>> &inArrays,
+                        Array<OneD, NekDouble> &outArr,
+                        Array<OneD, Array<OneD, NekDouble>> &outArrays)
+{
+    std::string opName = "Unknown";
+    if (std::is_same<Op, BwdTrans<TData>>::value)
+    {
+        expList->BwdTrans(inArr, outArr);
+    }
+    else if (std::is_same<Op, IProductWRTBase<TData>>::value)
+    {
+        expList->IProductWRTBase(inArr, outArr);
+    }
+    else if (std::is_same<Op, Mass<TData>>::value)
+    {
+        expList->GeneralMatrixOp(
+            MultiRegions::GlobalMatrixKey(StdRegions::eMass), inArr, outArr);
+    }
+    else if (std::is_same<Op, MultiplyByElmtInvMass<TData>>::value)
+    {
+        expList->GeneralMatrixOp(
+            MultiRegions::GlobalMatrixKey(StdRegions::eInvMass), inArr, outArr);
+    }
+    else if (std::is_same<Op, PhysDeriv<TData>>::value)
+    {
+        for (int d = 0; d < outArrays.size(); d++)
+        {
+            expList->PhysDeriv(d, inArr, outArrays[d]);
+        }
+    }
+    else if (std::is_same<Op, IProductWRTDerivBase<TData>>::value)
+    {
+        expList->IProductWRTDerivBase(inArrays, outArr);
+    }
+    else if (std::is_same<Op, Helmholtz<TData>>::value)
+    {
+        StdRegions::ConstFactorMap factors;
+        factors[StdRegions::eFactorLambda] = 1.0;
+        MultiRegions::GlobalMatrixKey gkey(
+            StdRegions::eHelmholtz, MultiRegions::NullAssemblyMapSharedPtr,
+            factors);
+        expList->GeneralMatrixOp(gkey, inArr, outArr);
+    }
+}
+
+/// Reshape the storage of the field, to match the layout of legacy Nektar
+/// Array, for result comparison.
+template <typename TData, FieldState stateOut>
+void ReshapeToScalar(Field<TData, stateOut> &in)
+{
+    for (unsigned int blk = 0; blk < in.GetBlocks().size(); ++blk)
+    {
+        auto &block = in.GetBlocks()[blk];
+        TData *inptr =
+            block.template GetPtr<NektarSpaces::HostSpace, ReadWrite>();
+        unsigned int numElmtsPad =
+            block.GetNumElements() + block.GetNumPaddingElements();
+        for (unsigned int component = 0; component < in.GetNumComponents();
+             component++)
+        {
+            ReshapeStorage<NektarSpaces::Serial, 1>(
+                block.GetInterleaveWidth(), numElmtsPad, block.GetNumData(),
+                inptr + component * block.size());
+        }
+
+        block.template SetInterleaveWidth<TData>(1);
+    }
+}
+
 /// Print the block information. If _verbose_=true, then print the block
-/// information for each rank on the screen. If _verbose_=false, then only print
-/// the total information for each rank.
+/// information for each rank. If _verbose_=false, then only print the
+/// total information for each rank. Caution: for many ranks and many
+/// blocks, setting verbose may cause the display content too big to read.
 size_t PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
                       const std::vector<BlockAttributes> &blocks,
                       Array<OneD, int> &ranksNumElmts,
                       Array<OneD, int> &ranksNumPaddings,
-                      Array<OneD, int> &ranksNumDofs)
+                      Array<OneD, int> &ranksNumDofs,
+                      Array<OneD, NekDouble> &rankL1Err)
 {
     auto comm           = expList->GetComm();
     auto myrank         = comm->GetRank();
@@ -182,6 +256,8 @@ size_t PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
             blocks[i].GetNumElementsWithPadding() - blocks[i].GetNumElements();
         ranksNumDofs[myrank] += blocks[i].size();
 
+        // check the geometry type of the block: deformed or regular
+        // if both types exist in the same rank, then it is labeled as mixed
         auto gtype = expList->GetExp(expId)->GetMetricInfo()->GetGtype();
         if (gtype == SpatialDomains::eDeformed && ranksGeomTypes[myrank] != 1)
         {
@@ -202,6 +278,10 @@ size_t PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
     comm->AllReduce(ranksNumDofs, LibUtilities::ReduceSum);
     comm->AllReduce(ranksGeomTypes, LibUtilities::ReduceMax);
     size_t ndofs = Vmath::Vsum(ranksNumDofs.size(), ranksNumDofs, 1);
+
+    // Get the geometry type of the whole domain :
+    // Calculate the average value, if average is 1, then it is regular
+    // if average is 2, then it is deformed, otherwise it is mixed/
     auto GeomType =
         Vmath::Vsum(ranksGeomTypes.size(), ranksGeomTypes, 1) / comm->GetSize();
 
@@ -268,19 +348,22 @@ size_t PrintBlockInfo(const MultiRegions::ExpListSharedPtr &expList,
         }
     }
 
+    comm->AllReduce(rankL1Err, LibUtilities::ReduceSum);
+
     // print summary information:
     if (comm->GetRank() == 0) // print the summary
     {
         std::cout << std::setw(10) << "Rank# " << std::setw(12) << "#Elements"
                   << std::setw(12) << "#Paddings" << std::setw(12) << "#DoFs"
-                  << std::setw(12) << "Gtype" << std::endl;
+                  << std::setw(12) << "Gtype" << std::setw(16) << "L1 error"
+                  << std::endl;
         for (int rank = 0; rank < comm->GetSize(); rank++)
         {
             std::cout << std::setw(10) << rank << std::setw(12)
                       << ranksNumElmts[rank] << std::setw(12)
                       << ranksNumPaddings[rank] << std::setw(12)
                       << ranksNumDofs[rank] << std::setw(12) << Gtype
-                      << std::endl;
+                      << std::setw(16) << rankL1Err[rank] << std::endl;
         }
     }
     comm->Block();
@@ -303,6 +386,10 @@ void PrintProfileResult(const CommSharedPtr &comm, const NekDouble timePerTest,
     NekDouble aveElapsed =
         Vmath::Vsum(rankElapsed.size(), rankElapsed, 1) / comm->GetSize();
     // collect throughput for each rank:
+    // The throughput for each rank is calucated by the total number of dofs
+    // and the elapsed time in that rank. The total throughput is the sum of
+    // all ranks. So the total throughput by this way will not be identical
+    // to total dofs divided by the total (min/ave/max) elapsed time.
     NekDouble inThroughput  = 0.0;
     NekDouble outThroughput = 0.0;
     size_t totInDofs        = 0.0;
@@ -315,7 +402,9 @@ void PrintProfileResult(const CommSharedPtr &comm, const NekDouble timePerTest,
         totOutDofs += outdofs[i];
     }
 
-    if (comm->GetRank() == 0) // print the summary
+    // print the summary :
+    // Max/Min/Aver time can be used to judge the load-balance in parallel
+    if (comm->GetRank() == 0)
     {
         std::cout << "Max time per test (s): " << maxElapsed << std::endl;
         std::cout << "Min time per test (s): " << minElapsed << std::endl;
@@ -327,10 +416,13 @@ void PrintProfileResult(const CommSharedPtr &comm, const NekDouble timePerTest,
         std::cout << "Throughput (GB/s): " << inThroughput * sizeof(TData) / 1e9
                   << " " << outThroughput * sizeof(TData) / 1e9 << std::endl;
         std::cout << std::endl;
+        std::cout << std::endl;
     }
     comm->Block();
 }
 
+// Different operator may have different input/output attributes (FieldState,
+// or number of components). We must provided all these information.
 template <class Op, FieldState stateIn, FieldState stateOut, typename ExecSpace,
           typename Impl, typename TData>
 void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
@@ -342,6 +434,7 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     std::string OpName   = GetOperatorName<Op, TData>();
     auto tag             = OpName + execName + implName;
 
+    // identify the data type
     if (std::is_same_v<TData, double>)
     {
         tag += "Double";
@@ -352,14 +445,6 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     }
 
     auto comm = expList->GetComm();
-
-    if (comm->GetRank() == 0)
-    {
-        std::cout << "---------------------------------" << std::endl;
-        std::cout << "ElmtOps Profiler : " << tag << std::endl;
-        std::cout << "---------------------------------" << std::endl;
-    }
-    comm->Block();
 
     using MemSpace = typename ExecSpace::memory_space;
 
@@ -376,13 +461,14 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     // initialize the in field to random non-zeros: 1 2 3 4 ...
     // initialize the out field to zeros
-    auto inblk = in.GetBlocks();
+    auto inblk    = in.GetBlocks();
+    TData blksize = inblk.size();
     for (size_t i = 0; i < inblk.size(); ++i)
     {
         auto inptr = inblk[i].template GetPtr<MemSpace, WriteOnly>();
         Nektar::parallel_for<ExecSpace>(
             0, inblk[i].size(),
-            NEKTAR_LAMBDA(unsigned int j) { inptr[j] = j + 1.0; });
+            NEKTAR_LAMBDA(unsigned int j) { inptr[j] = (j + 1.0) / blksize; });
     }
     auto outblk = out.GetBlocks();
     for (size_t i = 0; i < outblk.size(); ++i)
@@ -393,7 +479,24 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
             NEKTAR_LAMBDA(unsigned int j) { outptr[j] = 0.0; });
     }
 
-    // Warm-up
+    // Create input and output Array for explist
+    Array<OneD, NekDouble> inArr  = in.template ToArray<NekDouble>();
+    Array<OneD, NekDouble> outArr = out.template ToArray<NekDouble>();
+    Array<OneD, Array<OneD, NekDouble>> inArrays(nIn);
+    Array<OneD, Array<OneD, NekDouble>> outArrays(nOut);
+    for (int d = 0; d < nIn; d++)
+    {
+        inArrays[d] = inArr + d * inArr.size() / nIn;
+    }
+    for (int d = 0; d < nOut; d++)
+    {
+        outArrays[d] = outArr + d * outArr.size() / nOut;
+    }
+    // Get expected results from expList
+    GetExpectedResults<Op, TData>(expList, inArr, inArrays, outArr, outArrays);
+
+    // Warm-up : fill the cache and memory, and let core temperature/freq
+    // stabilized
     for (int i = 0; i < Ntest / 2; ++i)
     {
         oper->apply(in, out);
@@ -428,15 +531,10 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
 
     comm->Block();
 
-    // check if the output is all zeros
-    TData L2 = 0.0;
-    l2norm<ExecSpace, TData, stateOut>(out, &L2);
-    if (L2 < 1e-9)
-    {
-        std::cout << "Warning: output does not change!"
-                  << "Device may not be invoked!" << std::endl;
-    }
-
+    // collect block information for each rank:
+    // number of elements for each rank;
+    // number of paddings for each rank, etc.
+    Array<OneD, NekDouble> rankL1Error(comm->GetSize(), 0.0);
     Array<OneD, int> ranksNumElmts, ranksNumPaddings;
     Array<OneD, int> ranksNumInDofs, ranksNumOutDofs;
 
@@ -446,7 +544,36 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
         std::cout << "Input field: " << std::endl;
     }
     PrintBlockInfo(expList, blocks_in, ranksNumElmts, ranksNumPaddings,
-                   ranksNumInDofs);
+                   ranksNumInDofs, rankL1Error);
+
+    // Additional check on the results, you can disable it if not used
+    {
+        // First check if the output is all zeros
+        TData L2 = 0.0;
+        l2norm<ExecSpace, TData, stateOut>(out, &L2);
+        if (L2 < 1e-9)
+        {
+            std::cout << "Warning: output does not change!"
+                      << "Device may not be invoked!" << std::endl;
+        }
+
+        // Then check if results match with expected
+        // If we compare float results with double results, then it is
+        // reasonable to have some mismatched values (e.g., > 1e-4)
+        ReshapeToScalar<TData, stateOut>(out);
+        Array<OneD, NekDouble> tmpArr = out.template ToArray<NekDouble>();
+        for (int i = 0, cnt = 0; i < tmpArr.size(); ++i)
+        {
+            // print out first 100 mismatched values
+            if (abs(tmpArr[i] - outArr[i]) > 1e-4 && cnt < 100)
+            {
+                std::cout << "i=" << i << " computed result = " << tmpArr[i]
+                          << " expected result = " << outArr[i] << std::endl;
+                ++cnt;
+            }
+            rankL1Error[comm->GetRank()] += abs(tmpArr[i] - outArr[i]);
+        }
+    }
 
     // print block information and get the total number of dofs
     if (comm->GetRank() == 0)
@@ -454,13 +581,22 @@ void Profiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
         std::cout << "Output field: " << std::endl;
     }
     PrintBlockInfo(expList, blocks_out, ranksNumElmts, ranksNumPaddings,
-                   ranksNumOutDofs);
+                   ranksNumOutDofs, rankL1Error);
+
+    if (comm->GetRank() == 0)
+    {
+        std::cout << "---------------------------------" << std::endl;
+        std::cout << "ElmtOps Profiler : " << tag << std::endl;
+        std::cout << "---------------------------------" << std::endl;
+    }
+    comm->Block();
 
     // collect elapsed time and compute the max, min, and average
     PrintProfileResult<TData>(comm, timer.TimePerTest(Ntest), ranksNumInDofs,
                               ranksNumOutDofs);
 }
 
+// You can add/remove the impl or exec to be profiled together as you like.
 template <class Op, FieldState stateIn, FieldState stateOut, typename TData>
 void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
                     const int nIn = 1, const int nOut = 1)
@@ -488,8 +624,8 @@ void LaunchProfiler(MultiRegions::ExpListSharedPtr &expList, const int Ntest,
     Profiler<Op, stateIn, stateOut, NektarSpaces::Serial, SumFac, TData>(
         expList, Ntest, nIn, nOut);
 #endif
-    // default: since it is extremely slow, we only execute 1/10 times
-    Profiler<Op, stateIn, stateOut, NektarSpaces::Serial, StdMat, TData>(
-        expList, Ntest / 10, nIn, nOut);
+    // Since StdMat on CPU is really slow, we disable it by default
+    // Profiler<Op, stateIn, stateOut, NektarSpaces::Serial, StdMat, TData>(
+    //     expList, Ntest / 20, nIn, nOut);
 #endif
 }
