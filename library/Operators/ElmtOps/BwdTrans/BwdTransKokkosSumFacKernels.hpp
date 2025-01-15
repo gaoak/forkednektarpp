@@ -964,65 +964,59 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans2DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        unsigned int nmode0, nmode1;
+        TData *s_wsp0, *s_wsp1;
+        TData *s_basis0, *s_basis1;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_basis0 = s_wsp1 + nm1 * nq0;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            nmode0 = nm0;
+            nmode1 = nm1;
 
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_basis0 = s_wsp1 + nm1 * nq0;
+            s_basis1 = s_basis0 + nm0 * nq0;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+        {
+            nmode0 = nm0;
+            nmode1 = nmTot;
 
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm1 * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_basis0 = s_wsp1 + nm0 * nq1;
+            s_basis1 = s_basis0 + nm0 * nq0;
+        }
 
-            const unsigned int e = team.league_rank();
+        // Copy to shared memory.
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmode0 * nq0),
+            [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
 
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmode1 * nq1),
+            [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
 
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+        const unsigned int e = team.league_rank();
 
-            team.team_barrier();
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
 
+        // Copy to shared memory.
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmTot),
+            [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+        team.team_barrier();
+
+        if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+        {
             BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
                                        s_basis1, s_wsp0, outptr, s_wsp1, team);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_basis0 = s_wsp1 + nm0 * nq1;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-            const unsigned int e = team.league_rank();
-
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-            team.team_barrier();
-
             BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
                                       s_basis0, s_basis1, s_wsp0, outptr,
                                       s_wsp1, team);
@@ -1102,82 +1096,96 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
     }
     else if constexpr (std::is_same_v<Implementation, Operators::SumFacQP>)
     {
+        unsigned int nmode0, nmode1, nmode2;
+        TData *s_wsp0, *s_wsp1, *s_wsp2;
+        TData *s_basis0, *s_basis1, *s_basis2;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + (nq0 * nm1 * nm2);
-            TData *s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = nm2;
 
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nq0 * nm1 * nm2;
+            s_basis0 = s_wsp2 + nq1 * nq0 * nm2;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+        {
+            nmode0 = nm0;
+            nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm1 * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nmode1 * nq2;
+            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        {
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
 
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm2 * nq2),
-                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
+            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        {
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-            const unsigned int e = team.league_rank();
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
+            s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
 
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
+        // Copy to shared memory.
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmode0 * nq0),
+            [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
 
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmode1 * nq1),
+            [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
 
-            team.team_barrier();
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmode2 * nq2),
+            [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
 
+        const unsigned int e = team.league_rank();
+
+        const TData *inptr = in + nmTot * e;
+        TData *outptr      = out + nqTot * e;
+
+        // Copy to shared memory.
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(team, nmTot),
+            [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
+
+        team.team_barrier();
+
+        if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+        {
             BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                       s_basis0, s_basis1, s_basis2, s_wsp0,
                                       outptr, s_wsp1, s_wsp2, team);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nm01 * nq2;
-            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm01 * nq1;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm01 * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-            const unsigned int e = team.league_rank();
-
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-            team.team_barrier();
-
             BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                       isModified, index0, index1, s_basis0,
                                       s_basis1, s_basis2, s_wsp0, outptr,
@@ -1185,81 +1193,12 @@ KOKKOS_INLINE_FUNCTION static void BwdTrans3DKernel(
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
         {
-            const unsigned int nm12 = (2u * nm2 - nm1 + 1u) * nm1 / 2u;
-
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nm0 * nm1 * nq2;
-            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm1 * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm12 * nq2),
-                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-            const unsigned int e = team.league_rank();
-
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-            team.team_barrier();
-
             BwdTransPrismSumFacQPKernel(
                 nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
                 s_basis1, s_basis2, s_wsp0, outptr, s_wsp1, s_wsp2, team);
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
         {
-            TData *s_wsp0   = shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + (nm0 * nm1 * nq2);
-            TData *s_basis0 = s_wsp2 + nq2 * nq1 * nm0;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-            // Copy to shared memory.
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm0 * nq0),
-                [&](const unsigned int &idx) { s_basis0[idx] = basis0[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nm1 * nq1),
-                [&](const unsigned int &idx) { s_basis1[idx] = basis1[idx]; });
-
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmode2 * nq2),
-                [&](const unsigned int &idx) { s_basis2[idx] = basis2[idx]; });
-
-            const unsigned int e = team.league_rank();
-
-            const TData *inptr = in + nmTot * e;
-            TData *outptr      = out + nqTot * e;
-
-            // Copy to shared memory.
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(team, nmTot),
-                [&](const unsigned int &idx) { s_wsp0[idx] = inptr[idx]; });
-
-            team.team_barrier();
-
             BwdTransPyrSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                       isModified, s_basis0, s_basis1, s_basis2,
                                       s_wsp0, outptr, s_wsp1, s_wsp2, team);

@@ -196,120 +196,97 @@ __device__ __forceinline__ void Mass2DKernel(
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
+        unsigned int nmode0, nmode1;
+        TData *s_wsp0, *s_wsp1, *s_wsp2;
+        TData *s_basis0, *s_basis1;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Quad)
         {
-            TData *s_wsp0   = (TData *)shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nqTot;
-            TData *s_basis0 = s_wsp2 + std::max(nm0 * nq1, nm1 * nq0);
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            nmode0 = nm0;
+            nmode1 = nm1;
 
-            // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
-            {
-                s_basis0[idx] = basis0[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm1 * nq1;
-                 idx += blockDim.x)
-            {
-                s_basis1[idx] = basis1[idx];
-            }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
-            {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
-                BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
-                                           s_basis1, s_wsp0, s_wsp1, s_wsp2);
-
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = idx / nq0;
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
-                }
-
-                __syncthreads();
-
-                IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
-                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
-                    s_wsp1, outptr, s_wsp2, (TData)1.0);
-                e += gridDim.x;
-            }
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_basis0 = s_wsp2 + std::max(nm0 * nq1, nm1 * nq0);
+            s_basis1 = s_basis0 + nm0 * nq0;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
         {
-            TData *s_wsp0   = (TData *)shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nqTot;
-            TData *s_basis0 = s_wsp2 + nm0 * nq1;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
+            nmode0 = nm0;
+            nmode1 = nmTot;
+
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_basis0 = s_wsp2 + nm0 * nq1;
+            s_basis1 = s_basis0 + nm0 * nq0;
+        }
+
+        // Copy to shared memory.
+        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
+             idx += blockDim.x)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
+             idx += blockDim.x)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        unsigned int e = blockIdx.x;
+        while (e < nelmt)
+        {
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr  = in + nmTot * e;
+            TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
             {
-                s_basis0[idx] = basis0[idx];
+                s_wsp0[idx] = inptr[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nmTot * nq1;
-                 idx += blockDim.x)
+            __syncthreads();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
             {
-                s_basis1[idx] = basis1[idx];
+                BwdTransQuadSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, s_basis0,
+                                           s_basis1, s_wsp0, s_wsp1, s_wsp2);
             }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
             {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
                 BwdTransTriSumFacQPKernel(nm0, nm1, nq0, nq1, nqTot, isModified,
                                           s_basis0, s_basis1, s_wsp0, s_wsp1,
                                           s_wsp2);
+            }
 
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = idx / nq0;
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
-                }
+            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            {
+                const unsigned int i        = idx % nq0;
+                const unsigned int j        = idx / nq0;
+                const unsigned int jacindex = DEFORMED ? idx : 0;
+                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
+            }
 
-                __syncthreads();
+            __syncthreads();
 
+            if constexpr (SHAPE_TYPE == LibUtilities::Quad)
+            {
+                IProductWRTBaseQuadSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nmTot, nq0, nq1, nqTot, s_basis0, s_basis1,
+                    s_wsp1, outptr, s_wsp2, (TData)1.0);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tri)
+            {
                 IProductWRTBaseTriSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nmTot, nq0, nq1, nqTot, isModified, index0,
                     s_basis0, s_basis1, s_wsp1, outptr, s_wsp2, (TData)1.0);
-                e += gridDim.x;
             }
+
+            e += gridDim.x;
         }
     }
 }
@@ -465,292 +442,169 @@ __device__ __forceinline__ void Mass3DKernel(
     {
         extern __shared__ __align__(sizeof(TData)) unsigned char shmemptr[];
 
+        unsigned int nmode0, nmode1, nmode2;
+        TData *s_wsp0, *s_wsp1, *s_wsp2, *s_wsp3;
+        TData *s_basis0, *s_basis1, *s_basis2;
+
         if constexpr (SHAPE_TYPE == LibUtilities::Hex)
         {
-            TData *s_wsp0 = (TData *)shmemptr;
-            TData *s_wsp1 = s_wsp0 + nmTot;
-            TData *s_wsp2 = s_wsp1 + nqTot;
-            TData *s_wsp3 = s_wsp2 + std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
-            TData *s_basis0 =
-                s_wsp3 + std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = nm2;
 
-            // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
-            {
-                s_basis0[idx] = basis0[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm1 * nq1;
-                 idx += blockDim.x)
-            {
-                s_basis1[idx] = basis1[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm2 * nq2;
-                 idx += blockDim.x)
-            {
-                s_basis2[idx] = basis2[idx];
-            }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
-            {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
-                BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
-                                          s_basis0, s_basis1, s_basis2, s_wsp0,
-                                          s_wsp1, s_wsp2, s_wsp3);
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = (idx / nq0) % nq1;
-                    const unsigned int k        = idx / (nq0 * nq1);
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
-                }
-
-                __syncthreads();
-
-                IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
-                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
-                    s_basis1, s_basis2, s_wsp1, outptr, s_wsp2, s_wsp3,
-                    (TData)1.0);
-                e += gridDim.x;
-            }
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_wsp3   = s_wsp2 + std::max(nq0 * nm1 * nm2, nm0 * nq1 * nq2);
+            s_basis0 = s_wsp3 + std::max(nq1 * nq0 * nm2, nm0 * nm1 * nq2);
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
         }
         else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
         {
-            const unsigned int nm01 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+            nmode0 = nm0;
+            nmode1 = (2u * nm1 - nm0 + 1u) * nm0 / 2u;
+            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
 
-            TData *s_wsp0   = (TData *)shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nqTot;
-            TData *s_wsp3   = s_wsp2 + nm01 * nq2;
-            TData *s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm01 * nq1;
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_wsp3   = s_wsp2 + nmode1 * nq2;
+            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+        {
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
+
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
+            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+        {
+            nmode0 = nm0;
+            nmode1 = nm1;
+            nmode2 = nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
+
+            s_wsp0   = (TData *)shmemptr;
+            s_wsp1   = s_wsp0 + nmTot;
+            s_wsp2   = s_wsp1 + nqTot;
+            s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
+            s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
+            s_basis1 = s_basis0 + nmode0 * nq0;
+            s_basis2 = s_basis1 + nmode1 * nq1;
+        }
+
+        // Copy to shared memory.
+        for (unsigned int idx = threadIdx.x; idx < nmode0 * nq0;
+             idx += blockDim.x)
+        {
+            s_basis0[idx] = basis0[idx];
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nmode1 * nq1;
+             idx += blockDim.x)
+        {
+            s_basis1[idx] = basis1[idx];
+        }
+
+        for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
+             idx += blockDim.x)
+        {
+            s_basis2[idx] = basis2[idx];
+        }
+
+        unsigned int e = blockIdx.x;
+        while (e < nelmt)
+        {
+            const TData *jacptr = jac + jacsize * e;
+            const TData *inptr  = in + nmTot * e;
+            TData *outptr       = out + nmTot * e;
 
             // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
+            for (unsigned int idx = threadIdx.x; idx < nmTot; idx += blockDim.x)
             {
-                s_basis0[idx] = basis0[idx];
+                s_wsp0[idx] = inptr[idx];
             }
 
-            for (unsigned int idx = threadIdx.x; idx < nm01 * nq1;
-                 idx += blockDim.x)
+            __syncthreads();
+
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
             {
-                s_basis1[idx] = basis1[idx];
+                BwdTransHexSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
+                                          s_basis0, s_basis1, s_basis2, s_wsp0,
+                                          s_wsp1, s_wsp2, s_wsp3);
             }
-
-            for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-                 idx += blockDim.x)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
             {
-                s_basis2[idx] = basis2[idx];
-            }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
-            {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
                 BwdTransTetSumFacQPKernel(nm0, nm1, nm2, nq0, nq1, nq2, nqTot,
                                           isModified, index0, index3, s_basis0,
                                           s_basis1, s_basis2, s_wsp0, s_wsp1,
                                           s_wsp2, s_wsp3);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
+            {
+                BwdTransPrismSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, s_wsp0, s_wsp1, s_wsp2, s_wsp3);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
+            {
+                BwdTransPyrSumFacQPKernel(
+                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
+                    s_basis1, s_basis2, s_wsp0, s_wsp1, s_wsp2, s_wsp3);
+            }
 
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = (idx / nq0) % nq1;
-                    const unsigned int k        = idx / (nq0 * nq1);
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
-                }
+            // Copy to shared memory.
+            for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
+            {
+                const unsigned int i        = idx % nq0;
+                const unsigned int j        = (idx / nq0) % nq1;
+                const unsigned int k        = idx / (nq0 * nq1);
+                const unsigned int jacindex = DEFORMED ? idx : 0;
+                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
+            }
 
-                __syncthreads();
+            __syncthreads();
 
+            if constexpr (SHAPE_TYPE == LibUtilities::Hex)
+            {
+                IProductWRTBaseHexSumFacQPKernel<false, false, DEFORMED>(
+                    nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, s_basis0,
+                    s_basis1, s_basis2, s_wsp1, outptr, s_wsp2, s_wsp3,
+                    (TData)1.0);
+            }
+            else if constexpr (SHAPE_TYPE == LibUtilities::Tet)
+            {
                 IProductWRTBaseTetSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp1, outptr, s_wsp3, s_wsp2, (TData)1.0);
-                e += gridDim.x;
             }
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
-        {
-            const unsigned int nm02 = (2u * nm2 - nm0 + 1u) * nm0 / 2u;
-
-            TData *s_wsp0   = (TData *)shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nqTot;
-            TData *s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
-            TData *s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-            // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Prism)
             {
-                s_basis0[idx] = basis0[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm1 * nq1;
-                 idx += blockDim.x)
-            {
-                s_basis1[idx] = basis1[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm02 * nq2;
-                 idx += blockDim.x)
-            {
-                s_basis2[idx] = basis2[idx];
-            }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
-            {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
-                BwdTransPrismSumFacQPKernel(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                    s_basis1, s_basis2, s_wsp0, s_wsp1, s_wsp2, s_wsp3);
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = (idx / nq0) % nq1;
-                    const unsigned int k        = idx / (nq0 * nq1);
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
-                }
-
-                __syncthreads();
-
                 IProductWRTBasePrismSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, index2, s_basis0, s_basis1, s_basis2,
                     s_wsp1, outptr, s_wsp3, s_wsp2, (TData)1.0);
-                e += gridDim.x;
             }
-        }
-        else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
-        {
-            const unsigned int nmode2 =
-                nmTot + nm0 * (nm2 - nm1 + 1u) * (nm2 - nm1) / 2u;
-
-            TData *s_wsp0   = (TData *)shmemptr;
-            TData *s_wsp1   = s_wsp0 + nmTot;
-            TData *s_wsp2   = s_wsp1 + nqTot;
-            TData *s_wsp3   = s_wsp2 + nm0 * nm1 * nq2;
-            TData *s_basis0 = s_wsp3 + nm0 * nq1 * nq2;
-            TData *s_basis1 = s_basis0 + nm0 * nq0;
-            TData *s_basis2 = s_basis1 + nm1 * nq1;
-
-            // Copy to shared memory.
-            for (unsigned int idx = threadIdx.x; idx < nm0 * nq0;
-                 idx += blockDim.x)
+            else if constexpr (SHAPE_TYPE == LibUtilities::Pyr)
             {
-                s_basis0[idx] = basis0[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nm1 * nq1;
-                 idx += blockDim.x)
-            {
-                s_basis1[idx] = basis1[idx];
-            }
-
-            for (unsigned int idx = threadIdx.x; idx < nmode2 * nq2;
-                 idx += blockDim.x)
-            {
-                s_basis2[idx] = basis2[idx];
-            }
-
-            unsigned int e = blockIdx.x;
-            while (e < nelmt)
-            {
-                const TData *jacptr = jac + jacsize * e;
-                const TData *inptr  = in + nmTot * e;
-                TData *outptr       = out + nmTot * e;
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nmTot;
-                     idx += blockDim.x)
-                {
-                    s_wsp0[idx] = inptr[idx];
-                }
-
-                __syncthreads();
-
-                BwdTransPyrSumFacQPKernel(
-                    nm0, nm1, nm2, nq0, nq1, nq2, nqTot, isModified, s_basis0,
-                    s_basis1, s_basis2, s_wsp0, s_wsp1, s_wsp2, s_wsp3);
-
-                // Copy to shared memory.
-                for (unsigned int idx = threadIdx.x; idx < nqTot;
-                     idx += blockDim.x)
-                {
-                    const unsigned int i        = idx % nq0;
-                    const unsigned int j        = (idx / nq0) % nq1;
-                    const unsigned int k        = idx / (nq0 * nq1);
-                    const unsigned int jacindex = DEFORMED ? idx : 0;
-                    s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
-                }
-
-                __syncthreads();
-
                 IProductWRTBasePyrSumFacQPKernel<false, false, DEFORMED>(
                     nm0, nm1, nm2, nmTot, nq0, nq1, nq2, nqTot, isModified,
                     index0, index1, s_basis0, s_basis1, s_basis2, s_wsp1,
                     outptr, s_wsp3, s_wsp2, (TData)1.0);
-                e += gridDim.x;
             }
+
+            e += gridDim.x;
         }
     }
 }
