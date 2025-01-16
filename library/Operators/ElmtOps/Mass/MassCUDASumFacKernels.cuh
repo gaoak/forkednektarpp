@@ -36,9 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_CUDA) && defined(__CUDACC__)
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransCUDASumFacKernels.cuh"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseCUDASumFacKernels.cuh"
-
 namespace Nektar::Operators::detail
 {
 
@@ -94,8 +91,14 @@ __device__ __forceinline__ void Mass1DKernel(
 
             for (unsigned int i = threadIdx.x; i < nq0; i += blockDim.x)
             {
-                const unsigned int jacindex = DEFORMED ? i : 0;
-                s_wsp0[i] *= jacptr[jacindex] * w0[i];
+                if constexpr (DEFORMED)
+                {
+                    s_wsp0[i] *= jacptr[i] * w0[i];
+                }
+                else
+                {
+                    s_wsp0[i] *= jacptr[0] * w0[i];
+                }
             }
 
             __syncthreads();
@@ -265,10 +268,16 @@ __device__ __forceinline__ void Mass2DKernel(
 
             for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
             {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = idx / nq0;
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
+                const unsigned int i = idx % nq0;
+                const unsigned int j = idx / nq0;
+                if constexpr (DEFORMED)
+                {
+                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j];
+                }
+                else
+                {
+                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j];
+                }
             }
 
             __syncthreads();
@@ -566,11 +575,17 @@ __device__ __forceinline__ void Mass3DKernel(
             // Copy to shared memory.
             for (unsigned int idx = threadIdx.x; idx < nqTot; idx += blockDim.x)
             {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = (idx / nq0) % nq1;
-                const unsigned int k        = idx / (nq0 * nq1);
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+                if constexpr (DEFORMED)
+                {
+                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
+                }
+                else
+                {
+                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
+                }
             }
 
             __syncthreads();

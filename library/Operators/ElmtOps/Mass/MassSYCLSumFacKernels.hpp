@@ -36,9 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_SYCL)
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransSYCLSumFacKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseSYCLSumFacKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -95,8 +92,14 @@ NEK_FORCE_INLINE static void Mass1DKernel(
             for (unsigned int i = item_ct1.get_local_id(2); i < nq0;
                  i += item_ct1.get_local_range(2))
             {
-                const unsigned int jacindex = DEFORMED ? i : 0;
-                s_wsp0[i] *= jacptr[jacindex] * w0[i];
+                if constexpr (DEFORMED)
+                {
+                    s_wsp0[i] *= jacptr[i] * w0[i];
+                }
+                else
+                {
+                    s_wsp0[i] *= jacptr[0] * w0[i];
+                }
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -240,10 +243,16 @@ NEK_FORCE_INLINE static void Mass2DKernel(
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                  idx += item_ct1.get_local_range(2))
             {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = idx / nq0;
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
+                const unsigned int i = idx % nq0;
+                const unsigned int j = idx / nq0;
+                if constexpr (DEFORMED)
+                {
+                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j];
+                }
+                else
+                {
+                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j];
+                }
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);
@@ -511,11 +520,17 @@ NEK_FORCE_INLINE static void Mass3DKernel(
             for (unsigned int idx = item_ct1.get_local_id(2); idx < nqTot;
                  idx += item_ct1.get_local_range(2))
             {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = (idx / nq0) % nq1;
-                const unsigned int k        = idx / (nq0 * nq1);
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+                if constexpr (DEFORMED)
+                {
+                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
+                }
+                else
+                {
+                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
+                }
             }
 
             item_ct1.barrier(sycl::access::fence_space::local_space);

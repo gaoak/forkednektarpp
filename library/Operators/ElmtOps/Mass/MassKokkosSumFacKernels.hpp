@@ -36,9 +36,6 @@
 
 #if defined(NEKTAR_ENABLE_KOKKOS)
 
-#include "Operators/ElmtOps/BwdTrans/BwdTransKokkosSumFacKernels.hpp"
-#include "Operators/ElmtOps/IProductWRTBase/IProductWRTBaseKokkosSumFacKernels.hpp"
-
 namespace Nektar::Operators::detail
 {
 
@@ -98,8 +95,14 @@ KOKKOS_INLINE_FUNCTION static void Mass1DKernel(
 
         Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nq0),
                              [&](const unsigned int &i) {
-                                 const unsigned int jacindex = DEFORMED ? i : 0;
-                                 s_wsp0[i] *= jacptr[jacindex] * w0[i];
+                                 if constexpr (DEFORMED)
+                                 {
+                                     s_wsp0[i] *= jacptr[i] * w0[i];
+                                 }
+                                 else
+                                 {
+                                     s_wsp0[i] *= jacptr[0] * w0[i];
+                                 }
                              });
 
         team.team_barrier();
@@ -230,13 +233,19 @@ KOKKOS_INLINE_FUNCTION static void Mass2DKernel(
                                       s_wsp2, team);
         }
 
-        Kokkos::parallel_for(
-            Kokkos::TeamThreadRange(team, nqTot), [&](const unsigned int &idx) {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = idx / nq0;
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j];
-            });
+        Kokkos::parallel_for(Kokkos::TeamThreadRange(team, nqTot),
+                             [&](const unsigned int &idx) {
+                                 const unsigned int i = idx % nq0;
+                                 const unsigned int j = idx / nq0;
+                                 if constexpr (DEFORMED)
+                                 {
+                                     s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j];
+                                 }
+                                 else
+                                 {
+                                     s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j];
+                                 }
+                             });
 
         team.team_barrier();
 
@@ -486,11 +495,17 @@ KOKKOS_INLINE_FUNCTION static void Mass3DKernel(
 
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(team, nqTot), [&](const unsigned int &idx) {
-                const unsigned int i        = idx % nq0;
-                const unsigned int j        = (idx / nq0) % nq1;
-                const unsigned int k        = idx / (nq0 * nq1);
-                const unsigned int jacindex = DEFORMED ? idx : 0;
-                s_wsp1[idx] *= jacptr[jacindex] * w0[i] * w1[j] * w2[k];
+                const unsigned int i = idx % nq0;
+                const unsigned int j = (idx / nq0) % nq1;
+                const unsigned int k = idx / (nq0 * nq1);
+                if constexpr (DEFORMED)
+                {
+                    s_wsp1[idx] *= jacptr[idx] * w0[i] * w1[j] * w2[k];
+                }
+                else
+                {
+                    s_wsp1[idx] *= jacptr[0] * w0[i] * w1[j] * w2[k];
+                }
             });
 
         team.team_barrier();

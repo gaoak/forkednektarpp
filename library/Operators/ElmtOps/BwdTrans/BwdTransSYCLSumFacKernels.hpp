@@ -1284,8 +1284,8 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans2DKernel(
     const unsigned int nm0, const unsigned int nm1, const unsigned int nq0,
     const unsigned int nq1, const unsigned int nelmt, const bool isModified,
-    const TData *basis0, const TData *basis1, TData *wsp, const TData *in,
-    TData *out)
+    const TData *basis0, const TData *basis1, const TData *in, TData *out,
+    TData *wsp)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -1317,14 +1317,12 @@ NEK_FORCE_INLINE static void BwdTrans2DKernel(
 template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
           typename Implementation, unsigned int nm0, unsigned int nm1,
           unsigned int nq0, unsigned int nq1, typename TData>
-NEK_FORCE_INLINE static void BwdTrans2DKernel(const unsigned int nelmt,
-                                              const bool isModified,
-                                              const TData *basis0,
-                                              const TData *basis1, TData *wsp,
-                                              const TData *in, TData *out)
+NEK_FORCE_INLINE static void BwdTrans2DKernel(
+    const unsigned int nelmt, const bool isModified, const TData *basis0,
+    const TData *basis1, const TData *in, TData *out, TData *wsp)
 {
     BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-        nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, wsp, in, out);
+        nm0, nm1, nq0, nq1, nelmt, isModified, basis0, basis1, in, out, wsp);
 }
 
 // Non-size based version.
@@ -1335,7 +1333,7 @@ NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nq0, const unsigned int nq1, const unsigned int nq2,
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const TData *basis0, const TData *basis1,
-    const TData *basis2, TData *wsp, const TData *in, TData *out)
+    const TData *basis2, const TData *in, TData *out, TData *wsp)
 {
     sycl::queue &Q = SYCLQueue::GetInstance();
 
@@ -1372,11 +1370,11 @@ template <LibUtilities::ShapeType SHAPE_TYPE, typename ExecSpace,
 NEK_FORCE_INLINE static void BwdTrans3DKernel(
     const unsigned int nelmt, const bool isModified, const unsigned int *index0,
     const unsigned int *index1, const TData *basis0, const TData *basis1,
-    const TData *basis2, TData *wsp, const TData *in, TData *out)
+    const TData *basis2, const TData *in, TData *out, TData *wsp)
 {
     BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
         nm0, nm1, nm2, nq0, nq1, nq2, nelmt, isModified, index0, index1, basis0,
-        basis1, basis2, wsp, in, out);
+        basis1, basis2, in, out, wsp);
 }
 
 } // namespace Nektar::Operators::detail

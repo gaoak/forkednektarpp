@@ -370,8 +370,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, isModified, B0, B1, wspptr,
-                inptr, outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, isModified, B0, B1, inptr,
+                outptr, wspptr);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -436,8 +436,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1,
-                             nq0, nq1>(nElmtsPad, isModified, B0, B1, wspptr,
-                                       inptr, outptr);
+                             nq0, nq1>(nElmtsPad, isModified, B0, B1, inptr,
+                                       outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -549,7 +549,7 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, B0, B1, B2, wspptr, inptr, outptr);
+                index1, B0, B1, B2, inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -654,8 +654,8 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<SHAPE_TYPE, ExecSpace, Implementation, nm0, nm1,
                              nm2, nq0, nq1, nq2>(nElmtsPad, isModified, index0,
-                                                 index1, B0, B1, B2, wspptr,
-                                                 inptr, outptr);
+                                                 index1, B0, B1, B2, inptr,
+                                                 outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

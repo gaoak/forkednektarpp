@@ -479,7 +479,7 @@ private:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, B1,
-                    W0, W1, jacptr, wspptr, inptr, outptr);
+                    W0, W1, jacptr, inptr, outptr, wspptr);
             }
             else
             {
@@ -488,7 +488,7 @@ private:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, B1,
-                    W0, W1, jacptr, wspptr, inptr, outptr, this->m_scale);
+                    W0, W1, jacptr, inptr, outptr, wspptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -596,8 +596,8 @@ private:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
                                         nq1>(nElmtsPad, isModified, index0, B0,
-                                             B1, W0, W1, jacptr, wspptr, inptr,
-                                             outptr);
+                                             B1, W0, W1, jacptr, inptr, outptr,
+                                             wspptr);
             }
             else
             {
@@ -606,8 +606,8 @@ private:
                 IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED, nm0, nm1, nq0,
                                         nq1>(nElmtsPad, isModified, index0, B0,
-                                             B1, W0, W1, jacptr, wspptr, inptr,
-                                             outptr, this->m_scale);
+                                             B1, W0, W1, jacptr, inptr, outptr,
+                                             wspptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -828,8 +828,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, wspptr,
-                    inptr, outptr);
+                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, inptr,
+                    outptr, wspptr);
             }
             else
             {
@@ -838,8 +838,8 @@ private:
                 IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                         Scale, Append, DEFORMED>(
                     nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, wspptr,
-                    inptr, outptr, this->m_scale);
+                    index1, index2, B0, B1, B2, W0, W1, W2, jacptr, inptr,
+                    outptr, wspptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
@@ -1054,7 +1054,7 @@ private:
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
                     nElmtsPad, isModified, index0, index1, index2, B0, B1, B2,
-                    W0, W1, W2, jacptr, wspptr, inptr, outptr);
+                    W0, W1, W2, jacptr, inptr, outptr, wspptr);
             }
             else
             {
@@ -1064,7 +1064,7 @@ private:
                                         Scale, Append, DEFORMED, nm0, nm1, nm2,
                                         nq0, nq1, nq2>(
                     nElmtsPad, isModified, index0, index1, index2, B0, B1, B2,
-                    W0, W1, W2, jacptr, wspptr, inptr, outptr, this->m_scale);
+                    W0, W1, W2, jacptr, inptr, outptr, wspptr, this->m_scale);
             }
             inptr += inblock.size();
             outptr += outblock.size();
