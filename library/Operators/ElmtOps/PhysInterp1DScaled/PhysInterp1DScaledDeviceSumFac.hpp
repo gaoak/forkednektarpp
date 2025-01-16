@@ -393,8 +393,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
-                outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, inptr, outptr,
+                wspptr);
 
             inptr += inblock.size();
             outptr += outblock.size();
@@ -463,8 +463,8 @@ private:
 
             // BwdTrans kernel.
             BwdTrans2DKernel<LibUtilities::Quad, ExecSpace, Implementation>(
-                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, wspptr, inptr,
-                outptr);
+                nm0, nm1, nq0, nq1, nElmtsPad, false, B0, B1, inptr, outptr,
+                wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -528,7 +528,7 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, B0, B1, B2, wspptr, inptr, outptr);
+                nullptr, B0, B1, B2, inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }
@@ -604,7 +604,7 @@ private:
             // BwdTrans kernel.
             BwdTrans3DKernel<LibUtilities::Hex, ExecSpace, Implementation>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, false, nullptr,
-                nullptr, B0, B1, B2, wspptr, inptr, outptr);
+                nullptr, B0, B1, B2, inptr, outptr, wspptr);
             inptr += inblock.size();
             outptr += outblock.size();
         }

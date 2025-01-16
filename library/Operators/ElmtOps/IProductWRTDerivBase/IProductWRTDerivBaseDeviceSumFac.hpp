@@ -549,11 +549,11 @@ private:
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, DB0, B1, W0,
-                W1, jacptr, wspptr, tmpptr, outptr);
+                W1, jacptr, tmpptr, outptr, wspptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nq0, nq1, nElmtsPad, isModified, index0, B0, DB1, W0,
-                W1, jacptr, wspptr, tmpptr + nElmtsPad * nqTot, outptr);
+                W1, jacptr, tmpptr + nElmtsPad * nqTot, outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -688,13 +688,13 @@ private:
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nq0,
                                     nq1>(nElmtsPad, isModified, index0, DB0, B1,
-                                         W0, W1, jacptr, wspptr, tmpptr,
-                                         outptr);
+                                         W0, W1, jacptr, tmpptr, outptr,
+                                         wspptr);
             IProductWRTBase2DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nq0,
-                                    nq1>(nElmtsPad, isModified, index0, B0, DB1,
-                                         W0, W1, jacptr, wspptr,
-                                         tmpptr + nElmtsPad * nqTot, outptr);
+                                    nq1>(
+                nElmtsPad, isModified, index0, B0, DB1, W0, W1, jacptr,
+                tmpptr + nElmtsPad * nqTot, outptr, wspptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
@@ -945,18 +945,18 @@ private:
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, DB0, B1, B2, W0, W1, W2, jacptr, wspptr, tmpptr,
-                outptr);
+                index1, index2, DB0, B1, B2, W0, W1, W2, jacptr, tmpptr, outptr,
+                wspptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, B0, DB1, B2, W0, W1, W2, jacptr, wspptr,
-                tmpptr + nElmtsPad * nqTot, outptr);
+                index1, index2, B0, DB1, B2, W0, W1, W2, jacptr,
+                tmpptr + nElmtsPad * nqTot, outptr, wspptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED>(
                 nm0, nm1, nm2, nq0, nq1, nq2, nElmtsPad, isModified, index0,
-                index1, index2, B0, B1, DB2, W0, W1, W2, jacptr, wspptr,
-                tmpptr + 2 * nElmtsPad * nqTot, outptr);
+                index1, index2, B0, B1, DB2, W0, W1, W2, jacptr,
+                tmpptr + 2 * nElmtsPad * nqTot, outptr, wspptr);
 
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
@@ -1202,17 +1202,17 @@ private:
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
                 nElmtsPad, isModified, index0, index1, index2, DB0, B1, B2, W0,
-                W1, W2, jacptr, wspptr, tmpptr, outptr);
+                W1, W2, jacptr, tmpptr, outptr, wspptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
                 nElmtsPad, isModified, index0, index1, index2, B0, DB1, B2, W0,
-                W1, W2, jacptr, wspptr, tmpptr + nElmtsPad * nqTot, outptr);
+                W1, W2, jacptr, tmpptr + nElmtsPad * nqTot, outptr, wspptr);
             IProductWRTBase3DKernel<SHAPE_TYPE, ExecSpace, Implementation,
                                     Scale, Append, DEFORMED, nm0, nm1, nm2, nq0,
                                     nq1, nq2>(
                 nElmtsPad, isModified, index0, index1, index2, B0, B1, DB2, W0,
-                W1, W2, jacptr, wspptr, tmpptr + 2 * nElmtsPad * nqTot, outptr);
+                W1, W2, jacptr, tmpptr + 2 * nElmtsPad * nqTot, outptr, wspptr);
             inptr += nCoord * inblock.size();
             outptr += outblock.size();
         }
