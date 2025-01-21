@@ -908,9 +908,10 @@ private:
                             out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
-                    StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
-                                                   NumElmtGroups * nqTot, inptr,
-                                                   tmpPtr);
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        (simd_t *)nullptr, (simd_t *)nullptr, (simd_t *)nullptr,
+                        (simd_t *)nullptr, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
@@ -1189,9 +1190,10 @@ private:
                             out_interleave_width, chunkSize, nmTot, outptr);
                     }
 
-                    StdAlignDerivBaseHex<DEFORMED>(nq0, nq1, nq2, dfPtr, df_tmp,
-                                                   NumElmtGroups * nqTot, inptr,
-                                                   tmpPtr);
+                    StdAlignDerivBase3D<SHAPE_TYPE, DEFORMED>(
+                        nq0, nq1, nq2, dfPtr, df_tmp, NumElmtGroups * nqTot,
+                        (simd_t *)nullptr, (simd_t *)nullptr, (simd_t *)nullptr,
+                        (simd_t *)nullptr, inptr, tmpPtr);
                     SumDerivTensor3DKernel<DEFORMED, simd_t>(
                         nq0, nq1, nq2,
                         (const typename simd_t::vectorType *)tmpPtr[0],
