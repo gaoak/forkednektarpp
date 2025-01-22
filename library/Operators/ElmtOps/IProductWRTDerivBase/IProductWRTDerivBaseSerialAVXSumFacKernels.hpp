@@ -174,77 +174,15 @@ NEK_FORCE_INLINE static void StdAlignDerivBase2D(
     }
 }
 
-template <bool DEFORMED, typename simd_type>
-NEK_FORCE_INLINE static void StdAlignDerivBaseHex(
-    const size_t nq0, const size_t nq1, const size_t nq2,
-    const simd_type *df_Ptr,
-    std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const typename simd_type::vectorType *inptr,
-    typename simd_type::scalarType *out[3])
-{
-    const auto ndf   = 9;
-    const auto nqTot = nq0 * nq1 * nq2;
-
-    // Calculate dxi/dx in[0] + dxi/dy in[1] + dxi/dz in[2]
-    if constexpr (!DEFORMED)
-    {
-        df_tmp[0] = df_Ptr[0];
-        df_tmp[1] = df_Ptr[1];
-        df_tmp[2] = df_Ptr[2];
-        df_tmp[3] = df_Ptr[3];
-        df_tmp[4] = df_Ptr[4];
-        df_tmp[5] = df_Ptr[5];
-        df_tmp[6] = df_Ptr[6];
-        df_tmp[7] = df_Ptr[7];
-        df_tmp[8] = df_Ptr[8];
-    }
-
-    for (int i = 0; i < nqTot; ++i)
-    {
-        if constexpr (DEFORMED)
-        {
-            df_tmp[0] = df_Ptr[i * ndf];
-            df_tmp[1] = df_Ptr[i * ndf + 1];
-            df_tmp[2] = df_Ptr[i * ndf + 2];
-            df_tmp[3] = df_Ptr[i * ndf + 3];
-            df_tmp[4] = df_Ptr[i * ndf + 4];
-            df_tmp[5] = df_Ptr[i * ndf + 5];
-            df_tmp[6] = df_Ptr[i * ndf + 6];
-            df_tmp[7] = df_Ptr[i * ndf + 7];
-            df_tmp[8] = df_Ptr[i * ndf + 8];
-        }
-
-        simd_type in0 = simd_type(inptr[i]);
-        simd_type in1 = simd_type(inptr[inoffset + i]);
-        simd_type in2 = simd_type(inptr[2 * inoffset + i]);
-
-        simd_type out0 = df_tmp[0] * in0;
-        out0.fma(df_tmp[3], in1);
-        out0.fma(df_tmp[6], in2);
-
-        simd_type out1 = df_tmp[1] * in0;
-        out1.fma(df_tmp[4], in1);
-        out1.fma(df_tmp[7], in2);
-
-        simd_type out2 = df_tmp[2] * in0;
-        out2.fma(df_tmp[5], in1);
-        out2.fma(df_tmp[8], in2);
-
-        // store ouputs
-        out0.store(out[0] + i * simd_type::width);
-        out1.store(out[1] + i * simd_type::width);
-        out2.store(out[2] + i * simd_type::width);
-    }
-}
-
 template <LibUtilities::ShapeType SHAPE_TYPE, bool DEFORMED, typename simd_type>
 NEK_FORCE_INLINE static void StdAlignDerivBase3D(
     const size_t nq0, const size_t nq1, const size_t nq2,
     const simd_type *df_Ptr,
     std::vector<simd_type, tinysimd::allocator<simd_type>> &df_tmp,
-    const size_t inoffset, const simd_type *Fac0,
+    const size_t inoffset, [[maybe_unused]] const simd_type *Fac0,
     [[maybe_unused]] const simd_type *Fac1,
-    [[maybe_unused]] const simd_type *Fac1a, const simd_type *Fac2,
+    [[maybe_unused]] const simd_type *Fac1a,
+    [[maybe_unused]] const simd_type *Fac2,
     const typename simd_type::vectorType *inptr,
     typename simd_type::scalarType *out[3])
 {
@@ -269,7 +207,10 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
 
     for (size_t k = 0; k < nq2; ++k)
     {
-        f2 = simd_type(Fac2[k]);
+        if constexpr (SHAPE_TYPE != LibUtilities::eHexahedron)
+        {
+            f2 = simd_type(Fac2[k]);
+        }
 
         for (size_t j = 0; j < nq1; ++j)
         {
@@ -278,8 +219,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                 f1  = simd_type(Fac1[j]);
                 f1a = simd_type(Fac1a[j]);
             }
-
-            if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+            else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
             {
                 f1 = simd_type(Fac1[j]);
             }
@@ -326,8 +266,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-
-                if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
+                else if constexpr (SHAPE_TYPE == LibUtilities::ePyramid)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     simd_type f0 = simd_type(Fac0[i]);
@@ -338,8 +277,7 @@ NEK_FORCE_INLINE static void StdAlignDerivBase3D(
                     out1.fma(out2, f1);
                     out1 *= f2;
                 }
-
-                if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
+                else if constexpr (SHAPE_TYPE == LibUtilities::ePrism)
                 {
                     // (out0 +  out2 * (1 + z0)/2 ) * 2/(1 - z2)
                     simd_type f0 = simd_type(Fac0[i]);
